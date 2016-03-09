@@ -11,7 +11,7 @@ import lang._
 import utils.MacroUtils._
 
 //trait Quasi[L <: Base] {
-trait Quasi[L] {
+trait Quasi[L] { self: Base =>
   
   implicit class QuasiContext(private val ctx: StringContext) {
     
@@ -25,6 +25,11 @@ trait Quasi[L] {
       @MacroSetting(debug = true) @QuasiMacro.Ext def unapply(t: Any): Any = macro QuasiMacro.unapplyImpl[L]
     }
     
+    object test {
+      @MacroSetting(debug = true) @QuasiMacro.Ext def unapply[A,S](t: Q[A,S]): Any = macro QuasiMacro.unapplyImpl[L]
+      //@MacroSetting(debug = true) @QuasiMacro.Ext def unapply(t: Q[Int,{}]): Option[Q[Int,{}]] = ???
+    }
+    
   }
   
 }
@@ -33,8 +38,11 @@ object QuasiMacro {
   
   private[scp] class Ext extends StaticAnnotation
   
+  val dslInterpolators = Set("dsl", "dbgdsl", "exp", "dbgexp")
+  
 }
 class QuasiMacro(val c: Context) extends utils.MacroShared {
+  import QuasiMacro._
   
   type Ctx = c.type
   val Ctx: Ctx = c
@@ -42,10 +50,10 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
   def unapplyImpl[L: c.WeakTypeTag](t: c.Tree) = {
     import c.universe._
     
-    /** [INV:Quasi:reptyp]: we only match Rep[_] types */
-    val sym = c.typecheck(tq"Rep[Any]", c.TYPEmode).tpe.typeSymbol
+    /** [INV:Quasi:reptyp]: we only match Quoted[_,_] types */
+    val sym = c.typecheck(tq"Quoted[Any,Any]", c.TYPEmode).tpe.typeSymbol
     if (sym.fullName != t.tpe.typeSymbol.fullName) {
-      throw EmbeddingException(s"Cannot match type '${t.tpe.typeSymbol.fullName}', which is different from Rep type '${sym.fullName}[_]'."
+      throw EmbeddingException(s"Cannot match type '${t.tpe.typeSymbol.fullName}', which is different from Quoted type '${sym.fullName}[_,_]'."
       +"\nTry matching { case x: Rep[_] => ... } first.")
     }
     
@@ -61,6 +69,22 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     val unapply = c.macroApplication.symbol.annotations.filter(
       _.tree.tpe <:< typeOf[QuasiMacro.Ext]
     ).headOption.map(_.tree.children.tail).nonEmpty
+    
+    //debug(c.macroApplication)
+    val base = c.macroApplication match {
+      //case x @ q"$base.QuasiContext(scala.StringContext.apply(..${ Literal(Constant(head)) :: args }).${id @ TermName(name)}(..$args2)"
+      case x @ q"$base.QuasiContext(scala.StringContext.apply(..$_)).${id @ TermName(name)}.apply(..$_)"
+      if dslInterpolators(name)
+      =>
+        debug("Found ction base: "+base)
+        base
+      case x @ q"$base.QuasiContext(scala.StringContext.apply(..$_)).${id @ TermName(name)}.unapply($_)"
+      if dslInterpolators(name)
+      =>
+        debug("Found xtion base: "+base)
+        base
+      //case _ => null
+    }
     
     val builder = new PgrmBuilder[c.type](c)(unapply)
     
@@ -101,7 +125,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           holes ::= Right(n)
           tq"$n"
         }
-        else {
+        else { // apply
           
           val hole = builder.holes(name.toTermName)
           
@@ -120,12 +144,38 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           
         }
         
-      case Ident(name) if name.toString.startsWith("$") =>
-        q"open(${name.toString})"
+      case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative splicing syntax in unapply position: '$$$t'")
+      case t @ q"$$(..$args)" =>
+        q"(..${args map (a => q"splice($a)")})"
         
-    } 
+      case t @ Ident(name: TermName) if name.toString.startsWith("$") => // alternative splicing syntax
+        //q"open(${name.toString})"
+        val bareName = name.toString.tail
+        if (bareName.isEmpty) throw EmbeddingException(s"Empty alternative splicing name: '$$$t'")
+        if (unapply) {
+          q"splice(${TermName(bareName)})" // alternative splicing in unapply mode does a normal splicing
+        } else { // apply
+          holes ::= Left(bareName) // holes in apply mode are interpreted as free variables
+          q"${TermName(bareName)}"
+        }
+        
+    }
     
     if (debug.debugOptionEnabled) debug("Built:", showCode(pgrm)) // not usually useful to see; so only if `debugOptionEnabled`
+    
+    //holes.map(_.fold(identity,identity)).groupBy(identity).values.filter(_.size > 1) foreach {
+    //  case name +: _ => c.warning(c.enclosingPosition, s"Hole '$name' is defined several times")
+    //}
+    //val dups = holes.map(_.fold(identity,identity)).groupBy(identity).values.filter(_.size > 1)
+    //debug(dups)
+    //debug(holes)
+    
+    holes.map(_.fold(identity,identity)).groupBy(identity) foreach {
+      case (name, ns) if ns.size > 1 =>
+        c.warning(c.enclosingPosition, s"Hole '$name' is defined several times") // TODO raise an error?
+      case _ =>
+    }
+    
     
     
     // Automatic Type Splicing:
@@ -171,7 +221,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     val embed = new SimpleEmbedding[c.type](c)
     
-    val tree = try embed(pgrm, holes.reverse, splicedTypes, if (unapply) Some(t.head) else None) catch {
+    val tree = try embed(base, pgrm, holes.reverse, splicedTypes, if (unapply) Some(t.head) else None) catch {
       case e @ EmbeddingException(msg) if !debug.debugOptionEnabled =>
         c.abort(c.enclosingPosition, "Embedding Error: "+msg)
     }

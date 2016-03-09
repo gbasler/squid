@@ -105,6 +105,9 @@ trait ScalaTyping extends Base {
   //  override def hashCode = name.##
   //  
   //}
+  case class TypeHoleRep[A](name: String)(implicit val tag: TypeTag[A]) extends TypeRep {
+    
+  }
   
   
   def typEq(a: TypeRep, b: TypeRep): Boolean = a =:= b
@@ -114,6 +117,7 @@ trait ScalaTyping extends Base {
   ////type Tag[A] = TypeTag[A]
   ////def typeHole[A: TypeTag](name: String): TypeRep[A] = TypeHoleRep[A](name)
   //def typeHole[A](name: String): TypeRep[A] = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
+  def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
   
   
   implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
@@ -126,9 +130,11 @@ trait ScalaTyping extends Base {
   implicit def typeAll[A: TypeTag]: TypeEv[A] = TypeEv(ScalaTypeRep(typeTag[A]))
   
   
+  /*
   import scala.language.experimental.macros
   //implicit def scope[A: TypeTag]: Scope[A] = null // TODO
   implicit def scope[A]: Scope[A] = macro ScalaTyping.scopeImpl[A]
+  */
   
 }
 object ScalaTyping {
@@ -144,12 +150,14 @@ object ScalaTyping {
   //  def apply(v1: B1#TypeRep[Any]) = v1.asInstanceOf[B2#TypeRep[Nothing]]
   //}
   
+  /*
   import reflect.macros.whitebox.Context
   def scopeImpl[A: c.WeakTypeTag](c: Context) = {
     import c.universe._
     //q""
     q"null" // TODO
   }
+  */
   
 }
 
