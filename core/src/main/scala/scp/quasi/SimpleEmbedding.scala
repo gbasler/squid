@@ -261,11 +261,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //  ???
           */
           
-        case q"${x @ q"$mods val ${name: TermName}: $_ = $v"}; ..$b" =>
+        case q"${vdef @ q"$mods val ${name: TermName}: $_ = $v"}; ..$b" =>
           //varCount += 1
-          //val name = TermName("x"+varCount)
-          //q"letin(${rec(v)}, ($name: Rep[${x.symbol.typeSignature}]) => ${rec(q"..$b")(ctx + (x.symbol -> name))})"
-          q"letin(${rec(v)}, ($name: Rep) => ${rec(q"..$b")(ctx + (x.symbol.asTerm -> name))})"
+          //val name = TermName("vdef"+varCount)
+          //q"letin(${rec(v)}, ($name: Rep[${vdef.symbol.typeSignature}]) => ${rec(q"..$b")(ctx + (vdef.symbol -> name))})"
+          q"letin(${rec(v)}, ($name: Rep) => ${rec(q"..$b")(ctx + (vdef.symbol.asTerm -> name))})"
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }")
@@ -346,6 +346,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
                 case Some(_) | None =>
                   Stream(paramTpes: _*)
               })
+              
+              //debug("ARGS",argss)
               
               def mkArgs = (argss zip paramsStream) map {
                 case (args, params) => (args zip params) map {
@@ -623,7 +625,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
       case Apply(x, y) =>
         Some(x match {
           case MultipleTypeApply(lhs, targs, argss) =>
-            (lhs, targs, y :: argss)
+            (lhs, targs, argss :+ y) // note: inefficient List appension
           case TypeApply(lhs, targs) =>
             (lhs, targs, Nil)
           case _ =>

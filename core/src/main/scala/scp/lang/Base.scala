@@ -63,6 +63,7 @@ trait Base { base =>
     //  def apply[S >: Scp](q: Q[A,S]): Q[A,S] // Error:(53, 17) contravariant type Scp occurs in covariant position in type  >: Scp of type S
     //}
     
+    override def toString = s"""dsl"$rep""""
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut
   

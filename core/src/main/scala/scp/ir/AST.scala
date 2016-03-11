@@ -8,12 +8,12 @@ import lang._
 trait AST extends Base {
   
   sealed trait Rep {
-    def subs(xs: (String, Rep)*): Rep = if (xs.nonEmpty) subs(xs.toMap) else this
-    def subs(xs: Map[String, Rep]): Rep = {
+    def subs(xs: (String, Rep)*): Rep = subs(xs.toMap) //if (xs.nonEmpty) subs(xs.toMap) else this
+    def subs(xs: Map[String, Rep]): Rep = if (xs isEmpty) this else {
       this match {
-        case Abs(p, b) => Abs(p, b.subs(xs))
+        case Abs(p, b) => Abs(p, b.subs(xs - p.name))
         case App(f, a) => App(f.subs(xs), a.subs(xs))
-        case HoleExtract(name) => xs get name getOrElse this //fold(this)(identity)
+        case HoleExtract(name) => xs getOrElse (name, this) // xs get name getOrElse this //fold(this)(identity)
         case DSLMethodApp(self, mtd, targs, argss, tp) => DSLMethodApp(self map (_.subs(xs)), mtd, targs, argss map (_ map (_.subs(xs))), tp)
         case s: Symbol => s
         case Const(_) => this
@@ -30,9 +30,11 @@ trait AST extends Base {
           //Some(Map(name -> t) -> Map()) 
           // TODO replace extruded symbols
           //???
-          val dom = binds.values.toSet
+          //val dom = binds.values.toSet
+          val revBinds = binds.map(_.swap)
           val extruded = transform(t){
-            case s: Symbol if dom(s) => HoleExtract(s.name)(TypeEv(s.tp)) // FIXME: that's not the right name!
+            //case s: Symbol if dom(s) => HoleExtract(s.name)(TypeEv(s.tp)) // FIXME: that's not the right name!
+            case s: Symbol if revBinds isDefinedAt s => HoleExtract(revBinds(s).name)(TypeEv(s.tp)) // FIXME: that's not the right name!
             case t => t
           }
           Some(Map(name -> extruded) -> Map())
