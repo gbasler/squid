@@ -11,7 +11,7 @@ package scp.lang
     
  */
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
-trait Base { base =>
+trait Base extends BaseDefs { base =>
   
   //type Rep[Typ, -Scp]
   //type TypeRep[A]
@@ -46,7 +46,16 @@ trait Base { base =>
   def extract(xtor: Rep, t: Rep): Option[Extract]
   
   
+  /// EXT
   
+  def hole[A: TypeEv](name: String): Rep
+  
+  def typeHole[A](name: String): TypeRep
+  
+  
+}
+
+class BaseDefs { base: Base =>
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Provided Definitions:
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,6 +71,8 @@ trait Base { base =>
     //abstract class Rewrite[A] {
     //  def apply[S >: Scp](q: Q[A,S]): Q[A,S] // Error:(53, 17) contravariant type Scp occurs in covariant position in type  >: Scp of type S
     //}
+    
+    def =~= (that: Quoted[_,_]): Boolean = rep =~= that.rep
     
     override def toString = s"""dsl"$rep""""
   }
@@ -99,11 +110,12 @@ trait Base { base =>
   
   
   implicit class RepHelp(private val self: Rep) { // extends AnyVal { // Error: value class may not be a member of another class
-    def === (that: Rep): Boolean = repEq(self, that)
+    def =~= (that: Rep): Boolean = repEq(self, that)
   }
   implicit class TypeRepHelp(private val self: TypeRep) { // extends AnyVal { // Error: value class may not be a member of another class
     def =:= (that: TypeRep): Boolean = typEq(self, that)
   }
+  
   
   
   /// EXT
@@ -111,16 +123,12 @@ trait Base { base =>
   type Extract = (Map[String, SomeRep], Map[String, TypeRep])
   val EmptyExtract: Extract = Map() -> Map()
   
-  def hole[A: TypeEv](name: String): Rep
-  
-  def typeHole[A](name: String): TypeRep
-  
   
   protected def merge(a: Extract, b: Extract): Option[Extract] = {
     val vals = a._1 ++ b._1.map {
       case (name, v) if a._1 isDefinedAt name =>
         //println(s"Duplicates for $name:\n\t$v\n\t${a._1(name)}")
-        if (a._1(name) === v) (name -> v)
+        if (a._1(name) =~= v) (name -> v)
         else return None
       case (name, v) => (name -> v)
     }

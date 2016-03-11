@@ -18,7 +18,7 @@ import utils.Debug._
 //object Power extends Quasi[MyDSL] with App {
 object Power extends App {
   
-  import DeepDSL._
+  import TestDSL._
   
   
   //dsl""
@@ -48,7 +48,7 @@ object Power extends App {
 //object Power_Closed extends Quasi[MyDSL] with App {
 object Power_Closed extends App {
   
-  import DeepDSL._
+  import TestDSL._
   
   def lambda[A,B](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted(abs("x", (x: Rep) => qf(Quoted(x)).rep))
   

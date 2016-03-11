@@ -1,6 +1,6 @@
 import scp._
 import examples._
-import DeepDSL._
+import TestDSL._
 
 def power[C](n: Int)(q: Q[Double,C]): Q[Double,C] =
   if (n == 0) dsl"1.0" else dsl"$q * ${power(n-1)(q)}"
