@@ -14,7 +14,7 @@ val mls = dsl"List(1.0, 2.0) map $p3f"
 
 val fun = dsl"(x: Int) => x + 1"
 val body = fun match {
-  case dbgdsl"(y: Int) => $b: Int" => b
+  case dsl"(y: Int) => $b: Int" => b
 }
 val fun2 = dsl"(y: Int) => $body"
 

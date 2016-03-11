@@ -13,13 +13,20 @@ trait AST extends Base {
       this match {
         case Abs(p, b) => Abs(p, b.subs(xs - p.name))
         case App(f, a) => App(f.subs(xs), a.subs(xs))
-        case HoleExtract(name) => xs getOrElse (name, this) // xs get name getOrElse this //fold(this)(identity)
+        //case HoleExtract(name) => xs getOrElse (name, this) // xs get name getOrElse this //fold(this)(identity)
         case DSLMethodApp(self, mtd, targs, argss, tp) => DSLMethodApp(self map (_.subs(xs)), mtd, targs, argss map (_ map (_.subs(xs))), tp)
-        case s: Symbol => s
+        case v @ Var(n) => xs getOrElse (n, v) //if (xs isDefinedAt n) xs(n) else v
         case Const(_) => this
+        case HoleExtract(_) => ??? // TODO
       }
     }
-    def extract(t: Rep)(implicit binds: Map[Symbol, Symbol]): Option[Extract] = {
+    /** TODO check right type extrusion...
+      * 
+      * problem: what if 2 vars with same name?
+      *   (x:Int) => (x:String) => ...
+      * 
+      * */
+    def extract(t: Rep)(implicit binds: Map[Var, Var]): Option[Extract] = {
       //val reps = mutable.Buffer[(String, SomeRep)]
       //transform(this){
       //  case HoleExtract(name)
@@ -31,21 +38,28 @@ trait AST extends Base {
           // TODO replace extruded symbols
           //???
           //val dom = binds.values.toSet
-          val revBinds = binds.map(_.swap)
-          val extruded = transform(t){
-            //case s: Symbol if dom(s) => HoleExtract(s.name)(TypeEv(s.tp)) // FIXME: that's not the right name!
-            case s: Symbol if revBinds isDefinedAt s => HoleExtract(revBinds(s).name)(TypeEv(s.tp)) // FIXME: that's not the right name!
-            case t => t
-          }
+          //val revBinds = binds.map(_.swap)
+          //val extruded = transform(t){
+          //  //case s: Symbol if dom(s) => HoleExtract(s.name)(TypeEv(s.tp)) // FIXME: that's not the right name!
+          //  case s: Symbol if revBinds isDefinedAt s => HoleExtract(revBinds(s).name)(TypeEv(s.tp)) // FIXME: that's not the right name!
+          //  case t => t
+          //}
+          //val extruded = t subs (revBinds mapValues(_.name))
+          val extruded = t subs (binds.mapValues(_.name).map(_.swap))
           Some(Map(name -> extruded) -> Map())
         case (_, HoleExtract(_)) => None
-        case (s1: Symbol, s2: Symbol) =>
-          assert(binds isDefinedAt s1) // safe?
-          if (binds(s1) == s2) Some(EmptyExtract) else None
+          
+        //case (s1: Symbol, s2: Symbol) =>
+        //  assert(binds isDefinedAt s1) // safe?
+        //  if (binds(s1) == s2) Some(EmptyExtract) else None
+        case (v1: Var, v2: Var) =>
+          assert(binds isDefinedAt v1) // safe?
+          if (binds(v1) == v2) Some(EmptyExtract) else None
+          
         //case (Const(v1), Const(v2)) if v1 == v2 => Some(EmptyExtract)
         case (Const(v1), Const(v2)) => if (v1 == v2) Some(EmptyExtract) else None
         case (App(f1,a1), Abs(f2,a2)) => for (e1 <- f1 extract f2; e2 <- a1 extract a2; m <- merge(e1, e2)) yield m
-        case (Abs(s1,b1), Abs(s2,b2)) => b1.extract(b2)(binds + (s1 -> s2))
+        case (Abs(v1,b1), Abs(v2,b2)) => b1.extract(b2)(binds + (v1 -> v2))
         case (DSLMethodApp(self1,mtd1,targs1,args1,tp1), DSLMethodApp(self2,mtd2,targs2,args2,tp2)) 
           if mtd1 == mtd2
         =>
@@ -86,9 +100,9 @@ trait AST extends Base {
   
   
   def const[A: TypeEv](value: A): Rep = Const(value)
-  def abs[A: TypeEv, B: TypeEv](fun: Rep => Rep): Rep = {
-    val p = Symbol.fresh[A]
-    Abs(p, fun(p))
+  def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = {
+    val v = Var(name)(typeRepOf[A])
+    Abs(v, fun(v))
   }
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App(fun, arg)
   
@@ -97,6 +111,7 @@ trait AST extends Base {
     DSLMethodApp(self, mtd, targs, argss, tp)
   
   def hole[A: TypeEv](name: String) = HoleExtract[A](name)
+  //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
   // TODO rename to Hole
   /**
@@ -109,21 +124,14 @@ trait AST extends Base {
   }
   
   
-  class Symbol(val name: String)(val tp: TypeRep) extends Rep {
+  case class Var(val name: String)(val tp: TypeRep) extends Rep {
     override def toString = s"($name: $tp)"
-  }
-  object Symbol {
-    private[AST] var count = -1
-    private[AST] def fresh[A: TypeEv] = {
-      count += 1
-      new Symbol("x_"+count)(typeRepOf[A])
-    }
   }
   
   case class Const[A](value: A) extends Rep {
     override def toString = s"$value"
   }
-  case class Abs(param: Symbol, body: Rep) extends Rep {
+  case class Abs(param: Var, body: Rep) extends Rep {
     def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
     override def toString = body match {
       case that: Abs => s"{ $param, ${that.print(false)} }"
@@ -159,7 +167,8 @@ trait AST extends Base {
       case App(fun, a) => App(tr(fun), tr(a))
       case HoleExtract(name) => r //HoleExtract(name)
       case DSLMethodApp(self, mtd, targs, argss, tp) => DSLMethodApp(self map tr, mtd, targs, argss map (_ map tr), tp)
-      case s: Symbol => s
+      //case s: Symbol => s
+      case v: Var => v
       case Const(_) => r
     })
     //println(s"Traversing $r, getting $ret")

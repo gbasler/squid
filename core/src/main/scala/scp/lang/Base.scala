@@ -19,7 +19,7 @@ trait Base { base =>
   type TypeRep
   
   def const[A: TypeEv](value: A): Rep
-  def abs[A: TypeEv, B: TypeEv](fun: Rep => Rep): Rep
+  def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
@@ -81,7 +81,7 @@ trait Base { base =>
   def typeRepOf[A: TypeEv]: TypeRep = typeEv[A].rep
   
   
-  def letin[A: TypeEv, B: TypeEv](value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](body), value)
+  def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
   def ascribe[A: TypeEv](value: Rep): Rep = value
   
   

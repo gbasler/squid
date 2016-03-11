@@ -50,7 +50,7 @@ object Power_Closed extends App {
   
   import DeepDSL._
   
-  def lambda[A,B](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted(abs((x: Rep) => qf(Quoted(x)).rep))
+  def lambda[A,B](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted(abs("x", (x: Rep) => qf(Quoted(x)).rep))
   
   def power[S](n: Int)(q: Q[Int,S]): Q[Int,S] = {
     assert(n >= 0)

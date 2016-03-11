@@ -265,7 +265,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //varCount += 1
           //val name = TermName("vdef"+varCount)
           //q"letin(${rec(v)}, ($name: Rep[${vdef.symbol.typeSignature}]) => ${rec(q"..$b")(ctx + (vdef.symbol -> name))})"
-          q"letin(${rec(v)}, ($name: Rep) => ${rec(q"..$b")(ctx + (vdef.symbol.asTerm -> name))})"
+          q"letin(${name.toString}, ${rec(v)}, ($name: Rep) => ${rec(q"..$b")(ctx + (vdef.symbol.asTerm -> name))})"
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }")
@@ -388,7 +388,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //varCount += 1
           //val name = TermName("x"+varCount)
           //q"abs(($name: Rep[${p.symbol.typeSignature}]) => ${rec(body)(ctx + (p.symbol.asTerm -> name))})"
-          q"$Base.abs[${p.symbol.typeSignature}, ${body.tpe}](($name: Rep) => ${rec(body)(ctx + (p.symbol.asTerm -> name))})"
+          q"$Base.abs[${p.symbol.typeSignature}, ${body.tpe}](${name.toString}, ($name: Rep) => ${rec(body)(ctx + (p.symbol.asTerm -> name))})"
           
         // TODO
         //case q"(..$params) => $expr" => ???

@@ -39,7 +39,7 @@ object OpTermAlgo extends App {
     //val notIns = new HashMap[Type, Set[String]]
     //             with MultiMap[Type, String]
     val freeVars = new MultiMap[String, Type]
-    val notIns = new MultiMap[Type, Name]
+    val notIns =   new MultiMap[Type, Name]
     def walk(t: Tree, ctx: Map[Symbol, Name]): Unit = {
       t match {
         //case q"${vdef @ q"val $name: $tpe = $v"}; $body" => // PAPER
