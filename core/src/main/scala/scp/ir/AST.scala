@@ -4,8 +4,39 @@ package ir
 import scala.collection.mutable
 import lang._
 
+import scala.reflect.runtime.{universe => ru}
+
+object AST {
+  import scala.tools.reflect.ToolBox
+  lazy val toolBox = ru.runtimeMirror(getClass.getClassLoader).mkToolBox() // Q: necessary 'lazy'? (objects are already lazy)
+}
+
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
 trait AST extends Base {
+  import AST._
+  
+  protected def runRep(r: Rep): Any = {
+    val t = toTree(r)
+    println("Compiling tree: "+t)
+    toolBox.eval(t)
+  }
+  protected def toTree(r: Rep): ru.Tree = {
+    import ru._
+    r match {
+      case Const(v) => ru.Literal(ru.Constant(v))
+      case Var(n) => q"${TermName(n)}"
+      case App(f, a) => q"(${toTree(f)})(${toTree(a)})"
+      case a: Abs =>
+        val tag = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].tag // TODO adapt API
+        q"(${TermName(a.pname)}: $tag) => ${toTree(a.body)}"
+      case DSLMethodApp(self, mtd, targs, argss, tp) =>
+        val self2 = self map toTree getOrElse q""
+        val argss2 = argss map (_ map toTree)
+        q"$self2 ${mtd.name} ...$argss2"
+      case HoleExtract(n) => throw new Exception(s"Trying to build an open term! Variable '$n' is free.")
+    }
+  }
+  
   
   sealed trait Rep {
     def subs(xs: (String, Rep)*): Rep = subs(xs.toMap)
@@ -109,7 +140,7 @@ trait AST extends Base {
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App(fun, arg)
   
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
-  def dslMethodApp(self: Option[Rep], mtd: DSLDef, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
+  def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
     DSLMethodApp(self, mtd, targs, argss, tp)
   
   def hole[A: TypeEv](name: String) = HoleExtract[A](name)
@@ -153,7 +184,8 @@ trait AST extends Base {
     override def toString = s"$fun $arg"
   }
   
-  case class DSLMethodApp(self: Option[Rep], mtd: DSLDef, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep) extends Rep {
+  case class DSLMethodApp(self: Option[Rep], sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep) extends Rep {
+    val mtd = DSLDef(sym.fullName, sym.info.toString, self.isEmpty)
     override def toString = self.fold(mtd.path.last+".")(_.toString+".") + mtd.shortName +
       (targs.mkString("[",",","]")*(targs.size min 1)) +
       (argss map (_ mkString("(",",",")")) mkString)

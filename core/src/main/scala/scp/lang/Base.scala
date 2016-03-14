@@ -23,7 +23,14 @@ trait Base extends BaseDefs { base =>
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
-  def dslMethodApp(self: Option[Rep], mtd: DSLDef, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
+  def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
+  
+  import scala.reflect.{runtime => srr}
+  
+  //type DSLSymbol
+  type DSLSymbol = srr.universe.MethodSymbol
+  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol
+  def loadSymbol(sym: srr.universe.MethodSymbol): DSLSymbol
   
   
   def repEq(a: Rep, b: Rep): Boolean
@@ -44,6 +51,8 @@ trait Base extends BaseDefs { base =>
   def typ(r: Rep): TypeRep
   
   def extract(xtor: Rep, t: Rep): Option[Extract]
+  
+  protected def runRep(r: Rep): Any
   
   
   /// EXT
@@ -73,6 +82,10 @@ class BaseDefs { base: Base =>
     //}
     
     def =~= (that: Quoted[_,_]): Boolean = rep =~= that.rep
+    
+    def run(implicit ev: {} <:< Scp): Typ = runUnsafe
+    def runUnsafe: Typ = runRep(rep).asInstanceOf[Typ]
+    //def run(p:Int): Typ = { ???; "lol".asInstanceOf[Typ] }
     
     override def toString = s"""dsl"$rep""""
   }

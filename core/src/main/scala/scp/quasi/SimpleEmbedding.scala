@@ -171,7 +171,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     val typeHoleInfo = mutable.Map[Name, Symbol]()
     
     //val usedFeatures = mutable.Buffer[(TermName, DSLDef)]()
-    val usedFeatures = mutable.Map[DSLDef, TermName]()
+    //val usedFeatures = mutable.Map[DSLDef, TermName]()
+    val usedFeatures = mutable.Map[MethodSymbol, TermName]()
     
     val freeVars = mutable.Buffer[(TermName, Type)]()
     
@@ -312,12 +313,12 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //  case _ => Nil
           //}
           
-          def refMtd(mtd: DSLDef) = {
+          def refMtd = {
             //val name = c.freshName[TermName](mtd.shortName)
             //usedFeatures += (mtd -> name)
-            val name = usedFeatures.getOrElseUpdate(mtd, {
+            val name = usedFeatures.getOrElseUpdate(x.symbol.asMethod, { // FIXME safe?
               //c.freshName[TermName](mtd.shortName)
-              c.freshName[TermName](TermName(mtd.shortName).encodedName.toTermName)
+              c.freshName[TermName](TermName(dslDef.shortName).encodedName.toTermName)
             })
             q"$name"
           }
@@ -332,7 +333,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
               
-              q"$Base.dslMethodApp($self, ${refMtd(dslDef)}, Nil, Nil, null)" // TODO tp: TypeRep
+              q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, null)" // TODO tp: TypeRep
               
               
             case MultipleTypeApply(_, targs, argss) =>
@@ -367,7 +368,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               val targsTree = q"List(..${processedTargs map (tp => q"typeEv[$tp].rep")})"
               val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"
               
-              q"$Base.dslMethodApp($self, ${refMtd(dslDef)}, $targsTree, $args, null)" // TODO tp: TypeRep
+              q"$Base.dslMethodApp($self, ${refMtd}, $targsTree, $args, null)" // TODO tp: TypeRep
               
               
               
@@ -451,7 +452,22 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     
     
     val dslDefs = usedFeatures map {
-      case (DSLDef(fullName, info, module), name) => q"val $name = scp.lang.DSLDef(${fullName}, ${info}, ${module})"
+      //case (DSLDef(fullName, info, module), name) => q"val $name = scp.lang.DSLDef(${fullName}, ${info}, ${module})"
+      case (sym, name) =>
+        val o = sym.owner.asType
+        //println(">>"+sym.info.toString)
+        //println("e>"+sym.info.erasure)
+        //println("r>"+showRaw(sym.info))
+        //println("er>"+showRaw(sym.info.erasure))
+        val srru = q"scala.reflect.runtime.universe"
+        val r = q"""
+        val $name = $srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]].members.find(s =>
+          s.name.toString == ${sym.name.toString} && $srru.showRaw(s.info.erasure) == ${showRaw(sym.info.erasure)}).get.asMethod
+        """ // TODO BE
+          //s.name.toString == ${sym.name.toString} && s.info.toString == ${sym.info.toString}).get.asMethod
+        
+        //debug(">>",r)
+        r
     }
     
     

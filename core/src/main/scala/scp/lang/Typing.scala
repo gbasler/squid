@@ -24,6 +24,16 @@ trait ScalaTyping extends Base {
   
   //type TypeExt = TypeRep[_]
   
+  //type DSLSymbol = MethodSymbol // TODO
+  ///** Note: could cache results */
+  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = {
+  //  val mtd = DSLDef(fullName, info, module)
+  //  val cls = Class.forName(mtd.path(0))
+  //  ???
+  //}
+  def loadSymbol(sym: MethodSymbol): DSLSymbol = sym
+  
+  
   sealed trait TypeRep {
     implicit val tag: TypeTag[_]
     def tagAs[A] = tag.asInstanceOf[TypeTag[A]]
