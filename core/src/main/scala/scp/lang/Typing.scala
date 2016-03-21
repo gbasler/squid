@@ -5,6 +5,8 @@ import reflect.api.Universe
 import annotation.unchecked.uncheckedVariance
 import scala.language.higherKinds
 import scala.reflect.runtime.universe.{Type => ScalaType, _}
+import scala.reflect.runtime.{universe => ru}
+import scala.collection.mutable
 
 //trait Typing { base: Base =>
 //  
@@ -22,14 +24,21 @@ trait ScalaTyping extends Base {
   
   //type TypeExt = TypeRep[_]
   
-  //type DSLSymbol = MethodSymbol // TODO
+  type DSLSymbol = MethodSymbol // TODOne
+  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = ???
+  def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
+    symbolCache getOrElseUpdate ((typ, symName, erasure),
+      typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod)
+  }
+  private val symbolCache = mutable.HashMap.empty[(ScalaType,String,String), DSLSymbol]
+  
   ///** Note: could cache results */
   //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = {
   //  val mtd = DSLDef(fullName, info, module)
   //  val cls = Class.forName(mtd.path(0))
   //  ???
   //}
-  def loadSymbol(sym: MethodSymbol): DSLSymbol = sym
+  //def loadSymbol(sym: MethodSymbol): DSLSymbol = sym
   
   
   sealed trait TypeRep {

@@ -493,11 +493,14 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //println("r>"+showRaw(sym.info))
         //println("er>"+showRaw(sym.info.erasure))
         val srru = q"scala.reflect.runtime.universe"
+        //val r = q"""
+        //val $name = $srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]].members.find(s =>
+        //  s.name.toString == ${sym.name.toString} && $srru.showRaw(s.info.erasure) == ${showRaw(sym.info.erasure)}).get.asMethod
+        //""" // TODO BE
+        //  //s.name.toString == ${sym.name.toString} && s.info.toString == ${sym.info.toString}).get.asMethod
         val r = q"""
-        val $name = $srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]].members.find(s =>
-          s.name.toString == ${sym.name.toString} && $srru.showRaw(s.info.erasure) == ${showRaw(sym.info.erasure)}).get.asMethod
-        """ // TODO BE
-          //s.name.toString == ${sym.name.toString} && s.info.toString == ${sym.info.toString}).get.asMethod
+        val $name = $Base.loadSymbol($srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]], ${sym.name.toString}, ${showRaw(sym.info.erasure)})
+        """
         
         //debug(">>",r)
         r

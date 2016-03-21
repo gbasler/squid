@@ -28,12 +28,14 @@ trait Base extends BaseDefs { base =>
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
   def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
   
-  import scala.reflect.{runtime => srr}
+  //import scala.reflect.{runtime => srr}
   
-  //type DSLSymbol
-  type DSLSymbol = srr.universe.MethodSymbol
-  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol
-  def loadSymbol(sym: srr.universe.MethodSymbol): DSLSymbol
+  ////type DSLSymbol
+  //type DSLSymbol = srr.universe.MethodSymbol
+  ////def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol
+  //def loadSymbol(sym: srr.universe.MethodSymbol): DSLSymbol
+  type DSLSymbol
+  def loadSymbol(typ: ru.Type, symName: String, erasure: String): DSLSymbol
   
   
   def repEq(a: Rep, b: Rep): Boolean
