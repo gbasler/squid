@@ -50,7 +50,10 @@ object Power_Closed extends App {
   
   import TestDSL._
   
-  def lambda[A,B](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted(abs("x", (x: Rep) => qf(Quoted(x)).rep))
+  import scala.reflect.runtime.universe.TypeTag
+  
+  //def lambda[A,B](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted(abs("x", (x: Rep) => qf(Quoted(x)).rep))
+  def lambda[A:TypeTag,B:TypeTag](qf: Q[A,{}] => Q[B,{}]): Q[A => B,{}] = Quoted[A => B,{}](abs("x", (x: Rep) => qf(Quoted[A,{}](x)).rep))
   
   def power[S](n: Int)(q: Q[Int,S]): Q[Int,S] = {
     assert(n >= 0)

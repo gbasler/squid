@@ -10,6 +10,9 @@ import reflect.macros.whitebox.Context
 import lang._
 import utils.MacroUtils._
 
+/**
+  * TODO: fix the interpretation of holes -- names like ??? are seen as beginning with a $ sign! (use .decodedName?...)
+  */
 //trait Quasi[L <: Base] {
 trait Quasi[L] { self: Base =>
   

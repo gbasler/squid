@@ -23,7 +23,7 @@ class StagingPower extends FunSuite {
   
   test("x => power(3)(x)") {
     
-    val p3f = dsl"(x: Double) => ${power(3)(dsl"$$x:Double")}"
+    val p3f = dsl"(x: Double) => ${power(3)(dsl"$$x:Double")}" // TODO look at what this generates...
     
     assert(p3f =~= dsl"(x: Double) => x * (x * (x * 1.0))")
     assert(p3f =~= dsl"(y: Double) => y * (y * (y * 1.0))")

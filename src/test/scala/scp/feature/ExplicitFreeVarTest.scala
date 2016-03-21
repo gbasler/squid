@@ -11,7 +11,7 @@ class ExplicitFreeVarTest extends FunSuite {
     
     val x: Q[Int,{val x: Int}] = dsl"$$x: Int"
     assert(x.rep match {
-      case HoleExtract("x") => true
+      case Ascribe(HoleExtract("x")) => true
       case _ => false
     })
     

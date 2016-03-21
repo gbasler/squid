@@ -14,6 +14,9 @@ class FunBodyXion extends FunSuite {
   
   test("Function Body Extraction") {
     
+    //println(body.rep extract dsl"($$y: Int) + 1".rep)
+    //println(dsl"($$y: Int) + 1".rep extract body.rep)
+    
     assert(body =~= dsl"($$y: Int) + 1")
     assert(!(body =~= dsl"($$x: Int) + 1"))
     

@@ -9,7 +9,10 @@ object Debug {
   
   def showImpl[T: c.WeakTypeTag](c: Context)(x: c.Tree) = {
     import c.universe._
-    println("Tree: "+x+" : "+x.tpe)
+    //println("Tree: "+x+" : "+x.tpe)
+    
+    //c.warning(c.enclosingPosition, "Tree: "+x+" : "+x.tpe)
+    
     q"""val r = $x; println(${x.toString} + " = " + r  + " : " + ${x.tpe.toString}); r"""
   }
   

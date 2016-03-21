@@ -16,12 +16,14 @@ object OpTermAlgo extends App {
   def typecheck(t: Tree): Tree = ???
   def typecheckType(t: Tree): Tree = ???
   def inferImplicitValue(t: Type, silent: Boolean): Tree = ???
+  def checkValidRefinement(t: Type, vars: scala.collection.Set[String]): Unit = ???
+  def error(str: String) = ???
   
   object Spliced {
     def unapply(x: Tree): Option[(Type,List[Type],List[(String, Type)])] = ???
   }
   object FreeVar {
-    def unapply(x: Tree): Option[(Name,Type)] = ???
+    def unapply(x: Tree): Option[(String,Type)] = ???
   }
   
   //def MultiMap[K,V](): mutable.Map[K,V] = ???
@@ -32,7 +34,87 @@ object OpTermAlgo extends App {
     override def iterator: Iterator[(K, Set[V])] = ???
   }
   
-  def quotedType(t: Tree) = {
+  import mutable.HashSet
+  
+  def quotedTypeOf(t: Tree) = {
+    val tt = typecheck(t)
+    val freeVars = new MultiMap[String, Type]
+    var abstractContexts = List(typeOf[AnyRef])
+    def walk(t: Tree, ctx: Map[String, Type]): Unit = {
+      t match {
+        case FreeVar(name, typ) => freeVars += (name -> Set(typ))
+        // PAPER: case q"${vdef @ q"val $name: $tpe = $v"}; $body" =>
+        case q"${vdef @ q"val ${name: TermName}: $tpe = $v"}; $body" =>
+          walk(v, ctx); walk(t, ctx)
+          walk(body, ctx + (name.toString -> vdef.tpe))
+        case Spliced(tpe, absCtx, conCtx) =>
+          for ((fvName,fvTyp) <- conCtx) ctx.get(fvName) match {
+            case Some(typ) => if (!(typ <:< fvTyp))
+              error(s"Captured variable $fvName has wrong type")
+            case None      => freeVars += (fvName -> Set(fvTyp))
+          }
+          abstractContexts ++= absCtx
+        case q"if ($cond) $thn else $els" =>
+          walk(cond, ctx); walk(thn, ctx); walk(els, ctx)
+        // ... similar cases elided ...
+      }
+    }
+    walk(tt, ctx = Map())
+    checkValidRefinement(tt.tpe, freeVars.keySet)
+    val freeVarTrees = freeVars map {case (name,types) =>
+      q"val ${TermName(name)}: ${lub(types.toList)}"}
+    // Building the final refinement type:
+    val ctxType = tq"${lub(abstractContexts)}{ ..$freeVarTrees }"
+    tq"Quoted[${tt.tpe}, $ctxType]"
+  }
+  
+  
+  
+  /*
+  
+  
+  
+  
+  
+  def quotedTypeOf(t: Tree) = {
+    val tt = typecheck(t)
+    val freeVars = new MultiMap[String, Type]
+    //val abstractContexts = mutable.Buffer[Type]()
+    var abstractContexts = List(typeOf[AnyRef])
+    def walk(t: Tree, ctx: Set[Symbol]): Unit = {
+      t match {
+        case FreeVar(name, typ) => freeVars += (name -> Set(typ))
+        // PAPER: case q"${vdef @ q"val $name: $tpe = $v"}; $body" =>
+        case q"${vdef @ q"val ${name: TermName}: $tpe = $v"}; $body" =>
+          walk(v, ctx); walk(t, ctx)
+          walk(body, ctx + vdef.symbol)
+        case Spliced(tpe, absCtx, conCtx) =>
+          val (captured,free) = conCtx partition {
+            case(name,typ) => ctx exists (_.name == name) }
+          //for ((name,typ) <- captured) ctx(name) ...
+          for ((name,typ) <- free) freeVars += (name -> Set(typ))
+          //for (c <- absCtx) notIns += (c -> ???)
+          abstractContexts ++= absCtx
+        case q"if ($cond) $thn else $els" =>
+          walk(cond, ctx); walk(thn, ctx); walk(els, ctx)
+        // ... more similar cases elided ...
+      }
+    }
+    walk(tt, ctx = Set())
+    checkValidRefinement(tt.tpe, freeVars.keySet)
+    //val freeVarsCtx = tq"{ ..${freeVars map {case (name,typs) => q"val ${TermName(name)}: ${lub(typs.toList)}"} } }"
+    val freeVarTrees = freeVars map {case (name,types) =>
+      q"val ${TermName(name)}: ${lub(types.toList)}"}
+    // Building the final refinement type:
+    val ctxType = tq"${lub(abstractContexts)}{ ..$freeVarTrees }"
+    tq"Quoted[${tt.tpe}, $ctxType]"
+  }
+  
+  
+  
+  
+  
+  def quotedTypeOf(t: Tree) = {
     val tt = typecheck(t)
     //val freeVars = new HashMap[String, Set[Type]]
     //               with MultiMap[String, Type]
@@ -69,6 +151,8 @@ object OpTermAlgo extends App {
     val fvCtx = ??? : Tree
     tq"Quoted[${tt.tpe}, $fvCtx]"
   }
+  
+  */
   
   
   

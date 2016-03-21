@@ -1,6 +1,8 @@
 package scp
 package ir
 
+import utils.MacroUtils.StringOps
+
 import scala.collection.mutable
 import lang._
 
@@ -12,25 +14,43 @@ object AST {
 }
 
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
-trait AST extends Base {
+trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
+  
+  
+  object ConstQ extends ConstAPI {
+    override def unapply[A: ru.TypeTag, S](x: Q[A, S]): Option[A] = x.rep match {
+      case Const(v) if ru.typeOf[A] <:< x.rep.typ.asInstanceOf[ScalaTyping#TypeRep].typ => Some(v.asInstanceOf[A])
+      case _ => None
+    }
+  }
+  
+  
   
   protected def runRep(r: Rep): Any = {
     val t = toTree(r)
     println("Compiling tree: "+t)
     toolBox.eval(t)
   }
-  protected def toTree(r: Rep): ru.Tree = {
+  protected def toTree(r: Rep): ru.Tree = { // TODO remember (lazy val in Rep)
     import ru._
     r match {
       case Const(v) => ru.Literal(ru.Constant(v))
       case Var(n) => q"${TermName(n)}"
       case App(f, a) => q"(${toTree(f)})(${toTree(a)})"
+      case Ascribe(v) => toTree(v)
       case a: Abs =>
         val tag = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].tag // TODO adapt API
         q"(${TermName(a.pname)}: $tag) => ${toTree(a.body)}"
       case DSLMethodApp(self, mtd, targs, argss, tp) =>
-        val self2 = self map toTree getOrElse q""
+        val self2 = self map toTree getOrElse {
+          val access = mtd.owner.fullName.splitSane('.').foldLeft(q"_root_": Tree) {
+            case (acc, n) => q"$acc.${TermName(n)}"
+          }
+          //println(access)
+          //q"${mtd.owner}"
+          access
+        }
         val argss2 = argss map (_ map toTree)
         q"$self2 ${mtd.name} ...$argss2"
       case HoleExtract(n) => throw new Exception(s"Trying to build an open term! Variable '$n' is free.")
@@ -39,6 +59,8 @@ trait AST extends Base {
   
   
   sealed trait Rep {
+    val typ: TypeRep
+    
     def subs(xs: (String, Rep)*): Rep = subs(xs.toMap)
     def subs(xs: Map[String, Rep]): Rep =
       if (xs isEmpty) this else transformPartial(this) { case r @ HoleExtract(n) => xs getOrElse (n, r) }
@@ -80,6 +102,8 @@ trait AST extends Base {
           
         case (v1: Var, v2: Var) =>
           if (v1.name == v2.name) Some(EmptyExtract) else None // TODO check they have the same type?!
+
+        case (_, a @ Ascribe(v)) => extract(v) // TODO test type?
           
         //case (Const(v1), Const(v2)) if v1 == v2 => Some(EmptyExtract)
         case (Const(v1), Const(v2)) => if (v1 == v2) Some(EmptyExtract) else None
@@ -94,6 +118,9 @@ trait AST extends Base {
           //println(s"$self1")
           assert(args1.size == args2.size)
           assert(targs1.size == targs2.size)
+          
+          //if (tp1 <:< tp2) // no, if tp1 contains type holes it won't be accepted!
+          
           for {
             //s <- (self1, self2) match { //for (s1 <- self1; s2 <- self2) yield s1
             //  case (Some(s1), Some(s2)) => Some(s1 extract s2)
@@ -105,7 +132,12 @@ trait AST extends Base {
               case (None, None) => Some(EmptyExtract)
               case _ => None
             }
-            // TODO check targs & tp
+            // TODOne check targs & tp
+            t <- {
+              val targs = (targs1 zip targs2) map { case (a,b) => a extract b }
+              (Some(EmptyExtract) :: targs).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
+                case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+            }
             
             //ao <- (args1 zip args2) flatMap { case (as,bs) => assert(as.size==bs.size); (as zip bs) map { case (a,b) =>  a extract b } }
             //a <- ao
@@ -118,13 +150,24 @@ trait AST extends Base {
               (Some(EmptyExtract) :: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
                 case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
             }
-            m <- merge(s, a)
-          } yield m
+            m0 <- merge(s, t)
+            m1 <- merge(m0, a)
+          } yield m1
         case _ => None
       }
       //println(s">> $r")
       r
     }
+    
+    
+    /* // FIXME creates stack overflow in tests
+    override def equals(that: Any) = that match { // TODO override hashCode...
+      case that: Rep =>
+        //if (super.equals(that)) true else repEq(this, that)
+        repEq(this, that)
+      case _ => false
+    }
+    */
   }
   //sealed trait TypeRep
   
@@ -137,7 +180,9 @@ trait AST extends Base {
   //  Abs(v, fun(v))
   //}
   def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
-  def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App(fun, arg)
+  def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App[A,B](fun, arg)
+  
+  override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
   def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
@@ -152,26 +197,35 @@ trait AST extends Base {
     * In ction, represents a free variable
     */
   case class HoleExtract[+A: TypeEv](name: String) extends Rep {
-    val tp = typeEv[A].rep
-    override def toString = s"($$$$$name: $tp)"
+    val typ = typeEv[A].rep
+    override def toString = s"($$$$$name: $typ)"
+  
+    //override def equals(that: Any): Boolean = that match {
+    //  case HoleExtract(n) => n == name // TODO check type
+    //  case _ => false
+    //}
   }
   
   
-  case class Var(val name: String)(val tp: TypeRep) extends Rep {
-    def toHole = HoleExtract(name)(TypeEv(tp))
-    override def toString = s"($name: $tp)"
+  case class Var(val name: String)(val typ: TypeRep) extends Rep {
+    def toHole = HoleExtract(name)(TypeEv(typ))
+    override def toString = s"($name: $typ)"
   }
   
-  case class Const[A](value: A) extends Rep {
+  case class Const[A: TypeEv](value: A) extends Rep {
+    val typ = typeEv[A].rep
     override def toString = s"$value"
   }
   //case class Abs(param: Var, body: Rep) extends Rep {
   //  def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
   //case class Abs[A:TypeEv,B](name: String, fun: Rep => Rep) extends Rep {
   //  val param = Var(name)
-  case class Abs(pname: String, ptyp: TypeRep,  fun: Rep => Rep) extends Rep {
+  case class Abs(pname: String, ptyp: TypeRep, fun: Rep => Rep) extends Rep {
     val param = Var(pname)(ptyp)
     val body = fun(param)
+    
+    val typ = body.typ
+    
     def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
     override def toString = body match {
       case that: Abs => s"{ $param, ${that.print(false)} }"
@@ -180,11 +234,24 @@ trait AST extends Base {
     def print(paren: Boolean) =
     if (paren) s"{ ($param) => $body }" else s"($param) => $body"
   }
-  case class App[A,B](fun: Rep, arg: Rep) extends Rep {
+  case class App[A,B: TypeEv](fun: Rep, arg: Rep) extends Rep {
+    val typ = typeEv[B].rep
     override def toString = s"$fun $arg"
   }
   
-  case class DSLMethodApp(self: Option[Rep], sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep) extends Rep {
+  case class Ascribe[A: TypeEv](value: Rep) extends Rep {
+    val typ = typeEv[A].rep
+    override def toString = s"$value::$typ" //s"($value: $typ)"
+    
+    override def extract(t: Rep): Option[Extract] = {
+      val r0 = value.extract(t) getOrElse (return None)
+      (typ extract t.typ) flatMap (m => merge(r0, m))
+    }
+    
+    //override def equals(that: Any) = value == that
+  }
+  
+  case class DSLMethodApp(self: Option[Rep], sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], typ: TypeRep) extends Rep {
     val mtd = DSLDef(sym.fullName, sym.info.toString, self.isEmpty)
     override def toString = self.fold(mtd.path.last+".")(_.toString+".") + mtd.shortName +
       (targs.mkString("[",",","]")*(targs.size min 1)) +
@@ -202,9 +269,16 @@ trait AST extends Base {
     //val e1 = a extract b
     //lazy val e2 = b extract a
     //if (e1 isDefined && e)
-    (a extract b, b extract a) match {
-      case (Some(xs), Some(ys)) => xs == ys // Map comparison
-      case _ => false
+    (a,b) match {
+      case (HoleExtract(n1), HoleExtract(n2)) => true
+      case (HoleExtract(_), _) => false
+      case (_, HoleExtract(_)) => false
+      case _ =>
+        (a extract b, b extract a) match {
+          case (Some(xs), Some(ys)) =>
+            xs == ys // Map comparison; not enough because of things like Ascribe... unless we override equals!
+          case _ => false
+        }
     }
   }
   
@@ -224,7 +298,8 @@ trait AST extends Base {
     val ret = f(r match {
       //case Abs(p, b) => Abs(p, tr(b))
       case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
-      case App(fun, a) => App(tr(fun), tr(a))
+      case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
+      case ap @ App(fun, a) => App(tr(fun), tr(a))(TypeEv(ap.typ))
       case HoleExtract(name) => r //HoleExtract(name)
       case DSLMethodApp(self, mtd, targs, argss, tp) => DSLMethodApp(self map tr, mtd, targs, argss map (_ map tr), tp)
       //case s: Symbol => s

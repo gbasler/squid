@@ -42,11 +42,14 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   //def apply(tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[Tree], unapply: Option[c.Tree]): c.Tree = {
   def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
     
+    //debug("HOLES:",holes)
+    
     val (termHoles, typeHoles) = (holes.collect{case Left(n) => n}.toSet, holes.collect{case Right(n) => n}.toSet)
     
     //val splicedType = splicedTypes.map(_._2.typeSymbol.asType).toSet
     
-    val traits = typeHoles map { typ => q"trait $typ" }
+    //val traits = typeHoles map { typ => q"trait $typ" }
+    val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.lang.Base.HoleType" }
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
     
     
@@ -76,9 +79,19 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           case tpe @ TypeRef(_, _, tp :: sc :: Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
             termScope ::= sc
             if (tp.typeSymbol.isClass) {
-              val purged = purgedTypeToTree(tp)
-              debug("Purged matched type:", purged)
-              Some(q"$virtualizedTree: $purged")
+              //debug("T",tp,tp.getClass)
+              tp match {
+                //case TypeRef(a,b,c) => debug(a,b,c);???
+                //case _: SingleType => None
+                //case SingleType(_, _) => None
+                case _: ConstantType => None // For some stupid reason, Scala typechecks `(($hole: String): String("Hello"))` as `"Hello"` ..................
+                case _ =>
+                  val purged = purgedTypeToTree(tp)
+                  debug("Purged matched type:", purged)
+                  Some(q"$virtualizedTree: $purged") // doesn't work to force subterms ov covariant result to acquire the right type params.....
+                  //Some(q"_root_.scala.Predef.identity[$purged]($virtualizedTree)") // nope, this neither
+                  //Some(q"scp.Base.Typed[$tp]($virtualizedTree): $purged")
+              }
             } else None
           case tp => assert(false, "Unexpected type: "+tp.typeSymbol); ??? // cf. [INV:Quasi:reptyp]
         }
@@ -97,7 +110,12 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
       val st = shallowTree(t)
       try {
         val typed = c.typecheck(st)
-        val q"..$stmts; $finalTree: $_" = typed
+        //val q"..$stmts; $finalTree: $_" = typed // Note: apparently, typechecking can remove type ascriptions.......
+        val (stmts, finalTree) = typed match {
+          //case q"..$stmts; scala.Predef.identity[$_]($finalTree)" => stmts -> finalTree
+          case q"..$stmts; $finalTree: $_" => stmts -> finalTree
+          //case q"..$stmts; $finalTree" => stmts -> finalTree
+        }
         Some(q"..$stmts; $finalTree")
       } catch {
         case e: TypecheckException =>
@@ -136,7 +154,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     
     debug("Typed: "+finalTree)
     
-    val retType = finalTree.tpe
+    val retType = finalTree.tpe.widen // Widen to avoid too-specific types like Double(1.0), and be more in-line with Scala's normal behavior
     
     
     
@@ -237,7 +255,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"const($c)"
           //q"$base.const($c)"
           
-          
+        //case Ident(name) if !x.symbol.isTerm => q"" // FIXME: can happen when calling rec with a param valdef...
         case Ident(name) if ctx isDefinedAt x.symbol.asTerm => q"${ctx(x.symbol.asTerm)}"
           
         case id @ Ident(name) =>
@@ -262,17 +280,26 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //  ???
           */
           
-        case q"${vdef @ q"$mods val ${name: TermName}: $_ = $v"}; ..$b" =>
+        case q"${vdef @ q"$mods val ${name: TermName}: $t = $v"}; ..$b" =>
           //varCount += 1
           //val name = TermName("vdef"+varCount)
           //q"letin(${rec(v)}, ($name: Rep[${vdef.symbol.typeSignature}]) => ${rec(q"..$b")(ctx + (vdef.symbol -> name))})"
+          rec(t)
           q"letin(${name.toString}, ${rec(v)}, ($name: Rep) => ${rec(q"..$b")(ctx + (vdef.symbol.asTerm -> name))})"
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }")
           
+        //case q"val $p: $t = $v" => ???
           
-        case q"$base.splice[$t]($idt)" => q"$base.spliceDeep[$t]($idt)" // TODO generalize; a way to say "do not lift"
+          
+        case q"$base.splice[$t]($idt)" => // TODO need to ask for evidence here?
+        //case q"$base.splice[$t]($idt)($ev)" => // TODO need to ask for evidence here?
+          // TODO generalize; a way to say "do not lift"
+          //q"$base.spliceDeep[$t]($idt)"
+          //q"$base.spliceDeep(const($idt))($ev)"
+          q"$base.spliceDeep(const($idt))"
+          
         //case q"$base.splice[$t]($idt)($ev)" => q"$base.spliceDeep[$t]($idt)"
         //case q"$base.splice[$t,$scp]($idt)($ev)" =>
         case q"$base.splice[$t,$scp]($idt)" =>
@@ -323,6 +350,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             q"$name"
           }
           
+          val tp = q"$Base.typeEv[${x.tpe}].rep"
+          
           x match {
               
             case q"$a.$_" =>
@@ -333,7 +362,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
               
-              q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, null)" // TODO tp: TypeRep
+              //q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, null)" // TODO tp: TypeRep
+              q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, $tp)" // TODOne tp: TypeRep
               
               
             case MultipleTypeApply(_, targs, argss) =>
@@ -368,7 +398,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               val targsTree = q"List(..${processedTargs map (tp => q"typeEv[$tp].rep")})"
               val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"
               
-              q"$Base.dslMethodApp($self, ${refMtd}, $targsTree, $args, null)" // TODO tp: TypeRep
+              q"$Base.dslMethodApp($self, ${refMtd}, $targsTree, $args, $tp)" // TODOne tp: TypeRep
               
               
               
@@ -385,10 +415,12 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //q"$base.app(${rec(f)}, ${args map rec})"
           
         //case q"($p) => $body" =>
-        case q"(${p @ ValDef(mods, name, _, _)}) => $body" =>
+        case q"(${p @ ValDef(mods, name, tpt, _)}) => $body" =>
           //varCount += 1
           //val name = TermName("x"+varCount)
           //q"abs(($name: Rep[${p.symbol.typeSignature}]) => ${rec(body)(ctx + (p.symbol.asTerm -> name))})"
+          //rec(q"{p}")
+          rec(tpt)
           q"$Base.abs[${p.symbol.typeSignature}, ${body.tpe}](${name.toString}, ($name: Rep) => ${rec(body)(ctx + (p.symbol.asTerm -> name))})"
           
         // TODO
@@ -554,13 +586,14 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         val typKeys = q"Set(..${typeHoles.map(_.toString)})"
         
         
-        val defs = typeHoles flatMap { typName =>
-          val typ = typeSymbols(typName)
-          val holeName = TermName(s"$$$typName$$hole")
-          //List(q"val $holeName : TypeRep[${typ}] = typeHole[${typ}](${typName.toString})",
-          List(q"val $holeName : TypeRep = typeHole[${typ}](${typName.toString})",
-          q"implicit def ${TermName(s"$$$typName$$implicit")} : TypeEv[$typ] = TypeEv($holeName)")
-        }
+        //val defs = typeHoles flatMap { typName =>
+        //  val typ = typeSymbols(typName)
+        //  val holeName = TermName(s"$$$typName$$hole")
+        //  //List(q"val $holeName : TypeRep[${typ}] = typeHole[${typ}](${typName.toString})",
+        //  List(q"val $holeName : TypeRep = typeHole[${typ}](${typName.toString})",
+        //  q"implicit def ${TermName(s"$$$typName$$implicit")} : TypeEv[$typ] = TypeEv($holeName)")
+        //}
+        val defs = List.empty[Tree]
         
         
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
@@ -660,7 +693,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   def purgedTypeToTree(tpe: Type): Tree = {
     val existentials = mutable.Buffer[TypeName]()
     def rec(tpe: Type): Tree = tpe match {
-      case _ if !tpe.typeSymbol.isClass =>
+      case _ if !tpe.typeSymbol.isClass => //&& !(tpe <:< typeOf[Base.Param]) =>
         existentials += TypeName("?"+existentials.size)
         tq"${existentials.last}"
       case TypeRef(pre, sym, Nil) =>

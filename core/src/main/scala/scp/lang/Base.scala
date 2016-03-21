@@ -1,5 +1,8 @@
 package scp.lang
 
+import annotation.StaticAnnotation
+import scala.reflect.runtime.{universe => ru}
+
 /** Type class to describe scopes */
 //trait Scope[-S]
 
@@ -40,9 +43,10 @@ trait Base extends BaseDefs { base =>
   
   
   trait ConstAPI {
-    def unapply[A,S](x: Q[A,S]): Option[A]
+    def unapply[A: ru.TypeTag, S](x: Q[A,S]): Option[A]
   }
   //val Const: ConstAPI // TODO
+  val ConstQ: ConstAPI
   
   
   //def transform(r: Rep)(f: PartialFunction[Rep, Rep]): Rep
@@ -77,6 +81,11 @@ class BaseDefs { base: Base =>
   sealed case class Quoted[+Typ: TypeEv, -Scp](rep: Rep) {
     val tpr = typeRepOf[Typ]
     
+    type Type <: Typ
+    
+    import scala.language.experimental.macros
+    def subs[T,C](s: (Symbol, Quoted[T,C])): Any = macro Base.subsImpl[T,C]
+    
     //abstract class Rewrite[A] {
     //  def apply[S >: Scp](q: Q[A,S]): Q[A,S] // Error:(53, 17) contravariant type Scp occurs in covariant position in type  >: Scp of type S
     //}
@@ -106,12 +115,14 @@ class BaseDefs { base: Base =>
   
   
   def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
-  def ascribe[A: TypeEv](value: Rep): Rep = value
+  def ascribe[A: TypeEv](value: Rep): Rep = value // FIXME don't all IRs need to override it to have sound match checking?
   
   
   //def open(name: String): Nothing = ???
   
-  def splice[A: Lift](x: A): A = ??? // TODO better error
+  //def splice[A: Lift](x: A): A = ??? // TODO better error
+  def splice[A](x: A): A = ??? // TODO better error // FIXME require Lift..?
+  
   //def splice[A,S:Scope](x: Q[A,S]): A = ??? // TODO better error
   def splice[A,S](x: Q[A,S]): A = ??? // TODO better error
   //implicit def spliceDeep[A: Lift](x: A): Rep[A] = implicitly[Lift[A]].apply(x)
@@ -199,6 +210,67 @@ class BaseDefs { base: Base =>
   
   
   class Transformer {
+    
+    abstract class RewriteRulePoly {
+      type Ctx
+      //type From
+      //type To
+      //val ev: From =:= To
+      type Typ[A]
+      def apply[A]: PartialFunction[Q[Typ[A],Ctx], Q[Typ[A],Ctx]]
+    }
+    
+    abstract class RewriteRule[A] {
+      type Ctx
+      def apply: PartialFunction[Q[A,Ctx], Q[A,Ctx]]
+      def rewrite[From,To](f: PartialFunction[Q[From,Ctx], Q[To,Ctx]])(implicit ev: From =:= To) = ???
+    }
+    
+    ////////////////////
+    
+    abstract class Rewrite[A] {
+      def apply[Ctx]: PartialFunction[Q[A,Ctx], Q[A,Ctx]]
+    }
+    abstract class RewriteForall[A[_]] {
+      def apply[Ctx, X: TypeEv]: PartialFunction[Q[A[X],Ctx], Q[A[X],Ctx]]
+    }
+    abstract class RewriteForallForall[A[_, _]] {
+      //import Base.Param
+      import reflect.runtime.universe.TypeTag
+      //def apply[Ctx, X, Y]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+      //def apply[Ctx, X <: Param, Y <: Param]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+      def apply[Ctx, X: TypeEv, Y: TypeEv]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+    }
+    
+    /** Using special cases for different variances does not actually seem necessary!
+      * Indeed, at the time of writing def apply ..., we'll KNOW what the alias stands for, and the original variances will be used! */
+    /*
+    abstract class Rewrite_=[A[_]] {
+      def apply[Ctx, X]: PartialFunction[Q[A[X],Ctx], Q[A[X],Ctx]]
+    }
+    abstract class Rewrite_+[A[+_]] {
+      def apply[Ctx, X]: PartialFunction[Q[A[X],Ctx], Q[A[X],Ctx]]
+    }
+    abstract class Rewrite_-[A[-_]] {
+      def apply[Ctx, X]: PartialFunction[Q[A[X],Ctx], Q[A[X],Ctx]]
+    }
+    
+    abstract class Rewrite_==[A[_,_]] {
+      def apply[Ctx, X, Y]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+    }
+    abstract class Rewrite_+=[A[+_,_]] {
+      def apply[Ctx, X, Y]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+    }
+    abstract class Rewrite_=+[A[_,+_]] {
+      def apply[Ctx, X, Y]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+    }
+    abstract class Rewrite_++[A[+_,+_]] {
+      def apply[Ctx, X, Y]: PartialFunction[Q[A[X, Y],Ctx], Q[A[X, Y],Ctx]]
+    }
+    // etc...
+    */
+    
+    
     //object rewrite {
     //  //def += [A,S] (f: PartialFunction[Q[A,S], Q[A,S]]) = ???
     //  //def += [A,S] (f: PartialFunction[Q[Int,{}], Q[A,S]]) = ???
@@ -213,9 +285,12 @@ class BaseDefs { base: Base =>
     //abstract class Rewrite {
     //  def apply[A,S](q: Q[A,S]): Q[A,S]
     //}
+    
+    /*
     abstract class Rewrite[A] {
       def apply[S](q: Q[A,S]): Q[A,S]
     }
+    */
   }
   
   import scala.language.experimental.macros
@@ -255,7 +330,51 @@ object Base {
     }
     qf
   }
+  
+  trait HoleType
+  
+  
+  def subsImpl[T: c.WeakTypeTag, C: c.WeakTypeTag](c: Context)(s: c.Tree) = { // TODO use C to check context!!
+    import c.universe._
+    
+    val T = weakTypeOf[T]
+    val C = weakTypeOf[C]
+    
+    print()
+    
+    //println(c.macroApplication, weakTypeOf[T], weakTypeOf[C])
+    val quoted = c.macroApplication match {
+      case q"$q.subs[$_,$_]($_)" => q
+    }
+    println(quoted)
+    val (name, term) = s match {
+      case q"scala.this.Predef.ArrowAssoc[$_]($name).->[$_]($term)" =>
+        (name match {
+          case q"scala.Symbol.apply(${Literal(Constant(str: String))})" => str
+          case _ => c.abort(c.enclosingPosition, "Nope name") // TODO BE
+        }) -> term
+    }
+    println(name, term)
+    //q"""transform($quoted.rep){
+    //  case 
+    //  case r => r
+    //}"""
+    //q"val q = $quoted; Quoted[q.Type,$C](q.rep.subs($name -> $term.rep))"
+    val (typ,ctx) = quoted.tpe.widen match {
+      case TypeRef(_, _, typ :: ctx:: Nil) => typ -> ctx
+      // TODO handle annoying types
+    }
+    q"Quoted[$typ,$C]($quoted.rep.subs($name -> $term.rep))"
+    // FIXME context should actually use q.tpe's Ctx
+  }
+  
+  // TODO rm:
+  trait ParamType[T] // used in SimpleEmbedding, for type-safe program transfo
+  //class opaque extends StaticAnnotation
+  trait Param
+  
 }
+
 
 
 

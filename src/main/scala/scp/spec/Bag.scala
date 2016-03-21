@@ -46,7 +46,7 @@ trait Bag[A] {
   
   //def find(p: A => Boolean): Bag[Ref]  // TODO can specialize this? cf. depending on the context! -- may need something like CanBuildFrom
   def find(p: A => Boolean): Iterator[Ref]
-  def findFirst(p: A => Boolean): Option[Ref]
+  def findFirst(p: A => Boolean): Option[Ref] = {val f = find(p); if (f.hasNext) Some(f.next) else None}
   
   //def popMin: A
   //def popMax: A
@@ -103,7 +103,7 @@ class DebugBag[A](elems: mutable.Buffer[A]) extends Bag[A] {
   
   //def find(p: A => Boolean) = Bag(elems.find(p))
   def find(p: A => Boolean) = elems.iterator.zipWithIndex.filter(e => p(e._1)).map(_._2)
-  def findFirst(p: A => Boolean): Option[Ref] = elems.iterator.zipWithIndex.collectFirst{case (e,i) if p(e) => i}
+  //def findFirst(p: A => Boolean): Option[Ref] = elems.iterator.zipWithIndex.collectFirst{case (e,i) if p(e) => i}
   
   def popMin: A = ???
   def popMax: A = ???

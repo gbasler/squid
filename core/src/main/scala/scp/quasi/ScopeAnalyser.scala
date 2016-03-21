@@ -17,7 +17,7 @@ trait ScopeAnalyser { //self: MacroShared =>
   
   */
   def bases_variables(typ: Type): (List[Type], List[(TermName, Type)]) = {
-    println("[C] "+typ+" : "+typ.getClass)
+    //println("[C] "+typ+" : "+typ.getClass)
     typ match {
       case st @ SingleType(pre: Type, sym: Symbol) =>
         bases_variables(sym.typeSignature) // or use 'st.widen'

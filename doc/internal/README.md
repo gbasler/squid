@@ -34,4 +34,14 @@ Transform the program to a Scala tree and `eval` it with a Scala compiler toolbo
 
 
 
+## Type Creators Everywhere
+
+While debugging, sometimes I see very scary things.
+
+It seems some patterns generate useless reflection stuff. May be caused by requiring type tags.
+
+To investigate...
+
+
+
 
