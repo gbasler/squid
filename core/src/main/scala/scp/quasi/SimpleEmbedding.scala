@@ -351,6 +351,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           }
           
           val tp = q"$Base.typeEv[${x.tpe}].rep"
+          val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
           
           x match {
               
@@ -359,7 +360,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               //else
               //  q"$fname[..$selfTargs](${lift(obj, x, Some(obj.tpe))})"
               //??? // TODO
-              val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
+              //val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
               
               //q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, null)" // TODO tp: TypeRep
@@ -393,7 +394,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               //  q"$fname[..${(selfTargs ++ processedTargs)}](...${List(self) :: mkArgs})"
               //}
               
-              val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
+              //val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
               val targsTree = q"List(..${processedTargs map (tp => q"typeEv[$tp].rep")})"
               val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"

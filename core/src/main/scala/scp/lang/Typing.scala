@@ -57,7 +57,7 @@ trait ScalaTyping extends Base {
   
   /**
     * `targs` will only be used when the TypeRep is used as an extractor; it may not be present for normal types.
-    * EDIT: nope
+    * EDIT: maybe nope?
     */
   case class ScalaTypeRep[A](tag: TypeTag[A], targs: TypeEv[_]*) extends TypeRep {
   //case class ScalaTypeRep[A](targs: TypeEv[_]*) extends TypeRep {

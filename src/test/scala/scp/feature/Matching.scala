@@ -40,8 +40,36 @@ class Matching extends FunSuite with ShouldMatchers {
     
     //assert(dsl"$$x" =~= dsl"$$x")
     assert(dsl"$$x:Int" =~= dsl"$$x:Int")
+    assert(dsl"($$x:Int)+1" =~= dsl"($$x:Int)+1")
+    
+  }
+  
+  class Expr[A]; //object Expr { def apply[A] = new Expr[A] }
+  class App[A,B] extends Expr[B]; object App { def apply[A,B] = new App[A,B] }
+  
+  test("GADT") {
+    
+    (dsl"App[Int,Double]": Q[Expr[Double], {}]) match {
+      //case dsl"$a: App[$s,$t]" => println(a,s,t) // FIXME type tag for t,s...
+      case _ =>
+    }
     
   }
   
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

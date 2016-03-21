@@ -51,10 +51,20 @@ class BaseHelper { self: Base =>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+trait DirectStyle extends Base {
+  type → [-A,+B] = A => B
+}
+
 trait Typing {
   
-  type TypeEv[A]
+  trait TypeEv[A]
+  
+  
   
   
   
 }
+
+
+
+

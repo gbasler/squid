@@ -33,3 +33,10 @@ val fun2 = dsl"(y: Int) => $body"
 dsl"(x: Int) => x + 42 toDouble"
 
 
+
+//val yy = dsl"($$y: Int)*($$y: Int)"
+val yy = dsl"($$y: Int)*($$y: Int)"
+//val yy = dsl"($$y: Int)*2"
+//dsl"val y = 2; $yy" // FIXME <notype>
+dsl"(y: Int) => $yy"
+
