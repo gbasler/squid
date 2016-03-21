@@ -7,8 +7,7 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"),
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
-  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
-  
+  //addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   libraryDependencies ++= Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
@@ -22,6 +21,7 @@ lazy val main = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     // other settings here
+    addCommandAlias("bench", "runMain scp.examples.RuntimeBenchmark"): _*
   )
 
 lazy val core = (project in file("core")).
