@@ -42,9 +42,10 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
       case a: Abs =>
         val tag = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].tag // TODO adapt API
         q"(${TermName(a.pname)}: $tag) => ${toTree(a.body)}"
-      case DSLMethodApp(self, mtd, targs, argss, tp) =>
+      case dslm @ DSLMethodApp(self, mtd, targs, argss, tp) =>
         val self2 = self map toTree getOrElse {
-          val access = mtd.owner.fullName.splitSane('.').foldLeft(q"_root_": Tree) {
+          //val access = mtd.owner.fullName.splitSane('.').foldLeft(q"_root_": Tree) {
+          val access = dslm.mtd.path.foldLeft(q"_root_": Tree) {
             case (acc, n) => q"$acc.${TermName(n)}"
           }
           //println(access)
@@ -252,7 +253,7 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
   }
   
   case class DSLMethodApp(self: Option[Rep], sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], typ: TypeRep) extends Rep {
-    val mtd = DSLDef(sym.fullName, sym.info.toString, self.isEmpty)
+    lazy val mtd = DSLDef(sym.fullName, sym.info.toString, self.isEmpty)
     override def toString = self.fold(mtd.path.last+".")(_.toString+".") + mtd.shortName +
       (targs.mkString("[",",","]")*(targs.size min 1)) +
       (argss map (_ mkString("(",",",")")) mkString)

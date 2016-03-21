@@ -252,7 +252,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         case q"" => throw EmbeddingException("Empty program fragment")
           
         case c @ Literal(Constant(x)) =>
-          q"const($c)"
+          q"$Base.const($c)"
           //q"$base.const($c)"
           
         //case Ident(name) if !x.symbol.isTerm => q"" // FIXME: can happen when calling rec with a param valdef...

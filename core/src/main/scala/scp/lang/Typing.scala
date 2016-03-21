@@ -26,11 +26,26 @@ trait ScalaTyping extends Base {
   
   type DSLSymbol = MethodSymbol // TODOne
   //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = ???
-  def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
+  
+  
+  private[this] val symbolCache = mutable.HashMap.empty[(ScalaType,String,String), DSLSymbol]
+  final def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
     symbolCache getOrElseUpdate ((typ, symName, erasure),
-      typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod)
+      typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod) // TODO BE
   }
-  private val symbolCache = mutable.HashMap.empty[(ScalaType,String,String), DSLSymbol]
+  
+  // Caching using symName + erasure and then typ; gives about same time when caching only a few symbols:
+  /*
+  private[this] val symbolCache = mutable.HashMap.empty[String, mutable.HashMap[ScalaType,DSLSymbol]]
+  final def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
+    val tmap = symbolCache getOrElseUpdate (symName + erasure,
+      mutable.HashMap.empty[ScalaType,DSLSymbol])//(typ -> mtd))
+    tmap getOrElseUpdate (typ, typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod)
+  }
+  */
+  
+  
+  
   
   ///** Note: could cache results */
   //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = {
