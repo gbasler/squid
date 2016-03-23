@@ -28,6 +28,20 @@ val body = fun match {
 }
 val fun2 = dsl"(y: Int) => $body"
 */
+/* // WORKS!
+val fun = dsl"(x: Int) => (x: Int) => x + 1"
+val body = fun match {
+  case dsl"(y: Int) => $b: Int" => b
+}
+val fun2 = dsl"(y: Int) => $body"
+*/
+
+//// FIXME capture by EXTRACTOR!
+//dsl"(x: Int) => ($$y:Double)" match {
+//  case dsl"(y: Int) => $body: Double" => body
+//}
+
+
 
 
 dsl"(x: Int) => x + 42 toDouble"
@@ -35,8 +49,14 @@ dsl"(x: Int) => x + 42 toDouble"
 
 
 //val yy = dsl"($$y: Int)*($$y: Int)"
-val yy = dsl"($$y: Int)*($$y: Int)"
+//val yy = dsl"($$y: Int)*($$y: Int)"
+val yy = dsl"($$y: Int)*(y: Int)"
 //val yy = dsl"($$y: Int)*2"
 //dsl"val y = 2; $yy" // FIXME <notype>
 dsl"(y: Int) => $yy"
+
+
+
+
+
 

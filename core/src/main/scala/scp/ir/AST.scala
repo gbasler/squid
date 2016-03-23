@@ -62,6 +62,7 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
   sealed trait Rep {
     val typ: TypeRep
     
+    // TODO is this used?
     def subs(xs: (String, Rep)*): Rep = subs(xs.toMap)
     def subs(xs: Map[String, Rep]): Rep =
       if (xs isEmpty) this else transformPartial(this) { case r @ HoleExtract(n) => xs getOrElse (n, r) }
