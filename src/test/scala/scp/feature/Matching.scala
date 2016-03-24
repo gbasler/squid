@@ -12,7 +12,7 @@ class Matching extends FunSuite with ShouldMatchers {
   
   test("Type Ascription") {
     
-    dsl"42" match {
+    (dsl"42":Q[_,_]) match {
       case dsl"$x: Double" => ???
       case dsl"$x: Int" =>
         assert(x === dsl"42")
