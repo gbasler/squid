@@ -41,7 +41,7 @@ trait Base extends BaseDefs { base =>
   def repEq(a: Rep, b: Rep): Boolean
   def typEq(a: TypeRep, b: TypeRep): Boolean
   
-  //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B]
+  implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B]
   
   
   trait ConstAPI {

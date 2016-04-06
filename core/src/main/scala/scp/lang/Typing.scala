@@ -1,7 +1,5 @@
 package scp.lang
 
-import scp.utils.MacroShared
-
 import reflect.api
 import reflect.api.Universe
 import annotation.unchecked.uncheckedVariance
@@ -9,7 +7,6 @@ import scala.language.higherKinds
 import scala.reflect.runtime.universe.{Type => ScalaType, _}
 import scala.reflect.runtime.{universe => ru}
 import scala.collection.mutable
-import scala.reflect.macros.blackbox
 
 //trait Typing { base: Base =>
 //  
@@ -60,10 +57,8 @@ trait ScalaTyping extends Base {
   
   
   sealed trait TypeRep {
-    implicit def tag: TypeTag[_]
+    implicit val tag: TypeTag[_]
     def tagAs[A] = tag.asInstanceOf[TypeTag[A]]
-    
-    lazy // FIXME PAPER 
     val typ = tag.tpe
     
     def =:= (that: TypeRep) = typ =:= that.typ
@@ -88,17 +83,12 @@ trait ScalaTyping extends Base {
     * `targs` will only be used when the TypeRep is used as an extractor; it may not be present for normal types.
     * EDIT: maybe nope?
     */
-  //case class ScalaTypeRep[A](tag: TypeTag[A], targs: TypeEv[_]*) extends TypeRep {
+  case class ScalaTypeRep[A](tag: TypeTag[A], targs: TypeEv[_]*) extends TypeRep {
   //case class ScalaTypeRep[A](targs: TypeEv[_]*) extends TypeRep {
-  case class ScalaTypeRep[A](fullName: String, targs: TypeEv[_]*) extends {
-    val tag: TypeTag[A] = null //??? // TODO
-  } with TypeRep {
-    //def tag = theTag
     
     //val tag: TypeTag[A] = {
     //  import
     //}
-    //lazy val tag: TypeTag[A] = ??? // TODO
     
     protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
       
@@ -130,8 +120,7 @@ trait ScalaTyping extends Base {
     
     
     override def equals(that: Any) = that match {
-      //case ScalaTypeRep(tag1, _ @ _*) => typ =:= tag1.tpe
-      case str: ScalaTypeRep[_] => typ =:= str.tag.tpe
+      case ScalaTypeRep(tag1, _ @ _*) => typ =:= tag1.tpe
       case _ => false
     }
     override def hashCode = typ.##
@@ -156,11 +145,9 @@ trait ScalaTyping extends Base {
   case class TypeHoleRep[A](name: String)(implicit val tag: TypeTag[A]) extends TypeRep {
     protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
       val tag = ScalaTyping.mkTag[A](xtyp)
-      // TODO:
-      //val rep = ScalaTypeRep(tag) // It is safe not to fill-in the targs because the targs are only used in extractors
-      //debug("Extr "+rep)
-      //Some(Map() -> Map(name -> rep))
-      ???
+      val rep = ScalaTypeRep(tag) // It is safe not to fill-in the targs because the targs are only used in extractors
+      debug("Extr "+rep)
+      Some(Map() -> Map(name -> rep))
     }
     override def equals(that: Any) = that match {
       case TypeHoleRep(name1) => name == name1
@@ -180,18 +167,17 @@ trait ScalaTyping extends Base {
   def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
   
   
-  //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
-  //  implicit val A = typeEv[A].rep.tagAs[A]
-  //  implicit val B = typeEv[B].rep.tagAs[B]
-  //  TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
-  //}
+  implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
+    implicit val A = typeEv[A].rep.tagAs[A]
+    implicit val B = typeEv[B].rep.tagAs[B]
+    TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
+  }
   
   
   //implicit def typeAll[A: TypeTag]: TypeEv[A] = TypeEv(ScalaTypeRep(typeTag[A]))
   
   import scala.language.experimental.macros
-  //implicit def typeEvImplicit[A]: TypeEv[A] = macro ScalaTyping.typeEvImplicitImpl[A]
-  implicit def typeEvImplicit[A]: TypeEv[A] = macro ScalaTypingMacros.typeEvImplicitImpl[A]
+  implicit def typeEvImplicit[A]: TypeEv[A] = macro ScalaTyping.typeEvImplicitImpl[A]
   
   
   /*
@@ -201,9 +187,6 @@ trait ScalaTyping extends Base {
   */
   
 }
-
-
-
 object ScalaTyping {
   
   //def debug(x: Any) = println(x)
@@ -229,7 +212,6 @@ object ScalaTyping {
   }
   */
   
-  /*
   //import reflect.macros.whitebox.Context
   import reflect.macros.blackbox.Context
   def typeEvImplicitImpl[A: c.WeakTypeTag](c: Context) = {
@@ -287,45 +269,9 @@ object ScalaTyping {
     //q"null" // TODO
     //null
   }
-  */
+  
 }
 
-import reflect.macros.blackbox.Context
-class ScalaTypingMacros(val c: blackbox.Context) { //extends MacroShared {
-//class ScalaTypingMacros[C <: Context](val c: C) extends MacroShared {
-  type Ctx = c.type
-  val Ctx: c.type = c
-  import Ctx.universe._
-  
-  def typeEvImplicitImpl[A: c.WeakTypeTag] = {
-    
-    val base = c.macroApplication match {
-      case q"$b.typeEvImplicit[$_]" => b
-    }
-    val A = weakTypeOf[A]
-    
-    A.widen match {
-      case t if t <:< typeOf[Base.HoleType] =>
-        //debug("HOLE "+A.typeSymbol.name.toString)
-        //q"TypeEv($base.typeHole[$A](${A.typeSymbol.name.toString}))"
-        //???
-        q"TypeEv($base.typeHole[$A](${A.typeSymbol.name.toString}))"
-      //case TypeRef(_, sym, args) if args.nonEmpty =>
-      case TypeRef(_, sym, Nil) =>
-        if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
-        q"TypeEv($base.ScalaTypeRep[$A](${sym.fullName.toString}))"
-      case TypeRef(_, sym, args) =>
-        ???
-      case _ => c.abort(c.enclosingPosition, s"Cannot generate a type evidence for: $A")
-    }
-    
-    //q""
-    //null
-  }
-  
-  
-  
-}
 
 
 

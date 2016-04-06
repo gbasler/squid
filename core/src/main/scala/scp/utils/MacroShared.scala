@@ -1,7 +1,6 @@
 package scp.utils
 
 import scala.reflect.macros.whitebox.Context
-//import scala.reflect.macros.contexts.Context
 
 trait MacroShared {
   type Ctx <: Context
