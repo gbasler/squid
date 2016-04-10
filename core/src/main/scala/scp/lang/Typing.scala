@@ -231,7 +231,7 @@ object ScalaTyping {
     A match {
       case t if t <:< typeOf[Base.HoleType] =>
         debug("HOLE "+A.typeSymbol.name.toString)
-        q"TypeEv($base.typeHole[$A](${A.typeSymbol.name.toString}))"
+        q"$base.TypeEv($base.typeHole[$A](${A.typeSymbol.name.toString}))"
       case TypeRef(_, sym, args) if args.nonEmpty => //q"TypeEv($base.ScalaTypeRep[$A](null))" // TODO
         
         val (evs, tags) = args.zipWithIndex.map { case (ta,i) =>
@@ -245,7 +245,7 @@ object ScalaTyping {
           import scala.reflect.runtime.universe._
           ..$evs
           ..$tagImpls
-          TypeEv($base.ScalaTypeRep[$A](typeTag[$A], ..${evs map (_.name)}))
+          $base.TypeEv($base.ScalaTypeRep[$A](typeTag[$A], ..${evs map (_.name)}))
         """
         debug("Generated: "+res)
         res
@@ -260,7 +260,7 @@ object ScalaTyping {
             c.abort(c.enclosingPosition, "No type tag: "+A)
           case tag =>
             debug("TYP "+A+" TAG")
-            q"TypeEv($base.ScalaTypeRep($tag))"
+            q"$base.TypeEv($base.ScalaTypeRep($tag))"
         }
         //null // failure
     }

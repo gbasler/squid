@@ -21,7 +21,7 @@ lazy val main = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     // other settings here
-    addCommandAlias("bench", "runMain scp.examples.RuntimeBenchmark"): _*
+    addCommandAlias("bench", "benchmark/runMain"): _*
   )
 
 lazy val core = (project in file("core")).
@@ -39,4 +39,20 @@ lazy val core = (project in file("core")).
         else Nil
       )
   )
+
+lazy val benchmark = (project in file("benchmark")).
+  settings(commonSettings: _*).
+  settings(
+    
+    // ScalaMeter (http://scalameter.github.io/home/gettingstarted/0.7/sbt/index.html)
+    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
+    fork := true
+    
+    //testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
+    //parallelExecution in Test := false
+  ).
+  dependsOn(main)
+
+
+
 
