@@ -323,16 +323,19 @@ class ScalaTypingMacros(val c: blackbox.Context) {
   val Ctx: c.type = c
   import Ctx.universe._
   
+  val holeType = typeOf[Base.HoleType]
+  
   // TODO an API to aggregate all needed typereps, without repetition (for QQ code-gen)
   def typeRep(base: Tree, tp: Type): Tree = {
     
     tp.widen match {
-      case t if t <:< typeOf[Base.HoleType] =>
-        //debug("HOLE "+A.typeSymbol.name.toString)
+      case t if t <:< holeType // I imagine that this is less expensive than the following check
+      && (tp.baseType(symbolOf[Base.HoleType]) != NoType) => // we have `Nothing <: HoleType`, but Nothing does not 'really' extend HoleType
+        //debug("HOLE "+tp)
         q"$base.typeHole[$tp](${tp.typeSymbol.name.toString})"
       case TypeRef(_, sym, args) =>
-//        if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
-//        q"$base.ScalaTypeRep(${sym.fullName.toString}, ..${args map (t => q"TypeEv(${typeRep(base,t)})")})"
+        //if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
+        //q"$base.ScalaTypeRep(${sym.fullName.toString}, ..${args map (t => q"TypeEv(${typeRep(base,t)})")})"
         q"$base.DynamicTypeRep(${sym.fullName.toString}, ..${args map (t => typeRep(base,t))})"
       //case TypeRef(_, sym, args) =>
       //  ???
