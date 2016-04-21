@@ -4,7 +4,7 @@ package scp.paper
 /**
   * Created by lptk on 11/03/16.
   */
-object OpTermAlgo extends App {
+object OpTermAlgo {
   import scala.collection.mutable
   //import scala.collection.mutable.{MultiMap,HashMap,Set}
   

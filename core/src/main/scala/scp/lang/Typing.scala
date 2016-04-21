@@ -5,8 +5,9 @@ import reflect.api.Universe
 import annotation.unchecked.uncheckedVariance
 import scala.language.higherKinds
 import scala.reflect.runtime.universe.{Type => ScalaType, _}
-import scala.reflect.runtime.{universe => ru}
+import scala.reflect.runtime.{universe => sru}
 import scala.collection.mutable
+import scp.utils.MacroUtils._
 
 //trait Typing { base: Base =>
 //  
@@ -16,50 +17,78 @@ import scala.collection.mutable
 //  
 //}
 
+object InternalAccessor {
+  val iuniverse = scala.reflect.runtime.universe.asInstanceOf[scala.reflect.runtime.JavaUniverse]
+  val imirror = scala.reflect.runtime.currentMirror.asInstanceOf[iuniverse.JavaMirror]
+}
+import InternalAccessor._
+
 /**
   * TODO put TypeRep in companion object
+  * 
+  * 
+  * Problem with dynamic Symbol loading:
+  *   We don't always see all the symbols/packages
+  *   `rootMirror.RootClass` has all base packages in IntelliJ, but NOT in sbt (where most are missing)
+  *   We can try to 'add base packages' manually,
+  *     but then again we may not see some symbols (the classes defined in Matching, used in Matching's QQs...)
+  *       eg `Could not find type Int in package scala`
+  *     and it seems very underterministic
+  * Problem was solved by using a different API: internal's loadPackage 
+  * 
   */
 trait ScalaTyping extends Base {
   import ScalaTyping._
   
   //type TypeExt = TypeRep[_]
   
-  type DSLSymbol = MethodSymbol // TODOne
-  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = ???
+  type DSLSymbol = MethodSymbol
+  
+  private[this] val symbolCache = mutable.HashMap.empty[(String,String), DSLSymbol]
+  private[this] val overloadedSymbolCache = mutable.HashMap.empty[(String,String,Int), DSLSymbol]
   
   
-  private[this] val symbolCache = mutable.HashMap.empty[(ScalaType,String,String), DSLSymbol]
-  final def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
-    symbolCache getOrElseUpdate ((typ, symName, erasure),
-      typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod) // TODO BE
+  final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
+    symbolCache getOrElseUpdate ((typ, symName), {
+      val tp = loadTypeSymbol(typ)
+      (if (mod) tp.companion else tp).typeSignature.member(TermName(symName)).asMethod
+    }) // TODO BE
+  }
+  /** Note: Assumes the runtime library has the same version of a class as the compiler;
+    *   overloaded definitions are identified by their index (the order in which they appear) */
+  final def loadOverloadedSymbol(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol = {
+    overloadedSymbolCache getOrElseUpdate ((typ, symName, index), {
+      //loadType(typ).typeSignature.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod
+      val tp = loadTypeSymbol(typ)
+      (if (mod) tp.companion else tp).typeSignature.member(TermName(symName)).alternatives(index).asMethod
+    }) // TODO BE
   }
   
-  // Caching using symName + erasure and then typ; gives about same time when caching only a few symbols:
-  /*
-  private[this] val symbolCache = mutable.HashMap.empty[String, mutable.HashMap[ScalaType,DSLSymbol]]
-  final def loadSymbol(typ: ScalaType, symName: String, erasure: String): DSLSymbol = {
-    val tmap = symbolCache getOrElseUpdate (symName + erasure,
-      mutable.HashMap.empty[ScalaType,DSLSymbol])//(typ -> mtd))
-    tmap getOrElseUpdate (typ, typ.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod)
+  private[scp] def mkPath(fullName: String): Seq[String] = fullName.splitSane('.').view
+  
+  private[scp] def loadPackage(fullName: String): TermSymbol = {
+    import iuniverse._
+    imirror.getPackageIfDefined(fullName) match {
+      case NoSymbol => throw new Exception(s"Could not find package $fullName")
+      case pckg => pckg.asTerm.asInstanceOf[sru.TermSymbol]
+    }
   }
-  */
   
-  
-  
-  
-  ///** Note: could cache results */
-  //def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol = {
-  //  val mtd = DSLDef(fullName, info, module)
-  //  val cls = Class.forName(mtd.path(0))
-  //  ???
-  //}
-  //def loadSymbol(sym: MethodSymbol): DSLSymbol = sym
+  private[scp] def loadTypeSymbol(fullName: String): TypeSymbol = {
+    val dotIndex = fullName.lastIndexOf('.')
+    //val ir = internal.reificationSupport
+    //ir.selectType(loadPackage(fullName take dotIndex), fullName drop (dotIndex+1)) // if dotIndex == -1, we drop 0
+    val pack = loadPackage(fullName take dotIndex)
+    val tpName = TypeName(fullName drop (dotIndex+1)) // if dotIndex == -1, we drop 0
+    pack.typeSignature.member(tpName) match {
+      case NoSymbol => throw new Exception(s"Could not find type ${tpName} in module $pack")
+      case tp => tp.asType
+    }
+  }
   
   
   sealed trait TypeRep {
-    implicit val tag: TypeTag[_]
-    def tagAs[A] = tag.asInstanceOf[TypeTag[A]]
-    val typ = tag.tpe
+    val typ: ScalaType
     
     def =:= (that: TypeRep) = typ =:= that.typ
     def <:< (that: TypeRep) = typ <:< that.typ
@@ -69,7 +98,8 @@ trait ScalaTyping extends Base {
       (this, tp) match {
         case (_, TypeHoleRep(_)) => throw new IllegalArgumentException // TODO BE
         case (TypeHoleRep(holeName), tp) => Some(Map() -> Map(holeName -> tp))
-        case (ScalaTypeRep(tag0, targs0 @ _*), ScalaTypeRep(tag1, targs1 @ _*)) =>
+        //case (ScalaTypeRep(tag0, targs0 @ _*), ScalaTypeRep(tag1, targs1 @ _*)) =>
+        case (tr0: ScalaTypeRep, tr1: ScalaTypeRep) =>
           extractTp(tp.typ)
       }
     }
@@ -79,16 +109,10 @@ trait ScalaTyping extends Base {
     override def toString = s"$typ"
   }
   
-  /**
-    * `targs` will only be used when the TypeRep is used as an extractor; it may not be present for normal types.
-    * EDIT: maybe nope?
-    */
-  case class ScalaTypeRep[A](tag: TypeTag[A], targs: TypeEv[_]*) extends TypeRep {
-  //case class ScalaTypeRep[A](targs: TypeEv[_]*) extends TypeRep {
+  trait ScalaTypeRep extends TypeRep {
     
-    //val tag: TypeTag[A] = {
-    //  import
-    //}
+    val typ: ScalaType
+    def targs: Seq[TypeRep]
     
     protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
       
@@ -111,7 +135,8 @@ trait ScalaTyping extends Base {
           
           debug(targs, base.typeArgs)
           
-          val extr = (targs zip base.typeArgs) map { case (a,b) => a.rep.extractTp(b) getOrElse (return None) }
+          //val extr = (targs zip base.typeArgs) map { case (a,b) => a.rep.extractTp(b) getOrElse (return None) }
+          val extr = (targs zip base.typeArgs) map { case (a,b) => a.extractTp(b) getOrElse (return None) }
           
           Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
       }
@@ -120,10 +145,24 @@ trait ScalaTyping extends Base {
     
     
     override def equals(that: Any) = that match {
-      case ScalaTypeRep(tag1, _ @ _*) => typ =:= tag1.tpe
+      case str: ScalaTypeRep => typ =:= str.typ
       case _ => false
     }
     override def hashCode = typ.##
+    
+  }
+  case class SimpleTypeRep(typ: ScalaType) extends ScalaTypeRep {
+    def targs = typ.typeArgs map SimpleTypeRep
+  }
+  //case class ScalaTypeRep(fullName: String, targs: TypeEv[_]*) extends ScalaTypeRep {
+  case class DynamicTypeRep(fullName: String, targs: TypeRep*) extends ScalaTypeRep {
+    
+    lazy val typ = {
+      // TODO cache this operation:
+      val tsym = loadTypeSymbol(fullName)
+      //internal.typeRef(internal.thisType(tsym.owner), tsym, targs map (_.rep.typ) toList)
+      internal.typeRef(internal.thisType(tsym.owner), tsym, targs map (_.typ) toList)
+    }
     
   }
   
@@ -143,9 +182,10 @@ trait ScalaTyping extends Base {
   //  
   //}
   case class TypeHoleRep[A](name: String)(implicit val tag: TypeTag[A]) extends TypeRep {
+    val typ = tag.tpe
     protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
-      val tag = ScalaTyping.mkTag[A](xtyp)
-      val rep = ScalaTypeRep(tag) // It is safe not to fill-in the targs because the targs are only used in extractors
+      //val rep = ScalaTypeRep(xtyp.typeSymbol.fullName) // It is safe not to fill-in the targs because the targs are only used in extractors
+      val rep = SimpleTypeRep(xtyp) // FIXME is it safe to get the type args from 'xtyp.typ' ?? (what about holes etc.?)
       debug("Extr "+rep)
       Some(Map() -> Map(name -> rep))
     }
@@ -167,17 +207,17 @@ trait ScalaTyping extends Base {
   def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
   
   
-  implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
-    implicit val A = typeEv[A].rep.tagAs[A]
-    implicit val B = typeEv[B].rep.tagAs[B]
-    TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
-  }
+  //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
+  //  implicit val A = typeEv[A].rep.tagAs[A]
+  //  implicit val B = typeEv[B].rep.tagAs[B]
+  //  TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
+  //}
   
   
   //implicit def typeAll[A: TypeTag]: TypeEv[A] = TypeEv(ScalaTypeRep(typeTag[A]))
   
   import scala.language.experimental.macros
-  implicit def typeEvImplicit[A]: TypeEv[A] = macro ScalaTyping.typeEvImplicitImpl[A]
+  implicit def typeEvImplicit[A]: TypeEv[A] = macro ScalaTypingMacros.typeEvImplicitImpl[A]
   
   
   /*
@@ -194,6 +234,7 @@ object ScalaTyping {
   
   protected[ScalaTyping] def mkTag[A](tp: ScalaType) =
     TypeTag.apply[A](scala.reflect.runtime.currentMirror, new scala.reflect.api.TypeCreator {
+    //TypeTag.apply[A](mirror, new scala.reflect.api.TypeCreator {
       def apply[U <: Universe with Singleton](m: api.Mirror[U]): U#Type = tp.asInstanceOf[U#Type]
     })
   private val NoTypeTagVal = ScalaTyping.mkTag(NoType)
@@ -212,6 +253,8 @@ object ScalaTyping {
   }
   */
   
+  
+  /*
   //import reflect.macros.whitebox.Context
   import reflect.macros.blackbox.Context
   def typeEvImplicitImpl[A: c.WeakTypeTag](c: Context) = {
@@ -269,6 +312,50 @@ object ScalaTyping {
     //q"null" // TODO
     //null
   }
+  */
+}
+
+import reflect.macros.blackbox
+class ScalaTypingMacros(val c: blackbox.Context) {
+  import ScalaTyping.debug
+  
+  type Ctx = c.type
+  val Ctx: c.type = c
+  import Ctx.universe._
+  
+  // TODO an API to aggregate all needed typereps, without repetition (for QQ code-gen)
+  def typeRep(base: Tree, tp: Type): Tree = {
+    
+    tp.widen match {
+      case t if t <:< typeOf[Base.HoleType] =>
+        //debug("HOLE "+A.typeSymbol.name.toString)
+        q"$base.typeHole[$tp](${tp.typeSymbol.name.toString})"
+      case TypeRef(_, sym, args) =>
+//        if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
+//        q"$base.ScalaTypeRep(${sym.fullName.toString}, ..${args map (t => q"TypeEv(${typeRep(base,t)})")})"
+        q"$base.DynamicTypeRep(${sym.fullName.toString}, ..${args map (t => typeRep(base,t))})"
+      //case TypeRef(_, sym, args) =>
+      //  ???
+      case _ => c.abort(c.enclosingPosition, s"Cannot generate a type evidence for: $tp")
+    }
+    
+  }
+  
+  def typeEvImplicitImpl[A: c.WeakTypeTag]: Tree = {
+    
+    val base = c.macroApplication match {
+      case q"$b.typeEvImplicit[$_]" => b
+    }
+    val A = weakTypeOf[A]
+    
+    val ev = q"TypeEv(${typeRep(base, A)})"
+    
+    //debug(s"Evidence for $A: $ev")
+    
+    ev
+  }
+  
+  
   
 }
 

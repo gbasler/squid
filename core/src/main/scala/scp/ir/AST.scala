@@ -40,8 +40,8 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
       case App(f, a) => q"(${toTree(f)})(${toTree(a)})"
       case Ascribe(v) => toTree(v)
       case a: Abs =>
-        val tag = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].tag // TODO adapt API
-        q"(${TermName(a.pname)}: $tag) => ${toTree(a.body)}"
+        val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
+        q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
       case dslm @ DSLMethodApp(self, mtd, targs, argss, tp) =>
         val self2 = self map toTree getOrElse {
           //val access = mtd.owner.fullName.splitSane('.').foldLeft(q"_root_": Tree) {

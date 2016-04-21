@@ -28,20 +28,15 @@ trait Base extends BaseDefs { base =>
   //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
   def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
   
-  //import scala.reflect.{runtime => srr}
-  
-  ////type DSLSymbol
-  //type DSLSymbol = srr.universe.MethodSymbol
-  ////def loadSymbol(fullName: String, info: String, module: Boolean): DSLSymbol
-  //def loadSymbol(sym: srr.universe.MethodSymbol): DSLSymbol
   type DSLSymbol
-  def loadSymbol(typ: ru.Type, symName: String, erasure: String): DSLSymbol
+  def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol
+  def loadOverloadedSymbol(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol
   
   
   def repEq(a: Rep, b: Rep): Boolean
   def typEq(a: TypeRep, b: TypeRep): Boolean
   
-  implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B]
+  //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B]
   
   
   trait ConstAPI {
@@ -95,8 +90,7 @@ class BaseDefs { base: Base =>
     def =~= (that: Quoted[_,_]): Boolean = rep =~= that.rep
     
     def run(implicit ev: {} <:< Scp): Typ = runUnsafe
-    def runUnsafe: Typ = runRep(rep).asInstanceOf[Typ]
-    //def run(p:Int): Typ = { ???; "lol".asInstanceOf[Typ] }
+    lazy val runUnsafe: Typ = runRep(rep).asInstanceOf[Typ]
     
     override def toString = s"""dsl"$rep""""
   }

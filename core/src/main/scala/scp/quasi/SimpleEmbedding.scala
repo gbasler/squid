@@ -17,7 +17,7 @@ case class EmbeddingException(msg: String) extends Exception(msg)
   * We may require the presence of an implicit to retrieve a $base object.
   * 
   * 
-  * TODO: let-bind dsl defs so as to make generated code cleaner, and avoid redundancy
+  * TODO: let-bind type evidences so as to make generated code cleaner, and avoid redundancy
   * 
   * 
   */
@@ -326,9 +326,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           
         case SelectMember(obj, f) =>
           
+          val mod = obj.tpe.termSymbol.isModule
+          
           val path = TypeName(x.symbol.fullName).decodedName.toString
           
-          val dslDef = DSLDef(path, x.symbol.info.toString, obj.tpe.termSymbol.isModule)
+          val dslDef = DSLDef(path, x.symbol.info.toString, mod)
           debug("Dsl feature: "+dslDef.deepName)
           
           //if (!lang.defs(dslDef)) throw EmbeddingException(s"Feature '$dslDef' is not supported in language '$lang'")
@@ -485,25 +487,13 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     
     
     val dslDefs = usedFeatures map {
-      //case (DSLDef(fullName, info, module), name) => q"val $name = scp.lang.DSLDef(${fullName}, ${info}, ${module})"
       case (sym, name) =>
         val o = sym.owner.asType
-        //println(">>"+sym.info.toString)
-        //println("e>"+sym.info.erasure)
-        //println("r>"+showRaw(sym.info))
-        //println("er>"+showRaw(sym.info.erasure))
-        val srru = q"scala.reflect.runtime.universe"
-        //val r = q"""
-        //val $name = $srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]].members.find(s =>
-        //  s.name.toString == ${sym.name.toString} && $srru.showRaw(s.info.erasure) == ${showRaw(sym.info.erasure)}).get.asMethod
-        //""" // TODO BE
-        //  //s.name.toString == ${sym.name.toString} && s.info.toString == ${sym.info.toString}).get.asMethod
-        val r = q"""
-        val $name = $Base.loadSymbol($srru.typeOf[${o}[..${o.typeParams map {_ => tq"Any"}}]], ${sym.name.toString}, ${showRaw(sym.info.erasure)})
-        """
-        
-        //debug(">>",r)
-        r
+        val alts = o.typeSignature.member(sym.name).alternatives
+        if (alts.size > 1)
+             //q"val $name = $Base.loadOverloadedSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString}, ..${showRaw(sym.info.erasure)})"
+             q"val $name = $Base.loadOverloadedSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString}, ${alts.indexOf(sym)})"
+        else q"val $name = $Base.loadSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString})"
     }
     
     
