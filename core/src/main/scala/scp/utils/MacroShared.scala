@@ -10,16 +10,19 @@ trait MacroShared {
   
   
   def typeToTree(tpe: Type): Tree = {
-    tpe match {
+    val r = tpe match {
       case TypeRef(pre, sym, Nil) =>
         TypeTree(tpe)
       case TypeRef(pre, sym, args) =>
-        AppliedTypeTree(Ident(sym.name),
-          args map { x => typeToTree(x) })
+        //AppliedTypeTree(Ident(sym.name),
+        //  args map { x => typeToTree(x) })
+        TypeTree(tpe)
       case AnnotatedType(annotations, underlying) =>
         typeToTree(underlying)
       case _ => TypeTree(tpe)
     }
+    //println(s"typeToTree($tpe) = ${showCode(r)}")
+    r
   }
   
   

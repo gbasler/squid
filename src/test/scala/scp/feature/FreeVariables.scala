@@ -28,6 +28,10 @@ class FreeVariables extends FunSuite {
     
   }
   
+  test("Rep extraction") {
+    assert(dsl"Some($$x:Any)".rep extract dsl"Some(42)".rep isDefined)
+    assert(dsl"Some(42)".rep extract dsl"Some($$x:Any)".rep isEmpty)
+  }
   
   test("Term Equivalence") {
     

@@ -47,11 +47,15 @@ trait ScalaTyping extends Base {
   private[this] val symbolCache = mutable.HashMap.empty[(String,String), DSLSymbol]
   private[this] val overloadedSymbolCache = mutable.HashMap.empty[(String,String,Int), DSLSymbol]
   
+  private def ensureDefined(name: String, sym: Symbol) = sym match {
+    case NoSymbol => throw new Exception(s"Could not find $name")
+    case _ => sym
+  }
   
   final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
     symbolCache getOrElseUpdate ((typ, symName), {
       val tp = loadTypeSymbol(typ)
-      (if (mod) tp.companion else tp).typeSignature.member(TermName(symName)).asMethod
+      ensureDefined(s"'$symName' in $typ", (if (mod) tp.companion else tp).typeSignature.member(TermName(symName))).asMethod
     }) // TODO BE
   }
   /** Note: Assumes the runtime library has the same version of a class as the compiler;
@@ -60,7 +64,7 @@ trait ScalaTyping extends Base {
     overloadedSymbolCache getOrElseUpdate ((typ, symName, index), {
       //loadType(typ).typeSignature.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod
       val tp = loadTypeSymbol(typ)
-      (if (mod) tp.companion else tp).typeSignature.member(TermName(symName)).alternatives(index).asMethod
+      ensureDefined(s"'$symName' in $typ", (if (mod) tp.companion else tp).typeSignature.member(TermName(symName))).alternatives(index).asMethod
     }) // TODO BE
   }
   
@@ -109,6 +113,8 @@ trait ScalaTyping extends Base {
     override def toString = s"$typ"
   }
   
+  val Nothing = typeOf[Nothing]
+  
   trait ScalaTypeRep extends TypeRep {
     
     val typ: ScalaType
@@ -124,19 +130,28 @@ trait ScalaTyping extends Base {
           print(s"<< ${typs map (t => xtyp.baseType(t.typeSymbol))} >> ")
           
           ??? // TODO
-          
+
         case _ =>
           val base = xtyp.baseType(typ.typeSymbol)
           
-          if (base == NoType) {
+          val baseTargs = if (base == NoType) {
             debug(s"$xtyp not an instance of ${typ.typeSymbol}")
-            return None
+            
+            if (xtyp <:< typ) {
+              debug(s"... but $xtyp is still somehow a subtype of ${typ}")
+              assert(xtyp <:< Nothing,
+                s"$xtyp <:< $typ but !($xtyp <:< Nothing) and ${typ.typeSymbol} is not a base type of $xtyp")
+              
+              Stream continually Nothing
+            }
+            else return None
           }
+          else base.typeArgs.toStream
           
           debug(targs, base.typeArgs)
           
           //val extr = (targs zip base.typeArgs) map { case (a,b) => a.rep.extractTp(b) getOrElse (return None) }
-          val extr = (targs zip base.typeArgs) map { case (a,b) => a.extractTp(b) getOrElse (return None) }
+          val extr = (targs zip baseTargs) map { case (a,b) => a.extractTp(b) getOrElse (return None) }
           
           Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
       }
@@ -229,8 +244,8 @@ trait ScalaTyping extends Base {
 }
 object ScalaTyping {
   
-  //def debug(x: Any) = println(x)
-  def debug(x: Any) = ()
+  //def debug(x: => Any) = println(x)
+  def debug(x: => Any) = ()
   
   protected[ScalaTyping] def mkTag[A](tp: ScalaType) =
     TypeTag.apply[A](scala.reflect.runtime.currentMirror, new scala.reflect.api.TypeCreator {

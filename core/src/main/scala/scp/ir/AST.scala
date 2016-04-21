@@ -6,12 +6,22 @@ import lang._
 
 import scala.reflect.runtime.{universe => ru}
 
+/**
+  * TODO: add a lock on the HashMap...
+  * Also, we could share objects that are equal instead of cluttering the table (but that'd require a bidirectional map)
+  */
+//private // cannot make this private; needs access to `constants` from reflexive compilation
 object AST {
   import scala.tools.reflect.ToolBox
-  lazy val toolBox = ru.runtimeMirror(getClass.getClassLoader).mkToolBox() // Q: necessary 'lazy'? (objects are already lazy)
+  private lazy val toolBox = ru.runtimeMirror(getClass.getClassLoader).mkToolBox() // Q: necessary 'lazy'? (objects are already lazy)
+  
+  private var curConstantIndex = 0
+  //val constants = new mutable.WeakHashMap[Int, Any] // cannot be weak; otherwise we may lose the object before accessing it...
+  val constants = new mutable.HashMap[Int, Any]
 }
 
-/** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
+/** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs
+  * TODO: should have a Liftable trait for constants, with the default impl resulting in storage in glbal hash table (when Scala is the backend) */
 trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
   
@@ -33,11 +43,55 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   }
   protected def toTree(r: Rep): ru.Tree = { // TODO remember (lazy val in Rep)
     import ru._
+    
+    //println(s"To tree: $r")
     r match {
-      case Const(v) => ru.Literal(ru.Constant(v))
+        
+      //case Const(v) => v // we want a tree!
+      //case Const(v) => ru.Literal(ru.Constant(v)) // TODOne check correct constant type -- otherwise it raises 'java.lang.Error: bad constant value'
+        
+      //case Const(v: Int) => q"$v"
+      //case Const(v: Double) => q"$v"
+      //case Const(v: String) => q"$v"
+        
+      // Types that can be lifted as literals:
+      case Const(_: Int) | Const(_: Long) | Const(_: Float) | Const(_: Double) | Const(_: Byte)
+           | Const(_: String) | Const(_: Symbol)
+           | Const(_: scala.reflect.api.Types#TypeApi) | Const(_: scala.reflect.api.Symbols#SymbolApi) // matching Types#Type is unchecked (erasure)
+      => ru.Literal(ru.Constant(r.asInstanceOf[Const[_]].value)) // Note: if bad types passed, raises 'java.lang.Error: bad constant value'
+        
+      // Common types we provide a lifting for:
+      case cst @ Const(vs: Seq[_]) =>
+        val tp = cst.typ.asInstanceOf[ScalaTyping#ScalaTypeRep].targs.head
+        q"_root_.scala.Seq(..${vs map (v => toTree(Const(v)(TypeEv(tp.asInstanceOf[TypeRep]))))})"
+      case cst @ Const(vs: Set[_]) =>
+        val tp = cst.typ.asInstanceOf[ScalaTyping#ScalaTypeRep].targs.head
+        q"_root_.scala.Predef.Set(..${vs map (v => toTree(Const(v) (TypeEv(tp.asInstanceOf[TypeRep])) ))})"
+      case cst @ Const(Some(v)) => 
+        val tp = cst.typ.asInstanceOf[ScalaTyping#ScalaTypeRep].targs.head
+        q"_root_.scala.Some(${toTree(Const(v) (TypeEv(tp.asInstanceOf[TypeRep])) )})"
+      case Const(None) => q"_root_.scala.None"
+        
+      // Other types of constants are simply stored (forever) in a global hash table:
+      case cst @ Const(v) =>
+        constants(curConstantIndex) = v
+        curConstantIndex += 1
+        q"${symbolOf[AST].companion}.constants(${curConstantIndex-1}).asInstanceOf[${cst.typ.asInstanceOf[ScalaTyping#TypeRep].typ}]"
+        
+      //case Const(v: reflect.ClassTag[_]) => 
+      //  println(v.runtimeClass.getName)
+      //  q"_root_.scala.reflect.classTag[${v.runtimeClass.getName}]"
+        
+      //case Const(cl: Class[_]) =>
+        //q"${TypeName(cl.getName)}.class" // not valid Scala syntax
+        //q"_root_.scala.reflect.classTag[${TypeName(cl.getName)}].runtimeClass" // object classTag is not a member of package reflect
+        //q"_root_.scala.reflect.classTag[String].runtimeClass" // object classTag is not a member of package reflect
+        
       case Var(n) => q"${TermName(n)}"
       case App(f, a) => q"(${toTree(f)})(${toTree(a)})"
-      case Ascribe(v) => toTree(v)
+      case as @ Ascribe(v) =>
+        //toTree(v)
+        q"${toTree(v)}:${as.typ.asInstanceOf[ScalaTyping#TypeRep].typ}"
       case a: Abs =>
         val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
         q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"

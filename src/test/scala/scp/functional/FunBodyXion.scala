@@ -12,7 +12,7 @@ class FunBodyXion extends FunSuite {
     case dsl"(y: Int) => $b: Int" => b
   }
   
-  test("Function Body Extraction") { // FIXME
+  test("Function Body Extraction") {
     
     //println(body, dsl"($$y: Int) + 1")
     //println(body.rep extract dsl"($$y: Int) + 1".rep)

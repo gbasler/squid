@@ -136,7 +136,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             if (typeHoles.isEmpty) ""
             else s"\n|  perhaps one of the type holes is unnecessary: " + typeHoles.mkString(", ")
           }
-          |Ascribe the scrutinee with ': Quoted[_,_]' to remove this warning.""".stripMargin)
+          |Ascribe the scrutinee with ': Quoted[_,_]' or call '.erase' on it to remove this warning.""".stripMargin)
           // ^ TODO
         }
         r
@@ -327,7 +327,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"$base.spliceDeep($idt.rep).subs(..${bindings})"
           
           
-        case _ if x.tpe.termSymbol.isModule => // TODO try x.symbol
+        //case _ if x.tpe.termSymbol.isModule => // TODOne try x.symbol
+        //case _: TermTree if x.tpe.termSymbol.isModule => // Nope, turns out modules like 'scala' won't match this
+        case _ if x.symbol != null && x.symbol.isModule => // Note: when testing 'x.tpe.termSymbol.isModule', we sometimes ended up applying this case on some type parameters! 
           q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.tpe}].rep)"
           
         case SelectMember(obj, f) =>
@@ -403,7 +405,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               
               //val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
-              val targsTree = q"List(..${processedTargs map (tp => q"typeEv[$tp].rep")})"
+              val targsTree = q"List(..${processedTargs map (tp => q"$Base.typeEv[$tp].rep")})"
               val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"
               
               q"$Base.methodApp($self, ${refMtd}, $targsTree, $args, $tp)"

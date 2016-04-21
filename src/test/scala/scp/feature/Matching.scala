@@ -28,12 +28,22 @@ class Matching extends FunSuite with ShouldMatchers {
     
   }
   
-  test("DSL Methods") {
+  test("Methods") {
     
     dsl"42.toDouble" match {
       case dsl"($x: Int).toDouble" =>
-        //show(x) // TODO test value
+        assert(x =~= dsl"42")
     }
+    
+    val t = dsl"42.toDouble"
+    val s = dsl".5 * $t"
+    
+    s match {
+      case dsl"($a: Double) * ($b: Double)" =>
+        assert(a =~= dsl"0.5")
+        assert(b =~= dsl"42.toDouble")
+    }
+    
     
   }
   
