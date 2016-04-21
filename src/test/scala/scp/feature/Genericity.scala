@@ -13,7 +13,7 @@ class Genericity extends FunSuite with ShouldMatchers {
   test("List") {
     
     val ls = dsl"List(1.0, 2.0)"
-    println(ls.rep.typ)
+    //println(ls.rep.typ)
     
     
     //def foo[A: TypeEv](x: Q[A,{}]) = x match {
@@ -23,7 +23,7 @@ class Genericity extends FunSuite with ShouldMatchers {
         dsl"List($y,$x)"
     }
     
-    println(foo(ls))
+    //println(foo(ls))
     
     (ls: Q[_,{}]) match {
       case dsl"$ls: List[Int]" => ???

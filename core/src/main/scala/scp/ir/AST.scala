@@ -28,7 +28,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   // TODO move this to some other file
   protected def runRep(r: Rep): Any = {
     val t = toTree(r)
-    println("Compiling tree: "+t)
+    System.err.println("Compiling tree: "+t)
     toolBox.eval(t)
   }
   protected def toTree(r: Rep): ru.Tree = { // TODO remember (lazy val in Rep)
@@ -70,6 +70,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       //println(s"$this << $t")
       
       val r: Option[Extract] = (this, t) match {
+        case (HoleExtract(_), Ascribe(v)) => extract(v) // Note: needed for term equivalence to ignore ascriptions
+          
         case (HoleExtract(name), _) => // Note: will also extract holes... is it ok?
           // wontTODO replace extruded symbols: not necessary here since we use holes to represent free variables (see case for Abs)
           Some(Map(name -> t) -> Map())
@@ -212,7 +214,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   case class Ascribe[A: TypeEv](value: Rep) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"$value::$typ" //s"($value: $typ)"
+    override def toString = s"$value<:$typ" //s"($value: $typ)"
     
     override def extract(t: Rep): Option[Extract] = {
       val r0 = value.extract(t) getOrElse (return None)
@@ -234,25 +236,23 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   /**
-    * Note: may not work well with FVs (represented as holes!)
-    * EDIT: actually, it seems to work since I added the 'xs == ys' test!
-    * wonTODO: add && a.freeVars == b.freeVars
+    * Note: Works well with FVs (represented as holes),
+    * since it checks that each extraction extracts exactly a hole with the same name
     */
-  //def repEq(a: Rep, b: Rep): Boolean = (a extract b isDefined) && (b extract a isDefined)
   def repEq(a: Rep, b: Rep): Boolean = {
-    //val e1 = a extract b
-    //lazy val e2 = b extract a
-    //if (e1 isDefined && e)
-    (a,b) match {
-      case (HoleExtract(n1), HoleExtract(n2)) => true
-      case (HoleExtract(_), _) => false
-      case (_, HoleExtract(_)) => false
-      case _ =>
-        (a extract b, b extract a) match {
-          case (Some(xs), Some(ys)) =>
-            xs == ys // Map comparison; not enough because of things like Ascribe... unless we override equals!
+    (a extract b, b extract a) match {
+      //case (Some((xs,xts)), Some((ys,yts))) => xs.keySet == ys.keySet && xts.keySet == yts.keySet
+      case (Some((xs,xts)), Some((ys,yts))) =>
+        val extractsHole: ((String, Rep)) => Boolean = {
+          case (k: String, HoleExtract(name)) if k == name => true
           case _ => false
         }
+        val extractsTypeHole: ((String, TypeRep)) => Boolean = {
+          case (k: String, TypeHoleRep(name)) if k == name => true
+          case _ => false
+        }
+        (xs forall extractsHole) && (ys forall extractsHole) && (xts forall extractsTypeHole) && (yts forall extractsTypeHole)
+      case _ => false
     }
   }
   

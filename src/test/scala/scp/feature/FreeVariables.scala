@@ -3,7 +3,7 @@ package feature
 
 import org.scalatest.FunSuite
 
-class ExplicitFreeVarTest extends FunSuite {
+class FreeVariables extends FunSuite {
   
   import TestDSL._
   
@@ -29,8 +29,46 @@ class ExplicitFreeVarTest extends FunSuite {
   }
   
   
+  test("Term Equivalence") {
+    
+    //val a = dsl"($$x: Int)"
+    //val b = dsl"($$x: Int):Int"
+    //println(a.rep extract b.rep, b.rep extract a.rep)
+    
+    assert(dsl"($$x: Int)" =~= dsl"($$x: Int)")
+    assert(!(dsl"($$x: Int)" =~= dsl"($$y: Int)"))
+    
+    assert(dsl"($$x: Int)" =~= dsl"($$x: Int):Int")
+    assert(!(dsl"($$x: Int)" =~= dsl"($$y: Int)+1"))
+    assert(!(dsl"($$x: Int)" =~= dsl"($$y: String)"))
+    
+    assert(dsl"($$x: Int) + ($$y: Int)" =~= dsl"($$x: Int) + ($$y: Int)")
+    
+    assert(!(dsl"($$x: Int) + ($$y: Int)" =~= dsl"($$y: Int) + ($$x: Int)"))
+    
+  }
+  
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
