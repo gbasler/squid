@@ -258,12 +258,15 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //case Ident(name) if !x.symbol.isTerm => q"" // FIXME: can happen when calling rec with a param valdef...
         case Ident(name) if ctx isDefinedAt x.symbol.asTerm => q"${ctx(x.symbol.asTerm)}"
           
-        case id @ Ident(name) =>
+        case id @ Ident(name) if !x.symbol.isModule =>
           throw EmbeddingException(s"Cannot refer to local variable '$name' (from '${id.symbol.owner}'). " +
             s"Use splicing '$$$name' in order to include the value in the DSL program.")
           
-        case q"$from.this.$name" =>
-          throw EmbeddingException(s"Cannot refer to member '$name' from '$from'")
+        case q"$from.this.$name" if !x.symbol.isModule =>  // !x.tpe.termSymbol.isModule
+          if (from.toString.nonEmpty)
+            throw EmbeddingException(s"""Cannot refer to member '$name' from '$from'.
+                                        |Try explicitly qualifying the name, as in '$from.$name'.""".stripMargin)
+          else throw EmbeddingException(s"""Cannot refer to member '$name'. Try explicitly qualifying it.""")
           
           /*
         case q"${x @ q"..$mods val ${name: TermName}: $_ = $v"}; $b" =>
@@ -324,6 +327,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"$base.spliceDeep($idt.rep).subs(..${bindings})"
           
           
+        case _ if x.tpe.termSymbol.isModule => // TODO try x.symbol
+          q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.tpe}].rep)"
+          
         case SelectMember(obj, f) =>
           
           val mod = obj.tpe.termSymbol.isModule
@@ -335,7 +341,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           
           //if (!lang.defs(dslDef)) throw EmbeddingException(s"Feature '$dslDef' is not supported in language '$lang'")
           
-          val fname = TermName(dslDef.deepName).encodedName.toTermName
+          //val fname = TermName(dslDef.deepName).encodedName.toTermName
           
           //val selfTargs = obj.tpe match {
           //  case TypeRef(_, _, ts) => ts map (typeToTreeChecking(_, parent)) //map typeToTree//(adaptType)
@@ -353,7 +359,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           }
           
           val tp = q"$Base.typeEv[${x.tpe}].rep"
-          val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
+          val self = lift(obj, x, Some(obj.tpe))
           
           x match {
               
@@ -365,8 +371,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               //val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
               //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
               
-              //q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, null)" // TODO tp: TypeRep
-              q"$Base.dslMethodApp($self, ${refMtd}, Nil, Nil, $tp)" // TODOne tp: TypeRep
+              q"$Base.methodApp($self, ${refMtd}, Nil, Nil, $tp)"
               
               
             case MultipleTypeApply(_, targs, argss) =>
@@ -401,7 +406,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               val targsTree = q"List(..${processedTargs map (tp => q"typeEv[$tp].rep")})"
               val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"
               
-              q"$Base.dslMethodApp($self, ${refMtd}, $targsTree, $args, $tp)" // TODOne tp: TypeRep
+              q"$Base.methodApp($self, ${refMtd}, $targsTree, $args, $tp)"
               
               
               

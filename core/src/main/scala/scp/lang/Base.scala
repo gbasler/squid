@@ -25,8 +25,8 @@ trait Base extends BaseDefs { base =>
   def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   
-  //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
-  def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
+  def moduleObject(fullName: String, tp: TypeRep): Rep
+  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
   
   type DSLSymbol
   def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol

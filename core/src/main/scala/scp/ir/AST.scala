@@ -1,8 +1,6 @@
 package scp
 package ir
 
-import utils.MacroUtils.StringOps
-
 import scala.collection.mutable
 import lang._
 
@@ -14,7 +12,7 @@ object AST {
 }
 
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
-trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
+trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
   
   
@@ -27,6 +25,7 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
+  // TODO move this to some other file
   protected def runRep(r: Rep): Any = {
     val t = toTree(r)
     println("Compiling tree: "+t)
@@ -42,16 +41,10 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
       case a: Abs =>
         val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
         q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
-      case dslm @ DSLMethodApp(self, mtd, targs, argss, tp) =>
-        val self2 = self map toTree getOrElse {
-          //val access = mtd.owner.fullName.splitSane('.').foldLeft(q"_root_": Tree) {
-          val access = dslm.mtd.path.foldLeft(q"_root_": Tree) {
-            case (acc, n) => q"$acc.${TermName(n)}"
-          }
-          //println(access)
-          //q"${mtd.owner}"
-          access
-        }
+      case dslm @ ModuleObject(fullName, tp) =>
+        q"${reflect.runtime.currentMirror.staticModule(fullName)}"
+      case dslm @ MethodApp(self, mtd, targs, argss, tp) =>
+        val self2 = toTree(self)
         val argss2 = argss map (_ map toTree)
         q"$self2 ${mtd.name} ...$argss2"
       case HoleExtract(n) => throw new Exception(s"Trying to build an open term! Variable '$n' is free.")
@@ -76,27 +69,9 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
     def extract(t: Rep): Option[Extract] = { // TODO check types
       //println(s"$this << $t")
       
-      //val reps = mutable.Buffer[(String, SomeRep)]
-      //transform(this){
-      //  case HoleExtract(name)
-      //  case r => r
-      //}
       val r: Option[Extract] = (this, t) match {
         case (HoleExtract(name), _) => // Note: will also extract holes... is it ok?
-          //Some(Map(name -> t) -> Map()) 
-          // TODO replace extruded symbols
-          //???
-          //val dom = binds.values.toSet
-          //val revBinds = binds.map(_.swap)
-          //val extruded = transform(t){
-          //  //case s: Symbol if dom(s) => HoleExtract(s.name)(TypeEv(s.tp)) // FIXME: that's not the right name!
-          //  case s: Symbol if revBinds isDefinedAt s => HoleExtract(revBinds(s).name)(TypeEv(s.tp)) // FIXME: that's not the right name!
-          //  case t => t
-          //}
-          //val extruded = t subs (revBinds mapValues(_.name))
-          
-          //val extruded = t subs (binds.mapValues(_.name).map(_.swap))
-          //Some(Map(name -> extruded) -> Map())
+          // wontTODO replace extruded symbols: not necessary here since we use holes to represent free variables (see case for Abs)
           Some(Map(name -> t) -> Map())
           
         case (Var(n1), HoleExtract(n2)) if n1 == n2 => Some(EmptyExtract) // FIXME safe?
@@ -114,7 +89,9 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
         case (a1: Abs, a2: Abs) =>
           //a1.body.extract(a2.fun(a1.param))
           a1.body.extract(a2.fun(a1.param.toHole))
-        case (DSLMethodApp(self1,mtd1,targs1,args1,tp1), DSLMethodApp(self2,mtd2,targs2,args2,tp2)) 
+        case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
+          Some(EmptyExtract) // Note: not necessary to test the types, right?
+        case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2)) // FIXME: is it necessary to test the ret types?
           if mtd1 == mtd2
         =>
           //println(s"$self1")
@@ -124,16 +101,8 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
           //if (tp1 <:< tp2) // no, if tp1 contains type holes it won't be accepted!
           
           for {
-            //s <- (self1, self2) match { //for (s1 <- self1; s2 <- self2) yield s1
-            //  case (Some(s1), Some(s2)) => Some(s1 extract s2)
-            //  case (None, None) => Some(None)
-            //  case _ => None
-            //}
-            s <- (self1, self2) match {
-              case (Some(s1), Some(s2)) => s1 extract s2
-              case (None, None) => Some(EmptyExtract)
-              case _ => None
-            }
+            s <- self1 extract self2
+            
             // TODOne check targs & tp
             t <- {
               val targs = (targs1 zip targs2) map { case (a,b) => a extract b }
@@ -186,9 +155,9 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
-  //def dslMethodApp[A,S](self: Option[SomeRep], mtd: DSLDef, targs: List[SomeTypeRep], args: List[List[SomeRep]], tp: TypeRep[A], run: Any): Rep[A,S]
-  def dslMethodApp(self: Option[Rep], mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
-    DSLMethodApp(self, mtd, targs, argss, tp)
+  def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
+  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
+    MethodApp(self, mtd, targs, argss, tp)
   
   def hole[A: TypeEv](name: String) = HoleExtract[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
@@ -253,9 +222,12 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
     //override def equals(that: Any) = value == that
   }
   
-  case class DSLMethodApp(self: Option[Rep], sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], typ: TypeRep) extends Rep {
-    lazy val mtd = DSLDef(sym.fullName, sym.info.toString, self.isEmpty)
-    override def toString = self.fold(mtd.path.last+".")(_.toString+".") + mtd.shortName +
+  case class ModuleObject(fullName: String, typ: TypeRep) extends Rep {
+    override def toString = fullName
+  }
+  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], typ: TypeRep) extends Rep {
+    lazy val mtd = DSLDef(sym.fullName, sym.info.toString, sym.isStatic)
+    override def toString = s"$self.${mtd.shortName}" +
       (targs.mkString("[",",","]")*(targs.size min 1)) +
       (argss map (_ mkString("(",",",")")) mkString)
   }
@@ -303,7 +275,8 @@ trait AST extends Base         with ScalaTyping { // TODO rm dep to ScalaTyping
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
       case ap @ App(fun, a) => App(tr(fun), tr(a))(TypeEv(ap.typ))
       case HoleExtract(name) => r //HoleExtract(name)
-      case DSLMethodApp(self, mtd, targs, argss, tp) => DSLMethodApp(self map tr, mtd, targs, argss map (_ map tr), tp)
+      case mo @ ModuleObject(fullName, tp) => mo
+      case MethodApp(self, mtd, targs, argss, tp) => MethodApp(tr(self), mtd, targs, argss map (_ map tr), tp)
       //case s: Symbol => s
       case v: Var => v
       case Const(_) => r
