@@ -132,11 +132,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             if (expanded == unapply.get.tpe) ""
             else s"\n|  which expands to: $expanded"
           }
-          |  seems incompatible with or is more specific than pattern type: Rep[${r.tpe}]${
+          |  seems incompatible with or is more specific than pattern type: Quoted[${r.tpe}, _]${
             if (typeHoles.isEmpty) ""
             else s"\n|  perhaps one of the type holes is unnecessary: " + typeHoles.mkString(", ")
           }
-          |Ascribe the scrutinee with ': Rep[_]' to remove this warning.""".stripMargin)
+          |Ascribe the scrutinee with ': Quoted[_,_]' to remove this warning.""".stripMargin)
           // ^ TODO
         }
         r

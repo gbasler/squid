@@ -92,6 +92,9 @@ class BaseDefs { base: Base =>
     def run(implicit ev: {} <:< Scp): Typ = runUnsafe
     lazy val runUnsafe: Typ = runRep(rep).asInstanceOf[Typ]
     
+    def cast[T >: Typ]: Quoted[T, Scp] = this
+    def erase: Quoted[Any, Scp] = this
+    
     override def toString = s"""dsl"$rep""""
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut

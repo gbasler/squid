@@ -32,7 +32,7 @@ class Matching extends FunSuite with ShouldMatchers {
     
     dsl"42.toDouble" match {
       case dsl"($x: Int).toDouble" =>
-        //show(x)
+        //show(x) // TODO test value
     }
     
   }
@@ -49,8 +49,16 @@ class Matching extends FunSuite with ShouldMatchers {
   
   test("GADT") {
     
-    (dsl"Appl[Int,Double]": Q[Expr[Double], {}]) match {
-      //case dsl"$a: App[$s,$t]" => println(a,s,t) // FIXME type tag for t,s...
+    (dsl"Appl[Int,Double]": Q[Expr[_], {}]) match {
+      case dsl"$a: Appl[$s,$t]" =>
+        assert(s.rep =:= typeRepOf[Int])
+        assert(t.rep =:= typeRepOf[Double])
+      case _ =>
+    }
+    
+    (dsl"Appl[Int,Double]": Q[Expr[_], {}]) match {
+      case dsl"$a: Expr[$t]" =>
+        assert(t.rep =:= typeRepOf[Double])
       case _ =>
     }
     
