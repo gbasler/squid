@@ -343,7 +343,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     ret
   }
   
-  def typ(r: Rep): TypeRep = null.asInstanceOf[TypeRep] // TODO
+  def typ(r: Rep): TypeRep = r.typ
   
   
   

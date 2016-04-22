@@ -20,10 +20,18 @@ class MyFunSuite extends FunSuite { funs =>
   //def matches[A](a: A)(pfs: PartialFunction[A,Unit]*) = {
   def matches(a: Q[_,_])(pfs: PartialFunction[Q[_,_],Unit]*) = {
     for (pf <- pfs) pf(a)
+    MatchesAnd(a)
+  }
+  case class MatchesAnd[T,C](a: Q[T,C]) {
+    def and (pf: PartialFunction[Q[_,_],Unit]) = {
+      pf(a)
+      this
+    }
   }
   
   implicit class Matches(self: Q[_,_]) {
     def matches(pfs: PartialFunction[Q[_,_],Unit]*) = funs.matches(self)(pfs: _*)
+    def eqt (that: Q[_,_]) = funs.eqt(self, that)
   }
   
 }

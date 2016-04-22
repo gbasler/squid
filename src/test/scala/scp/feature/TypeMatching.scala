@@ -10,11 +10,12 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
   import TestDSL._
   
   test("Trivial") {
-    dsl"42".erase match {
+    dsl"42" matches {
       case dsl"$x: Any" => eqt(x, dsl"42")
-    }
-    dsl"42".erase match {
-      case dsl"$_: $t" => eqt(t.rep, typeRepOf[Int])
+    } and {
+      case dsl"$x: $t" =>
+        eqt(t.rep, typeRepOf[Int])
+        eqt(t.rep, x.trep)
     }
   }
   
@@ -35,22 +36,33 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
         assert(a.rep =:= typeRepOf[Int])
     }
     f match {
-      //case dsl"$_: (Any => Double)" => fail // FIXME
+      case dsl"$_: (Any => Double)" => fail
       case dsl"$_: (Int => Any)" =>
+    }
+    
+    dsl"Some[Int=>Int](_+1)" matches {
+      case dsl"Some($f: ($ta => $tb))" =>
+        //println(ta,tb)
+        eqt(ta.rep, typeRepOf[Int])
+        eqt(tb.rep, typeRepOf[Int])
+    }
+    dsl"((x:Int)=>x+1,(x:Int)=>x-1)" matches {
+      case dsl"($_: ($ta => $tb), $_: (ta => tb))" => println(ta,tb)
+    } and {
+      case dsl"($_: ($ta => tb), $_: (ta => $tb))" => println(ta,tb)
     }
   }
   
   test("Extracting from Nothing") {
-    val x = dsl"Option.empty".cast[Option[_]]
-    x match {
+    
+    dsl"Option.empty" matches {
       case dsl"$y: Option[Int]" =>
-    }
-    x match {
+    } and {
       case dsl"$y: Option[$t]" => assert(t.rep =:= typeRepOf[Nothing])
-    }
-    x match {
+    } and {
       case dsl"$y: Option[Option[$t]]" => assert(t.rep =:= typeRepOf[Nothing])
     }
+    
   }
   
   

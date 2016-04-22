@@ -75,9 +75,9 @@ class BaseDefs { base: Base =>
   type SomeQ = Q[_,_]
   
   
-  //sealed case class Quoted[+Typ, -Scp](rep: Rep)(implicit val typ: TypeEv[Typ])//, val scp: Scope[Scp])
-  sealed case class Quoted[+Typ: TypeEv, -Scp](rep: Rep) {
-    val tpr = typeRepOf[Typ]
+  sealed case class Quoted[+Typ, -Scp](rep: Rep) {
+    def typ = QuotedType[Typ](trep)
+    def trep = base.typ(rep)
     
     type Type <: Typ
     
@@ -191,14 +191,14 @@ class BaseDefs { base: Base =>
     def transform(rewrites: Rewrite[_]*): Q[Typ,Scp] = {
       val r = base.transform(self.rep) {
         (r: Rep) =>
-          val qr = Quoted(r)(TypeEv(typ(r)))
+          val qr = Quoted(r)
           println("R "+rewrites.head.apply[Any].isDefinedAt(qr))
           //println("A "+rewrites.head.apply[Any](qr))
           rewrites collectFirst {
             case rewrite if rewrite.apply[Any].isDefinedAt(qr) => rewrite.apply[Any](qr).rep
           } getOrElse r
       }
-      Quoted(r)(TypeEv(typ(r)))
+      Quoted(r)
     }
     
     //def transform(rewrites: Rewrite[_]*): Q[Typ,Scp] = {

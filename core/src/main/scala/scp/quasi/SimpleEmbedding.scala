@@ -645,9 +645,13 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     
   }
   
+  val scp = q"_root_.scp"
+  
   def virtualize(t: Tree) = t transform {
     case q"if ($cond) $thn else $els" =>
-      q"_root_.tagless.lib.deep.IfThenElse($cond, $thn, $els)"
+      q"$scp.lib.IfThenElse($cond, $thn, $els)"
+    case q"while ($cond) $loop" =>
+      q"$scp.lib.While($cond, $loop)"
   }
   
   object SelectMember {

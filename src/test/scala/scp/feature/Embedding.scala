@@ -3,10 +3,45 @@ package feature
 
 import org.scalatest.FunSuite
 
-class Embedding extends FunSuite {
+class Embedding extends MyFunSuite {
   import Embedding._
   
   import TestDSL._
+  
+  test("Trivial") {
+    
+    dsl"42" matches {
+      case dsl"42" =>
+    }
+    dsl"42.toDouble + .5" matches {
+      case dsl"42.toDouble + 0.5" =>
+    }
+    
+  }
+  
+  test("Methods") {
+     import collection.mutable.Stack
+    
+    dsl"Stack[Int](1,42,2).push(0)" matches {
+      case dsl"Stack(1,$n,2).push($m)" =>
+        n eqt dsl"42"
+        m eqt dsl"0"
+    }
+    
+    dsl"Stack(42).map(_+1)" matches {
+      case dsl"Stack[$ta]($n).map($f: ta => $tb)" => eqt(f.trep, typeRepOf[Int => Int])
+    }
+    
+    dsl"Stack[Int](42).map(_+1).isEmpty" matches {
+      case dsl"Stack[Int](42).map(_+1).isEmpty" => // TODO
+    } and {
+      case dsl"Stack[$ta]($n).map($f: ta => $tb).isEmpty" =>
+        eqt(ta.rep, typeRepOf[Int])
+        eqt(tb.rep, typeRepOf[Int])
+        eqt(f.typ.rep, typeRepOf[Int => Int])
+    }
+    
+  }
   
   test("Curried Functions") {
     

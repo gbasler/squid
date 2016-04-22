@@ -97,6 +97,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     var splicedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
     
+    lazy val QTSym = symbolOf[Base#QuotedType[_]]
+    
     val pgrm = builder.tree transform { // TODO move this into SimpleEmbedding?
         
       //case Assign(Ident(name), value) if quasi.holes.contains(name) =>
@@ -132,17 +134,12 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           
           val hole = builder.holes(name.toTermName)
           
-          hole.tree.tpe match {
-            case TypeRef(tpbase,sym,args) =>
-              
-              // TODO hygiene: use real TypeRep, extracted from implicit base object
-              if (sym.name.toString != "TypeRep") throw EmbeddingException(s"Cannot splice type '$sym': it is not a TypeRep.")
-              
-              val tp = args.head
-              
+          hole.tree.tpe.baseType(QTSym) match {
+            case TypeRef(tpbase,QTSym,tp::Nil) if tpbase =:= base.tpe =>
               splicedTypes ::= ((name.toTypeName, tp, hole.tree))
-              
               tq"${tp}"
+            case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot splice type '${hole.tree.tpe}': it is not from base $base.")
+            case _ => throw EmbeddingException(s"Cannot splice type '${hole.tree.tpe}': it is not a QuotedType[_].")
           }
           
         }
@@ -199,8 +196,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
       //debug(vals)
       
       val treps = vals flatMap {
-        case (sym, TypeRef(pre, tsym, List(arg))) if tsym.name.toString == "TypeRep" => // TODO better check!
-          Some(sym.name.toTypeName, arg, q"$sym")
+        case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= base.tpe =>
+          Some(sym.name.toTypeName, tp, q"$sym")
         case _ => None
       }
       
@@ -209,8 +206,11 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
       treps
     }
     
+    debug(s"Found types in scope: ${typesInScope map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
+    
     splicedTypes :::= typesInScope
     
+    // FIXME: not safe to remove types in scope, because they may be used in the expr to typecheck...
     splicedTypes = splicedTypes filter {
       case (name, typ, tree) =>
         val impl = c.inferImplicitValue(c.typecheck(tq"TypeEv[$typ]", c.TYPEmode).tpe)
@@ -219,6 +219,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         impl == EmptyTree // only consider the spliced type if an implicit for it is not already in scope
         
     }
+    
+    debug(s"Spliced types: ${splicedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     
     
     
