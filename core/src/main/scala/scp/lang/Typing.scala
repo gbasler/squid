@@ -23,6 +23,56 @@ object InternalAccessor {
 }
 import InternalAccessor._
 
+object ScalaTyping {
+  
+  private var debugEnabled = false
+  private[ScalaTyping] def debug(x: => Any) = if (debugEnabled) println(x)
+  def debugTypes[T](x: => T): T = {
+    debugEnabled = true
+    try x
+    finally debugEnabled = false
+  }
+  
+  val Nothing = typeOf[Nothing]
+  val Any = typeOf[Any]
+  val AnyRef = typeOf[AnyRef]
+  val Function1 = typeOf[Any => Any].typeSymbol
+  
+  /*
+  protected[ScalaTyping] def mkTag[A](tp: ScalaType) =
+    TypeTag.apply[A](scala.reflect.runtime.currentMirror, new scala.reflect.api.TypeCreator {
+    //TypeTag.apply[A](mirror, new scala.reflect.api.TypeCreator {
+      def apply[U <: Universe with Singleton](m: api.Mirror[U]): U#Type = tp.asInstanceOf[U#Type]
+    })
+  private val NoTypeTagVal = ScalaTyping.mkTag(NoType)
+  protected[ScalaTyping] def NoTypeTag[A]: TypeTag[A] = NoTypeTagVal.asInstanceOf[TypeTag[A]]
+  */
+  
+  sealed abstract trait TypeHoleMarker[A]
+  
+  sealed abstract class Variance(val asInt: Int) {
+    def * (that: Variance) = Variance(asInt * that.asInt) //(this, that) match {}
+    def symbol = this match {
+      case Invariant => "="
+      case Covariant => "+"
+      case Contravariant => "-"
+    }
+    override def toString = s"[$symbol]"
+  }
+  object Variance {
+    def apply(asInt: Int) = asInt match {
+      case 0 => Invariant
+      case 1 => Covariant
+      case -1 => Contravariant
+    }
+    def of (s: TypeSymbol) =
+      if (s.isCovariant) Covariant else if (s.isContravariant) Contravariant else Invariant
+  }
+  case object Invariant extends Variance(0)
+  case object Covariant extends Variance(1)
+  case object Contravariant extends Variance(-1)
+}
+
 /**
   * TODO put TypeRep in companion object
   * 
@@ -39,6 +89,7 @@ import InternalAccessor._
   */
 trait ScalaTyping extends Base {
   import ScalaTyping._
+  import Variance._
   
   //type TypeExt = TypeRep[_]
   
@@ -97,30 +148,32 @@ trait ScalaTyping extends Base {
     def =:= (that: TypeRep) = typ =:= that.typ
     def <:< (that: TypeRep) = typ <:< that.typ
     
-    def extract(tp: TypeRep): Option[Extract] = {
+    def extract(tp: TypeRep, va: Variance): Option[Extract] = {
       debug("Match "+tp+" with "+this)
       (this, tp) match {
         case (_, TypeHoleRep(_)) => throw new IllegalArgumentException // TODO BE
         case (TypeHoleRep(holeName), tp) => Some(Map() -> Map(holeName -> tp))
         //case (ScalaTypeRep(tag0, targs0 @ _*), ScalaTypeRep(tag1, targs1 @ _*)) =>
         case (tr0: ScalaTypeRep, tr1: ScalaTypeRep) =>
-          extractTp(tp.typ)
+          extractTp(tp.typ, va)
       }
     }
     
-    protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract]
+    protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract]
     
-    override def toString = s"$typ"
+    //override def toString = s"$typ"
   }
-  
-  val Nothing = typeOf[Nothing]
   
   trait ScalaTypeRep extends TypeRep {
     
     val typ: ScalaType
     def targs: Seq[TypeRep]
     
-    protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
+    //protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance = Invariant): Option[Extract] = {
+    protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract] = {
+      
+      //debug(s"$va Match $xtyp with $typ")
+      debug(s"$va Match $xtyp with $this")
       
       //if (!(xtyp <:< typ)) return None // Incorrect: subtyping may not hold because types with holes contain NoType's
       
@@ -131,33 +184,107 @@ trait ScalaTyping extends Base {
           
           ??? // TODO
 
-        case _ =>
-          val base = xtyp.baseType(typ.typeSymbol)
-          
-          val baseTargs = if (base == NoType) {
-            debug(s"$xtyp not an instance of ${typ.typeSymbol}")
-            
-            if (xtyp <:< typ) {
-              debug(s"... but $xtyp is still somehow a subtype of ${typ}")
-              assert(xtyp <:< Nothing,
-                s"$xtyp <:< $typ but !($xtyp <:< Nothing) and ${typ.typeSymbol} is not a base type of $xtyp")
-              
-              Stream continually Nothing
-            }
-            else return None
+        // TODO put this at the right place!
+        case TypeRef(_, sym, arg :: Nil) if sym == symbolOf[TypeHoleMarker[_]] =>
+          arg match {
+            case ConstantType(Constant(name: String)) =>
+              Some(Map() -> Map(name -> SimpleTypeRep(xtyp)))
           }
-          else base.typeArgs.toStream
           
-          debug(targs, base.typeArgs)
+        case _ =>
           
-          //val extr = (targs zip base.typeArgs) map { case (a,b) => a.rep.extractTp(b) getOrElse (return None) }
-          val extr = (targs zip baseTargs) map { case (a,b) => a.extractTp(b) getOrElse (return None) }
+          // TODO *va
           
-          Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
+          if (va == Contravariant && xtyp.typeSymbol != typ.typeSymbol) {
+            
+            //debug(s"[Contra] is $typ an instance of ${xtyp.typeSymbol}?")
+            
+            val baseTargs = typ.baseType(xtyp.typeSymbol) match {
+              case NoType =>
+                debug(s"$va $typ is not an instance of ${xtyp.typeSymbol}")
+                if (typ <:< xtyp) {
+                  debug(s"... but $typ is still somehow a subtype of ${xtyp}")
+                  //assert(Any <:< xtyp,
+                  //  s"$typ <:< $xtyp but !($xtyp >:> Any) and ${xtyp.typeSymbol} is not a base type of $typ")
+                assert(typ <:< Nothing,
+                  s"$typ <:< $xtyp but !($typ <:< Nothing) and ${xtyp.typeSymbol} is not a base type of $typ")
+                  Stream continually Nothing
+                }
+                else return None
+              case base =>
+                //debug(base)
+                //debug(s"[Contra] $typ is an instance of ${xtyp.typeSymbol} as '$base'")
+                debug(s"$va $typ is an instance of ${xtyp.typeSymbol} as '$base'")
+                base.typeArgs.toStream
+            }
+            
+            //debug(s"$va ZIP: $targs | ${baseTargs.toSeq}")
+            debug(s"$va Extr Targs(inv case): " +
+              //(targs zip baseTargs zip (xtyp.typeSymbol.asType.typeParams map (Variance of _.asType) map (_ * va)) mkString " "))
+              (baseTargs zip xtyp.typeArgs zip (xtyp.typeSymbol.asType.typeParams map (Variance of _.asType) map (_ * va)) mkString " "))
+            
+            assert(!baseTargs.hasDefiniteSize || xtyp.typeArgs.size == baseTargs.size)
+            
+            //val extr = (targs zip baseTargs zip xtyp.typeSymbol.asType.typeParams) map {
+            //  //case ((a,b), p) => a.extractTp(b, (Variance of p.asType) * va) getOrElse (return None) }
+            //  case ((a,b), p) => SimpleTypeRep(b).extractTp(a.typ, (Variance of p.asType) * va) getOrElse (return None) }
+            val extr = (baseTargs zip xtyp.typeArgs zip xtyp.typeSymbol.asType.typeParams) map {
+              case ((a,b), p) => SimpleTypeRep(a).extractTp(b, (Variance of p.asType) * va) getOrElse (return None) }
+            
+            Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
+            
+            //???
+            
+          //} else {
+          //  if (va == Invariant && xtyp.typeSymbol != typ.typeSymbol) {
+          } else if (va == Invariant && xtyp.typeSymbol != typ.typeSymbol) {
+            debug(s"${xtyp.typeSymbol} and ${typ.typeSymbol} cannot be compared invariantly")
+            //return
+            None
+          } else {
+            
+            val base = xtyp.baseType(typ.typeSymbol)
+            
+            val baseTargs = if (base == NoType) {
+              debug(s"$xtyp not an instance of ${typ.typeSymbol}")
+              
+              if (xtyp <:< typ) {
+                debug(s"... but $xtyp is still somehow a subtype of ${typ}")
+                assert(xtyp <:< Nothing,
+                  s"$xtyp <:< $typ but !($xtyp <:< Nothing) and ${typ.typeSymbol} is not a base type of $xtyp")
+                
+                Stream continually Nothing
+              }
+              else return None
+            }
+            else base.typeArgs.toStream
+            
+            //debug("Extr Targs: " + (targs zip baseTargs mkString " "))
+            debug(s"$va Extr Targs: " +
+              (targs zip baseTargs zip (typ.typeSymbol.asType.typeParams map (Variance of _.asType) map (_ * va)) mkString " "))
+            
+            assert(!baseTargs.hasDefiniteSize || targs.size == baseTargs.size)
+            
+            //val extr = (targs zip base.typeArgs) map { case (a,b) => a.rep.extractTp(b) getOrElse (return None) }
+            //val extr = (targs zip baseTargs) map { case (a,b) => a.extractTp(b) getOrElse (return None) }
+            val extr = (targs zip baseTargs zip typ.typeSymbol.asType.typeParams) map {
+              case ((a,b), p) => a.extractTp(b, (Variance of p.asType) * va) getOrElse (return None) }
+            
+            Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
+        }
       }
       
     }
     
+    //override def toString = s"$typ"
+    //override def toString = s"${typ.typeSymbol.name}[]"  
+    override def toString = {
+      assert(typ.typeArgs.size == targs.size)
+      typ.typeSymbol match {
+        case Function1 => s"${targs(0)} => ${targs(1)}"
+        case s => s.name + (if (typ.typeArgs isEmpty) "" else s"[${targs mkString ","}]")
+      }
+    }  
     
     override def equals(that: Any) = that match {
       case str: ScalaTypeRep => typ =:= str.typ
@@ -196,12 +323,35 @@ trait ScalaTyping extends Base {
   //  override def hashCode = name.##
   //  
   //}
-  case class TypeHoleRep[A](name: String)(implicit val tag: TypeTag[A]) extends TypeRep {
-    val typ = tag.tpe
-    protected[ScalaTyping] def extractTp(xtyp: ScalaType): Option[Extract] = {
+  //case class TypeHoleRep[A](name: String)(implicit val tag: TypeTag[A]) extends TypeRep {
+  case class TypeHoleRep[A](name: String) extends TypeRep {
+    //val typ = tag.tpe
+    //val typ = internal.typeRef(???,???,Nil)
+    //lazy val typ = {
+    //  val owner = AnyRef.typeSymbol.owner
+    //  internal.refinedType(AnyRef :: Nil, owner, internal.newScopeWith(
+    //    internal.newTermSymbol(owner, TermName("<hole>"+name))))
+    //}
+    lazy val typ = {
+      val ms = symbolOf[TypeHoleMarker[_]]
+      internal.typeRef(internal.thisType(symbolOf[ScalaTyping.type]), ms, internal.constantType(Constant(name)) :: Nil)
+    }
+    //println(typ)
+    
+    //protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance = Invariant): Option[Extract] = {
+    protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract] = {
+      //println(xtyp, xtyp==NoType)
       //val rep = ScalaTypeRep(xtyp.typeSymbol.fullName) // It is safe not to fill-in the targs because the targs are only used in extractors
+      
       val rep = SimpleTypeRep(xtyp) // FIXME is it safe to get the type args from 'xtyp.typ' ?? (what about holes etc.?)
-      debug("Extr "+rep)
+      
+      //val rep = xtyp match {
+      //  case NoType => 
+      //    //typeHole()
+      //    ???
+      //  case _ => SimpleTypeRep(xtyp) // FIXME is it safe to get the type args from 'xtyp.typ' ?? (what about holes etc.?)
+      //}
+      debug(s"Extr $name -> $rep")
       Some(Map() -> Map(name -> rep))
     }
     override def equals(that: Any) = that match {
@@ -209,8 +359,8 @@ trait ScalaTyping extends Base {
       case _ => false
     }
     override def hashCode = name.##
+    override def toString = s"$$$name"
   }
-  
   
   def typEq(a: TypeRep, b: TypeRep): Boolean = a =:= b
   
@@ -219,7 +369,9 @@ trait ScalaTyping extends Base {
   ////type Tag[A] = TypeTag[A]
   ////def typeHole[A: TypeTag](name: String): TypeRep[A] = TypeHoleRep[A](name)
   //def typeHole[A](name: String): TypeRep[A] = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
-  def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
+  //def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)(ScalaTyping.NoTypeTag[A])
+  def typeHole[A](name: String): TypeRep = TypeHoleRep[A](name)
+  //def typeHole[A](name: String): TypeRep = ??? // FIXME not used; adapt API and ScalaTypingMacros.typeRep
   
   
   //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B] = {
@@ -227,6 +379,9 @@ trait ScalaTyping extends Base {
   //  implicit val B = typeEv[B].rep.tagAs[B]
   //  TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
   //}
+  implicit def funType(a: TypeRep, b: TypeRep): TypeRep = {
+    DynamicTypeRep(symbolOf[Any => Any].fullName, a, b)
+  }
   
   
   //implicit def typeAll[A: TypeTag]: TypeEv[A] = TypeEv(ScalaTypeRep(typeTag[A]))
@@ -242,18 +397,7 @@ trait ScalaTyping extends Base {
   */
   
 }
-object ScalaTyping {
-  
-  //def debug(x: => Any) = println(x)
-  def debug(x: => Any) = ()
-  
-  protected[ScalaTyping] def mkTag[A](tp: ScalaType) =
-    TypeTag.apply[A](scala.reflect.runtime.currentMirror, new scala.reflect.api.TypeCreator {
-    //TypeTag.apply[A](mirror, new scala.reflect.api.TypeCreator {
-      def apply[U <: Universe with Singleton](m: api.Mirror[U]): U#Type = tp.asInstanceOf[U#Type]
-    })
-  private val NoTypeTagVal = ScalaTyping.mkTag(NoType)
-  protected[ScalaTyping] def NoTypeTag[A]: TypeTag[A] = NoTypeTagVal.asInstanceOf[TypeTag[A]]
+//object ScalaTyping {
   
   //implicit def typTrans[B1 <: ScalaTyping, B2 <: ScalaTyping]: (B1#TypeRep[Any] ~> B2#TypeRep[Nothing]) = new (B1#TypeRep[Any] ~> B2#TypeRep[Nothing]) {
   //  def apply(v1: B1#TypeRep[Any]) = v1.asInstanceOf[B2#TypeRep[Nothing]]
@@ -328,11 +472,11 @@ object ScalaTyping {
     //null
   }
   */
-}
+//}
 
 import reflect.macros.blackbox
 class ScalaTypingMacros(val c: blackbox.Context) {
-  import ScalaTyping.debug
+  import ScalaTyping.debugEnabled
   
   type Ctx = c.type
   val Ctx: c.type = c
@@ -348,6 +492,7 @@ class ScalaTypingMacros(val c: blackbox.Context) {
       && (tp.baseType(symbolOf[Base.HoleType]) != NoType) => // we have `Nothing <: HoleType`, but Nothing does not 'really' extend HoleType
         //debug("HOLE "+tp)
         q"$base.typeHole[$tp](${tp.typeSymbol.name.toString})"
+        //q"$base.TypeHoleRep[$tp](${tp.typeSymbol.name.toString})()"
       case TypeRef(_, sym, args) =>
         //if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
         //q"$base.ScalaTypeRep(${sym.fullName.toString}, ..${args map (t => q"TypeEv(${typeRep(base,t)})")})"

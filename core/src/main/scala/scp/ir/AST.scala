@@ -6,6 +6,8 @@ import lang._
 
 import scala.reflect.runtime.{universe => ru}
 
+import ScalaTyping.Variance
+
 /**
   * TODO: add a lock on the HashMap...
   * Also, we could share objects that are equal instead of cluttering the table (but that'd require a bidirectional map)
@@ -56,7 +58,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         
       // Types that can be lifted as literals:
       case Const(_: Int) | Const(_: Long) | Const(_: Float) | Const(_: Double) | Const(_: Byte)
-           | Const(_: String) | Const(_: Symbol)
+           | Const(_: String) | Const(_: Symbol) | Const(())
            | Const(_: scala.reflect.api.Types#TypeApi) | Const(_: scala.reflect.api.Symbols#SymbolApi) // matching Types#Type is unchecked (erasure)
       => ru.Literal(ru.Constant(r.asInstanceOf[Const[_]].value)) // Note: if bad types passed, raises 'java.lang.Error: bad constant value'
         
@@ -161,7 +163,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
             
             // TODOne check targs & tp
             t <- {
-              val targs = (targs1 zip targs2) map { case (a,b) => a extract b }
+              val targs = (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Variance of p.asType) }
               (Some(EmptyExtract) :: targs).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
                 case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
             }
@@ -251,7 +253,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     val param = Var(pname)(ptyp)
     val body = fun(param)
     
-    val typ = body.typ
+    //val typ = funType(TypeEv(ptyp), TypeEv(body.typ)).rep
+    val typ = funType(ptyp, body.typ)
     
     def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
     override def toString = body match {
@@ -272,7 +275,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     
     override def extract(t: Rep): Option[Extract] = {
       val r0 = value.extract(t) getOrElse (return None)
-      (typ extract t.typ) flatMap (m => merge(r0, m))
+      (typ extract (t.typ, ScalaTyping.Covariant)) flatMap (m => merge(r0, m))
     }
     
     //override def equals(that: Any) = value == that

@@ -7,8 +7,6 @@ import org.scalatest.ShouldMatchers
 import utils.Debug._
 
 class Matching extends FunSuite with ShouldMatchers {
-  import Matching._
-  
   import TestDSL._
   
   test("Type Ascription") {
@@ -55,33 +53,8 @@ class Matching extends FunSuite with ShouldMatchers {
     
   }
   
-  // Note: defining 'Expr' and 'Appl' here used to work; no more since symbols are now loaded automatically
-  
-  test("GADT") {
-    
-    (dsl"Appl[Int,Double]": Q[Expr[_], {}]) match {
-      case dsl"$a: Appl[$s,$t]" =>
-        assert(s.rep =:= typeRepOf[Int])
-        assert(t.rep =:= typeRepOf[Double])
-      case _ =>
-    }
-    
-    (dsl"Appl[Int,Double]": Q[Expr[_], {}]) match {
-      case dsl"$a: Expr[$t]" =>
-        assert(t.rep =:= typeRepOf[Double])
-      case _ =>
-    }
-    
-  }
-  
   
 }
-
-object Matching {
-  class Expr[A]
-  class Appl[A,B] extends Expr[B]
-  object Appl { def apply[A,B] = new Appl[A,B] }
-}  
 
 
 

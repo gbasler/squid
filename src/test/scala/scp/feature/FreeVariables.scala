@@ -1,9 +1,7 @@
 package scp
 package feature
 
-import org.scalatest.FunSuite
-
-class FreeVariables extends FunSuite {
+class FreeVariables extends MyFunSuite {
   
   import TestDSL._
   
@@ -29,8 +27,8 @@ class FreeVariables extends FunSuite {
   }
   
   test("Rep extraction") {
-    assert(dsl"Some($$x:Any)".rep extract dsl"Some(42)".rep isDefined)
-    assert(dsl"Some(42)".rep extract dsl"Some($$x:Any)".rep isEmpty)
+    hopefully(dsl"Some($$x:Int)".rep extract dsl"Some(42)".rep isDefined)
+    hopefully(dsl"Some(42)".rep extract dsl"Some($$x:Int)".rep isEmpty)
   }
   
   test("Term Equivalence") {

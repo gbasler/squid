@@ -568,7 +568,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           case Left(vname) => termTypesToExtract(vname)
           case Right(tname) => typeTypesToExtract(tname) // TODO B/E
         }
-        debug("Extracted Types: "+extrTyps.mkString(" "))
+        debug("Extracted Types: "+extrTyps.mkString(", "))
         
         val extrTuple = tq"(..$extrTyps)"
         debug("Type to extract: "+extrTuple)
@@ -583,8 +583,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             q"QuotedType[${typeHoleInfo(name)}](_maps_._2(${name.toString}))"
         }
         
-        val valKeys = q"Set(..${termHoles.map(_.toString)})"
-        val typKeys = q"Set(..${typeHoles.map(_.toString)})"
+        val valKeys = termHoles.map(_.toString)
+        val typKeys = typeHoles.map(_.toString)
         
         
         //val defs = typeHoles flatMap { typName =>
@@ -633,9 +633,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             ..$dslDefs
             def unapply(_t_ : SomeQ): $scal.Option[$extrTuple] = {
               val _term_ = $res
-              $Base.extract(_term_, _t_.rep) map { _maps_ =>
-                assert(_maps_._1.keySet == $valKeys, "Extracted value keys "+_maps_._1.keySet+" do not correspond to specified keys "+$valKeys)
-                assert(_maps_._2.keySet == $typKeys, "Extracted type keys "+_maps_._2.keySet+" do not correspond to specified keys "+$typKeys)
+              $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
+                val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)
                 (..$tupleConv)
               }
             }

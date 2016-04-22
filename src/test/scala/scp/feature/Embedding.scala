@@ -34,12 +34,10 @@ class Embedding extends FunSuite {
   test("List, Option") {
     
     dsl"Some(1.2)".erase match {
-      case dsl"Some[Double]($_)" =>
-    }
-    dsl"Some(1.2)".erase match {
       case dsl"Some($_)" => fail
       case dsl"Some[Nothing]($_)" => fail
-      case dsl"Some[Any]($_)" =>
+      case dsl"Some[Any]($_)" => fail // method type args are seen as qinvariant (we maybe could do better but it'd require non-trivial analysis)
+      case dsl"Some[Double]($_)" =>
     }
     dsl"Option.empty: Option[Double]" match {
       //case dsl"Option.empty[Double]" => fail // FIXME?
@@ -58,9 +56,6 @@ class Embedding extends FunSuite {
       case dsl"List($_,$_,None,None)" => fail
       //case dsl"List(Some[Any]($_),Option[Any]($_),Option.empty[Any],None)" =>
       case dsl"List[Option[Double]](Some[Double]($_),Option[Double]($_),($_:Option[Double]),None)" =>
-    }
-    ls.erase match {
-      case dsl"List(Some[Any]($_),Option[Any]($_),Option.empty[Any],None)" =>
     }
     ls.erase match {
       case dsl"$_: List[Nothing]" => fail
