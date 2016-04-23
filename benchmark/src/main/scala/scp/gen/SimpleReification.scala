@@ -7,7 +7,8 @@ import scala.reflect.runtime.universe._
   */
 object SimpleReification {
   
-  def apply(useQQ: Boolean, numClasses: Int, numMethodsPerClass: Int, numMethodUses: Int = 2) = {
+  def apply(useQQ: Boolean, numClasses: Int, numMethodsPerClass: Int, numMethodUses: Int = 2, withClasses: Boolean = false, separateQQ: Boolean = false) = {
+    require(!separateQQ || !useQQ)
     
     //def rep(t: Tree) = if (useQQ) q"Quoted[$t, {}]" else q"Exp[$t]"
     //def rep(t: Tree) = if (useQQ) t else tq"Exp[$t]"
@@ -36,18 +37,23 @@ object SimpleReification {
     
     val reif = if (useQQ) q"StringContext(${showCode(pgrm)}).dsl()" else pgrm
     
-    val importDSL = if (useQQ) q"import TestDSL._" else q"import gen.TestDSLExp._"
+    val importDSL =
+      if (useQQ) q"import TestDSL._" :: q"import _root_.scp.generated.Shallow._" :: Nil // :: q"import _root_.scp.generated.Shallow.DSLClass2" :: Nil
+      else q"import _root_.scp.gen.TestDSLExp._" :: q"import _root_.scp.generated.Deep._" :: Nil
     
-    val classDefs = classDefss map (_ head)
+    //val classDefs = classDefss map (_ head)
+    val classDefs = if (withClasses) classDefss map (_ head) else Nil
     
     q"""
       object Main {
         import scp._
-        $importDSL
-        ..${classDefss.flatten}
+        ..$importDSL
+        ..$classDefs
         $reif
       }
     """
+        //import generated._
+        //..${classDefss.flatten}
     
   }
   

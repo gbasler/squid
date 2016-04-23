@@ -45,8 +45,10 @@ lazy val benchmark = (project in file("benchmark")).
   settings(
     
     // ScalaMeter (http://scalameter.github.io/home/gettingstarted/0.7/sbt/index.html)
-    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
-    fork := true
+    //libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
+    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.8-SNAPSHOT"),
+    fork := true/*,
+    resultDir := ""*/
     
     //testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
     //parallelExecution in Test := false

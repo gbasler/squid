@@ -10,8 +10,11 @@ import scp.gen.SimpleReification
   */
 //object CompileTime extends Bench.OfflineReport {
 //object CompileTime extends Bench.Local[Double] {
-object CompileTime extends Bench.LocalTime {
+//object CompileTime extends Bench.LocalTime {
+object CompileTime extends Bench.OfflineRegressionReport {
   override def aggregator: Aggregator[Double] = Aggregator.median
+  override val tester = Tester.Accepter()
+  override val historian = Historian.Complete()
   
   //def reporter: Reporter[Double] = Reporter.Composite(
   //    new RegressionReporter(tester, historian),
@@ -36,12 +39,14 @@ object CompileTime extends Bench.LocalTime {
   //val nbClasses = Gen.range("Number of classes")(1, 12, 3)
   //val nbClasses = Gen.range("Number of classes")(1, 2, 1)
   val nbClasses = Gen.range("Number of classes")(1, 1, 1)
+  //val nbClasses = Gen.range("Number of classes")(1, 10, 5)
   
   def testSetups(qq: Boolean) = for { n <- nbClasses } yield {
     import scala.tools.reflect.ReflectGlobal
     
     //val pgrm = showCode(SimpleReification(qq, n, 5))
     val pgrm = showCode(SimpleReification(qq, n, 2)) ////////////////////////////////////////////
+    //val pgrm = showCode(SimpleReification(qq, n, 3))
     
     val compiler = new ReflectGlobal(nscSettings, nscReporter, getClass.getClassLoader)
     //val run = new compiler.Run
@@ -51,7 +56,9 @@ object CompileTime extends Bench.LocalTime {
   
   performance of "Compilation" in {
     
-    measure method "QQ" in {
+    //measure method "QQ Together" in { // TODO
+    
+    measure method "QQ Separate" in {
       using(testSetups(true)) in { case (compiler, pgrm) =>
         val run = new compiler.Run
         
