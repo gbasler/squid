@@ -8,7 +8,7 @@ import scala.reflect.runtime.universe._
 object SimpleReification {
   
   def apply(useQQ: Boolean, numClasses: Int, numMethodsPerClass: Int, numMethodUses: Int = 2, withClasses: Boolean = false, separateQQ: Boolean = false) = {
-    require(!separateQQ || !useQQ)
+    require(useQQ || !separateQQ) // if not useQQ, then separateQQ should not be set
     
     //def rep(t: Tree) = if (useQQ) q"Quoted[$t, {}]" else q"Exp[$t]"
     //def rep(t: Tree) = if (useQQ) t else tq"Exp[$t]"
@@ -28,14 +28,17 @@ object SimpleReification {
         case (acc, mname) => q"$acc $mname x"
       }
       val function =
-        if (useQQ) q"(x: $cname) => $methodUses"
+        if (useQQ)
+          //if (separateQQ) q"""dsl"(x: $cname) => $methodUses""""
+          if (separateQQ) q"StringContext(${ showCode(q"(x: $cname) => $methodUses") }).dsl()"
+          else q"(x: $cname) => $methodUses"
         else q"((x: ${rep(Ident(cname))}) => $methodUses) : ${rep(tq"($cname => $cname)")}"
       (q"class $cname { ..$methodDefs }" :: ops) -> function
     } unzip;
     
     val pgrm = q"..$classUses"
     
-    val reif = if (useQQ) q"StringContext(${showCode(pgrm)}).dsl()" else pgrm
+    val reif = if (useQQ && !separateQQ) q"StringContext(${showCode(pgrm)}).dsl()" else pgrm
     
     val importDSL =
       if (useQQ) q"import TestDSL._" :: q"import _root_.scp.generated.Shallow._" :: Nil // :: q"import _root_.scp.generated.Shallow.DSLClass2" :: Nil

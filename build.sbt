@@ -45,9 +45,10 @@ lazy val benchmark = (project in file("benchmark")).
   settings(
     
     // ScalaMeter (http://scalameter.github.io/home/gettingstarted/0.7/sbt/index.html)
-    //libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
-    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.8-SNAPSHOT"),
-    fork := true/*,
+    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
+    //libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.8-SNAPSHOT"),
+    fork := true // otherwise runs of the compiler won't find macro definitions 
+    /*,
     resultDir := ""*/
     
     //testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
@@ -55,6 +56,15 @@ lazy val benchmark = (project in file("benchmark")).
   ).
   dependsOn(main)
 
+
+val SCVersion = "0.1.2-SNAPSHOT"
+
+lazy val scBackend = (project in file("sc-backend")).
+  settings(commonSettings: _*).
+  settings(
+    libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
+  ).
+  dependsOn(core)
 
 
 

@@ -5,7 +5,7 @@ import scala.tools.reflect.{ReflectGlobal, ToolBoxFactory}
 /**
   * Created by lptk on 07/04/16.
   */
-class Test(useQQ: Boolean, withClasses: Boolean = false, useToolbox: Boolean = false) {
+class Test(useQQ: Boolean, withClasses: Boolean = false, separateQQ: Boolean = false, useToolbox: Boolean = false) {
   import scp._
   import gen._
   
@@ -17,7 +17,7 @@ class Test(useQQ: Boolean, withClasses: Boolean = false, useToolbox: Boolean = f
   //showCode(SimpleReification(false, 2, 2, 2))
   
   //showCode(SimpleReification(true, 2, 2, 2))
-  val reif = SimpleReification(useQQ, 2, 2, 2, withClasses)
+  val reif = SimpleReification(useQQ, 2, 2, 2, withClasses, separateQQ = separateQQ)
   //val reif = SimpleReification(useQQ, 10, 10, 2, withClasses)
   println(showCode(reif))
   
@@ -64,8 +64,9 @@ class Test(useQQ: Boolean, withClasses: Boolean = false, useToolbox: Boolean = f
 
 /** Note: may not work in normal sbt run because of weird classpath issues; but will work in a forked run or in an IDE like IntelliJ */
 object Test extends App {
+  //new Test(false)
   //new Test(true)
-  new Test(false)
+  new Test(true, separateQQ = true)
   //new Test(true, withClasses = true)
   //new Test(false, withClasses = true)
   
