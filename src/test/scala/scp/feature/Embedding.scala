@@ -68,10 +68,12 @@ class Embedding extends MyFunSuite {
   
   test("List, Option") {
     
-    dsl"Some(1.2)".erase match {
+    dsl"Some(1.2)" matches {
       case dsl"Some($_)" => fail
       case dsl"Some[Nothing]($_)" => fail
-      case dsl"Some[Any]($_)" => fail // method type args are seen as qinvariant (we maybe could do better but it'd require non-trivial analysis)
+      //case dsl"Some[Any]($_)" => fail // method type args are seen as invariant (we maybe could do better but it'd require non-trivial analysis)
+      case dsl"Some[Any]($_)" => // now method type args are seen as covariant
+    } and {
       case dsl"Some[Double]($_)" =>
     }
     dsl"Option.empty: Option[Double]" match {

@@ -5,8 +5,7 @@ import scala.collection.mutable
 import lang._
 
 import scala.reflect.runtime.{universe => ru}
-
-import ScalaTyping.Variance
+import ScalaTyping.{Covariant, Variance}
 
 /**
   * TODO: add a lock on the HashMap...
@@ -163,7 +162,12 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
             
             // TODOne check targs & tp
             t <- {
-              val targs = (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Variance of p.asType) }
+              /** The following used to end with '... extract (b, Variance of p.asType)', but method type parameters
+                * seem to always be tagged as invariant anyway.
+                * This was kinda restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
+                * We now match method type parameters covariantly, although I'm not sure it is sound. 
+                */
+              val targs = (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) }
               (Some(EmptyExtract) :: targs).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
                 case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
             }
