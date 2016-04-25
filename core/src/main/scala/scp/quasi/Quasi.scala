@@ -116,23 +116,27 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         if (unapply) {
           //q"holeExtract()"
           //val n = h.name.filter(_.toString != "_").map(n => q"$n").getOrElse(h.tree)
-          val n = h.name.filter(_.toString != "_").map(_.toTermName)getOrElse(c.freshName(TermName("ANON_HOLE"))) // FIXME hygiene?
+          val n = h.name.filter(_.toString != "_") map (_.toTermName) getOrElse // hygiene? (can taking the name as specified by the user make collisions?)
+            c.freshName(TermName("ANON_HOLE"))
           holes ::= Left(n)
-          q"$n"
+          if (h.vararg) q"$n: _*"
+          else q"$n"
         } else {
-          q"splice(${h.tree})"
+          //if (h.vararg) q"splice(${h.tree}): _*"
+          if (h.vararg) q"spliceVararg(${h.tree}): _*"
+          else q"splice(${h.tree})"
         }
         
-      case Ident(name) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position
+      case Ident(name) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
+        val hole = builder.holes(name.toTermName)
+        if (hole.vararg) throw EmbeddingException(s"Varargs are not supported in type position.${showPosition(hole.tree.pos)}") // (for hole '${hole.tree}').")
         if (unapply) {
-          val n = builder.holes(name.toTermName).name.filter(_.toString != "_")
+          val n = hole.name.filter(_.toString != "_")
             .getOrElse(throw EmbeddingException("All extracted types should be named.")).toTypeName // TODO B/E // TODO relax? // TODO catch!
           holes ::= Right(n)
           tq"$n"
         }
         else { // apply
-          
-          val hole = builder.holes(name.toTermName)
           
           hole.tree.tpe.baseType(QTSym) match {
             case TypeRef(tpbase,QTSym,tp::Nil) if tpbase =:= base.tpe =>

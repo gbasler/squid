@@ -125,6 +125,8 @@ class BaseDefs { base: Base =>
   
   //def splice[A,S:Scope](x: Q[A,S]): A = ??? // TODO better error
   def splice[A,S](x: Q[A,S]): A = ??? // TODO better error
+  def spliceVararg[A,S](x: Seq[Q[A,S]]): Seq[A] = ??? // TODO better error
+  
   //implicit def spliceDeep[A: Lift](x: A): Rep[A] = implicitly[Lift[A]].apply(x)
   //implicit def spliceDeep[A](x: Rep[A]): Rep[A] = x
   implicit def spliceDeep(x: Rep): Rep = x

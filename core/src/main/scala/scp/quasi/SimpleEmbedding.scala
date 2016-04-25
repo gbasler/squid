@@ -230,7 +230,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //debug("Extr", _expectedType)
           
           //typesToExtract(name) = tq"Rep[${_expectedType}]"
-          return q"hole[${_expectedType}](${name.toString})"
+          return q"$Base.hole[${_expectedType}](${name.toString})"
           
           
         case typ @ TypeTree() if typeHoles(typ.symbol.name.toTypeName) =>
@@ -352,9 +352,13 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           
           val bindings = captured map {case(n,t) => q"${n.toString} -> $n"}
           
-          debug("env",varsInScope,"; capt",captured,"; free",free)
+          debug("Splicing",s"$idt: Q[$t,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
           
           q"$base.spliceDeep($idt.rep).subs(..${bindings})"
+          
+        case q"$base.spliceVararg[$t,$scp]($idts): _*" =>
+          val splicedX = rec(q"$base.splice[$t,$scp](x)")
+          q"($idts map ((x:$base.Q[$t,$scp]) => $splicedX)): _*"
           
           
         //case _ if x.tpe.termSymbol.isModule => // TODOne try x.symbol
