@@ -19,6 +19,13 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
     }
   }
   
+  test("Matching Nothing Explicitly") {
+    dsl"Seq()".erase match {
+      //case dsl"Seq()" => // should generate a warning
+      case dsl"Seq[Nothing]()" => // should NOT generate a warning
+    }
+  }
+  
   test("Function Types") {
     val f = dsl"(x: Int) => x.toDouble".erase
     f match {

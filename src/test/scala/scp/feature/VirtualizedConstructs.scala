@@ -9,7 +9,9 @@ class VirtualizedConstructs extends MyFunSuite {
     val ite = dsl"if (1 > 2) 666 else 42"
     
     ite matches {
-      case dsl"if ($c) $t else $e" => fail // infers Nothing for the return type...
+      //case dsl"if ($c) $t else $e" => fail // infers Nothing for the return type... generates a warning
+      //case dsl"if ($c) $t: Nothing else $e: Nothing" => fail // still generates an annoying warning (because it's desugared to IfThenElse[Nothing](...)) ... so I commented
+      case dsl"scp.lib.IfThenElse[Nothing]($c, $t, $e)" => fail
       case dsl"if ($c) $t else $e: Int" =>
         c eqt dsl"1 > 2"
         t eqt dsl"666"

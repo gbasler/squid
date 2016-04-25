@@ -38,6 +38,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   val ByNameParamClass = c.universe.definitions.ByNameParamClass
   val RepeatedParamClass = c.universe.definitions.RepeatedParamClass // JavaRepeatedParamClass
   
+  val Any = typeOf[Any]
+  val Nothing = typeOf[Nothing]
+  
   
   //def apply(tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[Tree], unapply: Option[c.Tree]): c.Tree = {
   def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
@@ -240,6 +243,33 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           typeHoleInfo(name) = tsym
           
           return tq"${tsym}"
+          
+        case typ @ TypeTree() if
+        unapply.isDefined && typ.pos.isEmpty // only check for top/bot in extraction mode, where it matters critically
+        && (typ.pos == NoPosition // sometimes these types have no position, like in the VirtualizedConstructs test...
+        || typ.pos.point == 0) // only check for inferred types (types specified explicitly should have a non-null offset [I guess?])
+        =>
+          //println(">>> "+typ.pos)
+          //println(">>> ",typ.pos.isOpaqueRange,typ.pos.isRange,typ.pos.isTransparent)
+          
+          // Q: why not call this in `checkType`? We miss cases where checkType raises an error before we can analyse the return type...
+          val tp = typ.tpe match {
+            case TypeRef(_, RepeatedParamClass, t :: Nil) => t
+            case _ => typ.tpe
+          }
+          (if (Any <:< tp) Some("Any")
+          else if (tp <:< Nothing) Some("Nothing")
+          else None) foreach { top_bot =>
+              c.warning(c.enclosingPosition, // TODO show the actual shallow code
+              s"""/!\\ Type $top_bot was inferred in quasiquote pattern /!\\
+                  |    This may make the pattern fail more often than expected.
+                  |    in application: 
+                  |      $parent
+                  |${if (debug.debugOptionEnabled) showPosition(x.pos) else ""
+                  }(If you wish to make this warning go away, you can specify $top_bot explicitly in the pattern.)"""
+                .stripMargin)
+            // This usually indicates a typing problem
+          }          
           
         case _ =>
           

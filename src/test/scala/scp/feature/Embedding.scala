@@ -69,8 +69,8 @@ class Embedding extends MyFunSuite {
   test("List, Option") {
     
     dsl"Some(1.2)" matches {
-      case dsl"Some($_)" => fail
-      case dsl"Some[Nothing]($_)" => fail
+      //case dsl"Some($_)" => fail
+      case dsl"Some[Nothing]($_)" => fail // equivalent to the one above, but does not generate a warning
       //case dsl"Some[Any]($_)" => fail // method type args are seen as invariant (we maybe could do better but it'd require non-trivial analysis)
       case dsl"Some[Any]($_)" => // now method type args are seen as covariant
     } and {
