@@ -689,14 +689,14 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   
   val scp = q"_root_.scp"
   
-  def virtualize(t: Tree): Tree = t transform {
+  val virtualize = transformer (rec => {
     //case q"..$sts; $r" => q"$scp.lib.Impure(..${sts map (st => q"() => $st")})($r)"
-    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative($s)(${virtualize(q"..$sts; $r")})"
+    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative($s)(${rec(q"..$sts; $r")})"
     case q"if ($cond) $thn else $els" =>
       q"$scp.lib.IfThenElse($cond, $thn, $els)"
     case q"while ($cond) $loop" =>
       q"$scp.lib.While($cond, $loop)"
-  }
+  })
   
   object SelectMember {
     private def getQual(t: c.Tree): Option[c.Tree] = t match {

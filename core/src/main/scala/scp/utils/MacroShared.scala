@@ -48,6 +48,16 @@ trait MacroShared {
           else super.transform(x)
       } transform self
     }
+    def transformRec(rec_pf: (Tree => Tree) => PartialFunction[Tree, Tree]) = transformer(rec_pf)(self)
+  }
+  
+  def transformer(rec_pf: (Tree => Tree) => PartialFunction[Tree, Tree]) = {
+    new Transformer {
+      val pf: PartialFunction[Tree, Tree] = rec_pf(transform)
+      override def transform(x: Tree) =
+        if (pf isDefinedAt x) pf(x)
+        else super.transform(x)
+    } transform _
   }
   
   
