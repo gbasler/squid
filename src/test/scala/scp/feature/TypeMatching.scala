@@ -26,8 +26,22 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
     }
   }
   
+  val f = dsl"(x: Int) => x.toDouble".erase
+  
+  test("Lambda Parameter/Body Types") {
+    f matches {
+      case dsl"(_: $xt) => $body: $bt" =>
+        eqt(xt.rep, typeRepOf[Int])
+        eqt(bt.rep, typeRepOf[Double])
+        eqt(body.trep, typeRepOf[Double])
+    } and {
+      case dsl"(y: Nothing) => $body: Double" =>
+        eqt(body, dsl"($$y: Int).toDouble")
+        assertDoesNotCompile(""" dsl"val y = 42; $body".run """)
+    }
+  }
+  
   test("Function Types") {
-    val f = dsl"(x: Int) => x.toDouble".erase
     f match {
       case dsl"$_: (Double => Double)" => fail
       case dsl"$_: ($a => $b)" =>

@@ -61,7 +61,6 @@ trait MacroShared {
   }
   
   
-  
   // Debugging
   
   def showAttrs(s: Symbol) =
@@ -73,7 +72,7 @@ trait MacroShared {
   
   def assume(cond: Boolean, msg: String = null) =
     if (!cond) Ctx.warning(Ctx.enclosingPosition, "An assumption was violated. Please report this to the quasiquote maintainers."+(
-        if (msg != null) s"[$msg]" else ""
+        if (msg != null) s" [message: $msg]" else ""
       ))
   
 }

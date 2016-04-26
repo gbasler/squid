@@ -5,7 +5,7 @@ import scala.collection.mutable
 import lang._
 
 import scala.reflect.runtime.{universe => ru}
-import ScalaTyping.{Covariant, Variance}
+import ScalaTyping.{Contravariant, Covariant, Variance}
 
 /**
   * TODO: add a lock on the HashMap...
@@ -144,8 +144,12 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         case (App(f1,a1), App(f2,a2)) => for (e1 <- f1 extract f2; e2 <- a1 extract a2; m <- merge(e1, e2)) yield m
         //case (Abs(v1,b1), Abs(v2,b2)) => b1.extract(b2)(binds + (v1 -> v2))
         case (a1: Abs, a2: Abs) =>
-          //a1.body.extract(a2.fun(a1.param))
-          a1.body.extract(a2.fun(a1.param.toHole))
+          for {
+            pt <- a1.ptyp extract (a2.ptyp, Contravariant)
+            b <- a1.body.extract(a2.fun(a1.param.toHole))
+            m <- merge(pt, b)
+          } yield m
+          
         case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
           Some(EmptyExtract) // Note: not necessary to test the types, right?
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2)) // FIXME: is it necessary to test the ret types?

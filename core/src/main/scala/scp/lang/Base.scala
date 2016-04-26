@@ -313,12 +313,12 @@ class BaseDefs { base: Base =>
     val keys = typKeys.toSet
     assert(xkeys -- keys isEmpty, "Unexpected extracted type keys "+(xkeys -- keys)+", not in specified keys "+keys)
     val noExtr = keys -- xkeys
-    val plur = "s" * (1-noExtr.size min 0)
+    val plur = "s" * (noExtr.size - 1)
     if (noExtr nonEmpty) System.err.print( // not 'println' since the position String contains a newLine
-      s"""Warning: no type representations were extracted for type hole$plur ${noExtr map ("$"+_) mkString ","}
+      s"""Warning: no type representations were extracted for type hole$plur: ${noExtr map ("$"+_) mkString ", "}
          |  Perhaps the type hole$plur ${if (plur isEmpty) "is" else "are"} in the position of an unconstrained GADT type parameter where the GADT is matched contravariantly...
          |${position}""".stripMargin)
-    maps._1 -> (maps._2 ++ (noExtr map (k => k -> typeHole(k)))) // FIXME: safe to return a hole here?
+    maps._1 -> (maps._2 ++ (noExtr map (k => k -> typeHole(s"$k<error>")))) // probably not safe to return a hole here, but at this point we're screwed anyway...
   }
   
 }

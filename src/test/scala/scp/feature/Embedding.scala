@@ -1,8 +1,6 @@
 package scp
 package feature
 
-import org.scalatest.FunSuite
-
 class Embedding extends MyFunSuite {
   import Embedding._
   
