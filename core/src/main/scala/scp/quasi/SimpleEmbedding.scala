@@ -488,6 +488,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"ascribe[${rec(typ)}](${tree})"
         
         
+        
+        case q"{ $st; () }" => rec(st)
+          
         // Note: 'st' cannot be a val def, cf handled above
         // Note: 'st' cannot be another statement, cf handled by virtualization
         /*case q"{ $st; ..$sts }" if sts.nonEmpty => assert(false)
