@@ -103,10 +103,17 @@ trait ScalaTyping extends Base {
     case _ => sym
   }
   
+  /** For a package object type:
+    *   + mod, isModuleClass, isClass
+    *   - isPackageClass
+    *   Can't access members directly (it has no typeSignature and no companion); have to use tp.owner.typeSignature
+    * 
+    */
   final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
     symbolCache getOrElseUpdate ((typ, symName), {
       val tp = loadTypeSymbol(typ)
-      ensureDefined(s"'$symName' in $typ", (if (mod) tp.companion else tp).typeSignature.member(TermName(symName))).asMethod
+      //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
+      ensureDefined(s"'$symName' in $typ", (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature.member(TermName(symName))).asMethod
     }) // TODO BE
   }
   /** Note: Assumes the runtime library has the same version of a class as the compiler;
@@ -115,7 +122,7 @@ trait ScalaTyping extends Base {
     overloadedSymbolCache getOrElseUpdate ((typ, symName, index), {
       //loadType(typ).typeSignature.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod
       val tp = loadTypeSymbol(typ)
-      ensureDefined(s"'$symName' in $typ", (if (mod) tp.companion else tp).typeSignature.member(TermName(symName))).alternatives(index).asMethod
+      ensureDefined(s"'$symName' in $typ", (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature.member(TermName(symName))).alternatives(index).asMethod
     }) // TODO BE
   }
   

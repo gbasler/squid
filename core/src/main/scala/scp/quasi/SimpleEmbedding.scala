@@ -460,6 +460,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"app(${rec(f)}, ${args map rec})"
           //q"$base.app(${rec(f)}, ${args map rec})"
           
+        case q"() => $body" => q"$Base.thunk(${rec(body)})"
+          
         //case q"($p) => $body" =>
         case q"(${p @ ValDef(mods, name, tpt, _)}) => $body" =>
           //varCount += 1
@@ -486,9 +488,10 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"ascribe[${rec(typ)}](${tree})"
         
         
-        case q"{ $st; ..$sts }" if sts.nonEmpty =>
-          // Note: 'st' cannot be a val def, cf handled above
-          q"${rec(st)}; ${rec(q"..$sts")}"
+        // Note: 'st' cannot be a val def, cf handled above
+        // Note: 'st' cannot be another statement, cf handled by virtualization
+        /*case q"{ $st; ..$sts }" if sts.nonEmpty => assert(false)
+          q"${rec(st)}; ${rec(q"..$sts")}"*/
           
 
         case typ @ Ident(tn: TypeName) =>
@@ -683,7 +686,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   
   val scp = q"_root_.scp"
   
-  def virtualize(t: Tree) = t transform {
+  def virtualize(t: Tree): Tree = t transform {
+    //case q"..$sts; $r" => q"$scp.lib.Impure(..${sts map (st => q"() => $st")})($r)"
+    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative($s)(${virtualize(q"..$sts; $r")})"
     case q"if ($cond) $thn else $els" =>
       q"$scp.lib.IfThenElse($cond, $thn, $els)"
     case q"while ($cond) $loop" =>

@@ -34,8 +34,35 @@ class VirtualizedConstructs extends MyFunSuite {
     
   }
   
+  test("Imperative") {
+    import VirtualizedConstructs._
+    
+    setEv(0)
+    
+    val impure = dsl"setEv(getEv+1); getEv"
+    
+    same(impure.run, 1)
+    same(getEv, 1)
+    
+    same(dsl"ev = 0; ev".run, 0)
+    same(getEv, 0)
+    
+  }
+  
   
 }
+object VirtualizedConstructs {
+  var ev = 0
+  def setEv(value: Int) = ev = value
+  def getEv = ev
+}
+
+
+
+
+
+
+
 
 
 
