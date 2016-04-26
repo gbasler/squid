@@ -61,4 +61,19 @@ trait MacroShared {
   }
   
   
+  
+  // Debugging
+  
+  def showAttrs(s: Symbol) =
+    s"""$s { typeSignature: ${s.typeSignature}, isTerm: ${s.isTerm}, isClass: ${s.isClass}, isPackageClass: ${s.isPackageClass}, isPackage: ${s.isPackage}, isStatic: ${s.isStatic}, isModule: ${s.isModule}, isModuleClass: ${s.isModuleClass} }""" +
+    {val c = s.companion; if (c == NoSymbol) "" else
+    s"""\ncompanion $c { typeSignature: ${c.typeSignature}, isTerm: ${s.isTerm}, isClass: ${c.isClass}, isPackageClass: ${c.isPackageClass}, isPackage: ${c.isPackage}, isStatic: ${c.isStatic}, isModule: ${c.isModule}, isModuleClass: ${c.isModuleClass} }"""}
+       //|$s:""".stripMargin
+  
+  
+  def assume(cond: Boolean, msg: String = null) =
+    if (!cond) Ctx.warning(Ctx.enclosingPosition, "An assumption was violated. Please report this to the quasiquote maintainers."+(
+        if (msg != null) s"[$msg]" else ""
+      ))
+  
 }

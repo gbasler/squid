@@ -364,9 +364,12 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //case _ if x.tpe.termSymbol.isModule => // TODOne try x.symbol
         //case _: TermTree if x.tpe.termSymbol.isModule => // Nope, turns out modules like 'scala' won't match this
         case _ if x.symbol != null && x.symbol.isModule => // Note: when testing 'x.tpe.termSymbol.isModule', we sometimes ended up applying this case on some type parameters!
-          if (x.tpe <:< typeOf[AnyRef])
-            q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.tpe}].rep)"
-          else q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[Any].rep)" // TODO: can we do better?
+          //debug(showAttrs(x.symbol))
+          //debug(">>", x.tpe, x.tpe <:< typeOf[AnyRef], x.symbol.typeSignature, x.symbol.typeSignature <:< typeOf[AnyRef])
+          if (x.symbol.isJava) {
+            assume(!(x.symbol.typeSignature <:< typeOf[AnyRef]))
+            q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.symbol.companion}].rep)"
+          } else q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.symbol.typeSignature}].rep)"
           
         case SelectMember(obj, f) =>
           

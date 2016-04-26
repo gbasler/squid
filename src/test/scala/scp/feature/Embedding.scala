@@ -19,6 +19,33 @@ class Embedding extends MyFunSuite {
     
   }
   
+  test("Static objects and classes (java.lang.Math, String)") {
+    
+    val pow23 = dsl"Math.pow(2, 3)"
+    
+    pow23 match {
+      case dsl"java.lang.Math.pow(2,3)" =>
+    }
+    pow23 match {
+      case dsl"java.lang.Math.pow(${ConstQ(2)}, ${ConstQ(3)})" =>
+    }
+    pow23 match {
+      case dsl"java.lang.Math.pow(${ConstQ(m)}, ${ConstQ(n)})" =>
+        same(m,2)
+        same(n,3)
+    }
+    pow23 match {
+      case dsl"java.lang.Math.pow($m, $n)" =>
+        eqt(m,dsl"2")
+        eqt(n,dsl"3")
+    }
+    
+    dsl"String valueOf true" matches {
+      case dsl"java.lang.String.valueOf(true)" =>
+    }
+    
+  }
+  
   test("Methods") {
      import collection.mutable.Stack
     
