@@ -108,12 +108,15 @@ trait ScalaTyping extends Base {
     *   - isPackageClass
     *   Can't access members directly (it has no typeSignature and no companion); have to use tp.owner.typeSignature
     * 
+    * TODO factor logic with loadOverloadedSymbol
     */
   final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
     symbolCache getOrElseUpdate ((typ, symName), {
       val tp = loadTypeSymbol(typ)
       //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
-      ensureDefined(s"'$symName' in $typ", (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature.member(TermName(symName))).asMethod
+      val sign = (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature
+      //debug(s"Loaded $tp, sign: "+sign)
+      ensureDefined(s"'$symName' in $typ", sign.member(TermName(symName))).asMethod
     }) // TODO BE
   }
   /** Note: Assumes the runtime library has the same version of a class as the compiler;
@@ -159,7 +162,7 @@ trait ScalaTyping extends Base {
       debug("Match "+tp+" with "+this)
       (this, tp) match {
         case (_, TypeHoleRep(_)) => throw new IllegalArgumentException // TODO BE
-        case (TypeHoleRep(holeName), tp) => Some(Map() -> Map(holeName -> tp))
+        case (TypeHoleRep(holeName), tp) => Some(Map(), Map(holeName -> tp), Map())
         //case (ScalaTypeRep(tag0, targs0 @ _*), ScalaTypeRep(tag1, targs1 @ _*)) =>
         case (tr0: ScalaTypeRep, tr1: ScalaTypeRep) =>
           extractTp(tp.typ, va)
@@ -195,7 +198,7 @@ trait ScalaTyping extends Base {
         case TypeRef(_, sym, arg :: Nil) if sym == symbolOf[TypeHoleMarker[_]] =>
           arg match {
             case ConstantType(Constant(name: String)) =>
-              Some(Map() -> Map(name -> SimpleTypeRep(xtyp)))
+              Some(Map(), Map(name -> SimpleTypeRep(xtyp)), Map())
           }
           
         case _ =>
@@ -238,7 +241,7 @@ trait ScalaTyping extends Base {
             val extr = (baseTargs zip xtyp.typeArgs zip xtyp.typeSymbol.asType.typeParams) map {
               case ((a,b), p) => SimpleTypeRep(a).extractTp(b, (Variance of p.asType) * va) getOrElse (return None) }
             
-            Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
+            Some(extr.foldLeft[Extract](Map(), Map(), Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
             
             //???
             
@@ -277,7 +280,7 @@ trait ScalaTyping extends Base {
             val extr = (targs zip baseTargs zip typ.typeSymbol.asType.typeParams) map {
               case ((a,b), p) => a.extractTp(b, (Variance of p.asType) * va) getOrElse (return None) }
             
-            Some(extr.foldLeft[Extract](Map() -> Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
+            Some(extr.foldLeft[Extract](Map(), Map(), Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})
         }
       }
       
@@ -359,7 +362,7 @@ trait ScalaTyping extends Base {
       //  case _ => SimpleTypeRep(xtyp) // FIXME is it safe to get the type args from 'xtyp.typ' ?? (what about holes etc.?)
       //}
       debug(s"Extr $name -> $rep")
-      Some(Map() -> Map(name -> rep))
+      Some(Map(), Map(name -> rep), Map())
     }
     override def equals(that: Any) = that match {
       case TypeHoleRep(name1) => name == name1
@@ -386,8 +389,11 @@ trait ScalaTyping extends Base {
   //  implicit val B = typeEv[B].rep.tagAs[B]
   //  TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
   //}
-  implicit def funType(a: TypeRep, b: TypeRep): TypeRep = {
+  def funType(a: TypeRep, b: TypeRep): TypeRep = {
     DynamicTypeRep(symbolOf[Any => Any].fullName, a, b)
+  }
+  val unitType: TypeRep = {
+    SimpleTypeRep(typeOf[Unit])
   }
   
   

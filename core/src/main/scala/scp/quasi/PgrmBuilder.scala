@@ -38,7 +38,7 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
         //val freshName = hole.name map (c.freshName(_)) getOrElse TermName("ANON_HOLE")
         val freshName = c.freshName(hole.name getOrElse TermName("")) //TermName("ANON_HOLE"))
         // Note: s"($freshName)$part" will not work, as it breaks things like "$x = 42"
-        freshName -> (if (unapply) Hole(Bind(freshName, hole.tree), hole.vararg, hole.name) else hole) -> s"$freshName$part" // TODO simplify (unnecessary stuff in `if (unapply)`)
+        freshName -> hole -> s"$freshName$part"
     }).unzip
 
     //println("Parsing: "+(partsPos.head._1 :: codeParts).mkString)

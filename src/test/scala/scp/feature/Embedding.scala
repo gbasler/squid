@@ -45,7 +45,7 @@ class Embedding extends MyFunSuite {
   }
   
   test("Methods") {
-     import collection.mutable.Stack
+    import collection.mutable.Stack
     
     dsl"Stack[Int](1,42,2).push(0)" matches {
       case dsl"Stack(1,$n,2).push($m)" =>

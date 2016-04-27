@@ -62,6 +62,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       => ru.Literal(ru.Constant(r.asInstanceOf[Const[_]].value)) // Note: if bad types passed, raises 'java.lang.Error: bad constant value'
         
       // Common types we provide a lifting for:
+      // FIXME: match the type symbol, not the value; for example a Const[Any] with runtime type Any may contain a Seq[_]
       case cst @ Const(vs: Seq[_]) =>
         val tp = cst.typ.asInstanceOf[ScalaTyping#ScalaTypeRep].targs.head
         q"_root_.scala.Seq(..${vs map (v => toTree(Const(v)(TypeEv(tp.asInstanceOf[TypeRep]))))})"
@@ -95,14 +96,20 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         q"${toTree(v)}:${as.typ.asInstanceOf[ScalaTyping#TypeRep].typ}"
       case a: Abs =>
         val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
+        /* // handling thunks:
+        if (a.ptyp <:< unitType) q"() => ${toTree(a.body)}" else*/ // probably not safe in general (Unit params could occur in the presence of generics)
         q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
       case dslm @ ModuleObject(fullName, tp) =>
         q"${reflect.runtime.currentMirror.staticModule(fullName)}"
       case dslm @ MethodApp(self, mtd, targs, argss, tp) =>
         val self2 = toTree(self)
-        val argss2 = argss map (_ map toTree)
+        val argss2 = argss map {
+          case Args(as @ _*) => as map toTree
+          case ArgsVarargs(Args(as @ _*), Args(vas @ _*)) => (as map toTree) ++ (vas map toTree)
+          case ArgsVarargSpliced(Args(as @ _*), va) => (as map toTree) :+ q"${toTree(va)}: _*"
+        }
         q"$self2 ${mtd.name} ...$argss2"
-      case HoleExtract(n) => throw new Exception(s"Trying to build an open term! Variable '$n' is free.")
+      case Hole(n) => throw new Exception(s"Trying to build an open term! Variable '$n' is free.")
     }
   }
   
@@ -110,10 +117,12 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   sealed trait Rep {
     val typ: TypeRep
     
+    def quoted = Quoted[Nothing, Nothing](this)
+    
     // TODO is this used?
     def subs(xs: (String, Rep)*): Rep = subs(xs.toMap)
     def subs(xs: Map[String, Rep]): Rep =
-      if (xs isEmpty) this else transformPartial(this) { case r @ HoleExtract(n) => xs getOrElse (n, r) }
+      if (xs isEmpty) this else transformPartial(this) { case r @ Hole(n) => xs getOrElse (n, r) }
     
     /** TODO check right type extrusion...
       * 
@@ -125,14 +134,14 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       //println(s"$this << $t")
       
       val r: Option[Extract] = (this, t) match {
-        case (HoleExtract(_), Ascribe(v)) => extract(v) // Note: needed for term equivalence to ignore ascriptions
+        case (Hole(_), Ascribe(v)) => extract(v) // Note: needed for term equivalence to ignore ascriptions
           
-        case (HoleExtract(name), _) => // Note: will also extract holes... is it ok?
+        case (Hole(name), _) => // Note: will also extract holes... is it ok?
           // wontTODO replace extruded symbols: not necessary here since we use holes to represent free variables (see case for Abs)
-          Some(Map(name -> t) -> Map())
+          Some(Map(name -> t), Map(), Map())
           
-        case (Var(n1), HoleExtract(n2)) if n1 == n2 => Some(EmptyExtract) // FIXME safe?
-        case (_, HoleExtract(_)) => None
+        case (Var(n1), Hole(n2)) if n1 == n2 => Some(EmptyExtract) // FIXME safe?
+        case (_, Hole(_)) => None
           
         case (v1: Var, v2: Var) =>
           if (v1.name == v2.name) Some(EmptyExtract) else None // TODO check they have the same type?!
@@ -154,6 +163,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           Some(EmptyExtract) // Note: not necessary to test the types, right?
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2)) // FIXME: is it necessary to test the ret types?
           if mtd1 == mtd2
+          //if {println(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
         =>
           //println(s"$self1")
           assert(args1.size == args2.size)
@@ -163,8 +173,6 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           
           for {
             s <- self1 extract self2
-            
-            // TODOne check targs & tp
             t <- {
               /** The following used to end with '... extract (b, Variance of p.asType)', but method type parameters
                 * seem to always be tagged as invariant anyway.
@@ -175,15 +183,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
               (Some(EmptyExtract) :: targs).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
                 case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
             }
-            
-            //ao <- (args1 zip args2) flatMap { case (as,bs) => assert(as.size==bs.size); (as zip bs) map { case (a,b) =>  a extract b } }
-            //a <- ao
             a <- {
-              val args = (args1 zip args2) flatMap {
-                case (as,bs) => assert(as.size==bs.size); (as zip bs) map { case (a,b) => a extract b } }
-              //val fargs = args.flatten
-              //if (fargs.size == args.size) fargs else None
-              //args.foldLeft(EmptyExtract){case(acc,a) => merge(acc,a) getOrElse (return None)}
+              val args = (args1 zip args2) map { case (as,bs) => as extract bs }
               (Some(EmptyExtract) :: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
                 case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
             }
@@ -207,9 +208,20 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     */
   }
   //sealed trait TypeRep
+  //trait OtherRep extends Rep { } // TODO add missing methods + update pattern matches
   
   def extract(xtor: Rep, t: Rep): Option[Extract] = xtor.extract(t)//(Map())
-  
+  def spliceExtract(xtor: Rep, args: Args): Option[Extract] = xtor match {
+    case SplicedHole(name) => Some(Map(), Map(), Map(name -> args.reps))
+    case h @ Hole(name) =>
+      val rep = methodApp(
+        moduleObject("scala.collection.Seq", SimpleTypeRep(ru.typeOf[Seq.type])),
+        loadSymbol(true, "scala.collection.Seq", "apply"),
+        h.typ.asInstanceOf[ScalaTypeRep].targs.head :: Nil, // TODO check; B/E
+        Args()(args.reps: _*) :: Nil, h.typ)
+      Some(Map(name -> rep), Map(), Map())
+    //case _ => // TODO B/E
+  }
   
   def const[A: TypeEv](value: A): Rep = Const(value)
   //def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = {
@@ -222,30 +234,35 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
   def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
-  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep =
+  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
     MethodApp(self, mtd, targs, argss, tp)
   
-  def hole[A: TypeEv](name: String) = HoleExtract[A](name)
+  def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
-  // TODO rename to Hole
+  def flatHole[A: TypeEv](name: String): Rep = SplicedHole(name)
+  
+  
   /**
     * In xtion, represents an extraction hole
     * In ction, represents a free variable
     */
-  case class HoleExtract[+A: TypeEv](name: String) extends Rep {
+  case class Hole[+A: TypeEv](name: String) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"($$$$$name: $typ)"
+    override def toString = s"($$$name: $typ)"  // used to be:  s"($$$$$name: $typ)"
   
     //override def equals(that: Any): Boolean = that match {
     //  case HoleExtract(n) => n == name // TODO check type
     //  case _ => false
     //}
   }
-  
+  case class SplicedHole[+A: TypeEv](name: String) extends Rep {
+    val typ = typeEv[A].rep
+    override def toString = s"($$$name: $typ*)"
+  }
   
   case class Var(val name: String)(val typ: TypeRep) extends Rep {
-    def toHole = HoleExtract(name)(TypeEv(typ))
+    def toHole = Hole(name)(TypeEv(typ))
     override def toString = s"($name: $typ)"
   }
   
@@ -292,11 +309,10 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   case class ModuleObject(fullName: String, typ: TypeRep) extends Rep {
     override def toString = fullName
   }
-  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], typ: TypeRep) extends Rep {
+  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep {
     lazy val mtd = DSLDef(sym.fullName, sym.info.toString, sym.isStatic)
     override def toString = s"$self.${mtd.shortName}" +
-      (targs.mkString("[",",","]")*(targs.size min 1)) +
-      (argss map (_ mkString("(",",",")")) mkString)
+      (targs.mkString("[",",","]")*(targs.size min 1)) + (argss mkString)
   }
   
   
@@ -307,15 +323,17 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   def repEq(a: Rep, b: Rep): Boolean = {
     (a extract b, b extract a) match {
       //case (Some((xs,xts)), Some((ys,yts))) => xs.keySet == ys.keySet && xts.keySet == yts.keySet
-      case (Some((xs,xts)), Some((ys,yts))) =>
+      case (Some((xs,xts,fxs)), Some((ys,yts,fys))) =>
+        // Note: could move these out of the function body:
         val extractsHole: ((String, Rep)) => Boolean = {
-          case (k: String, HoleExtract(name)) if k == name => true
+          case (k: String, Hole(name)) if k == name => true
           case _ => false
         }
         val extractsTypeHole: ((String, TypeRep)) => Boolean = {
           case (k: String, TypeHoleRep(name)) if k == name => true
           case _ => false
         }
+        fxs.isEmpty && fys.isEmpty && // flattened term lists are only supposed to be present in extractor terms, which are not supposed to be compared
         (xs forall extractsHole) && (ys forall extractsHole) && (xts forall extractsTypeHole) && (yts forall extractsTypeHole)
       case _ => false
     }
@@ -339,9 +357,15 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
       case ap @ App(fun, a) => App(tr(fun), tr(a))(TypeEv(ap.typ))
-      case HoleExtract(name) => r //HoleExtract(name)
+      case Hole(_) | SplicedHole(_) => r
       case mo @ ModuleObject(fullName, tp) => mo
-      case MethodApp(self, mtd, targs, argss, tp) => MethodApp(tr(self), mtd, targs, argss map (_ map tr), tp)
+      case MethodApp(self, mtd, targs, argss, tp) =>
+        def trans(args: Args) = Args(args.reps map tr: _*)
+        MethodApp(tr(self), mtd, targs, argss map {
+          case as: Args => trans(as)
+          case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
+          case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), va)
+        }, tp)
       //case s: Symbol => s
       case v: Var => v
       case Const(_) => r

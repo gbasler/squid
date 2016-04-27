@@ -49,7 +49,10 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   
   
   //def apply(tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[Tree], unapply: Option[c.Tree]): c.Tree = {
-  def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
+  /** holes: Seq(either term or type); flatHoles: which holes are flattened term holes (eg: List($xs*))
+    * holes in ction mode are interpreted as free variables (and are never 'flattened')
+    * splicedTypes contains the types spliced in (in ction mode) plus the types found in the current scope */
+  def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], flatHoles: collection.Set[TermName], splicedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
     
     //debug("HOLES:",holes)
     
@@ -225,7 +228,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //  return ???
           
           
-        case Ident(name) if termHoles(name.toTermName) =>
+        case Ident(name: TermName) if termHoles(name) =>
           
           val _expectedType = expectedType match {
             case None => throw EmbeddingException(s"No type info for hole '$name'" + (
@@ -244,7 +247,12 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //debug("Extr", _expectedType)
           
           //typesToExtract(name) = tq"Rep[${_expectedType}]"
-          return q"$Base.hole[${_expectedType}](${name.toString})"
+          
+          val r =
+            if (flatHoles(name)) q"$Base.flatHole[${_expectedType}](${name.toString})" 
+            else q"$Base.hole[${_expectedType}](${name.toString})"
+          
+          return r
           
           
         case typ @ TypeTree() if typeHoles(typ.symbol.name.toTypeName) =>
@@ -436,38 +444,55 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
               
             case MultipleTypeApply(_, targs, argss) =>
               
-              def processedTargs = targs map recNoType
-              
-              val paramTpess = f.tpe.paramLists map (_ map (_ typeSignature))
-              val paramsStream = paramTpess.map(paramTpes => paramTpes.lastOption match {
-                case Some(TypeRef(pre, RepeatedParamClass, List(tp))) =>
-                  Stream(paramTpes.take(paramTpes.size-1): _*) ++ Stream.continually(tp)
-                case Some(_) | None =>
-                  Stream(paramTpes: _*)
-              })
-              
-              //debug("ARGS",argss)
-              
-              def mkArgs = (argss zip paramsStream) map {
-                case (args, params) => (args zip params) map {
-                  case (arg, TypeRef(_, ByNameParamClass, param :: Nil)) => lift(arg, x, Some(param))
-                  case (arg, param) => lift(arg, x, Some(param))
-              }}
-              
-              //if (dslDef.module)
-              //  q"$fname[..${processedTargs}](...${mkArgs})"
-              //else {
-              //  val self = lift(obj, x, Some(obj.tpe))  // Executed here to keep syntactic order!
-              //  q"$fname[..${(selfTargs ++ processedTargs)}](...${List(self) :: mkArgs})"
-              //}
-              
-              //val self = if (dslDef.module) q"None" else q"Some(${lift(obj, x, Some(obj.tpe))})"
-              //val mtd = q"scp.lang.DSLDef(${dslDef.fullName}, ${dslDef.info}, ${dslDef.module})"
+              val processedTargs = targs map recNoType
               val targsTree = q"List(..${processedTargs map (tp => q"$Base.typeEv[$tp].rep")})"
-              val args = q"List(..${mkArgs map (xs => q"List(..$xs)")})"
+              
+              object VarargParam {
+                def unapply(param: Type): Option[Type] = param match {
+                  case TypeRef(_, RepeatedParamClass, tp :: Nil) => Some(tp)
+                  case _ => None
+                }
+              }
+              
+              def mkArgs(acc: List[Tree]) = q"$Base.Args(..${acc.reverse})"
+              
+              /** Note that in Scala, vararg parameters cannot be by-name, so we don't check for it */
+              def processArgs(acc: List[Tree])(args_params: (List[Tree], Stream[Type])): Tree = args_params match {
+                case ((a @ q"$t : _*") :: Nil, Stream(VarargParam(pt))) =>
+                  //debug(s"vararg splice [$pt]", t)
+                  t match {
+                    case q"$base.spliceVararg[$t,$scp]($idts)" if base equalsStructure Base => // TODO make that an xtor
+                      val splicedX = recNoType(q"$Base.splice[$t,$scp](x)")
+                      //q"$Base.ArgsVarargs(${mkArgs(acc)}, $Base.Args($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*))"
+                      q"${mkArgs(acc)}($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*)" // shorter form using Args.apply
+                    case _ =>
+                      val sym = symbolOf[scala.collection.Seq[_]]
+                      //q"$Base.ArgsVarargSpliced(${mkArgs(acc)}, ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))})"
+                      q"${mkArgs(acc)} splice ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))}"
+                  }
+                  
+                case ((t @ Ident(name: TermName)) :: Nil, Stream(VarargParam(pt))) if flatHoles(name) =>
+                  //debug(s"hole vararg [$pt]", t)
+                  q"$Base.ArgsVarargSpliced(${mkArgs(acc)}, ${rec(t, Some(pt))})"
+                  
+                case (as, Stream(VarargParam(pt))) =>
+                  //debug(s"vararg [$pt]", as)
+                  q"$Base.ArgsVarargs(${mkArgs(acc)}, ${processArgs(Nil)(as, Stream continually pt)})"
+                  
+                case (a :: as, pt #:: pts) =>
+                  val bareType = pt match {
+                    case TypeRef(_, ByNameParamClass, pt :: Nil) => pt
+                    case _ => pt
+                  }
+                  processArgs(rec(a, Some(bareType)) :: acc)(as, pts)
+                case (Nil, Stream.Empty) => mkArgs(acc)
+                case (Nil, pts) if !pts.hasDefiniteSize => mkArgs(acc)
+                //case _ => // TODO B/E
+              }
+              
+              val args = (argss zip (f.tpe.paramLists map (_.toStream map (_ typeSignature)))) map processArgs(Nil)
               
               q"$Base.methodApp($self, ${refMtd}, $targsTree, $args, $tp)"
-              
               
               
             //case q"new $tp[..$targs]" => ??? // TODO
@@ -625,10 +650,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSefl, scp map { sym => q"val ${sym.name}: ${sym.typeSignature}" }))
             (scpTyp, tp)
         }
-        val termTypesToExtract = termHoleInfoProcessed mapValues {
-          case (scpTyp, tp) =>
-            tq"Quoted[$tp,$scpTyp]"
-        }
+        val termTypesToExtract = termHoleInfoProcessed map {
+          case (name, (scpTyp, tp)) => name -> (
+            if (flatHoles(name)) tq"Seq[Quoted[$tp,$scpTyp]]"
+            else tq"Quoted[$tp,$scpTyp]"
+          )}
         val typeTypesToExtract = typeHoleInfo mapValues {
           sym => tq"QuotedType[$sym]"
         }
@@ -643,6 +669,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //debug("Type to extract: "+extrTuple)
         
         val tupleConv = holes.map {
+          case Left(name) if flatHoles(name) =>
+            val (scp, tp) = termHoleInfoProcessed(name)
+            q"_maps_._3(${name.toString}) map (r => Quoted[$tp,$scp](r))"
           case Left(name) =>
             //q"Quoted(_maps_._1(${name.toString})).asInstanceOf[${termTypesToExtract(name)}]"
             val (scp, tp) = termHoleInfoProcessed(name)
@@ -652,8 +681,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             q"QuotedType[${typeHoleInfo(name)}](_maps_._2(${name.toString}))"
         }
         
-        val valKeys = termHoles.map(_.toString)
+        val valKeys = termHoles.filterNot(flatHoles).map(_.toString)
         val typKeys = typeHoles.map(_.toString)
+        val flatValKeys = flatHoles.map(_.toString)
         
         
         //val defs = typeHoles flatMap { typName =>
@@ -677,8 +707,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             def unapply(_t_ : SomeQ): Boolean = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) match {
-                case Some((vs, ts)) if vs.size == 0 && ts.size == 0 => true
-                case Some((vs, ts)) => assert(false, "Expected no extracted objects, got values "+vs+" and types "+ts); ???
+                case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
+                case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and flattened values "+fvs); ???
                 case None => false
               }
             }
@@ -703,7 +733,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             def unapply(_t_ : SomeQ): $scal.Option[$extrTuple] = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
-                val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)
+                val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$flatValKeys)
                 (..$tupleConv)
               }
             }

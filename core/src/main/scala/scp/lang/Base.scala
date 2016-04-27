@@ -26,7 +26,7 @@ trait Base extends BaseDefs { base =>
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   
   def moduleObject(fullName: String, tp: TypeRep): Rep
-  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[List[Rep]], tp: TypeRep): Rep
+  def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
   type DSLSymbol
   def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol
@@ -38,7 +38,7 @@ trait Base extends BaseDefs { base =>
   
   //implicit def funType[A: TypeEv, B: TypeEv]: TypeEv[A => B]
   def funType(a: TypeRep, b: TypeRep): TypeRep
-  
+  def unitType: TypeRep
   
   trait ConstAPI {
     def unapply[A: ru.TypeTag, S](x: Q[A,S]): Option[A]
@@ -53,6 +53,7 @@ trait Base extends BaseDefs { base =>
   def typ(r: Rep): TypeRep
   
   def extract(xtor: Rep, t: Rep): Option[Extract]
+  def spliceExtract(xtor: Rep, t: Args): Option[Extract]
   
   protected def runRep(r: Rep): Any
   
@@ -60,6 +61,7 @@ trait Base extends BaseDefs { base =>
   /// EXT
   
   def hole[A: TypeEv](name: String): Rep
+  def flatHole[A: TypeEv](name: String): Rep
   
   def typeHole[A](name: String): TypeRep
   
@@ -116,7 +118,53 @@ class BaseDefs { base: Base =>
   
   def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
   def ascribe[A: TypeEv](value: Rep): Rep = value // FIXME don't all IRs need to override it to have sound match checking?
+  def thunk[A: TypeEv](value: => Rep): Rep = abs[Unit, A]("thunk", (_: Rep) => value)(TypeEv(unitType), TypeEv(typeRepOf[A]))
   
+  
+  sealed trait ArgList {
+    def reps: Seq[Rep]
+    def extract(al: ArgList): Option[Extract] = (this, al) match {
+      case (a0: Args, a1: Args) => a0 extract a1
+      case (ArgsVarargs(a0, va0), ArgsVarargs(a1, va1)) => for {
+        a <- a0 extract a1
+        va <- va0 extract va1
+        m <- merge(a, va)
+      } yield m
+      case (ArgsVarargSpliced(a0, va0), ArgsVarargSpliced(a1, va1)) => for {
+        a <- a0 extract a1
+        va <- base.extract(va0, va1)
+        m <- merge(a, va)
+      } yield m
+      case (ArgsVarargSpliced(a0, va0), ArgsVarargs(a1, vas1)) => for { // case dsl"List($xs*)" can extract dsl"List(1,2,3)"
+        a <- a0 extract a1
+        va <- base.spliceExtract(va0, vas1)
+        m <- merge(a, va)
+      } yield m
+      case _ => None
+    }
+    override def toString = (this match {
+      case Args(as @ _*) => as
+      case ArgsVarargs(as, vas) => as.reps ++ vas.reps
+      case ArgsVarargSpliced(as, va) => as.reps.map(_.toString) :+ s"$va: _*"
+    }) mkString ("(",",",")")
+  }
+  case class Args(reps: Rep*) extends ArgList {
+    def apply(vreps: Rep*) = ArgsVarargs(this, Args(vreps: _*))
+    def splice(vrep: Rep) = ArgsVarargSpliced(this, vrep)
+    
+    def extract(that: Args): Option[Extract] = {
+      require(reps.size == that.reps.size)
+      val args = (reps zip that.reps) map { case (a,b) => base.extract(a, b) }
+      (Some(EmptyExtract) +: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
+        case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+    }
+  }
+  case class ArgsVarargs(args: Args, varargs: Args) extends ArgList {
+    val reps = args.reps ++ varargs.reps
+  }
+  case class ArgsVarargSpliced(args: Args, vararg: Rep) extends ArgList {
+    val reps = args.reps :+ vararg
+  }
   
   //def open(name: String): Nothing = ???
   
@@ -126,6 +174,10 @@ class BaseDefs { base: Base =>
   //def splice[A,S:Scope](x: Q[A,S]): A = ??? // TODO better error
   def splice[A,S](x: Q[A,S]): A = ??? // TODO better error
   def spliceVararg[A,S](x: Seq[Q[A,S]]): Seq[A] = ??? // TODO better error
+  //def spliceVarargs[A,S](xs: Q[A,S]*): Seq[A] = ???
+  
+  /** Used for construction syntax {{{dsl"Seq(${xs: __*})"}}}, mirror of the extraction (where '_*' does not work) */
+  type __* = Seq[_]
   
   //implicit def spliceDeep[A: Lift](x: A): Rep[A] = implicitly[Lift[A]].apply(x)
   //implicit def spliceDeep[A](x: Rep[A]): Rep[A] = x
@@ -146,25 +198,24 @@ class BaseDefs { base: Base =>
   
   /// EXT
   
-  type Extract = (Map[String, SomeRep], Map[String, TypeRep])
-  val EmptyExtract: Extract = Map() -> Map()
+  /** Artifact of a term extraction: map from hole name to terms, types and flattened term lists */
+  type Extract = (Map[String, Rep], Map[String, TypeRep], Map[String, Seq[Rep]])
+  val EmptyExtract: Extract = (Map(), Map(), Map())
   
   
   protected def merge(a: Extract, b: Extract): Option[Extract] = {
-    val vals = a._1 ++ b._1.map {
-      case (name, v) if a._1 isDefinedAt name =>
-        //println(s"Duplicates for $name:\n\t$v\n\t${a._1(name)}")
-        if (a._1(name) =~= v) (name -> v)
-        else return None
-      case (name, v) => (name -> v)
-    }
+    b._1 foreach { case (name, vb) => (a._1 get name) foreach { va => if (!(va =~= vb)) return None } }
+    b._3 foreach { case (name, vb) => (a._3 get name) foreach { va =>
+      if (va.size != vb.size || !(va zip vb forall {case (vva,vvb) => vva =~= vvb})) return None } }
     val typs = a._2 ++ b._2.map {
-      case (name, t) if a._2 isDefinedAt name =>
-        if (a._2(name) =:= t) (name -> t)
+      case (name, t) =>
+        // Note: We could do better than =:= and infer LUB/GLB, but that would probably mean embedding the variance with the type...
+        if (a._2 get name forall (_ =:= t)) name -> t 
         else return None
-      case (name, t) => (name -> t)
     }
-    Some(vals, typs)
+    val flatVals = a._3 ++ b._3
+    val vals = a._1 ++ b._1
+    Some(vals, typs, flatVals)
   }
   
   
@@ -306,19 +357,24 @@ class BaseDefs { base: Base =>
   
   // PRIVATE
   
-  def `private checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*): Extract = {
-    assert(maps._1.keySet == valKeys.toSet, "Extracted value keys "+maps._1.keySet+" do not correspond to specified keys "+valKeys.toSet)
+  def `private checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(flatValKeys: String*): Extract = {
+    val prnt = (s: Traversable[_]) => s mkString ("{", ",", "}")
+    //def keySets = s"{ ${valKeys.toSet}; ${typKeys.toSet}; ${flatValKeys.toSet} }" // Scala bug java.lang.VerifyError: Bad type on operand stack
+    val keySets = () => s"( ${prnt(valKeys)}; ${prnt(typKeys)}; ${prnt(flatValKeys)} )"
+    
+    assert(maps._1.keySet == valKeys.toSet, "Extracted value keys "+prnt(maps._1.keySet)+" do not correspond to specified keys "+keySets())//+valKeys.toSet)
+    assert(maps._3.keySet == flatValKeys.toSet, "Extracted flattened value keys "+prnt(maps._3.keySet)+" do not correspond to specified keys "+keySets())//+flatValKeys.toSet)
     //assert(maps._2.keySet == typKeys.toSet, "Extracted type keys "+maps._2.keySet+" do not correspond to specified keys "+typKeys)
     val xkeys = maps._2.keySet
     val keys = typKeys.toSet
-    assert(xkeys -- keys isEmpty, "Unexpected extracted type keys "+(xkeys -- keys)+", not in specified keys "+keys)
+    assert(xkeys -- keys isEmpty, "Unexpected extracted type keys "+(xkeys -- keys)+", not in specified keys "+keySets())//+keys)
     val noExtr = keys -- xkeys
     val plur = "s" * (noExtr.size - 1)
     if (noExtr nonEmpty) System.err.print( // not 'println' since the position String contains a newLine
-      s"""Warning: no type representations were extracted for type hole$plur: ${noExtr map ("$"+_) mkString ", "}
+      s"""Warning: no type representations were extracted for type hole$plur: ${prnt(noExtr map ("$"+_))}
          |  Perhaps the type hole$plur ${if (plur isEmpty) "is" else "are"} in the position of an unconstrained GADT type parameter where the GADT is matched contravariantly...
          |${position}""".stripMargin)
-    maps._1 -> (maps._2 ++ (noExtr map (k => k -> typeHole(s"$k<error>")))) // probably not safe to return a hole here, but at this point we're screwed anyway...
+    ( maps._1, (maps._2 ++ (noExtr map (k => k -> typeHole(s"$k<error>")))), maps._3 ) // probably not safe to return a hole here, but at this point we're screwed anyway...
   }
   
 }

@@ -9,7 +9,7 @@ class FreeVariables extends MyFunSuite {
     
     val x: Q[Int,{val x: Int}] = dsl"$$x: Int"
     assert(x.rep match {
-      case Ascribe(HoleExtract("x")) => true
+      case Ascribe(Hole("x")) => true
       case _ => false
     })
     

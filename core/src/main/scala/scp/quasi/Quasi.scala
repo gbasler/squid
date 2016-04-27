@@ -94,10 +94,13 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     //debug("Built:", showCode(builder.tree))
     
     var holes: List[Either[TermName,TypeName]] = Nil // Left: value hole; Right: type hole
+    val flatHoles = mutable.Set[TermName]()
     
     var splicedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
     
     lazy val QTSym = symbolOf[Base#QuotedType[_]]
+    lazy val VarargSym = symbolOf[Base].typeSignature.member(TypeName("__*").encodedName)
+    //lazy val VarargSym = symbolOf[BaseDefs#__*] // nope: gets 'trait Seq'
     
     val pgrm = builder.tree transform { // TODO move this into SimpleEmbedding?
         
@@ -113,18 +116,30 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         
       case Ident(name) if builder.holes.contains(name) =>
         val h = builder.holes(name)
+        
+        //debug("HOLE: "+h)
+        
         if (unapply) {
           //q"holeExtract()"
           //val n = h.name.filter(_.toString != "_").map(n => q"$n").getOrElse(h.tree)
           val n = h.name.filter(_.toString != "_") map (_.toTermName) getOrElse // hygiene? (can taking the name as specified by the user make collisions?)
             c.freshName(TermName("ANON_HOLE"))
           holes ::= Left(n)
-          if (h.vararg) q"$n: _*"
-          else q"$n"
+          if (h.vararg) flatHoles += n
+          else h.tree match { case pq"$p @ __*" => flatHoles += n   case _ => }
+          q"$n"
+          
         } else {
-          //if (h.vararg) q"splice(${h.tree}): _*"
-          if (h.vararg) q"spliceVararg(${h.tree}): _*"
-          else q"splice(${h.tree})"
+          h.tree match {
+            //case t @ q"$_: _*" => q"spliceVarargs($t): _*"  // not actually useful...
+            case q"$t: _*" => q"spliceVararg($t): _*"
+            case q"($t: $tp)" if (tp.tpe match {
+              case TypeRef(btp, sym, Nil) => (btp =:= base.tpe) && sym == VarargSym
+              case _ => false
+            }) => q"spliceVararg($t): _*"
+            case t if h.vararg => q"spliceVararg($t): _*"
+            case t => q"splice($t)"
+          }
         }
         
       case Ident(name) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
@@ -210,7 +225,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
       treps
     }
     
-    debug(s"Found types in scope: ${typesInScope map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
+    if (typesInScope nonEmpty) debug(s"Found types in scope: ${typesInScope map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     
     splicedTypes :::= typesInScope
     
@@ -224,13 +239,15 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         
     }
     
-    debug(s"Spliced types: ${splicedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
+    if (splicedTypes nonEmpty) debug(s"Spliced types: ${splicedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     
+    //debug(s"Unquotes: $holes")
+    //debug(s"Spliced unquotes: $flatHoles")
     
     
     val embed = new SimpleEmbedding[c.type](c)
     
-    val tree = try embed(base, pgrm, holes.reverse, splicedTypes, if (unapply) Some(t.head) else None) catch {
+    val tree = try embed(base, pgrm, holes.reverse, flatHoles, splicedTypes, if (unapply) Some(t.head) else None) catch {
       case e @ EmbeddingException(msg) if !debug.debugOptionEnabled =>
         c.abort(c.enclosingPosition, "Embedding Error: "+msg)
     }
