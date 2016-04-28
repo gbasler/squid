@@ -8,7 +8,7 @@ package feature
   *   Error:(13, 14) no ': _*' annotation allowed here
   *   (such annotations are only allowed in arguments to *-parameters)
   *  
-  *  With more effort, we could introduce the same flexibility as Scala QQ splicing, as in: q"List(0, ..$args)"
+  *  With more effort (and support from the IR!), we could introduce the same flexibility as Scala QQ splicing, as in: q"List(0, ..$args)"
   */
 class Varargs extends MyFunSuite {
   import TestDSL._

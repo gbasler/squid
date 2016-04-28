@@ -28,7 +28,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
   
   
-  object ConstQ extends ConstAPI {
+  object Constant extends ConstAPI {
     override def unapply[A: ru.TypeTag, S](x: Q[A, S]): Option[A] = x.rep match {
       case Const(v) if ru.typeOf[A] <:< x.rep.typ.asInstanceOf[ScalaTyping#TypeRep].typ => Some(v.asInstanceOf[A])
       case _ => None
@@ -243,7 +243,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
-  def flatHole[A: TypeEv](name: String): Rep = SplicedHole(name)
+  def splicedHole[A: TypeEv](name: String): Rep = SplicedHole(name)
   
   
   /**
@@ -336,7 +336,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           case (k: String, TypeHoleRep(name)) if k == name => true
           case _ => false
         }
-        fxs.isEmpty && fys.isEmpty && // flattened term lists are only supposed to be present in extractor terms, which are not supposed to be compared
+        fxs.isEmpty && fys.isEmpty && // spliced term lists are only supposed to be present in extractor terms, which are not supposed to be compared
         (xs forall extractsHole) && (ys forall extractsHole) && (xts forall extractsTypeHole) && (yts forall extractsTypeHole)
       case _ => false
     }

@@ -197,7 +197,7 @@ trait ScalaTyping extends Base {
         // TODO put this at the right place!
         case TypeRef(_, sym, arg :: Nil) if sym == symbolOf[TypeHoleMarker[_]] =>
           arg match {
-            case ConstantType(Constant(name: String)) =>
+            case ConstantType(sru.Constant(name: String)) =>
               Some(Map(), Map(name -> SimpleTypeRep(xtyp)), Map())
           }
           
@@ -344,7 +344,7 @@ trait ScalaTyping extends Base {
     //}
     lazy val typ = {
       val ms = symbolOf[TypeHoleMarker[_]]
-      internal.typeRef(internal.thisType(symbolOf[ScalaTyping.type]), ms, internal.constantType(Constant(name)) :: Nil)
+      internal.typeRef(internal.thisType(symbolOf[ScalaTyping.type]), ms, internal.constantType(sru.Constant(name)) :: Nil)
     }
     //println(typ)
     

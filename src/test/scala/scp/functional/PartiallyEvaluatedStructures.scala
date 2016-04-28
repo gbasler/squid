@@ -63,7 +63,7 @@ object PartiallyEvaluatedStructures {
     private object Entries {
       def unapply(x: ArgList): Option[Seq[(String, Rep)]] = x match {
         case ArgList(as @ _*) => Some(as map (Quoted[(String,_),?](_).erase) map {
-          case dsl"Symbol(${ConstQ(str)}) -> ($value: $vt)" => str -> value.rep  // Note: won't match a tuple constructed with Tuple2.apply!
+          case dsl"Symbol(${Constant(str)}) -> ($value: $vt)" => str -> value.rep  // Note: won't match a tuple constructed with Tuple2.apply!
           case _ => return None
         })
         case _ => None

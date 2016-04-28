@@ -1,7 +1,7 @@
 package scp
 package feature
 
-class AutomaticTypeSplicing extends MyFunSuite {
+class AutomaticTypeUnquoting extends MyFunSuite {
   import TestDSL._
   
   def foo[A:TypeEv](a:Q[A,_]) = println(typeEv[A])

@@ -42,7 +42,7 @@ class VirtualizedConstructs extends MyFunSuite {
     val impure = dsl"setEv(getEv+1); getEv"
     
     impure match {
-      case dsl"setEv(getEv+(${ConstQ(n)}:Int)); getEv" => assert(n == 1)
+      case dsl"setEv(getEv+(${Constant(n)}:Int)); getEv" => assert(n == 1)
     }
     impure matches {
     // Oddity: with 'matches', the 'ConstQ' extraction fails with: Error:(48, 31) No TypeTag available for A

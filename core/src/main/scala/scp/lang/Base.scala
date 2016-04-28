@@ -41,10 +41,10 @@ trait Base extends BaseDefs { base =>
   def unitType: TypeRep
   
   trait ConstAPI {
-    def unapply[A: ru.TypeTag, S](x: Q[A,S]): Option[A]
+    def apply[A: TypeEv](x: A): Q[A,{}] = Quoted[A,{}](const(x))
+    def unapply[A: ru.TypeTag, C](x: Q[A,C]): Option[A]
   }
-  //val Const: ConstAPI // TODO
-  val ConstQ: ConstAPI
+  val Constant: ConstAPI
   
   
   //def transform(r: Rep)(f: PartialFunction[Rep, Rep]): Rep
@@ -61,7 +61,7 @@ trait Base extends BaseDefs { base =>
   /// EXT
   
   def hole[A: TypeEv](name: String): Rep
-  def flatHole[A: TypeEv](name: String): Rep
+  def splicedHole[A: TypeEv](name: String): Rep
   
   def typeHole[A](name: String): TypeRep
   
@@ -182,10 +182,10 @@ class BaseDefs { base: Base =>
   //def open(name: String): Nothing = ???
   
   //def splice[A: Lift](x: A): A = ??? // TODO better error
-  def splice[A](x: A): A = ??? // TODO better error // FIXME require Lift..?
+  def unquote[A](x: A): A = ??? // TODO better error // FIXME require Lift..?
   
   //def splice[A,S:Scope](x: Q[A,S]): A = ??? // TODO better error
-  def splice[A,S](x: Q[A,S]): A = ??? // TODO better error
+  def unquote[A,S](x: Q[A,S]): A = ??? // TODO better error
   def spliceVararg[A,S](x: Seq[Q[A,S]]): Seq[A] = ??? // TODO better error
   //def spliceVarargs[A,S](xs: Q[A,S]*): Seq[A] = ???
   
@@ -194,7 +194,7 @@ class BaseDefs { base: Base =>
   
   //implicit def spliceDeep[A: Lift](x: A): Rep[A] = implicitly[Lift[A]].apply(x)
   //implicit def spliceDeep[A](x: Rep[A]): Rep[A] = x
-  implicit def spliceDeep(x: Rep): Rep = x
+  implicit def unquoteDeep(x: Rep): Rep = x
   
   trait Lift[A] { def apply(x: A): Rep }
   implicit def liftConst[A: TypeEv] = new Lift[A] { def apply(x: A) = const(x) }
@@ -226,9 +226,9 @@ class BaseDefs { base: Base =>
         if (a._2 get name forall (_ =:= t)) name -> t 
         else return None
     }
-    val flatVals = a._3 ++ b._3
+    val splicedVals = a._3 ++ b._3
     val vals = a._1 ++ b._1
-    Some(vals, typs, flatVals)
+    Some(vals, typs, splicedVals)
   }
   protected def mergeAll(as: TraversableOnce[Option[Extract]]): Option[Extract] = {
     if (as isEmpty) return Some(EmptyExtract)
@@ -373,13 +373,13 @@ class BaseDefs { base: Base =>
   
   // PRIVATE
   
-  def `private checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(flatValKeys: String*): Extract = {
+  def `private checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(splicedValKeys: String*): Extract = {
     val prnt = (s: Traversable[_]) => s mkString ("{", ",", "}")
     //def keySets = s"{ ${valKeys.toSet}; ${typKeys.toSet}; ${flatValKeys.toSet} }" // Scala bug java.lang.VerifyError: Bad type on operand stack
-    val keySets = () => s"( ${prnt(valKeys)}; ${prnt(typKeys)}; ${prnt(flatValKeys)} )"
+    val keySets = () => s"( ${prnt(valKeys)}; ${prnt(typKeys)}; ${prnt(splicedValKeys)} )"
     
     assert(maps._1.keySet == valKeys.toSet, "Extracted value keys "+prnt(maps._1.keySet)+" do not correspond to specified keys "+keySets())//+valKeys.toSet)
-    assert(maps._3.keySet == flatValKeys.toSet, "Extracted flattened value keys "+prnt(maps._3.keySet)+" do not correspond to specified keys "+keySets())//+flatValKeys.toSet)
+    assert(maps._3.keySet == splicedValKeys.toSet, "Extracted spliced value keys "+prnt(maps._3.keySet)+" do not correspond to specified keys "+keySets())//+flatValKeys.toSet)
     //assert(maps._2.keySet == typKeys.toSet, "Extracted type keys "+maps._2.keySet+" do not correspond to specified keys "+typKeys)
     val xkeys = maps._2.keySet
     val keys = typKeys.toSet

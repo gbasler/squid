@@ -94,9 +94,9 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     //debug("Built:", showCode(builder.tree))
     
     var holes: List[Either[TermName,TypeName]] = Nil // Left: value hole; Right: type hole
-    val flatHoles = mutable.Set[TermName]()
+    val splicedHoles = mutable.Set[TermName]()
     
-    var splicedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
+    var unquotedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
     
     lazy val QTSym = symbolOf[Base#QuotedType[_]]
     lazy val VarargSym = symbolOf[Base].typeSignature.member(TypeName("__*").encodedName)
@@ -125,8 +125,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           val n = h.name.filter(_.toString != "_") map (_.toTermName) getOrElse // hygiene? (can taking the name as specified by the user make collisions?)
             c.freshName(TermName("ANON_HOLE"))
           holes ::= Left(n)
-          if (h.vararg) flatHoles += n
-          else h.tree match { case pq"$p @ __*" => flatHoles += n   case _ => }
+          if (h.vararg) splicedHoles += n
+          else h.tree match { case pq"$p @ __*" => splicedHoles += n   case _ => }
           q"$n"
           
         } else {
@@ -138,7 +138,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
               case _ => false
             }) => q"spliceVararg($t): _*"
             case t if h.vararg => q"spliceVararg($t): _*"
-            case t => q"splice($t)"
+            case t => q"unquote($t)"
           }
         }
         
@@ -155,24 +155,24 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           
           hole.tree.tpe.baseType(QTSym) match {
             case TypeRef(tpbase,QTSym,tp::Nil) if tpbase =:= base.tpe =>
-              splicedTypes ::= ((name.toTypeName, tp, hole.tree))
+              unquotedTypes ::= ((name.toTypeName, tp, hole.tree))
               tq"${tp}"
-            case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot splice type '${hole.tree.tpe}': it is not from base $base.")
-            case _ => throw EmbeddingException(s"Cannot splice type '${hole.tree.tpe}': it is not a QuotedType[_].")
+            case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot unquote type '${hole.tree.tpe}': it is not from base $base.")
+            case _ => throw EmbeddingException(s"Cannot unquote type '${hole.tree.tpe}': it is not a QuotedType[_].")
           }
           
         }
         
-      case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative splicing syntax in unapply position: '$$$t'")
+      case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative unquoting syntax in unapply position: '$$$t'")
       case t @ q"$$(..$args)" =>
-        q"(..${args map (a => q"splice($a)")})"
+        q"(..${args map (a => q"unquote($a)")})"
         
-      case t @ Ident(name: TermName) if name.toString.startsWith("$") => // alternative splicing syntax
+      case t @ Ident(name: TermName) if name.toString.startsWith("$") => // alternative unquoting syntax
         //q"open(${name.toString})"
         val bareName = name.toString.tail
-        if (bareName.isEmpty) throw EmbeddingException(s"Empty alternative splicing name: '$$$t'")
+        if (bareName.isEmpty) throw EmbeddingException(s"Empty alternative unquoting name: '$$$t'")
         if (unapply) {
-          q"splice(${TermName(bareName)})" // alternative splicing in unapply mode does a normal splicing
+          q"unquote(${TermName(bareName)})" // alternative unquoting in unapply mode does a normal unquoting
         } else { // apply
           holes ::= Left(bareName) // holes in apply mode are interpreted as free variables
           q"${TermName(bareName)}"
@@ -227,10 +227,10 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     if (typesInScope nonEmpty) debug(s"Found types in scope: ${typesInScope map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     
-    splicedTypes :::= typesInScope
+    unquotedTypes :::= typesInScope
     
     // FIXME: not safe to remove types in scope, because they may be used in the expr to typecheck...
-    splicedTypes = splicedTypes filter {
+    unquotedTypes = unquotedTypes filter {
       case (name, typ, tree) =>
         val impl = c.inferImplicitValue(c.typecheck(tq"TypeEv[$typ]", c.TYPEmode).tpe)
         
@@ -239,15 +239,15 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         
     }
     
-    if (splicedTypes nonEmpty) debug(s"Spliced types: ${splicedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
+    if (unquotedTypes nonEmpty) debug(s"Spliced types: ${unquotedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     
     //debug(s"Unquotes: $holes")
-    //debug(s"Spliced unquotes: $flatHoles")
+    //debug(s"Spliced unquotes: $splicedHoles")
     
     
-    val embed = new SimpleEmbedding[c.type](c)
+    val embed = new Embedding[c.type](c)
     
-    val tree = try embed(base, pgrm, holes.reverse, flatHoles, splicedTypes, if (unapply) Some(t.head) else None) catch {
+    val tree = try embed(base, pgrm, holes.reverse, splicedHoles, unquotedTypes, if (unapply) Some(t.head) else None) catch {
       case e @ EmbeddingException(msg) if !debug.debugOptionEnabled =>
         c.abort(c.enclosingPosition, "Embedding Error: "+msg)
     }

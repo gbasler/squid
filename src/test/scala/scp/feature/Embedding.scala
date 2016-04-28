@@ -25,10 +25,10 @@ class Embedding extends MyFunSuite {
       case dsl"java.lang.Math.pow(2,3)" =>
     }
     pow23 match {
-      case dsl"java.lang.Math.pow(${ConstQ(2)}, ${ConstQ(3)})" =>
+      case dsl"java.lang.Math.pow(${Constant(2)}, ${Constant(3)})" =>
     }
     pow23 match {
-      case dsl"java.lang.Math.pow(${ConstQ(m)}, ${ConstQ(n)})" =>
+      case dsl"java.lang.Math.pow(${Constant(m)}, ${Constant(n)})" =>
         same(m,2)
         same(n,3)
     }

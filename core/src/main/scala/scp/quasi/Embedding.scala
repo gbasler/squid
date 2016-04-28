@@ -21,7 +21,7 @@ case class EmbeddingException(msg: String) extends Exception(msg)
   * 
   * 
   */
-class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with ScopeAnalyser {
+class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with ScopeAnalyser {
   import c.universe._
   import utils.MacroUtils._
   
@@ -48,11 +48,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
   }
   
   
-  //def apply(tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedTypes: Seq[Tree], unapply: Option[c.Tree]): c.Tree = {
-  /** holes: Seq(either term or type); flatHoles: which holes are flattened term holes (eg: List($xs*))
-    * holes in ction mode are interpreted as free variables (and are never 'flattened')
-    * splicedTypes contains the types spliced in (in ction mode) plus the types found in the current scope */
-  def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], flatHoles: collection.Set[TermName], splicedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
+  //def apply(tree: c.Tree, holes: Seq[Either[TermName,TypeName]], unquotedTypes: Seq[Tree], unapply: Option[c.Tree]): c.Tree = {
+  /** holes: Seq(either term or type); splicedHoles: which holes are spliced term holes (eg: List($xs*))
+    * holes in ction mode are interpreted as free variables (and are never spliced)
+    * unquotedTypes contains the types unquoted in (in ction mode) plus the types found in the current scope */
+  def apply(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], unquotedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree]): c.Tree = {
     
     //debug("HOLES:",holes)
     
@@ -67,7 +67,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     
     val hasImplicit = mutable.Buffer[Type]() // would be better with a Set, but would have to override equals and hashCode to conform to =:=
                                              // note: or simply widen the type until fixed point... (would that be enough?)
-    val (spliceImplicits, types) = splicedTypes flatMap {
+    val (unquoteImplicits, types) = unquotedTypes flatMap {
       case (name, typ, trep) =>
         if (hasImplicit exists (_ =:= typ)) None
         else {
@@ -81,8 +81,8 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
     val virtualizedTree = virtualize(tree)
     debug("Virtualized:", virtualizedTree)
     
-    var termScope: List[Type] = Nil // will contain the scope bases of all spliced stuff + in xtion, possibly the scrutinee's scope
-    var importedFreeVars = mutable.Map[TermName, Type]() // will contain the free vars of the spliced stuff
+    var termScope: List[Type] = Nil // will contain the scope bases of all unquoted stuff + in xtion, possibly the scrutinee's scope
+    var importedFreeVars = mutable.Map[TermName, Type]() // will contain the free vars of the unquoted stuff
     
     val ascribedTree = unapply match {
       case Some(t) =>
@@ -249,7 +249,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           //typesToExtract(name) = tq"Rep[${_expectedType}]"
           
           val r =
-            if (flatHoles(name)) q"$Base.flatHole[${_expectedType}](${name.toString})" 
+            if (splicedHoles(name)) q"$Base.splicedHole[${_expectedType}](${name.toString})" 
             else q"$Base.hole[${_expectedType}](${name.toString})"
           
           return r
@@ -353,16 +353,16 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //case q"val $p: $t = $v" => ???
           
           
-        case q"$base.splice[$t]($idt)" => // TODO need to ask for evidence here?
+        case q"$base.unquote[$t]($idt)" => // TODO need to ask for evidence here?
         //case q"$base.splice[$t]($idt)($ev)" => // TODO need to ask for evidence here?
           // TODO generalize; a way to say "do not lift"
           //q"$base.spliceDeep[$t]($idt)"
           //q"$base.spliceDeep(const($idt))($ev)"
-          q"$base.spliceDeep(const($idt))"
+          q"$base.unquoteDeep(const($idt))"
           
         //case q"$base.splice[$t]($idt)($ev)" => q"$base.spliceDeep[$t]($idt)"
         //case q"$base.splice[$t,$scp]($idt)($ev)" =>
-        case q"$base.splice[$t,$scp]($idt)" =>
+        case q"$base.unquote[$t,$scp]($idt)" =>
           //debug(">>",t,scp)
           //debug(">>",variables(scp.tpe))
           //debug(">>",bases_variables(scp.tpe))
@@ -381,10 +381,11 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           
           debug("Splicing",s"$idt: Q[$t,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
           
-          q"$base.spliceDeep($idt.rep).subs(..${bindings})"
+          q"$base.unquoteDeep($idt.rep).subs(..${bindings})"
           
         case q"$base.spliceVararg[$t,$scp]($idts): _*" =>
-          val splicedX = recNoType(q"$base.splice[$t,$scp](x)")
+          assume(false) // not used?
+          val splicedX = recNoType(q"$base.unquote[$t,$scp](x)")
           q"($idts map ((x:$base.Q[$t,$scp]) => $splicedX)): _*"
           
           
@@ -462,7 +463,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
                   //debug(s"vararg splice [$pt]", t)
                   t match {
                     case q"$base.spliceVararg[$t,$scp]($idts)" if base equalsStructure Base => // TODO make that an xtor
-                      val splicedX = recNoType(q"$Base.splice[$t,$scp](x)")
+                      val splicedX = recNoType(q"$Base.unquote[$t,$scp](x)")
                       //q"$Base.ArgsVarargs(${mkArgs(acc)}, $Base.Args($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*))"
                       q"${mkArgs(acc)}($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*)" // shorter form using Args.apply
                     case _ =>
@@ -471,7 +472,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
                       q"${mkArgs(acc)} splice ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))}"
                   }
                   
-                case ((t @ Ident(name: TermName)) :: Nil, Stream(VarargParam(pt))) if flatHoles(name) =>
+                case ((t @ Ident(name: TermName)) :: Nil, Stream(VarargParam(pt))) if splicedHoles(name) =>
                   //debug(s"hole vararg [$pt]", t)
                   q"$Base.ArgsVarargSpliced(${mkArgs(acc)}, ${rec(t, Some(pt))})"
                   
@@ -636,7 +637,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           case (acc, (n,t)) => tq"$acc{val $n: $t}"
         }
         
-        q"..$types; ..$spliceImplicits; ..$dslDefs; Quoted[$retType, $context]($res)"
+        q"..$types; ..$unquoteImplicits; ..$dslDefs; Quoted[$retType, $context]($res)"
         
       case Some(selector) =>
         
@@ -652,7 +653,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         }
         val termTypesToExtract = termHoleInfoProcessed map {
           case (name, (scpTyp, tp)) => name -> (
-            if (flatHoles(name)) tq"Seq[Quoted[$tp,$scpTyp]]"
+            if (splicedHoles(name)) tq"Seq[Quoted[$tp,$scpTyp]]"
             else tq"Quoted[$tp,$scpTyp]"
           )}
         val typeTypesToExtract = typeHoleInfo mapValues {
@@ -669,7 +670,7 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
         //debug("Type to extract: "+extrTuple)
         
         val tupleConv = holes.map {
-          case Left(name) if flatHoles(name) =>
+          case Left(name) if splicedHoles(name) =>
             val (scp, tp) = termHoleInfoProcessed(name)
             q"_maps_._3(${name.toString}) map (r => Quoted[$tp,$scp](r))"
           case Left(name) =>
@@ -681,9 +682,9 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             q"QuotedType[${typeHoleInfo(name)}](_maps_._2(${name.toString}))"
         }
         
-        val valKeys = termHoles.filterNot(flatHoles).map(_.toString)
+        val valKeys = termHoles.filterNot(splicedHoles).map(_.toString)
         val typKeys = typeHoles.map(_.toString)
-        val flatValKeys = flatHoles.map(_.toString)
+        val splicedValKeys = splicedHoles.map(_.toString)
         
         
         //val defs = typeHoles flatMap { typName =>
@@ -702,13 +703,13 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
             //  _term_.extract(_t_.rep) match {
           q"""
           new {
-            ..$spliceImplicits
+            ..$unquoteImplicits
             ..$dslDefs
             def unapply(_t_ : SomeQ): Boolean = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
-                case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and flattened values "+fvs); ???
+                case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and spliced values "+fvs); ???
                 case None => false
               }
             }
@@ -727,13 +728,13 @@ class SimpleEmbedding[C <: whitebox.Context](val c: C) extends utils.MacroShared
           q"""{
           ..$typedTraits
           new {
-            ..$spliceImplicits
+            ..$unquoteImplicits
             ..${defs}
             ..$dslDefs
             def unapply(_t_ : SomeQ): $scal.Option[$extrTuple] = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
-                val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$flatValKeys)
+                val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
                 (..$tupleConv)
               }
             }
