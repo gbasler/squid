@@ -100,7 +100,21 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         /* // handling thunks:
         if (a.ptyp <:< unitType) q"() => ${toTree(a.body)}" else*/ // probably not safe in general (Unit params could occur in the presence of generics)
         q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
-      case dsln @ NewObject(tp) => New(tq"${tp.typ}")
+      case dsln @ NewObject(tp) =>
+        /** For extremely obscure reasons, I got problems with this line (on commit https://github.com/LPTK/SC-Paradise-Open-Terms-Proto/commit/7c63fba4486ac42c96fe55c754a7f5d636596d61)
+          * The toolbox would crash with internal errors.
+          * The only way I found to fix it is a hack to reconstruct a type tree from scratch using the owners chain...
+          */
+        //New(tq"${tp.typ}") // FAILS SOMETIMES -- depending on what happened before...
+        
+        New(tp.typ match {
+          case TypeRef(tpe, sym, args) =>
+            def path(s: Symbol): Tree =
+              if (s.owner.owner == NoSymbol) q"_root_" else q"${path(s.owner)}.${s.name.toTermName}"
+            tq"${path(sym.owner)}.${sym.name.toTypeName}[..$args]"
+          case tpe => tq"$tpe"
+        })
+        
       case dslm @ ModuleObject(fullName, tp) =>
         q"${reflect.runtime.currentMirror.staticModule(fullName)}"
       case dslm @ MethodApp(self, mtd, targs, argss, tp) =>

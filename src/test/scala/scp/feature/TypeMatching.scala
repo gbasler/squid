@@ -68,9 +68,9 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
         eqt(tb.rep, typeRepOf[Int])
     }
     dsl"((x:Int)=>x+1,(x:Int)=>x-1)" matches {
-      case dsl"($_: ($ta => $tb), $_: (ta => tb))" => println(ta,tb)
+      case dsl"($_: ($ta => $tb), $_: (ta => tb))" => eqt(ta.rep,tb.rep)
     } and {
-      case dsl"($_: ($ta => tb), $_: (ta => $tb))" => println(ta,tb)
+      case dsl"($_: ($ta => tb), $_: (ta => $tb))" => eqt(ta.rep,tb.rep)
     }
   }
   
