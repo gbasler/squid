@@ -53,6 +53,22 @@ class Matching extends FunSuite with ShouldMatchers {
     
   }
   
+  test("Construction Unquotes in Extractors") {
+    
+    val x = dsl"42"
+    dsl"(42, 666)" match {
+      case dsl"($$x, 666)" => 
+    }
+    
+    /*
+    // Note: the following syntax is not special-cased (but could be):
+    val xs = Seq(dsl"1", dsl"2")
+    dsl"List(1, 2)" match {
+      case dsl"($$xs*)" => 
+    }
+    */
+  }
+  
   
 }
 

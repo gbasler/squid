@@ -169,12 +169,6 @@ class BaseDefs { base: Base =>
   case class ArgsVarargs(args: Args, varargs: Args) extends ArgList {
     val reps = args.reps ++ varargs.reps
   }
-  //object Varargs {
-  //  def unapplySeq(x: ArgList) = x match {
-  //    case ArgsVarargs(as, vas) => Some(as.reps, vas.reps)
-  //    case _ => None
-  //  }
-  //}
   case class ArgsVarargSpliced(args: Args, vararg: Rep) extends ArgList {
     val reps = args.reps :+ vararg
   }
