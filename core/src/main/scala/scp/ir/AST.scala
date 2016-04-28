@@ -6,6 +6,7 @@ import lang._
 
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
+import scp.quasi.EmbeddingException
 
 /**
   * TODO: add a lock on the HashMap...
@@ -179,18 +180,13 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
                 * This was kinda restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
                 * We now match method type parameters covariantly, although I'm not sure it is sound. 
                 */
-              val targs = (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) }
-              (Some(EmptyExtract) :: targs).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
-                case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+              mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
             }
-            a <- {
-              val args = (args1 zip args2) map { case (as,bs) => as extract bs }
-              (Some(EmptyExtract) :: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
-                case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
-            }
+            a <- mergeAll( (args1 zip args2) map { case (as,bs) => as extract bs } )
             m0 <- merge(s, t)
             m1 <- merge(m0, a)
           } yield m1
+        case (or: OtherRep, r) => or extractRep r
         case _ => None
       }
       //println(s">> $r")
@@ -207,20 +203,27 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     }
     */
   }
-  //sealed trait TypeRep
-  //trait OtherRep extends Rep { } // TODO add missing methods + update pattern matches
+  
+  trait OtherRep extends Rep { 
+    // TODO add missing methods (toTree, ...) + update pattern matches
+    
+    def extractRep(that: Rep): Option[Extract]
+    
+    def transform(f: Rep => Rep): Rep
+    
+  }
   
   def extract(xtor: Rep, t: Rep): Option[Extract] = xtor.extract(t)//(Map())
   def spliceExtract(xtor: Rep, args: Args): Option[Extract] = xtor match {
     case SplicedHole(name) => Some(Map(), Map(), Map(name -> args.reps))
-    case h @ Hole(name) =>
+    case h @ Hole(name) => // If we extract ($xs*) using ($xs:_*), we have to build a Seq in the object language and return it
       val rep = methodApp(
         moduleObject("scala.collection.Seq", SimpleTypeRep(ru.typeOf[Seq.type])),
         loadSymbol(true, "scala.collection.Seq", "apply"),
         h.typ.asInstanceOf[ScalaTypeRep].targs.head :: Nil, // TODO check; B/E
         Args()(args.reps: _*) :: Nil, h.typ)
       Some(Map(name -> rep), Map(), Map())
-    //case _ => // TODO B/E
+    case _ => throw EmbeddingException(s"Trying to splice-extract with invalid extractor $xtor")
   }
   
   def const[A: TypeEv](value: A): Rep = Const(value)
@@ -369,6 +372,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       //case s: Symbol => s
       case v: Var => v
       case Const(_) => r
+      case or: OtherRep => or.transform(f)
     })
     //println(s"Traversing $r, getting $ret")
     //println(s"=> $ret")

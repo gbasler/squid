@@ -159,9 +159,22 @@ class BaseDefs { base: Base =>
         case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
     }
   }
+  object ArgList {
+    def unapplySeq(x: ArgList) = x match {
+      case Args(as @ _*) => Some(as)
+      case ArgsVarargs(as, vas) => Some(as.reps ++ vas.reps)
+      case ArgsVarargSpliced(_, _) => None
+    }
+  }
   case class ArgsVarargs(args: Args, varargs: Args) extends ArgList {
     val reps = args.reps ++ varargs.reps
   }
+  //object Varargs {
+  //  def unapplySeq(x: ArgList) = x match {
+  //    case ArgsVarargs(as, vas) => Some(as.reps, vas.reps)
+  //    case _ => None
+  //  }
+  //}
   case class ArgsVarargSpliced(args: Args, vararg: Rep) extends ArgList {
     val reps = args.reps :+ vararg
   }
@@ -217,7 +230,10 @@ class BaseDefs { base: Base =>
     val vals = a._1 ++ b._1
     Some(vals, typs, flatVals)
   }
-  
+  protected def mergeAll(as: TraversableOnce[Option[Extract]]): Option[Extract] = {
+    if (as isEmpty) return Some(EmptyExtract)
+    as.reduce[Option[Extract]] { case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+  }
   
   
   

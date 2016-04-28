@@ -1,9 +1,12 @@
 package scp
 
 import org.scalatest.FunSuite
+import scp.lang.Base
+import scp.ir.AST
 
-class MyFunSuite extends FunSuite { funs =>
-  import TestDSL._
+/** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure... */
+class MyFunSuite[DSL <: AST](val DSL: DSL = TestDSL) extends FunSuite { funs =>
+  import DSL._
   
   def hopefully(condition: Boolean) = assert(condition)
   def hopefullyNot(condition: Boolean) = assert(!condition)
