@@ -100,6 +100,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         /* // handling thunks:
         if (a.ptyp <:< unitType) q"() => ${toTree(a.body)}" else*/ // probably not safe in general (Unit params could occur in the presence of generics)
         q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
+      case dsln @ NewObject(tp) => New(tq"${tp.typ}")
       case dslm @ ModuleObject(fullName, tp) =>
         q"${reflect.runtime.currentMirror.staticModule(fullName)}"
       case dslm @ MethodApp(self, mtd, targs, argss, tp) =>
@@ -162,6 +163,10 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           
         case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
           Some(EmptyExtract) // Note: not necessary to test the types, right?
+          
+        case (NewObject(tp1), NewObject(tp2)) =>
+          tp1 extract(tp2, Covariant)
+          
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2)) // FIXME: is it necessary to test the ret types?
           if mtd1 == mtd2
           //if {println(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
@@ -236,6 +241,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
+  def newObject(tp: TypeRep): Rep = NewObject(tp)
   def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
     MethodApp(self, mtd, targs, argss, tp)
@@ -309,12 +315,15 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     //override def equals(that: Any) = value == that
   }
   
+  case class NewObject(typ: TypeRep) extends Rep {
+    override def toString = s"new $typ"
+  }
   case class ModuleObject(fullName: String, typ: TypeRep) extends Rep {
     override def toString = fullName
   }
   case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep {
     lazy val mtd = DSLDef(sym.fullName, sym.info.toString, sym.isStatic)
-    override def toString = s"$self.${mtd.shortName}" +
+    override def toString = (if (sym.isConstructor) s"$self" else s"$self.${mtd.shortName}") +
       (targs.mkString("[",",","]")*(targs.size min 1)) + (argss mkString)
   }
   
@@ -360,7 +369,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
       case ap @ App(fun, a) => App(tr(fun), tr(a))(TypeEv(ap.typ))
-      case Hole(_) | SplicedHole(_) => r
+      case Hole(_) | SplicedHole(_) | NewObject(_) => r
       case mo @ ModuleObject(fullName, tp) => mo
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)

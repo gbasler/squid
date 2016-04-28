@@ -1,6 +1,13 @@
 package scp
 package feature
 
+object Embedding {
+  
+  case class MC[A](x:Int)(syms: A*)
+  
+  def foo(n: Int)(s: String) = s * n
+  
+}
 class Embedding extends MyFunSuite {
   import Embedding._
   
@@ -41,6 +48,30 @@ class Embedding extends MyFunSuite {
     dsl"String valueOf true" matches {
       case dsl"java.lang.String.valueOf(true)" =>
     }
+    
+  }
+  
+  test("New") {
+    
+    //dbgdsl"new MC(42)('ok, 'ko)" // TODO look at gen'd code and reduce
+    val mc = dsl"new MC(42)('ok, 'ko)"
+    
+    mc matches {
+      case dsl"new MC(42)('ok, 'ko)" =>
+    } and {
+      case dsl"new MC($n)('ok, Symbol($str))" =>
+        eqt(n, dsl"42")
+        eqt(str, dsl"${"ko"}")
+    } and {
+      //case dsl"new MC($n)($a, $b)" => fail // should generate a warning
+      case dsl"new MC[$t]($n)($a, $b)" =>
+    } and {
+      case dsl"$mc: MC[$t]" =>
+        eqt(t.rep, typeRepOf[Symbol])
+        eqt(mc.trep, typeRepOf[MC[Symbol]])
+    }
+    
+    assertTypeError(""" mc match { case dsl"new $ab" => } """) // Embedding Error: trait ab is abstract; cannot be instantiated
     
   }
   
@@ -127,11 +158,6 @@ class Embedding extends MyFunSuite {
       case dsl"$ls: List[$t]" => assert(t.rep =:= typeRepOf[Option[Double]])
     }
   }
-  
-}
-object Embedding {
-  
-  def foo(n: Int)(s: String) = s * n
   
 }
 

@@ -214,7 +214,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     /** `parent` is used to display an informative tree in errors; `expectedType` for knowing the type a hole should have  */
     def lift(x: c.Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, TermName]): c.Tree = {
       //debug(x.symbol,">",x)
-      debug(s"TRAVERSING",x,"<:",expectedType getOrElse "?")
+      //debug(s"TRAVERSING",x,"<:",expectedType getOrElse "?")
       
       def rec(x1: c.Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, TermName]): c.Tree = lift(x1, x, expTpe)
       def recNoType(x1: c.Tree)(implicit ctx: Map[TermSymbol, TermName]): c.Tree = lift(x1, x, None)
@@ -266,32 +266,24 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           return tq"${tsym}"
           
-        case typ @ TypeTree() if
-        unapply.isDefined && typ.pos.isEmpty // only check for top/bot in extraction mode, where it matters critically
-        && (typ.pos == NoPosition // sometimes these types have no position, like in the VirtualizedConstructs test...
-        || typ.pos.point == 0) // only check for inferred types (types specified explicitly should have a non-null offset [I guess?])
-        =>
-          //println(">>> "+typ.pos)
-          //println(">>> ",typ.pos.isOpaqueRange,typ.pos.isRange,typ.pos.isTransparent)
-          
-          // Q: why not call this in `checkType`? We miss cases where checkType raises an error before we can analyse the return type...
-          val tp = typ.tpe match {
-            case TypeRef(_, RepeatedParamClass, t :: Nil) => t
-            case _ => typ.tpe
-          }
-          (if (Any <:< tp) Some("Any")
-          else if (tp <:< Nothing) Some("Nothing")
-          else None) foreach { top_bot =>
-              c.warning(c.enclosingPosition, // TODO show the actual shallow code
-              s"""/!\\ Type $top_bot was inferred in quasiquote pattern /!\\
-                  |    This may make the pattern fail more often than expected.
-                  |    in application: 
-                  |      $parent
-                  |${if (debug.debugOptionEnabled) showPosition(x.pos) else ""
-                  }(If you wish to make this warning go away, you can specify $top_bot explicitly in the pattern.)"""
+        case InferredType(tps @ _*)
+        if unapply isDefined => // only check for top/bot in extraction mode, where it matters critically
+          debug(">> Inferred:", tps)
+          tps foreach { tp =>
+            // Q: why not call this in `checkType`? We miss cases where checkType raises an error before we can analyse the return type...
+            (if (Any <:< tp) Some("Any")
+            else if (tp <:< Nothing) Some("Nothing")
+            else None) foreach { top_bot =>
+                c.warning(c.enclosingPosition, // TODO show the actual shallow code
+                s"""/!\\ Type $top_bot was inferred in quasiquote pattern /!\\
+                    |    This may make the pattern fail more often than expected.
+                    |    in application: 
+                    |      $parent
+                    |${if (debug.debugOptionEnabled) showPosition(x.pos) else ""
+                    }(If you wish to make this warning go away, you can specify $top_bot explicitly in the pattern.)"""
                 .stripMargin)
-            // This usually indicates a typing problem
-          }          
+            }
+          }
           
         case _ =>
           
@@ -501,7 +493,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
               // TODO $a.$f(...$args)
               // TODO $f[..$targs](...$args)
           }
-        
+          
+        case New(tp) =>
+          recNoType(tp) // so it checks for inferred Nothing/Any
+          q"$Base.newObject(typeEv[${typeToTreeChecking(x.tpe, x)}].rep)"
+          
         case Apply(f,args) => throw EmbeddingException(s"Cannot refer to function '$f' (from '${x.symbol.owner}')") // TODO handle rep function use here?
           
         case q"$f(..$args)" =>
@@ -800,6 +796,25 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         Some((lhs, targs, Nil))
 
       case _ => None
+    }
+  }
+  
+  object InferredType {
+    def unapplySeq(tpt: TypeTree) = tpt match {
+      case typ @ TypeTree() if typ.pos.isEmpty // an inferred type will have an empty position (apparently)
+      && (typ.pos == NoPosition // sometimes these types have no position, like in the VirtualizedConstructs test...
+      || typ.pos.point == 0) // only check for inferred types (types specified explicitly should have a non-null offset [I guess?])
+      =>
+        typ.tpe match {
+          case TypeRef(_, RepeatedParamClass, t :: Nil) => Some(Seq(t))
+          case _ => Some(Seq(typ.tpe))
+        }
+      case tq"$_[..$tps]" if tpt.tpe.typeArgs.size != tps.size => // for arguments to 'new'
+        //Some(tps map (_.tpe))
+        Some(tpt.tpe.typeArgs)
+      case _ =>
+        debug(">> Not inferred:", tpt)
+        None
     }
   }
   
