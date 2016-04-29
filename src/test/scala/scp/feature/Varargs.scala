@@ -21,6 +21,18 @@ class Varargs extends MyFunSuite {
     assertDoesNotCompile(""" dsl"Map[Int,Int]()" match { case dsl"Map[$ts*]()" => } """)
   }
   
+  test("Simple Vararg Usage") {
+    dsl"Seq(1,2,3)" match {
+      case dsl"Seq[Int]($a,$b,$c)" => same(Seq(a,b,c), args)
+    }
+    import Embedding._
+    dsl"new MC(42)('ok, 'ko)" match {
+      case dsl"new MC(42)($a, $b)" =>
+        eqt(a, dsl"'ok")
+        eqt(b, dsl"'ko")
+    }
+  }
+  
   test("Vararg Construction and Extraction") {
     dsl"List(Seq(1,2,3): _*)" matches {
       case dsl"List[Int]($xs*)" => fail
