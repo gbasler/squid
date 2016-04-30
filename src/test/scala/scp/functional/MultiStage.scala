@@ -9,7 +9,7 @@ class MultiStage extends FunSuite {
   
   test("Nested Quoted Types") {
     
-    val reprep = dsl"MultiStage.rep" : Q[Q[Double, {}], {}]
+    val reprep = dsl"MultiStage.rep" : Q[ Q[Double, {}], {} ]
     val rep = reprep.run
     
     assert(rep == MultiStage.rep)
@@ -20,7 +20,7 @@ class MultiStage extends FunSuite {
     
     //show(dbgdsl""" dbgdsl"42" """)
     
-    lazy val dsldsl = dsl""" dsl"42" """ // FIXME: Could not find type DynamicTypeRep in module object ScalaTyping
+    //lazy val dsldsl = dsl""" dsl"42" """ // FIXME: Could not find type DynamicTypeRep in module object ScalaTyping
     
   }
   

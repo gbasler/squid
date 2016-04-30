@@ -37,5 +37,7 @@ class MyFunSuite[DSL <: AST](val DSL: DSL = TestDSL) extends FunSuite { funs =>
     def eqt (that: Q[_,_]) = funs.eqt(self, that)
   }
   
+  def implicitTypeOf[A: TypeEv](x: Quoted[A,_]) = typeEv[A].rep
+  
 }
 

@@ -1,4 +1,5 @@
-package scp.lang
+package scp
+package lang
 
 import reflect.api
 import reflect.api.Universe
@@ -111,6 +112,8 @@ trait ScalaTyping extends Base {
     * TODO factor logic with loadOverloadedSymbol
     */
   final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
+    debug(s"Loading $typ::$symName ($mod)")
+    
     symbolCache getOrElseUpdate ((typ, symName), {
       val tp = loadTypeSymbol(typ)
       //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
@@ -122,6 +125,8 @@ trait ScalaTyping extends Base {
   /** Note: Assumes the runtime library has the same version of a class as the compiler;
     *   overloaded definitions are identified by their index (the order in which they appear) */
   final def loadOverloadedSymbol(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol = {
+    debug(s"Loading $typ::$symName #$index ($mod)")
+    
     overloadedSymbolCache getOrElseUpdate ((typ, symName, index), {
       //loadType(typ).typeSignature.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod
       val tp = loadTypeSymbol(typ)
@@ -140,6 +145,8 @@ trait ScalaTyping extends Base {
   }
   
   private[scp] def loadTypeSymbol(fullName: String): TypeSymbol = {
+    debug(s"Loading Type $fullName")
+    
     val dotIndex = fullName.lastIndexOf('.')
     //val ir = internal.reificationSupport
     //ir.selectType(loadPackage(fullName take dotIndex), fullName drop (dotIndex+1)) // if dotIndex == -1, we drop 0
@@ -489,7 +496,7 @@ trait ScalaTyping extends Base {
 
 import reflect.macros.blackbox
 class ScalaTypingMacros(val c: blackbox.Context) {
-  import ScalaTyping.debugEnabled
+  import ScalaTyping.debug
   
   type Ctx = c.type
   val Ctx: c.type = c
@@ -497,33 +504,90 @@ class ScalaTypingMacros(val c: blackbox.Context) {
   
   val holeType = typeOf[Base.HoleType]
   
-  // TODO an API to aggregate all needed typereps, without repetition (for QQ code-gen)
+  // TODOlater an API to aggregate all needed typereps, without repetition (for QQ code-gen)
   def typeRep(base: Tree, tp: Type): Tree = {
     
+    val isHole = ( 
+      tp <:< holeType // I imagine that this is less expensive than the following check (but maybe not)
+      && (tp.baseType(symbolOf[Base.HoleType]) != NoType) )
+    
+    //println(s"Searching rep for $tp (${tp.widen}) -- $isHole")
+    
+    // Automatic Type Evidences:
+    // Looks into the current scope to find if we have values of type `QuotedType[x]`, such as those one would extract from a pattern
+    if (isHole) {
+      val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
+        _.scope collect {
+          case sym if sym.isVal
+            && sym.isInitialized // If we look into the type of value being constructed (eg `val x = exp"42"`),
+                                 // it will trigger a 'recursive value needs type' error
+            && sym.name == tp.typeSymbol.name.toTermName
+          =>
+            //sym.name.toTermName -> sym.tpe
+            //debug(sym, sym.isInitialized)
+            sym -> sym.tpe
+        }
+      }.asInstanceOf[List[(TermSymbol, Type)]]
+      
+      val QTSym = symbolOf[Base#QuotedType[_]]
+      
+      vals foreach {
+        case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= base.tpe =>
+          //println("FOUND QUOTED TYPE "+sym)
+          return q"$sym.rep"
+        case _ =>
+      }
+      
+    }
+    
+    
     tp.widen match {
-      case t if t <:< holeType // I imagine that this is less expensive than the following check
-      && (tp.baseType(symbolOf[Base.HoleType]) != NoType) => // we have `Nothing <: HoleType`, but Nothing does not 'really' extend HoleType
-        //debug("HOLE "+tp)
-        q"$base.typeHole[$tp](${tp.typeSymbol.name.toString})"
-        //q"$base.TypeHoleRep[$tp](${tp.typeSymbol.name.toString})()"
-      case TypeRef(_, sym, args) =>
-        //if (!sym.asType.isClass) c.abort(c.enclosingPosition, s"Unknown type! $sym")
-        //q"$base.ScalaTypeRep(${sym.fullName.toString}, ..${args map (t => q"TypeEv(${typeRep(base,t)})")})"
-        q"$base.DynamicTypeRep(${sym.fullName.toString}, ..${args map (t => typeRep(base,t))})"
-      //case TypeRef(_, sym, args) =>
-      //  ???
-      case _ => c.abort(c.enclosingPosition, s"Cannot generate a type evidence for: $tp")
+        
+      case TypeRef(prefix, sym, args)
+      if !isHole && { val s = prefix.typeSymbol; s.isModule || s.isPackage || s.isModuleClass } =>
+        q"$base.DynamicTypeRep(${prefix.typeSymbol.fullName + '.' + sym.name}, ..${args map (t => typeRep(base,t))})"
+        
+      case t =>
+        //println(">>>>>>>>>>>>>>>>>>>>>>>>>",t,t.getClass);
+        
+        val evt = internal.typeRef(base.tpe, symbolOf[Base#TypeEv[_]], t :: Nil)
+        val impl = c.inferImplicitValue(evt, withMacrosDisabled = true)
+        if (impl.isEmpty) {
+          
+          if (isHole)  {
+            /*
+            // Now useless: used to match type holes when they were generated inside of an object,
+            // so when they were taken out of scope, they would become of the form: AnyRef{type t <: HoleType}#t
+            t match {
+              case TypeRef(RefinedType(tps, scp), sym, args) =>
+                scp foreach {
+                  case s: TypeSymbol =>
+                    s.typeSignature match {
+                      case TypeBounds(lo,hi) =>
+                        if (lo <:< holeType)
+                          c.abort(c.enclosingPosition, s"Cannot refer to hole type '${s.name}' out of the scope where it is extracted.")
+                      case _ =>
+                    }
+                  case _ =>
+                }
+              case _ =>
+            }
+            */
+            c.abort(c.enclosingPosition, s"Cannot refer to hole type out of the scope where it is extracted." )
+          }
+          c.abort(c.enclosingPosition, s"Cannot generate a type representation for: $t" +
+            ( if (!(tp =:= t)) s" ($tp)" else "" ))
+        } else { 
+          q"$impl.rep"
+        }
     }
     
   }
   
   def typeEvImplicitImpl[A: c.WeakTypeTag]: Tree = {
-    
-    val base = c.macroApplication match {
-      case q"$b.typeEvImplicit[$_]" => b
-    }
     val A = weakTypeOf[A]
     
+    val q"$base.typeEvImplicit[$_]" = c.macroApplication
     val ev = q"TypeEv(${typeRep(base, A)})"
     
     //debug(s"Evidence for $A: $ev")

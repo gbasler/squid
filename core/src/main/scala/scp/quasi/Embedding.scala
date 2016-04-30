@@ -58,25 +58,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     val (termHoles, typeHoles) = (holes.collect{case Left(n) => n}.toSet, holes.collect{case Right(n) => n}.toSet)
     
-    //val splicedType = splicedTypes.map(_._2.typeSymbol.asType).toSet
-    
     //val traits = typeHoles map { typ => q"trait $typ" }
     val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.lang.Base.HoleType" }
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
-    
-    
-    val hasImplicit = mutable.Buffer[Type]() // would be better with a Set, but would have to override equals and hashCode to conform to =:=
-                                             // note: or simply widen the type until fixed point... (would that be enough?)
-    val (unquoteImplicits, types) = unquotedTypes flatMap {
-      case (name, typ, trep) =>
-        if (hasImplicit exists (_ =:= typ)) None
-        else {
-          hasImplicit += typ
-          Some((q"implicit def ${name.toTermName} : TypeEv[$typ] = TypeEv($trep)",
-            //q"trait ${typ.typeSymbol.name.toTypeName}"))
-            q"type ${typ.typeSymbol.name.toTypeName} = $typ"))
-        }
-    } unzip;
     
     val virtualizedTree = virtualize(tree)
     debug("Virtualized:", virtualizedTree)
@@ -107,8 +91,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     def shallowTree(t: Tree) = {
       // we need tp introduce a dummy val in case there are no statements; otherwise we may remove the wrong statements when extracting the typed term
-      val nonEmptyVals = if (types.size + traits.size + vals.size == 0) Set(q"val $$dummy$$ = ???") else vals
-      val st = q"..$types; ..$traits; ..$nonEmptyVals; $t"
+      val nonEmptyVals = if (traits.size + vals.size == 0) Set(q"val $$dummy$$ = ???") else vals
+      val st = q"..$traits; ..$nonEmptyVals; $t"
+      //val st = q"object Traits { ..$traits; }; import Traits._; ..$nonEmptyVals; $t"
+      // ^ this has the advantage that when types are taken out of scope, their name is preserved (good for error message),
+      // but it caused other problems... the implicit evidences generated for them did not seem to work
       if (debug.debugOptionEnabled) debug("Shallow Tree: "+st)
       st
     }
@@ -158,6 +145,12 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     val typeSymbols = stmts collect {
       case t @ q"abstract trait ${name: TypeName} extends ..$_" => (name: TypeName) -> t.symbol
     } toMap;
+    // // For when traits are generated in a 'Traits' object:
+    //val typeSymbols = (stmts collectFirst { case traits @ q"object Traits { ..$stmts }" =>
+    //  stmts map { case t @ q"abstract trait ${name: TypeName} extends ..$_" =>
+    //    debug("TRAITS",traits.symbol.typeSignature)
+    //    (name: TypeName) -> internal.typeRef(traits.symbol.typeSignature, t.symbol, Nil) }
+    //} get) toMap;
     
     debug(s"Typed[${typedTreeType}]: "+finalTree)
     
@@ -193,7 +186,6 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     //val typesToExtract = mutable.Map[Name, Tree]()
     //val holeTypes = mutable.Map[Name, Type]()
     val termHoleInfo = mutable.Map[TermName, (Scp, Type)]()
-    val typeHoleInfo = mutable.Map[Name, Symbol]()
     
     //val usedFeatures = mutable.Buffer[(TermName, DSLDef)]()
     //val usedFeatures = mutable.Map[DSLDef, TermName]()
@@ -201,6 +193,13 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     val freeVars = mutable.Buffer[(TermName, Type)]()
     
+    val usedTypes = mutable.Map[Type, TermName]()
+    def getType(tp: Type) = {
+      val name = usedTypes.getOrElseUpdate(tp, { // TODO use =:= for better type comparison...
+        c.freshName[TermName](tp.typeSymbol.name.encodedName.toTermName)
+      })
+      q"$name"
+    }
     
     
     
@@ -250,7 +249,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val r =
             if (splicedHoles(name)) q"$Base.splicedHole[${_expectedType}](${name.toString})" 
-            else q"$Base.hole[${_expectedType}](${name.toString})"
+            else q"$Base.hole[${_expectedType}](${name.toString})(${getType(expectedType.get)})"
           
           return r
           
@@ -260,9 +259,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val tsym = typeSymbols(name)
           
-          //typesToExtract(name) = tq"TypeRep[${tsym}]"
-          //holeTypes(name) = tsym.typeSignature
-          typeHoleInfo(name) = tsym
+          //typeHoleInfo(name) = tsym
+          // ^ typeHoleInfo used to aggregate info we already had; removed for efficiency -- although it could have helped find bugs where we don't find some type holes 
           
           return tq"${tsym}"
           
@@ -337,7 +335,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             internal.setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
             expectedType)(ctx + (vdef.symbol.asTerm -> name))
           
-          q"letin[${vdef.symbol.typeSignature},${x.tpe}](${name.toString}, $v2, ($name: Rep) => $body)"
+          q"letin[${vdef.symbol.typeSignature},${x.tpe}](${name.toString}, $v2, ($name: Rep) => $body)(${
+            getType(vdef.symbol.typeSignature)},${getType(x.tpe)})"
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }", expectedType)
@@ -388,8 +387,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //debug(">>", x.tpe, x.tpe <:< typeOf[AnyRef], x.symbol.typeSignature, x.symbol.typeSignature <:< typeOf[AnyRef])
           if (x.symbol.isJava) {
             assume(!(x.symbol.typeSignature <:< typeOf[AnyRef]))
-            q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.symbol.companion}].rep)"
-          } else q"$Base.moduleObject(${x.symbol.fullName}, $Base.typeEv[${x.symbol.typeSignature}].rep)"
+            q"$Base.moduleObject(${x.symbol.fullName}, ${getType(internal.thisType(x.symbol.companion))}.rep)"
+          } else q"$Base.moduleObject(${x.symbol.fullName}, ${getType(x.symbol.typeSignature)}.rep)"
           
         case SelectMember(obj, f) =>
           
@@ -419,7 +418,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             q"$name"
           }
           
-          val tp = q"$Base.typeEv[${x.tpe}].rep"
+          val tp = q"${getType(x.tpe)}.rep"
           val self = lift(obj, x, Some(obj.tpe))
           
           x match {
@@ -437,8 +436,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
               
             case MultipleTypeApply(_, targs, argss) =>
               
-              val processedTargs = targs map recNoType
-              val targsTree = q"List(..${processedTargs map (tp => q"$Base.typeEv[$tp].rep")})"
+              targs foreach recNoType
+              val targsTree = q"List(..${targs map (tp => q"${getType(tp.tpe)}.rep")})"
               
               object VarargParam {
                 def unapply(param: Type): Option[Type] = param match {
@@ -496,7 +495,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
         case New(tp) =>
           recNoType(tp) // so it checks for inferred Nothing/Any
-          q"$Base.newObject(typeEv[${typeToTreeChecking(x.tpe, x)}].rep)"
+          checkType(x.tpe.typeSymbol.asType, x)
+          q"$Base.newObject(${getType(x.tpe)}.rep)"
           
         case Apply(f,args) => throw EmbeddingException(s"Cannot refer to function '$f' (from '${x.symbol.owner}')") // TODO handle rep function use here?
           
@@ -516,7 +516,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //rec(q"{p}")
           recNoType(tpt)
           q"$Base.abs[${p.symbol.typeSignature}, ${body.tpe}](${name.toString}, ($name: Rep) => ${
-            rec(body, typeIfNotNothing(body.tpe)/*Note: could do better that: match expected type with function type...*/)(ctx + (p.symbol.asTerm -> name))})"
+            rec(body, typeIfNotNothing(body.tpe)/*Note: could do better that: match expected type with function type...*/)(ctx + (p.symbol.asTerm -> name))
+          })(${getType(p.symbol.typeSignature)}, ${getType(body.tpe)})"
           
           
         // TODO
@@ -533,7 +534,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
         case q"$t: $typ" =>
           val tree = lift(t, x, Some(typ.tpe)) // Executed before `rec(typ)` to keep syntactic order!
-          q"ascribe[${rec(typ, Some(x.tpe))}](${tree})"
+          q"ascribe[${rec(typ, Some(x.tpe))}](${tree})(${getType(typ.tpe)})"
         
         
         
@@ -593,6 +594,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
              q"val $name = $Base.loadOverloadedSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString}, ${alts.indexOf(sym)})"
         else q"val $name = $Base.loadSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString})"
     }
+    val dslTypes = usedTypes map {
+      case (typ, name) => q"val $name = $Base.typeEvImplicit[$typ]"
+    }
     
     
     // We surrounds names with _underscores_ to avoid potential name clashes (with defs, for example)
@@ -633,7 +637,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           case (acc, (n,t)) => tq"$acc{val $n: $t}"
         }
         
-        q"..$types; ..$unquoteImplicits; ..$dslDefs; Quoted[$retType, $context]($res)"
+        q"..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($res)"
         
       case Some(selector) =>
         
@@ -652,9 +656,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             if (splicedHoles(name)) tq"Seq[Quoted[$tp,$scpTyp]]"
             else tq"Quoted[$tp,$scpTyp]"
           )}
-        val typeTypesToExtract = typeHoleInfo mapValues {
-          sym => tq"QuotedType[$sym]"
-        }
+        val typeTypesToExtract = typeSymbols mapValues { sym => tq"QuotedType[$sym]" }
         
         val extrTyps = holes.map {
           case Left(vname) => termTypesToExtract(vname)
@@ -675,7 +677,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             q"Quoted[$tp,$scp](_maps_._1(${name.toString}))"
           case Right(name) =>
             //q"_maps_._2(${name.toString}).asInstanceOf[${typeTypesToExtract(name)}]"
-            q"QuotedType[${typeHoleInfo(name)}](_maps_._2(${name.toString}))"
+            q"QuotedType[${typeSymbols(name)}](_maps_._2(${name.toString}))"
         }
         
         val valKeys = termHoles.filterNot(splicedHoles).map(_.toString)
@@ -683,14 +685,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         val splicedValKeys = splicedHoles.map(_.toString)
         
         
-        //val defs = typeHoles flatMap { typName =>
-        //  val typ = typeSymbols(typName)
-        //  val holeName = TermName(s"$$$typName$$hole")
-        //  //List(q"val $holeName : TypeRep[${typ}] = typeHole[${typ}](${typName.toString})",
-        //  List(q"val $holeName : TypeRep = typeHole[${typ}](${typName.toString})",
-        //  q"implicit def ${TermName(s"$$$typName$$implicit")} : TypeEv[$typ] = TypeEv($holeName)")
-        //}
-        val defs = List.empty[Tree]
+        val defs = typeHoles map { typName =>
+          val typ = typeSymbols(typName)
+          val holeName = TermName(s"$$$typName$$hole")
+          q"implicit val $holeName : TypeEv[$typ] = TypeEv(typeHole[${typ}](${typName.toString}))"
+        }
         
         
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
@@ -699,8 +698,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             //  _term_.extract(_t_.rep) match {
           q"""
           new {
-            ..$unquoteImplicits
+            ..$defs
             ..$dslDefs
+            ..$dslTypes
             def unapply(_t_ : SomeQ): Boolean = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) match {
@@ -724,9 +724,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           q"""{
           ..$typedTraits
           new {
-            ..$unquoteImplicits
             ..${defs}
             ..$dslDefs
+            ..$dslTypes
             def unapply(_t_ : SomeQ): $scal.Option[$extrTuple] = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>

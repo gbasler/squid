@@ -69,9 +69,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     val mc = MacroDebugger[c.type](c)
     val debug = { mc[MacroDebug] }
     
-    val unapply = c.macroApplication.symbol.annotations.filter(
-      _.tree.tpe <:< typeOf[QuasiMacro.Ext]
-    ).headOption.map(_.tree.children.tail).nonEmpty
+    val unapply = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[quasi.QuasiMacro.Ext])
     
     //debug(c.macroApplication)
     val base = c.macroApplication match {
@@ -196,48 +194,12 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     }
     
     
-    
+    /* // Moved to ScalaTypingMacros's typeEvImplicitImpl/typeRep
     // Automatic Type Splicing:
     // Looks into the current scope to find if we have values of type `TypeRep[x]`, such as those one would extract from an `ext` pattern
-    val typesInScope = {
-      val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
-        _.scope collect {
-          case sym if sym.isVal
-            && sym.isInitialized // If we look into the type of value being constructed (eg `val x = exp"42"`),
-                                 // it will trigger a 'recursive value needs type' error
-          =>
-            //sym.name.toTermName -> sym.tpe
-            //debug(sym, sym.isInitialized)
-            sym -> sym.tpe
-        }
-      }.asInstanceOf[List[(TermSymbol, Type)]]
-      
-      //debug(vals)
-      
-      val treps = vals flatMap {
-        case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= base.tpe =>
-          Some(sym.name.toTypeName, tp, q"$sym")
-        case _ => None
-      }
-      
-      //debug(treps)
-      
-      treps
-    }
-    
-    if (typesInScope nonEmpty) debug(s"Found types in scope: ${typesInScope map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
-    
+    val typesInScope = { ... }
     unquotedTypes :::= typesInScope
-    
-    // FIXME: not safe to remove types in scope, because they may be used in the expr to typecheck...
-    unquotedTypes = unquotedTypes filter {
-      case (name, typ, tree) =>
-        val impl = c.inferImplicitValue(c.typecheck(tq"TypeEv[$typ]", c.TYPEmode).tpe)
-        
-        //debug(tp, impl)
-        impl == EmptyTree // only consider the spliced type if an implicit for it is not already in scope
-        
-    }
+    */
     
     if (unquotedTypes nonEmpty) debug(s"Spliced types: ${unquotedTypes map {case (n,tp,tr) => s"$n: $tp ($tr)" }}")
     

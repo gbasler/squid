@@ -16,6 +16,10 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
       case dsl"$x: $t" =>
         eqt(t.rep, typeRepOf[Int])
         eqt(t.rep, x.trep)
+        
+        val opt = dsl"Option.empty[$t]" // TODO
+        eqt(opt, dsl"Option.empty[Int]")
+        eqt(opt.trep, typeRepOf[Option[Int]])
     }
   }
   

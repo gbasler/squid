@@ -116,6 +116,9 @@ class BaseDefs { base: Base =>
   def typeEv[A: TypeEv] = implicitly[TypeEv[A]]
   def typeRepOf[A: TypeEv]: TypeRep = typeEv[A].rep
   
+  // TODO We should provide here the type evidence macro to get the types in scope, and fall-back on a `mkTypeRep` macro otherwise 
+  //implicit def typeEvImplicit[A]: TypeEv[A] = macro Base.typeEvImplicitImpl[A]
+  //def `private mkTypeRep`[A: ru.WeakTypeTag](extraction: Boolean = false): TypeRep // supposed to be a macro; TODOlater: better error on virtual call
   
   def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
   def ascribe[A: TypeEv](value: Rep): Rep = value // FIXME don't all IRs need to override it to have sound match checking?
@@ -417,8 +420,22 @@ object Base {
     qf
   }
   
-  trait HoleType
+  trait HoleType // Used to tag types generated for type holes
   
+  //def typeEvImplicitImpl[A: c.WeakTypeTag](c: Context): c.Tree = {
+  //  import c.universe._
+  //  
+  //  val q"$base.typeEvImplicit[$_]" = c.macroApplication
+  //  val A = weakTypeOf[A]
+  //  
+  //  // TODOlater search in scope...
+  //  
+  //  val ev = q"$base.TypeEv($base.`private mkTypeRep`[$A])"
+  //  
+  //  //debug(s"Evidence for $A: $ev")
+  //  
+  //  ev
+  //}
   
   def subsImpl[T: c.WeakTypeTag, C: c.WeakTypeTag](c: Context)(s: c.Tree) = { // TODO use C to check context!!
     import c.universe._
