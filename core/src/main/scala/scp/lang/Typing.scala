@@ -144,7 +144,8 @@ trait ScalaTyping extends Base {
     }
   }
   
-  private[scp] def loadTypeSymbol(fullName: String): TypeSymbol = {
+  private[scp] def loadTypeSymbol(fullName: String): TypeSymbol = loadPackageTypeSymbol(fullName)._2
+  private[scp] def loadPackageTypeSymbol(fullName: String): (Symbol, TypeSymbol) = {
     debug(s"Loading Type $fullName")
     
     val dotIndex = fullName.lastIndexOf('.')
@@ -152,10 +153,10 @@ trait ScalaTyping extends Base {
     //ir.selectType(loadPackage(fullName take dotIndex), fullName drop (dotIndex+1)) // if dotIndex == -1, we drop 0
     val pack = loadPackage(fullName take dotIndex)
     val tpName = TypeName(fullName drop (dotIndex+1)) // if dotIndex == -1, we drop 0
-    pack.typeSignature.member(tpName) match {
+    pack -> (pack.typeSignature.member(tpName) match {
       case NoSymbol => throw new Exception(s"Could not find type ${tpName} in module $pack")
       case tp => tp.asType
-    }
+    })
   }
   
   
@@ -318,9 +319,17 @@ trait ScalaTyping extends Base {
     
     lazy val typ = {
       // TODO cache this operation:
-      val tsym = loadTypeSymbol(fullName)
-      //internal.typeRef(internal.thisType(tsym.owner), tsym, targs map (_.rep.typ) toList)
-      internal.typeRef(internal.thisType(tsym.owner), tsym, targs map (_.typ) toList)
+      
+      //println("Loading type: "+fullName)
+      
+      val (pack, tsym) = loadPackageTypeSymbol(fullName)
+      // Note: instead of 'pack', we used to use 'tsym.owner', but this is wrong when the symbol is inherited and so the 
+      // prefix type is not the owner of the symbol (see test/scala/scp/feature/InheritedDefs.scala) 
+      
+      //println("Package "+pack)
+      
+      internal.typeRef(pack.typeSignature, tsym, targs map (_.typ) toList)
+      
     }
     
   }
@@ -544,7 +553,7 @@ class ScalaTypingMacros(val c: blackbox.Context) {
     tp.widen match {
         
       case TypeRef(prefix, sym, args)
-      if !isHole && { val s = prefix.typeSymbol; s.isModule || s.isPackage || s.isModuleClass } =>
+      if !isHole && { val s = prefix.typeSymbol; s.isModule || s.isPackage || s.isModuleClass } => // NOTE: to keep in sync with [Embedding]
         q"$base.DynamicTypeRep(${prefix.typeSymbol.fullName + '.' + sym.name}, ..${args map (t => typeRep(base,t))})"
         
       case t =>

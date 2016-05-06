@@ -42,6 +42,7 @@ class Matching extends FunSuite with ShouldMatchers {
         assert(b =~= dsl"42.toDouble")
     }
     
+    dsl" ??? " match { case dsl" ??? " => }
     
   }
   

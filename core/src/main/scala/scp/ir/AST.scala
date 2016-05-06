@@ -7,6 +7,7 @@ import lang._
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
 import scp.quasi.EmbeddingException
+import scp.utils.MacroUtils.StringOps
 
 /**
   * TODO: add a lock on the HashMap...
@@ -110,13 +111,21 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         New(tp.typ match {
           case TypeRef(tpe, sym, args) =>
             def path(s: Symbol): Tree =
-              if (s.owner.owner == NoSymbol) q"_root_" else q"${path(s.owner)}.${s.name.toTermName}"
+              // In some contexts, we get some weird '_root_.<root>.blah' paths
+              if (s.owner == NoSymbol || s.name.toString=="<root>") q"_root_" else q"${path(s.owner)}.${s.name.toTermName}"
             tq"${path(sym.owner)}.${sym.name.toTypeName}[..$args]"
           case tpe => tq"$tpe"
         })
         
       case dslm @ ModuleObject(fullName, tp) =>
-        q"${reflect.runtime.currentMirror.staticModule(fullName)}"
+        
+        //q"${reflect.runtime.currentMirror.staticModule(fullName)}"
+        // ^ the (capricious) toolbox sometimes wants full paths [1], and this does not generate full paths...
+        // [1]: It seems to be when the compiled epxression has macro expansions, like in dsl""" dsl"..." """.run
+        
+        val path = fullName.splitSane('.').toList
+        path.tail.foldLeft(q"${TermName(path.head)}":Tree)((acc,n) => q"$acc.${TermName(n)}")
+        
       case dslm @ MethodApp(self, mtd, targs, argss, tp) =>
         val self2 = toTree(self)
         val argss2 = argss map {
@@ -186,8 +195,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           //if {println(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
         =>
           //println(s"$self1")
-          assert(args1.size == args2.size)
-          assert(targs1.size == targs2.size)
+          assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
+          assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")
           
           //if (tp1 <:< tp2) // no, if tp1 contains type holes it won't be accepted!
           

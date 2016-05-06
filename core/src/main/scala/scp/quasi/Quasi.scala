@@ -165,7 +165,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
       case t @ q"$$(..$args)" =>
         q"(..${args map (a => q"unquote($a)")})"
         
-      case t @ Ident(name: TermName) if name.toString.startsWith("$") => // alternative unquoting syntax
+      case t @ Ident(name: TermName) if name.decodedName.toString.startsWith("$") => // alternative unquoting syntax
         //q"open(${name.toString})"
         val bareName = name.toString.tail
         if (bareName.isEmpty) throw EmbeddingException(s"Empty alternative unquoting name: '$$$t'")

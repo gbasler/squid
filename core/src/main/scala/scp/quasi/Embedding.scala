@@ -187,9 +187,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     //val holeTypes = mutable.Map[Name, Type]()
     val termHoleInfo = mutable.Map[TermName, (Scp, Type)]()
     
-    //val usedFeatures = mutable.Buffer[(TermName, DSLDef)]()
-    //val usedFeatures = mutable.Map[DSLDef, TermName]()
-    val usedFeatures = mutable.Map[MethodSymbol, TermName]()
+    /** usedFeatures: Map (prefix type, method) -> name of local var in which the DSLSymbol is stored */
+    val usedFeatures = mutable.Map[(Type, MethodSymbol), TermName]()
     
     val freeVars = mutable.Buffer[(TermName, Type)]()
     
@@ -388,32 +387,23 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           if (x.symbol.isJava) {
             assume(!(x.symbol.typeSignature <:< typeOf[AnyRef]))
             q"$Base.moduleObject(${x.symbol.fullName}, ${getType(internal.thisType(x.symbol.companion))}.rep)"
-          } else q"$Base.moduleObject(${x.symbol.fullName}, ${getType(x.symbol.typeSignature)}.rep)"
+          } else {
+            val objName = x.tpe match { case SingleType(tp,sym) => s"${tp.typeSymbol.fullName}.${sym.name}" }
+            q"$Base.moduleObject($objName, ${getType(x.tpe)}.rep)"
+          }
           
         case SelectMember(obj, f) =>
           
-          val mod = obj.tpe.termSymbol.isModule
-          
-          val path = TypeName(x.symbol.fullName).decodedName.toString
-          
-          val dslDef = DSLDef(path, x.symbol.info.toString, mod)
-          debug("Dsl feature: "+dslDef.deepName)
-          
+          //val dslDef = DSLDef(path, x.symbol.info.toString, mod)
           //if (!lang.defs(dslDef)) throw EmbeddingException(s"Feature '$dslDef' is not supported in language '$lang'")
           
-          //val fname = TermName(dslDef.deepName).encodedName.toTermName
+          val method = x.symbol.asMethod // FIXME safe?
           
-          //val selfTargs = obj.tpe match {
-          //  case TypeRef(_, _, ts) => ts map (typeToTreeChecking(_, parent)) //map typeToTree//(adaptType)
-          //  case _ => Nil
-          //}
+          debug("Dsl feature: "+method.fullName+" : "+method.info)
           
           def refMtd = {
-            //val name = c.freshName[TermName](mtd.shortName)
-            //usedFeatures += (mtd -> name)
-            val name = usedFeatures.getOrElseUpdate(x.symbol.asMethod, { // FIXME safe?
-              //c.freshName[TermName](mtd.shortName)
-              c.freshName[TermName](TermName(dslDef.shortName).encodedName.toTermName)
+            val name = usedFeatures.getOrElseUpdate((obj.tpe, method), {
+              c.freshName[TermName](method.name.encodedName.toTermName)
             })
             q"$name"
           }
@@ -586,14 +576,29 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     
     val dslDefs = usedFeatures map {
-      case (sym, name) =>
-        val o = sym.owner.asType
-        val alts = o.typeSignature.member(sym.name).alternatives
+      case ((typ,sym), name) =>
+        val typeName = typ.widen match {
+          case ThisType(sym) => sym.fullName
+            
+          // Cases eliminated by widen:
+          //case ConstantType(_) => typ.typeSymbol.fullName
+          //case SingleType(prefix,tsym) =>
+            
+          case TypeRef(prefix, tsym, args)
+          if { val s = prefix.typeSymbol; s.isModule || s.isPackage || s.isModuleClass } => // NOTE: to keep in sync with [ScalaTypingMacros.typeRep]
+            s"${prefix.typeSymbol.fullName}.${tsym.name}"
+          case _ => throw EmbeddingException(s"Type $typ is not a stable type accessible from the root package.")
+        }
+        
+        //val mod = typ.termSymbol.isModule // does not work if we splice-in the module, as in:  dsl"$predef.readInt"
+        val mod = typ.typeSymbol.isModule || typ.typeSymbol.isModuleClass
+        
+        val alts = typ.member(sym.name).alternatives
         if (alts.size > 1)
-             //q"val $name = $Base.loadOverloadedSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString}, ..${showRaw(sym.info.erasure)})"
-             q"val $name = $Base.loadOverloadedSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString}, ${alts.indexOf(sym)})"
-        else q"val $name = $Base.loadSymbol(${sym.isStatic}, ${o.fullName}, ${sym.name.toString})"
+             q"val $name = $Base.loadOverloadedSymbol($mod, $typeName, ${sym.name.toString}, ${alts.indexOf(sym)})"
+        else q"val $name = $Base.loadSymbol($mod, $typeName, ${sym.name.toString})"
     }
+    
     val dslTypes = usedTypes map {
       case (typ, name) => q"val $name = $Base.typeEvImplicit[$typ]"
     }
@@ -813,7 +818,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         //Some(tps map (_.tpe))
         Some(tpt.tpe.typeArgs)
       case _ =>
-        debug(">> Not inferred:", tpt)
+        //debug(">> Not inferred:", tpt)
         None
     }
   }
