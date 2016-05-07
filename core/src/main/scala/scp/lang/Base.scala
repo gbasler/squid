@@ -79,7 +79,7 @@ class BaseDefs { base: Base =>
   
   
   sealed case class Quoted[+Typ, -Scp](rep: Rep) {
-    def typ = QuotedType[Typ](trep)
+    def typ[T >: Typ] = QuotedType[T](trep)
     def trep = base.typ(rep)
     
     type Type <: Typ
@@ -103,15 +103,18 @@ class BaseDefs { base: Base =>
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut
   
-  sealed case class QuotedType[+Typ](rep: TypeRep)
-  type QT[+T] = QuotedType[T] // shortcut
+  /** Note: 'QuotedType' cannot be covariant, because that would introduce unsoundness */
+  @annotation.implicitNotFound(msg = "Could not find type representation evidence for ${Typ} (implicit of type QuotedType[${Typ}])")
+  sealed case class QuotedType[Typ](rep: TypeRep)
+  type QT[T] = QuotedType[T] // shortcut
   
-  sealed class QuotedDepType[+Typ, -Scp](rep: TypeRep)/*(implicit val scp: Scope[Scp])*/ extends QuotedType[Typ](rep)
-  type QDT[+T,-S] = QuotedDepType[T, S] // shortcut
+  sealed class QuotedDepType[Typ, -Scp](rep: TypeRep)/*(implicit val scp: Scope[Scp])*/ extends QuotedType[Typ](rep)
+  type QDT[T,-S] = QuotedDepType[T, S] // shortcut
   
   
-  @annotation.implicitNotFound(msg = "Could not find type representation evidence for ${A} (implicit of type TypeEv[${A}])")
-  final case class TypeEv[A](rep: TypeRep)
+  //final case class TypeEv[A](rep: TypeRep)
+  type TypeEv[A] = QuotedType[A]
+  def TypeEv[A](rep: TypeRep) = QuotedType[A](rep)
   
   def typeEv[A: TypeEv] = implicitly[TypeEv[A]]
   def typeRepOf[A: TypeEv]: TypeRep = typeEv[A].rep

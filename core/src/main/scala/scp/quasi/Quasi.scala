@@ -69,6 +69,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     val mc = MacroDebugger[c.type](c)
     val debug = { mc[MacroDebug] }
     
+  try {
+    
     val unapply = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[quasi.QuasiMacro.Ext])
     
     //debug(c.macroApplication)
@@ -221,10 +223,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     val embed = new Embedding[c.type](c)
     
-    val tree = try embed(base, pgrm, holes.reverse, splicedHoles, unquotedTypes, if (unapply) Some(t.head) else None) catch {
-      case e @ EmbeddingException(msg) if !debug.debugOptionEnabled =>
-        c.abort(c.enclosingPosition, "Embedding Error: "+msg)
-    }
+    val tree = embed(base, pgrm, holes.reverse, splicedHoles, unquotedTypes, if (unapply) Some(t.head) else None)
     
     if (debug.debugOptionEnabled)
       //debug("Generated: "+showCode(tree))
@@ -241,7 +240,11 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     }
     
     tree: c.Tree
-  }
+    
+  } catch {
+    case e @ EmbeddingException(msg) if !debug.debugOptionEnabled =>
+      c.abort(c.enclosingPosition, "Embedding Error: "+msg)
+  }}
 
 }
 

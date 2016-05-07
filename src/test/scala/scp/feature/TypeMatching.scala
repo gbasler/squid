@@ -78,7 +78,7 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
     }
   }
   
-  test("Extracting from Nothing") {
+  test("Extracting from Nothing") (
     
     dsl"Option.empty" matches {
       case dsl"$y: Option[Int]" =>
@@ -87,8 +87,11 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
     } and {
       case dsl"$y: Option[Option[$t]]" => assert(t.rep =:= typeRepOf[Nothing])
     }
+    and { case dsl"Option.empty[$t]" => eqt(t.rep, typeRepOf[Nothing]) }
+    and { case dsl"Option.empty[Any]" => } // cf: covariant method type argument matching
+    and { case dsl"Option.empty[Nothing]" => }
     
-  }
+  )
   
   
   test("Type Params & Variance") {

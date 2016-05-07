@@ -66,6 +66,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     debug("Virtualized:", virtualizedTree)
     
     var termScope: List[Type] = Nil // will contain the scope bases of all unquoted stuff + in xtion, possibly the scrutinee's scope
+    // Note: in 'unapply' mode, termScope's last element should be the scrutinee's context
+    
     var importedFreeVars = mutable.Map[TermName, Type]() // will contain the free vars of the unquoted stuff
     
     val ascribedTree = unapply match {
@@ -100,6 +102,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
       st
     }
     
+    /** Note: 'typedTreeType' is actually the type of the tree ASCRIBED with the scrutinee's type if possible... */
     val (typedTree, typedTreeType) = ascribedTree flatMap { t =>
       val st = shallowTree(t)
       try {
@@ -107,10 +110,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         //val q"..$stmts; $finalTree: $_" = typed // Note: apparently, typechecking can remove type ascriptions.......
         val (stmts, finalTree) = typed match {
           //case q"..$stmts; scala.Predef.identity[$_]($finalTree)" => stmts -> finalTree
-          case q"..$stmts; $finalTree: $_" => stmts -> finalTree
+          case q"..$stmts; $finalTree: $_" => stmts -> finalTree  // ie:  case Block(stmts, q"$finalTree: $_") =>
           //case q"..$stmts; $finalTree" => stmts -> finalTree
         }
-        Some(q"..$stmts; $finalTree", typed.tpe)
+        Some(q"..$stmts; $finalTree", typed.tpe) // if type needed:  internal.setType(q"..$stmts; $finalTree", finalTree.tpe)
       } catch {
         case e: TypecheckException =>
           debug("Ascribed tree failed to typecheck: "+e.msg)
@@ -549,6 +552,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //debug("TypApp", tpt, targs)
           tq"$tpt[..${targs map recNoType}]"
           
+        case ValDef(mods, name, typ, valu) =>
+          throw EmbeddingException("Statement in expression position: "+x+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else ""))
+          
         case _ => throw EmbeddingException("Unsupported feature: "+x+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else ""))
         //case _ => debug("Unsupported feature: "+x); q""
           
@@ -696,6 +702,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           q"implicit val $holeName : TypeEv[$typ] = TypeEv(typeHole[${typ}](${typName.toString}))"
         }
         
+        //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
+        val termType = tq"SomeQ" // We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case dsl"..." => }'
         
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
           assert(traits.isEmpty && defs.isEmpty)
@@ -706,7 +714,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             ..$defs
             ..$dslDefs
             ..$dslTypes
-            def unapply(_t_ : SomeQ): Boolean = {
+            def unapply(_t_ : $termType): Boolean = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
@@ -732,7 +740,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             ..${defs}
             ..$dslDefs
             ..$dslTypes
-            def unapply(_t_ : SomeQ): $scal.Option[$extrTuple] = {
+            def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
