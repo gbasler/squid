@@ -1,15 +1,15 @@
 package scp
 package feature
 
-object Embedding {
+object BasicEmbedding {
   
   case class MC[A](x:Int)(syms: A*)
   
   def foo(n: Int)(s: String) = s * n
   
 }
-class Embedding extends MyFunSuite {
-  import Embedding._
+class BasicEmbedding extends MyFunSuite {
+  import BasicEmbedding._
   
   import TestDSL._
   

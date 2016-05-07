@@ -24,6 +24,8 @@ class FreeVariables extends MyFunSuite {
     assert(closed2 =~= dsl"(b: Int) => (a: String) => a + b.toDouble")
     
     
+    assertDoesNotCompile(""" dsl"42: $$t" """) // scp.quasi.EmbeddingException: Free type variables are not supported: '$$t'
+    
   }
   
   test("Rep extraction") {

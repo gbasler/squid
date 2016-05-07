@@ -520,33 +520,6 @@ class ScalaTypingMacros(val c: blackbox.Context) {
     
     //println(s"Searching rep for $tp (${tp.widen}) -- $isHole")
     
-    // Automatic Type Evidences:
-    // Looks into the current scope to find if we have values of type `QuotedType[x]`, such as those one would extract from a pattern
-    if (isHole) {
-      val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
-        _.scope collect {
-          case sym if sym.isVal
-            && sym.isInitialized // If we look into the type of value being constructed (eg `val x = exp"42"`),
-                                 // it will trigger a 'recursive value needs type' error
-            && sym.name == tp.typeSymbol.name.toTermName
-          =>
-            //sym.name.toTermName -> sym.tpe
-            //debug(sym, sym.isInitialized)
-            sym -> sym.tpe
-        }
-      }.asInstanceOf[List[(TermSymbol, Type)]]
-      
-      val QTSym = symbolOf[Base#QuotedType[_]]
-      
-      vals foreach {
-        case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= base.tpe =>
-          //println("FOUND QUOTED TYPE "+sym)
-          return q"$sym.rep"
-        case _ =>
-      }
-      
-    }
-    
     
     tp.widen match {
         
@@ -562,6 +535,31 @@ class ScalaTypingMacros(val c: blackbox.Context) {
         if (impl.isEmpty) {
           
           if (isHole)  {
+            
+            // Automatic Type Evidences:
+            // Looks into the current scope to find if we have values of type `QuotedType[x]`, such as those one would extract from a pattern
+            val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
+              _.scope collect {
+                case sym if sym.isVal
+                  && sym.isInitialized // If we look into the type of value being constructed (eg `val x = exp"42"`),
+                                       // it will trigger a 'recursive value needs type' error
+                  && sym.name == tp.typeSymbol.name.toTermName
+                =>
+                  //sym.name.toTermName -> sym.tpe
+                  //debug(sym, sym.isInitialized)
+                  sym -> sym.tpe
+              }
+            }.asInstanceOf[List[(TermSymbol, Type)]]
+            
+            val QTSym = symbolOf[Base#QuotedType[_]]
+            
+            vals foreach {
+              case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= base.tpe =>
+                //println("FOUND QUOTED TYPE "+sym)
+                return q"$sym.rep"
+              case _ =>
+            }
+            
             /*
             // Now useless: used to match type holes when they were generated inside of an object,
             // so when they were taken out of scope, they would become of the form: AnyRef{type t <: HoleType}#t

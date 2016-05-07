@@ -100,6 +100,14 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     lazy val VarargSym = symbolOf[Base].typeSignature.member(TypeName("__*").encodedName)
     //lazy val VarargSym = symbolOf[BaseDefs#__*] // nope: gets 'trait Seq'
     
+    def unquoteType(name: TypeName, tp: Type, tree: Tree) = tp.baseType(QTSym) match {
+      case TypeRef(tpbase,QTSym,tp::Nil) if tpbase =:= base.tpe =>
+        unquotedTypes ::= ((name.toTypeName, tp, tree))
+        tq"$tp"
+      case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot unquote type '$tp': it is not from base $base.")
+      case _ => throw EmbeddingException(s"Cannot unquote type '$tp': it is not a QuotedType[_].")
+    }
+    
     val pgrm = builder.tree transform { // TODO move this into SimpleEmbedding?
         
       //case Assign(Ident(name), value) if quasi.holes.contains(name) =>
@@ -150,30 +158,34 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           tq"$n"
         }
         else { // apply
-          
-          hole.tree.tpe.baseType(QTSym) match {
-            case TypeRef(tpbase,QTSym,tp::Nil) if tpbase =:= base.tpe =>
-              unquotedTypes ::= ((name.toTypeName, tp, hole.tree))
-              tq"${tp}"
-            case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot unquote type '${hole.tree.tpe}': it is not from base $base.")
-            case _ => throw EmbeddingException(s"Cannot unquote type '${hole.tree.tpe}': it is not a QuotedType[_].")
-          }
-          
+          unquoteType(name.toTypeName, hole.tree.tpe, hole.tree)
         }
         
-      case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative unquoting syntax in unapply position: '$$$t'")
-      case t @ q"$$(..$args)" =>
+      //case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative unquoting syntax in unapply position: '$t'")
+      case t @ q"$$(..$args)" => // alternative unquote syntax
         q"(..${args map (a => q"unquote($a)")})"
         
-      case t @ Ident(name: TermName) if name.decodedName.toString.startsWith("$") => // alternative unquoting syntax
+      case t @ Ident(name: TermName) if name.decodedName.toString.startsWith("$") => // escaped unquote syntax
         //q"open(${name.toString})"
         val bareName = name.toString.tail
-        if (bareName.isEmpty) throw EmbeddingException(s"Empty alternative unquoting name: '$$$t'")
+        if (bareName.isEmpty) throw EmbeddingException(s"Empty escaped unquote name: '$$$t'")
         if (unapply) {
-          q"unquote(${TermName(bareName)})" // alternative unquoting in unapply mode does a normal unquoting
+          q"unquote(${TermName(bareName)})" // escaped unquote in unapply mode does a normal unquote
         } else { // apply
           holes ::= Left(bareName) // holes in apply mode are interpreted as free variables
           q"${TermName(bareName)}"
+        }
+        
+      case t @ Ident(name: TypeName) if name.decodedName.toString.startsWith("$") => // escaped type unquote syntax
+        val bareName = name.toString.tail
+        if (unapply) {
+          // Note: here we want a type unquote, not a type hole!
+          
+          val typedTypeRef = c.typecheck(Ident(TermName(bareName)))
+          unquoteType(TypeName(bareName), typedTypeRef.tpe, c.untypecheck(typedTypeRef))
+          
+        } else {
+          throw EmbeddingException(s"Free type variables are not supported: '$$$t'")
         }
         
     }

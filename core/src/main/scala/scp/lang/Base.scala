@@ -26,7 +26,7 @@ trait Base extends BaseDefs { base =>
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   
   def newObject(tp: TypeRep): Rep
-  def moduleObject(fullName: String, tp: TypeRep): Rep
+  def moduleObject(fullName: String, tp: TypeRep): Rep // TODO rm 'tp': this type can be retrieved from the fullName
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
   type DSLSymbol

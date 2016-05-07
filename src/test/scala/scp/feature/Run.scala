@@ -9,7 +9,7 @@ class Run extends FunSuite with ShouldMatchers {
   import TestDSL._
   
   test("New") {
-    import Embedding._
+    import BasicEmbedding._
     val mc = dsl"new MC(42)('ok, 'ko)"
     assert(mc.run == new MC(42)('ok, 'ko))
   }

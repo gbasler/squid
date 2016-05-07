@@ -25,7 +25,7 @@ class Varargs extends MyFunSuite {
     dsl"Seq(1,2,3)" match {
       case dsl"Seq[Int]($a,$b,$c)" => same(Seq(a,b,c), args)
     }
-    import Embedding._
+    import BasicEmbedding._
     dsl"new MC(42)('ok, 'ko)" match {
       case dsl"new MC(42)($a, $b)" =>
         eqt(a, dsl"'ok")

@@ -631,7 +631,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         
         // TODO check conflicts
         
-        debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
+        if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
         
         val ctxBase = //termScope.foldLeft(tq"AnyRef": Tree){}
           //tq"AnyRef with ..$termScope"
