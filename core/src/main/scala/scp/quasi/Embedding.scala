@@ -297,9 +297,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //q"$base.const($c)"
           
         //case Ident(name) if !x.symbol.isTerm => q"" // FIXME: can happen when calling rec with a param valdef...
-        case Ident(name) if ctx isDefinedAt x.symbol.asTerm => q"${ctx(x.symbol.asTerm)}"
+        case Ident(name) if x.symbol.isTerm && (ctx isDefinedAt x.symbol.asTerm) => q"${ctx(x.symbol.asTerm)}"
           
-        case id @ Ident(name) if !x.symbol.isModule =>
+        case id @ Ident(name) if x.symbol.isTerm && !x.symbol.isModule =>
           throw EmbeddingException(s"Cannot refer to local variable '$name' (from '${id.symbol.owner}'). " +
             s"Use antiquotation (syntax '$$$name') in order to include the value in the DSL program.")
           

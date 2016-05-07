@@ -96,14 +96,6 @@ trait ScalaTyping extends Base {
   
   type DSLSymbol = MethodSymbol
   
-  private[this] val symbolCache = mutable.HashMap.empty[(String,String), DSLSymbol]
-  private[this] val overloadedSymbolCache = mutable.HashMap.empty[(String,String,Int), DSLSymbol]
-  
-  private def ensureDefined(name: String, sym: Symbol) = sym match {
-    case NoSymbol => throw new Exception(s"Could not find $name")
-    case _ => sym
-  }
-  
   /** For a package object type:
     *   + mod, isModuleClass, isClass
     *   - isPackageClass
@@ -113,28 +105,34 @@ trait ScalaTyping extends Base {
     */
   final def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol = {
     debug(s"Loading $typ::$symName ($mod)")
-    
-    symbolCache getOrElseUpdate ((typ, symName), {
-      val tp = loadTypeSymbol(typ)
-      //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
-      val sign = (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature
-      //debug(s"Loaded $tp, sign: "+sign)
-      ensureDefined(s"'$symName' in $typ", sign.member(TermName(symName))).asMethod
-    }) // TODO BE
+    symbolCache getOrElseUpdate ((mod, typ, symName), loadSymbolImpl(mod, typ, symName, -1))
   }
   /** Note: Assumes the runtime library has the same version of a class as the compiler;
     *   overloaded definitions are identified by their index (the order in which they appear) */
   final def loadOverloadedSymbol(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol = {
     debug(s"Loading $typ::$symName #$index ($mod)")
-    
-    overloadedSymbolCache getOrElseUpdate ((typ, symName, index), {
-      //loadType(typ).typeSignature.members.find(s => s.name.toString == symName && ru.showRaw(s.info.erasure) == erasure).get.asMethod
-      val tp = loadTypeSymbol(typ)
-      ensureDefined(s"'$symName' in $typ", (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature.member(TermName(symName))).alternatives(index).asMethod
-    }) // TODO BE
+    overloadedSymbolCache getOrElseUpdate ((mod, typ, symName, index), loadSymbolImpl(mod, typ, symName, index))
   }
   
-  private[scp] def mkPath(fullName: String): Seq[String] = fullName.splitSane('.').view
+  /** Non-overloaded symbols get -1 as an index */
+  private final def loadSymbolImpl(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol = {
+    val tp = loadTypeSymbol(typ)
+    //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
+    val sign = (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature
+    //debug(s"Loaded $tp, sign: "+sign)
+    val mtd = ensureDefined(s"'$symName' in $typ", sign.member(TermName(symName)))
+    ( if (index < 0) {assert(mtd.alternatives.size == 1); mtd} else mtd.alternatives(index) )
+      .asMethod // B/E?
+  }
+  
+  private[this] val symbolCache = mutable.HashMap.empty[(Boolean,String,String), DSLSymbol]
+  private[this] val overloadedSymbolCache = mutable.HashMap.empty[(Boolean,String,String,Int), DSLSymbol]
+  
+  private def ensureDefined(name: String, sym: Symbol) = sym match {
+    case NoSymbol => throw new Exception(s"Could not find $name")
+    case _ => sym
+  }
+  
   
   private[scp] def loadPackage(fullName: String): TermSymbol = {
     import iuniverse._
@@ -145,7 +143,7 @@ trait ScalaTyping extends Base {
   }
   
   private[scp] def loadTypeSymbol(fullName: String): TypeSymbol = loadPackageTypeSymbol(fullName)._2
-  private[scp] def loadPackageTypeSymbol(fullName: String): (Symbol, TypeSymbol) = {
+  private[scp] def loadPackageTypeSymbol(fullName: String): (Symbol, TypeSymbol) = { // TODO cache this?
     debug(s"Loading Type $fullName")
     
     val dotIndex = fullName.lastIndexOf('.')
@@ -318,7 +316,7 @@ trait ScalaTyping extends Base {
   case class DynamicTypeRep(fullName: String, targs: TypeRep*) extends ScalaTypeRep {
     
     lazy val typ = {
-      // TODO cache this operation:
+      // TODO cache this operation (or rather cache 'loadPackageTypeSymbol')
       
       //println("Loading type: "+fullName)
       

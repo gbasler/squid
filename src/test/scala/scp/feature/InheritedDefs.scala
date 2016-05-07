@@ -15,6 +15,9 @@ class Base {
 object Derived extends Base {
   class TestDerived extends Test[Int]
 }
+class Derived {
+  def foo = 0.5
+}
 
 class InheritedDefs extends MyFunSuite {
   import TestDSL._
@@ -27,6 +30,10 @@ class InheritedDefs extends MyFunSuite {
     same(dsl"Derived.foo".run, 42)
     same(dsl"$d.foo".run, 42)
     
+    same(dsl"(new Derived()).foo".run, 0.5)
+    
+    same(TestDSL.loadSymbol(true,  "scp.feature.Derived", "foo"), sru.symbolOf[Derived.type].typeSignature.member(sru.TermName("foo")))
+    same(TestDSL.loadSymbol(false, "scp.feature.Derived", "foo"), sru.symbolOf[Derived].typeSignature.member(sru.TermName("foo")))
   }
   
   test("Inherited Classes") {
