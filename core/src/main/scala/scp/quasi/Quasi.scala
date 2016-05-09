@@ -122,7 +122,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
       //  }
       //  q"""$anf.outsideVar.update[${TypeTree(tpe)}](${holeTrees.size-1}, ${transform(value)})"""
         
-      case Ident(name) if builder.holes.contains(name) =>
+      case Ident(name: TermName) if builder.holes.contains(name) =>
         val h = builder.holes(name)
         
         //debug("HOLE: "+h)
@@ -150,7 +150,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
           }
         }
         
-      case Ident(name) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
+      case Ident(name: TypeName) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
         val hole = builder.holes(name.toTermName)
         if (hole.vararg) throw EmbeddingException(s"Varargs are not supported in type position.${showPosition(hole.tree.pos)}") // (for hole '${hole.tree}').")
         if (unapply) {

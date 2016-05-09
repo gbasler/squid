@@ -139,97 +139,94 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   }
   
   
-  sealed trait Rep {
+  sealed trait Rep { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     
     def quoted = Quoted[Nothing, Nothing](this)
     
-    // TODO is this used?
+    /** Used to replace free variables with bound ones when an unquote captures bound variables */
     def subs(xs: (String, Rep)*): Rep = subs(xs.toMap)
     def subs(xs: Map[String, Rep]): Rep =
       if (xs isEmpty) this else transformPartial(this) { case r @ Hole(n) => xs getOrElse (n, r) }
     
-    /** TODO check right type extrusion...
-      * 
-      * problem: what if 2 vars with same name?
-      *   (x:Int) => (x:String) => ...
-      * 
-      * */
-    def extract(t: Rep): Option[Extract] = { // TODO check types
+    def extract(t: Rep): Option[Extract] = {
       //println(s"$this << $t")
       
       val r: Option[Extract] = (this, t) match {
-        case (Hole(_), Ascribe(v)) => extract(v) // Note: needed for term equivalence to ignore ascriptions
+        case (_, Ascribe(v)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
+          mergeAll(typ extract (t.typ, Covariant), extract(v))
           
-        case (Hole(name), _) => // Note: will also extract holes... is it ok?
-          // wontTODO replace extruded symbols: not necessary here since we use holes to represent free variables (see case for Abs)
-          Some(Map(name -> t), Map(), Map())
+        case (Hole(name), _) => // Note: will also extract holes... which is important to asses open term equivalence
+          // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)
+          typ extract (t.typ, Covariant) flatMap { merge(_, (Map(name -> t), Map(), Map())) }
           
-        case (Var(n1), Hole(n2)) if n1 == n2 => Some(EmptyExtract) // FIXME safe?
+        case (Var(n1), Hole(n2)) if n1 == n2 => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
+          Some(EmptyExtract)
+          //typ.extract(t.typ, Covariant) // I think the types cannot be wrong here (case for Abs checks parameter types)
+          
         case (_, Hole(_)) => None
           
         case (v1: Var, v2: Var) =>
-          if (v1.name == v2.name) Some(EmptyExtract) else None // TODO check they have the same type?!
-
-        case (_, a @ Ascribe(v)) => extract(v) // TODO test type?
+          // Bound variables are never supposed to be matched;
+          // if we match a binder, we'll replace the bound variable with a free variable first
+          throw new AssertionError("Bound variables are not supposed to be matched.")
+          //if (v1.name == v2.name) Some(EmptyExtract) else None // check same type?
           
-        //case (Const(v1), Const(v2)) if v1 == v2 => Some(EmptyExtract)
         case (Const(v1), Const(v2)) => if (v1 == v2) Some(EmptyExtract) else None
+          
         case (App(f1,a1), App(f2,a2)) => for (e1 <- f1 extract f2; e2 <- a1 extract a2; m <- merge(e1, e2)) yield m
-        //case (Abs(v1,b1), Abs(v2,b2)) => b1.extract(b2)(binds + (v1 -> v2))
+          
         case (a1: Abs, a2: Abs) =>
+          // The body of the matched function is recreated with a *free variable* in place of the parameter, and then matched with the
+          // body of the matcher, so what the matcher extracts contains potentially (safely) extruded variables.
           for {
             pt <- a1.ptyp extract (a2.ptyp, Contravariant)
-            b <- a1.body.extract(a2.fun(a1.param.toHole))
+            b <- a1.body.extract(a2.fun(a1.param.toHole)) // 'a1.param.toHole' represents a free variables
             m <- merge(pt, b)
           } yield m
           
         case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
-          Some(EmptyExtract) // Note: not necessary to test the types, right?
+          Some(EmptyExtract) // Note: not necessary to test the types: object with identical paths should be identical
           
-        case (NewObject(tp1), NewObject(tp2)) =>
-          tp1 extract(tp2, Covariant)
+        case (NewObject(tp1), NewObject(tp2)) => tp1 extract (tp2, Covariant)
           
-        case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2)) // FIXME: is it necessary to test the ret types?
+        case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
           if mtd1 == mtd2
           //if {println(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
         =>
-          //println(s"$self1")
           assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
           assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")
-          
-          //if (tp1 <:< tp2) // no, if tp1 contains type holes it won't be accepted!
           
           for {
             s <- self1 extract self2
             t <- {
-              /** The following used to end with '... extract (b, Variance of p.asType)', but method type parameters
-                * seem to always be tagged as invariant anyway.
-                * This was kinda restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
-                * We now match method type parameters covariantly, although I'm not sure it is sound. 
+              /** The following used to end with '... extract (b, Variance of p.asType)'.
+                * However, method type parameters seem to always be tagged as invariant.
+                * This was kind of restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
+                * We now match method type parameters covariantly, although I'm not sure it is sound. At least the fact we
+                * now also match the *returned types* prevents obvious unsoundness sources.
                 */
               mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
             }
             a <- mergeAll( (args1 zip args2) map { case (as,bs) => as extract bs } )
+            rt <- tp1 extract (tp2, Covariant)
             m0 <- merge(s, t)
             m1 <- merge(m0, a)
-          } yield m1
+            m2 <- merge(m1, rt)
+          } yield m2
         case (or: OtherRep, r) => or extractRep r
         case _ => None
       }
+      
       //println(s">> $r")
       r
     }
     
-    
-    /* // FIXME creates stack overflow in tests
     override def equals(that: Any) = that match { // TODO override hashCode...
       case that: Rep =>
-        //if (super.equals(that)) true else repEq(this, that)
-        repEq(this, that)
+        if (this eq that) true else repEq(this, that)
       case _ => false
     }
-    */
   }
   
   trait OtherRep extends Rep { 

@@ -53,6 +53,15 @@ class BasicEmbedding extends MyFunSuite {
   
   test("New") {
     
+    
+    dsl"new MC[Nothing](42)(???)" match {
+      //case dsl"new MC(42)()" => // warns
+      case dsl"new MC[Nothing](42)()" => fail
+      //case dsl"new MC[Nothing](42)($x)" => // warns
+      //case dsl"new MC(42)($x:Nothing)" => // warns
+      case dsl"new MC[Nothing](42)($x:Nothing)" => // ok
+    }
+    
     //dbgdsl"new MC(42)('ok, 'ko)" // TODO look at gen'd code and reduce
     val mc = dsl"new MC(42)('ok, 'ko)"
     
@@ -130,7 +139,7 @@ class BasicEmbedding extends MyFunSuite {
     
     dsl"Some(1.2)" matches {
       //case dsl"Some($_)" => fail
-      case dsl"Some[Nothing]($_)" => fail // equivalent to the one above, but does not generate a warning
+      case dsl"Some[Nothing]($_:Nothing)" => fail // equivalent to the one above, but does not generate a warning
       //case dsl"Some[Any]($_)" => fail // method type args are seen as invariant (we maybe could do better but it'd require non-trivial analysis)
       case dsl"Some[Any]($_)" => // now method type args are seen as covariant
     } and {

@@ -1,13 +1,28 @@
 package scp
 package feature
 
-import org.scalatest.FunSuite
-import org.scalatest.ShouldMatchers
-
 import utils.Debug._
 
-class Matching extends FunSuite with ShouldMatchers {
+class Matching extends MyFunSuite {
   import TestDSL._
+  
+  test("Holes") {
+    dsl"0 -> 'ok" match {
+      //case dsl"0 -> $b" => fail // Warning:(11, 12) Type inferred for hole 'b' was Nothing. Ascribe the hole explicitly to remove this warning.
+      case dsl"0 -> ($b: Symbol)" => eqt(b, dsl"'ok")
+    }
+  }
+  
+  test("Shadowing") {
+    
+    val q = dsl"(x:Int) => (x:String) => x"
+    q.erase match {
+      case dsl"(y:Int) => $b: $t" =>
+        eqt(t.rep, typeRepOf[String => String])
+        eqt(b: Q[_, {val y: Int}], dsl"(z: String) => z")
+    }
+    
+  }
   
   test("Type Ascription") {
     

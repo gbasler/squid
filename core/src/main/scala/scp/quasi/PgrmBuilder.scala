@@ -36,7 +36,7 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
     } map {
       case (hole, part) =>
         //val freshName = hole.name map (c.freshName(_)) getOrElse TermName("ANON_HOLE")
-        val freshName = c.freshName(hole.name getOrElse TermName("")) //TermName("ANON_HOLE"))
+        val freshName = c.freshName(hole.name getOrElse TermName("")).toTermName //TermName("ANON_HOLE"))
         // Note: s"($freshName)$part" will not work, as it breaks things like "$x = 42"
         freshName -> hole -> s"$freshName$part"
     }).unzip
@@ -50,7 +50,10 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
           s"""|Failed to parse DSL code: $msg$varargInfo
               |In macro application:""".stripMargin)
     }
-
+    
+    if (codeTree.isEmpty)
+      throw EmbeddingException("Empty program fragment.")
+    
     (holes.toMap, codeTree, hasVarargs)
   }
 

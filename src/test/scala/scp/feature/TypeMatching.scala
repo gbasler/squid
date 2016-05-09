@@ -40,7 +40,7 @@ class TypeMatching extends MyFunSuite with ShouldMatchers {
         eqt(body.trep, typeRepOf[Double])
     } and {
       case dsl"(y: Nothing) => $body: Double" =>
-        eqt(body, dsl"($$y: Int).toDouble")
+        eqt(body, dsl"${Quoted[Int,{}](hole("y"))}.toDouble")
         assertDoesNotCompile(""" dsl"val y = 42; $body".run """)
     }
   }

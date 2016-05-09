@@ -52,6 +52,18 @@ class FreeVariables extends MyFunSuite {
     
   }
   
+  test("Ascription and Hole Types are Checked") {
+    
+    hopefullyNot(dsl"$$str:String" =~=  dsl"$$str:Any")
+    hopefullyNot(dsl"$$str:String" =~= Quoted(hole("str")))
+    
+    hopefully(hole("str") =~=  hole("str"))
+    eqt( (hole[Any]("str") extract hole("str")).get._1("str"), hole("str") )
+    hopefullyNot(hole("str") =~=  hole[Int]("str"))
+    hopefullyNot(hole[String]("str") =~=  hole[Int]("str"))
+    
+  }
+  
   
 }
 

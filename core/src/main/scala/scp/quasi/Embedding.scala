@@ -236,6 +236,13 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
               if (debug.debugOptionEnabled) s", in: $parent" else "" )) // TODO: check only after we have explored all repetitions of the hole? (not sure if possible)
             case Some(tp) =>
               assert(!SCALA_REPEATED(tp.typeSymbol.fullName.toString))
+              
+              if (tp <:< Nothing) parent match {
+                case q"$_: $_" => // this hole is ascribed explicitly; the Nothing type must be desired
+                case _ => c.warning(c.enclosingPosition,
+                  s"Type inferred for hole '$x' was Nothing. Ascribe the hole explicitly to remove this warning.")
+              }
+              
               if (unapply isEmpty)
                 freeVars += (name.toTermName -> tp)
               val scp = ctx.keys.toList
@@ -250,7 +257,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //typesToExtract(name) = tq"Rep[${_expectedType}]"
           
           val r =
-            if (splicedHoles(name)) q"$Base.splicedHole[${_expectedType}](${name.toString})" 
+            if (splicedHoles(name)) throw EmbeddingException(s"Misplaced spliced hole: '$x'") // used to be: q"$Base.splicedHole[${_expectedType}](${name.toString})" 
             else q"$Base.hole[${_expectedType}](${name.toString})(${getType(expectedType.get)})"
           
           return r
@@ -268,7 +275,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
         case InferredType(tps @ _*)
         if unapply isDefined => // only check for top/bot in extraction mode, where it matters critically
-          debug(">> Inferred:", tps)
+          //debug(">> Inferred:", tps)
           tps foreach { tp =>
             // Q: why not call this in `checkType`? We miss cases where checkType raises an error before we can analyse the return type...
             (if (Any <:< tp) Some("Any")
@@ -372,14 +379,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val bindings = captured map {case(n,t) => q"${n.toString} -> $n"}
           
-          debug("Splicing",s"$idt: Q[$t,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
+          debug("Unquoting",s"$idt: Q[$t,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
           
           q"$base.unquoteDeep($idt.rep).subs(..${bindings})"
-          
-        case q"$base.spliceVararg[$t,$scp]($idts): _*" =>
-          assume(false) // not used?
-          val splicedX = recNoType(q"$base.unquote[$t,$scp](x)")
-          q"($idts map ((x:$base.Q[$t,$scp]) => $splicedX)): _*"
           
           
         //case _ if x.tpe.termSymbol.isModule => // TODOne try x.symbol
@@ -447,18 +449,19 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                   //debug(s"vararg splice [$pt]", t)
                   t match {
                     case q"$base.spliceVararg[$t,$scp]($idts)" if base equalsStructure Base => // TODO make that an xtor
-                      val splicedX = recNoType(q"$Base.unquote[$t,$scp](x)")
-                      //q"$Base.ArgsVarargs(${mkArgs(acc)}, $Base.Args($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*))"
-                      q"${mkArgs(acc)}($idts map ((x:$Base.Q[$t,$scp]) => $splicedX): _*)" // shorter form using Args.apply
+                      val splicedX = recNoType(q"$Base.unquote[$t,$scp]($$x$$)")
+                      q"${mkArgs(acc)}($idts map (($$x$$:$Base.Q[$t,$scp]) => $splicedX): _*)" // ArgsVarargs creation using Args.apply
                     case _ =>
                       val sym = symbolOf[scala.collection.Seq[_]]
-                      //q"$Base.ArgsVarargSpliced(${mkArgs(acc)}, ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))})"
-                      q"${mkArgs(acc)} splice ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))}"
+                      q"${mkArgs(acc)} splice ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))}" // ArgsVarargSpliced
                   }
                   
                 case ((t @ Ident(name: TermName)) :: Nil, Stream(VarargParam(pt))) if splicedHoles(name) =>
                   //debug(s"hole vararg [$pt]", t)
-                  q"$Base.ArgsVarargSpliced(${mkArgs(acc)}, ${rec(t, Some(pt))})"
+                  termHoleInfo(name) = ctx.keys.toList -> pt
+                  // Note: contrary to normal holes, here we do not emit a warning if its inferred type is Nothing
+                  // The warning would be annoying because hard to remove anyway (cf: cannot ascribe a type to a vararg splice)
+                  q"${mkArgs(acc)} splice $Base.splicedHole[$pt](${name.toString})"
                   
                 case (as, Stream(VarargParam(pt))) =>
                   //debug(s"vararg [$pt]", as)
@@ -825,8 +828,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
       case tq"$_[..$tps]" if tpt.tpe.typeArgs.size != tps.size => // for arguments to 'new'
         //Some(tps map (_.tpe))
         Some(tpt.tpe.typeArgs)
-      case _ =>
-        //debug(">> Not inferred:", tpt)
+      case typ =>
+        //debug(">> Not inferred:", tpt, typ.pos, typ.pos.point)
         None
     }
   }

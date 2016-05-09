@@ -11,7 +11,10 @@ class VirtualizedConstructs extends MyFunSuite {
     ite matches {
       //case dsl"if ($c) $t else $e" => fail // infers Nothing for the return type... generates a warning
       //case dsl"if ($c) $t: Nothing else $e: Nothing" => fail // still generates an annoying warning (because it's desugared to IfThenElse[Nothing](...)) ... so I commented
-      case dsl"scp.lib.IfThenElse[Nothing]($c, $t, $e)" => fail
+      
+      //case dsl"scp.lib.IfThenElse[Nothing]($c, $t, $e)" => fail // Warning:(14, 12) Type inferred for hole 't' was Nothing. Ascribe the hole explicitly to remove this warning.
+      case dsl"scp.lib.IfThenElse[Nothing]($c, $t:Nothing, $e:Nothing)" => fail
+        
       case dsl"if ($c) $t else $e: Int" =>
         c eqt dsl"1 > 2"
         t eqt dsl"666"

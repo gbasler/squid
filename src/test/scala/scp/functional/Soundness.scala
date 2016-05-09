@@ -9,7 +9,7 @@ class Soundness extends MyFunSuite {
     
     dsl"Some(42)".erase match {
         
-      case dsl"Some[Nothing]($x)" =>
+      case dsl"Some[Nothing]($x:Nothing)" =>
         dsl"$x:String".run // would crash
         fail
         
@@ -39,6 +39,13 @@ class Soundness extends MyFunSuite {
     val r42 = dsl"Ref(42)".erase
     
     r42 match {
+      //case r @ dsl"Ref($v: Any)" => // Warning:(33, 18) /!\ Type Any was inferred in quasiquote pattern /!\
+      case r @ dsl"Ref[Any]($_)" =>
+        //dsl"$r.value = 0.5" // does not compile: Error:(36, 9) Embedding Error: value value is not a member of Any
+        // ^ would crash, but 'r' does not get the precise type inferred in the xtor -- it gets Quoted[Any,{}]
+        fail
+      // Note: with the 'x as y' pattern-synonym extractor, we could write 'case dsl"$r as Ref[Any]($_)"'
+      // but it should not match either (thanks to the return-type check in methodApp extraction)
       case dsl"$r: Ref[Any]" =>
         val unsound = dsl"$r.value = 0.5"
         unsound.run // would crash
@@ -46,19 +53,6 @@ class Soundness extends MyFunSuite {
       case dsl"$r: Ref[$t]" =>
         assertDoesNotCompile(""" dsl"$r.value = 0.5" """) // Error:(30, 9) Embedding Error: type mismatch; found: Double(0.5); required: t
     }
-    
-    r42 match {
-      //case r @ dsl"Ref($v: Any)" => // Warning:(33, 18) /!\ Type Any was inferred in quasiquote pattern /!\
-      case r @ dsl"Ref[Any]($_)" =>
-        //dsl"$r.value = 0.5" // does not compile: Error:(36, 9) Embedding Error: value value is not a member of Any
-        // ^ would crash, but 'r' does not get the precise type inferred in the xtor -- it gets Quoted[Any,{}]
-    }
-    /*
-    
-    Note: with the 'x as y' pattern-synonym extractor, we could write 'case dsl"$r as Ref[Any]($_)"' and get unsoundness.
-    (This is due to method type arguments currently being matched covariantly.)
-    
-    */
     
   }
   

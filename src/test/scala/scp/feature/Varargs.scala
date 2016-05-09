@@ -66,6 +66,14 @@ class Varargs extends MyFunSuite {
     assert(b.run == ls)
     assert(c.run == ls)
     
+    
+    val args2 = Seq(dsl"1", dsl"2 + ($$x:Int)")
+    val d = dsl"List($args2*)"
+    val d2: Q[List[Int], {val x: Int}] = d
+    assertDoesNotCompile(""" d: Q[List[Int], {}] """) // Error:(73, 5) type mismatch; found: scp.TestDSL.Quoted[List[Int],Any{val x: Int}]; required: scp.TestDSL.Q[List[Int],AnyRef]
+    
+    val e = dsl"val x = 0; List($args2*)" : Q[List[Int], {}]
+    
   }
   
   test("Spliced Unquote, Extraction") { // TODO
@@ -87,17 +95,24 @@ class Varargs extends MyFunSuite {
         eqt(xs.trep, typeRepOf[Seq[Int]])
     }
     
-    dsl"List(Seq(1,2,3):_*)" match {
+    val lss = dsl"List(Seq(1,2,3):_*)"
+    lss match {
       case dsl"List[Int](($xs:Seq[Int]): _*)" =>
         eqt((xs: Q[Seq[Int],{}]), dsl"Seq(1,2,3)")
       case dsl"List[Int]($xs: _*)" =>
         eqt((xs: Q[Seq[Int],{}]), dsl"Seq(1,2,3)")
     }
-    dsl"List(Seq(1,2,3):_*)" match {
-      case dsl"List[Int](Seq($xs*):_*)" => // FIXME should emit a warning!
+    lss match {
+      case dsl"List[Int](Seq($xs*):_*)" => fail // Note: for some reason, does not warn for the inferred Seq[Nothing]
+      case dsl"List[Int](Seq[Nothing]($xs*):_*)" => fail // Note: we do not warn for Nothing holes in spliced vararg position anymore
       case dsl"List(Seq[Int]($xs*):_*)" =>
         assert((xs: Seq[Q[Int,{}]]) == args)
     }
+    assertDoesNotCompile("""
+    lss match {
+      case dsl"List[Int](Seq($xs*:Nothing):_*)" =>
+    }
+    """) // Error:(104, 12) Embedding Error: Misplaced spliced hole: 'xs'
     
   }
   

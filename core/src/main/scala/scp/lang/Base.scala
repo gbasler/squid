@@ -134,7 +134,7 @@ class BaseDefs { base: Base =>
       case (a0: Args, a1: Args) => a0 extract a1
       case (ArgsVarargs(a0, va0), ArgsVarargs(a1, va1)) => for {
         a <- a0 extract a1
-        va <- va0 extract va1
+        va <- va0 extractRelaxed va1
         m <- merge(a, va)
       } yield m
       case (ArgsVarargSpliced(a0, va0), ArgsVarargSpliced(a1, va1)) => for {
@@ -161,6 +161,10 @@ class BaseDefs { base: Base =>
     
     def extract(that: Args): Option[Extract] = {
       require(reps.size == that.reps.size)
+      extractRelaxed(that)
+    }
+    def extractRelaxed(that: Args): Option[Extract] = {
+      if (reps.size != that.reps.size) return None
       val args = (reps zip that.reps) map { case (a,b) => base.extract(a, b) }
       (Some(EmptyExtract) +: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
         case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
@@ -231,6 +235,7 @@ class BaseDefs { base: Base =>
     val vals = a._1 ++ b._1
     Some(vals, typs, splicedVals)
   }
+  protected def mergeAll(as: Option[Extract]*): Option[Extract] = mergeAll(as)
   protected def mergeAll(as: TraversableOnce[Option[Extract]]): Option[Extract] = {
     if (as isEmpty) return Some(EmptyExtract)
     as.reduce[Option[Extract]] { case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }

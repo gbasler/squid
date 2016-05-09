@@ -23,7 +23,9 @@ class PartiallyEvaluatedStructures extends MyFunSuite(PartiallyEvaluatedStructur
     val dict = dsl"Dict('a -> 42, 'b -> $Dyn)"
     
     dict match {
-      case dsl"Dict('a -> 42, 'b -> $Dyn)" => 
+      //case dsl"Dict('a -> 42, 'b -> $Dyn)" => fail // Warning:(26, 12) Type inferred for hole 'Dyn' was Nothing. Ascribe the hole explicitly to remove this warning.
+      case dsl"Dict('a -> 42, 'b -> ($Dyn:Nothing))" => fail 
+      case dsl"Dict('a -> 42, 'b -> ($Dyn:Int))" => 
     }
     
     intercept[EmbeddingException](dict match { case dsl"Dict($entries*)" => println(entries) }) // scp.quasi.EmbeddingException: Use PEDict.unapplySeq instead!
