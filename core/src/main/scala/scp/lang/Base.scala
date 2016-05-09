@@ -56,6 +56,7 @@ trait Base extends BaseDefs { base =>
   def extract(xtor: Rep, t: Rep): Option[Extract]
   def spliceExtract(xtor: Rep, t: Args): Option[Extract]
   
+  def showRep(r: Rep): String
   protected def runRep(r: Rep): Any
   
   
@@ -99,7 +100,7 @@ class BaseDefs { base: Base =>
     def cast[T >: Typ]: Quoted[T, Scp] = this
     def erase: Quoted[Any, Scp] = this
     
-    override def toString = s"""dsl"$rep""""
+    override def toString = s"""dsl"${showRep(rep)}""""
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut
   
@@ -149,11 +150,15 @@ class BaseDefs { base: Base =>
       } yield m
       case _ => None
     }
-    override def toString = (this match {
-      case Args(as @ _*) => as
-      case ArgsVarargs(as, vas) => as.reps ++ vas.reps
-      case ArgsVarargSpliced(as, va) => as.reps.map(_.toString) :+ s"$va: _*"
-    }) mkString ("(",",",")")
+    override def toString = show(_ toString)
+    def show(rec: Rep => String, forceParens: Boolean = true) = {
+      val strs = this match {
+        case Args(as @ _*) => as map rec
+        case ArgsVarargs(as, vas) => as.reps ++ vas.reps map rec
+        case ArgsVarargSpliced(as, va) => as.reps.map(rec) :+ s"${rec(va)}: _*"
+      }
+      if (forceParens || strs.size != 1) strs mkString ("(",",",")") else strs mkString ","
+    }
   }
   case class Args(reps: Rep*) extends ArgList {
     def apply(vreps: Rep*) = ArgsVarargs(this, Args(vreps: _*))

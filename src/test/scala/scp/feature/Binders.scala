@@ -49,6 +49,8 @@ class Binders extends MyFunSuite {
     
     val lam = dsl"(arg: Int) => arg * 2"
     
+    eqt(lam, dsl"(x: Int) => x * 2")
+    
     lam match { case dsl"(_ * 2)" => }
     lam match { case dsl"(_ * (${Constant(2)}: Int))" => }
     lam match { case dsl"(x => x * 2)" => }

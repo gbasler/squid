@@ -229,12 +229,16 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     }
   }
   
+  def showRep(r: Rep): String = astPrinter(r)
+  
   trait OtherRep extends Rep { 
     // TODO add missing methods (toTree, ...) + update pattern matches
     
     def extractRep(that: Rep): Option[Extract]
     
     def transform(f: Rep => Rep): Rep
+    
+    def show(printer: RepPrinter): PrintResult
     
   }
   
@@ -278,74 +282,44 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     */
   case class Hole[+A: TypeEv](name: String) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"($$$name: $typ)"  // used to be:  s"($$$$$name: $typ)"
-  
-    //override def equals(that: Any): Boolean = that match {
-    //  case HoleExtract(n) => n == name // TODO check type
-    //  case _ => false
-    //}
   }
   case class SplicedHole[+A: TypeEv](name: String) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"($$$name: $typ*)"
   }
   
   case class Var(val name: String)(val typ: TypeRep) extends Rep {
     def toHole = Hole(name)(TypeEv(typ))
-    override def toString = s"($name: $typ)"
   }
   
   case class Const[A: TypeEv](value: A) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"$value"
   }
-  //case class Abs(param: Var, body: Rep) extends Rep {
-  //  def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
-  //case class Abs[A:TypeEv,B](name: String, fun: Rep => Rep) extends Rep {
-  //  val param = Var(name)
   case class Abs(pname: String, ptyp: TypeRep, fun: Rep => Rep) extends Rep {
     val param = Var(pname)(ptyp)
     val body = fun(param)
     
-    //val typ = funType(TypeEv(ptyp), TypeEv(body.typ)).rep
     val typ = funType(ptyp, body.typ)
     
     def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
-    override def toString = body match {
-      case that: Abs => s"{ $param, ${that.print(false)} }"
-      case _ => print(true)
-    }
-    def print(paren: Boolean) =
-    if (paren) s"{ ($param) => $body }" else s"($param) => $body"
   }
   case class App[A,B: TypeEv](fun: Rep, arg: Rep) extends Rep {
     val typ = typeEv[B].rep
-    override def toString = s"$fun $arg"
   }
   
   case class Ascribe[A: TypeEv](value: Rep) extends Rep {
     val typ = typeEv[A].rep
-    override def toString = s"$value<:$typ" //s"($value: $typ)"
     
     override def extract(t: Rep): Option[Extract] = {
       val r0 = value.extract(t) getOrElse (return None)
       (typ extract (t.typ, ScalaTyping.Covariant)) flatMap (m => merge(r0, m))
     }
-    
-    //override def equals(that: Any) = value == that
   }
   
-  case class NewObject(typ: TypeRep) extends Rep {
-    override def toString = s"new $typ"
-  }
-  case class ModuleObject(fullName: String, typ: TypeRep) extends Rep {
-    override def toString = fullName
-  }
-  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep {
-    lazy val mtd = DSLDef(sym.fullName, sym.info.toString, sym.isStatic)
-    override def toString = (if (sym.isConstructor) s"$self" else s"$self.${mtd.shortName}") +
-      (targs.mkString("[",",","]")*(targs.size min 1)) + (argss mkString)
-  }
+  case class NewObject(typ: TypeRep) extends Rep
+  
+  case class ModuleObject(fullName: String, typ: TypeRep) extends Rep
+  
+  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep
   
   
   /**
@@ -412,9 +386,57 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
+  type PrintResult = (String, Precedence)
+  class RepPrinter extends (Rep => String) {
+    
+    val maxPrecedence = Precedence(Int.MaxValue/2)
+    val minPrecedence = Precedence(Int.MinValue/2)
+    
+    val lambdaPrec = Precedence(50)
+    
+    def noWrap(r: Rep) = print(r)._1
+    def wrap(r: Rep, prec: Precedence, assoc: Boolean = false) = print(r) match {
+      case (s,p) if p.value > prec.value => s
+      case (s,p) if assoc && p.value == prec.value => s
+      case (s,_) => s"($s)"
+    }
+    def wrapAssoc(r: Rep, prec: Precedence) = wrap(r, prec, true)
+    
+    final def apply(r: Rep): String = print(r)._1
+    def print(r: Rep): PrintResult = {
+      val typ = r.typ
+      r match {
+        case Hole(name) => s"$$$name: $typ" -> minPrecedence  // used to be:  s"$$$$$name: $typ"
+        case SplicedHole(name) => s"$$$name: $typ*" -> minPrecedence
+        //case Var(name) => s"$name: $typ" -> minPrecedence
+        case Var(name) => name -> maxPrecedence
+        case Const(value) => s"$value" -> maxPrecedence
+        case a: Abs => s"(${a.param.name}: ${a.param.typ}) => ${wrapAssoc(a.body, lambdaPrec)}" -> lambdaPrec
+        case App(fun,arg) => s"${wrapAssoc(fun, 100)} ${wrap(arg, 100)}" -> 100
+        case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}<:$typ" -> maxPrecedence //s"($value: $typ)"
+        case NewObject(_) => s"new $typ" -> maxPrecedence
+        case ModuleObject(fullName, _) =>
+          val path = fullName.splitSane('.')
+          val prefix = if (path.size > 2) ".." else ""
+          prefix+(path drop (path.size-2) mkString ".") -> maxPrecedence
+        case MethodApp(self, sym, targs, argss, _) =>
+          val symName = sym.name.decodedName.toString
+          val isNotOp = symName.head.isLetter
+          //val rightAssoc = symName.last == ':'
+          val prec = if (isNotOp) maxPrecedence else Precedence(200)
+          val selfStr = wrapAssoc(self, maxPrecedence)
+          val trunk = if (sym.isConstructor) s"$selfStr" else {
+            if (isNotOp) s"$selfStr.$symName"
+            else s"$selfStr $symName"
+          }
+          val sep = if (isNotOp) "" else " "
+          trunk + (targs.mkString("[",",","]")*(targs.size min 1)) + sep + (argss map (_ show (this, isNotOp)) mkString) -> prec
+        case or: OtherRep => or show this
+      }
+    }
+  }
+  object astPrinter extends RepPrinter
 }
-
-
 
 
 

@@ -52,6 +52,7 @@ object PartiallyEvaluatedStructures {
         case _ => None
       }
       def transform(f: Rep => Rep): Rep = PEDictRep(fields mapValues (dsl.transform(_)(f)), typ)
+      def show(p: RepPrinter): PrintResult = toString -> p.maxPrecedence
     }
     object PEDict {
       def unapplySeq[A,C](x: Q[Dict[A],C]): Option[Seq[(String, Quoted[A,C])]] = x.rep match {
