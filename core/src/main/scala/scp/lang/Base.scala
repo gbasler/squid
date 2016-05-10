@@ -256,6 +256,10 @@ class BaseDefs { base: Base =>
   
   
   
+  //def online(tr: PartialFunction[])
+  
+  
+  
   
   //type `type scala.Function1` // TODO possibility not to mix it in
   //def `def scala.Function1.apply::(v1: T1)R`[A: TypeEv, B: TypeEv](self: Rep[A -> B])(arg: Rep[A]) = app(self, arg)

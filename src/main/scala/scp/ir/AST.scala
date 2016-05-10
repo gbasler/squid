@@ -271,7 +271,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
     MethodApp(self, mtd, targs, argss, tp)
   
-  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: Unit) => ${Quoted[A,{}](arg)}".rep
+  // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
+  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quoted[A,{}](arg)}".rep
   
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
@@ -303,7 +304,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     
     val typ = funType(ptyp, body.typ)
     
-    def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
+    def inline(arg: Rep): Rep = fun(arg) //body withSymbol (param -> arg)
   }
   
   case class Ascribe[A: TypeEv](value: Rep) extends Rep {
@@ -385,7 +386,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
-  lazy val UnitType = typeRepOf[Unit]
+  //lazy val UnitType = typeRepOf[Unit]
+  lazy val ThunkParamType = typeRepOf[lib.ThunkParam]
   
   object App {
     def unapply(r: Rep) = r match {
@@ -395,7 +397,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   }
   object Thunk {
     def unapply(r: Rep) = r match {
-      case a: Abs if a.ptyp =:= UnitType => Some(a.body)
+      case a: Abs if a.ptyp =:= ThunkParamType => Some(a.body)
       case _ => None
     }
   }
