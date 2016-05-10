@@ -21,6 +21,11 @@ class Binders extends MyFunSuite {
         eqt(body.trep, typeRepOf[Int])
         body
     }
+    ap1.erase match {
+      case dsl"val x = $init: Int; $body" => // interestingly, this compiles but assumes type Any for 'body' (which should be safe)
+        eqt(body: Q[Any,{val x: Int}], dsl"($$x:Int)+1")
+        eqt(implicitTypeOf(body), typeRepOf[Any])
+    }
     
     val b2 = dsl"$b * 2"
     eqt(b2, dsl"(($$x:Int)+1)*2")

@@ -136,7 +136,7 @@ trait ScalaTyping extends Base {
   
   private[scp] def loadPackage(fullName: String): TermSymbol = {
     import iuniverse._
-    imirror.getPackageIfDefined(fullName) match {
+    imirror.getPackageIfDefined(TermName(fullName)) match {
       case NoSymbol => throw new Exception(s"Could not find package $fullName")
       case pckg => pckg.asTerm.asInstanceOf[sru.TermSymbol]
     }

@@ -461,7 +461,7 @@ object Base {
     val T = weakTypeOf[T]
     val C = weakTypeOf[C]
     
-    print()
+    //print()
     
     //println(c.macroApplication, weakTypeOf[T], weakTypeOf[C])
     val quoted = c.macroApplication match {

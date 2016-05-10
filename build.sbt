@@ -4,7 +4,9 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.7",
   organization := "ch.epfl.data",
   autoCompilerPlugins := true,
-  scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"),
+  scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"
+    , "-deprecation"
+  ),
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   //addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),

@@ -70,9 +70,13 @@ object MacroUtils {
   }
 
   private var debugNum = 0
-
+  
+  // cf: https://issues.scala-lang.org/browse/SI-7934
+  @deprecated("", "") class Deprecated { def lineContentForwarder = (pos: Position)=>pos.lineContent };
+  object Deprecated extends Deprecated
+  
   private[scp] def showPosition(pos: Position, indent: String = "  ") = {
-    val line = pos.lineContent
+    val line = Deprecated.lineContentForwarder(pos)
     if (line exists (_ != ' ')) (
       indent + line + "\n"
       + indent + (" " * pos.column) + "^\n"

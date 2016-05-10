@@ -344,8 +344,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             internal.setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
             expectedType)(ctx + (vdef.symbol.asTerm -> name))
           
-          q"letin[${vdef.symbol.typeSignature},${x.tpe}](${name.toString}, $v2, ($name: Rep) => $body)(${
-            getType(vdef.symbol.typeSignature)},${getType(x.tpe)})"
+          val retType = expectedType getOrElse x.tpe
+          
+          q"letin[${vdef.symbol.typeSignature},${retType}](${name.toString}, $v2, ($name: Rep) => $body)(${
+            getType(vdef.symbol.typeSignature)},${getType(retType)})"
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }", expectedType)

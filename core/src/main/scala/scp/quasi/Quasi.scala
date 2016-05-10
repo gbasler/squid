@@ -174,7 +174,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         if (unapply) {
           q"unquote(${TermName(bareName)})" // escaped unquote in unapply mode does a normal unquote
         } else { // apply
-          holes ::= Left(bareName) // holes in apply mode are interpreted as free variables
+          holes ::= Left(TermName(bareName)) // holes in apply mode are interpreted as free variables
           q"${TermName(bareName)}"
         }
         

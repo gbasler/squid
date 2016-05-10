@@ -3,6 +3,7 @@ package ir
 
 import scala.collection.mutable
 import lang._
+import utils.Andable
 
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
@@ -92,7 +93,6 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         //q"_root_.scala.reflect.classTag[String].runtimeClass" // object classTag is not a member of package reflect
         
       case Var(n) => q"${TermName(n)}"
-      case App(f, a) => q"(${toTree(f)})(${toTree(a)})"
       case as @ Ascribe(v) =>
         //toTree(v)
         q"${toTree(v)}:${as.typ.asInstanceOf[ScalaTyping#TypeRep].typ}"
@@ -174,8 +174,6 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           
         case (Const(v1), Const(v2)) => if (v1 == v2) Some(EmptyExtract) else None
           
-        case (App(f1,a1), App(f2,a2)) => for (e1 <- f1 extract f2; e2 <- a1 extract a2; m <- merge(e1, e2)) yield m
-          
         case (a1: Abs, a2: Abs) =>
           // The body of the matched function is recreated with a *free variable* in place of the parameter, and then matched with the
           // body of the matcher, so what the matcher extracts contains potentially (safely) extruded variables.
@@ -208,8 +206,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
                 */
               mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
             }
-            a <- mergeAll( (args1 zip args2) map { case (as,bs) => as extract bs } )
-            rt <- tp1 extract (tp2, Covariant)
+            a <- mergeAll( (args1 zip args2) map { case (as,bs) => as extract bs } )  //oh_and print("[Args:] ") and println
+            rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
             m0 <- merge(s, t)
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
@@ -218,7 +216,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         case _ => None
       }
       
-      //println(s">> $r")
+      //println(s">> ${r map {case(mv,mt,msv) => (mv mapValues (_ show), mt, msv mapValues (_ map (_ show)))}}")
       r
     }
     
@@ -261,15 +259,13 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   //  Abs(v, fun(v))
   //}
   def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
-  override def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App[A,B](fun, arg)
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
   def newObject(tp: TypeRep): Rep = NewObject(tp)
   def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
-    if (mtd == Function1ApplySymbol) app(self, argss.head match { case Args(a) => a })(TypeEv(tp), TypeEv(tp))
-    else MethodApp(self, mtd, targs, argss, tp)
+    MethodApp(self, mtd, targs, argss, tp)
   
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
@@ -302,9 +298,6 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     val typ = funType(ptyp, body.typ)
     
     def inline(arg: Rep): Rep = ??? //body withSymbol (param -> arg)
-  }
-  case class App[A,B: TypeEv](fun: Rep, arg: Rep) extends Rep {
-    val typ = typeEv[B].rep
   }
   
   case class Ascribe[A: TypeEv](value: Rep) extends Rep {
@@ -363,7 +356,6 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       //case Abs(p, b) => Abs(p, tr(b))
       case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
-      case ap @ App(fun, a) => App(tr(fun), tr(a))(TypeEv(ap.typ))
       case Hole(_) | SplicedHole(_) | NewObject(_) => r
       case mo @ ModuleObject(fullName, tp) => mo
       case MethodApp(self, mtd, targs, argss, tp) =>
@@ -388,7 +380,12 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
-  
+  object App {
+    def unapply(r: Rep) = r match {
+      case MethodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, _) => Some(fun, arg)
+      case _ => None
+    }
+  }
   object IfThenElse {
     val Symbol = loadSymbol(true, "scp.lib.package", "IfThenElse")
     def unapply(r: Rep) = r match {
