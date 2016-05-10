@@ -505,8 +505,12 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //q"$base.app(${rec(f)}, ${args map rec})"
           
         case q"() => $body" => q"$Base.thunk(${rec(body, expectedType)})"
-          
-        //case q"($p) => $body" =>
+  
+  
+          /** Old lambda hoist that only worked for converting one-parameter lambdas into 'abs'.
+            * Could still be used as a special case (with a default definition of abs in Base), simply because it generates less code.
+            */
+          /*
         case q"(${p @ ValDef(mods, name, tpt, _)}) => $body" =>
           //varCount += 1
           //val name = TermName("x"+varCount)
@@ -514,13 +518,26 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           //rec(q"{p}")
           recNoType(tpt)
           q"$Base.abs[${p.symbol.typeSignature}, ${body.tpe}](${name.toString}, ($name: Rep) => ${
-            rec(body, typeIfNotNothing(body.tpe)/*Note: could do better that: match expected type with function type...*/)(ctx + (p.symbol.asTerm -> name))
+            rec(body, typeIfNotNothing(body.tpe)/*Note: could do better than that: match expected type with function type...*/)(ctx + (p.symbol.asTerm -> name))
           })(${getType(p.symbol.typeSignature)}, ${getType(body.tpe)})"
+          */
+          
+        case q"(..$ps) => $bo" =>
+          val (params, bindings) = ps map {
+            case p @ ValDef(mods, name, tpt, _) =>
+              recNoType(tpt)
+              val tp = getType(p.symbol.typeSignature)
+              q"(${name.toString} -> $tp.rep)" -> (p.symbol.asTerm -> name)
+          } unzip;
+          val body = q"{ ($$args$$: Seq[Rep]) => ..${
+            bindings.unzip._2.zipWithIndex map {case(name,i) => q"val $name = $$args$$($i)"}
+          }; ${
+            rec(bo, typeIfNotNothing(bo.tpe)/*Note: could do better than that: match expected type with function type...*/)(ctx ++ bindings)
+          } }"
+          q"$Base.lambda(Seq(..$params), $body)"
           
           
         // TODO
-        //case q"(..$params) => $expr" => ???
-        //  
         //case q"$v match { case ..$cases }" =>
         //  PatMat(liftn(v), cases map {
         //    case cq"$pat if $cond => $body" => MatchClause(pat match {

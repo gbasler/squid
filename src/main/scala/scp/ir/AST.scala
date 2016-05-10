@@ -26,7 +26,7 @@ object AST {
 
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs
   * TODO: should have a Liftable trait for constants, with the default impl resulting in storage in glbal hash table (when Scala is the backend) */
-trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
+trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   import AST._
   
   object Quasi extends quasi.Quasi[this.type, Any] { val base: AST.this.type = AST.this }
@@ -262,7 +262,9 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   //  val v = Var(name)(typeRepOf[A])
   //  Abs(v, fun(v))
   //}
-  def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
+  def lambda(params: Seq[(String, TypeRep)], fun: Seq[Rep] => Rep): Rep = {
+    Abs(params(0)._1, params(0)._2, (r: Rep) => fun(Seq(r)))
+  }
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   

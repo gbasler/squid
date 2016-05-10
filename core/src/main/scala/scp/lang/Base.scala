@@ -22,7 +22,8 @@ trait Base extends BaseDefs { base =>
   type TypeRep
   
   def const[A: TypeEv](value: A): Rep
-  def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep
+  def lambda(params: Seq[(String, TypeRep)], fun: Seq[Rep] => Rep): Rep
+  
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   // ^ 'app' is by default represented as Function1Apply, with underlying representation methodApp
   
@@ -130,9 +131,9 @@ class BaseDefs { base: Base =>
   protected lazy val Function1ApplySymbol = loadSymbol(false, "scala.Function1", "apply")
   
   def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, typeRepOf[B])
-  def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
+  def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep =
+    app[A,B](lambda(Seq(name -> typeRepOf[A]), { case Seq(arg) => body(arg) }), value)
   def ascribe[A: TypeEv](value: Rep): Rep = value // FIXME don't all IRs need to override it to have sound match checking?
-  def thunk[A: TypeEv](value: => Rep): Rep = abs[Unit, A]("thunk", (_: Rep) => value)(TypeEv(unitType), TypeEv(typeRepOf[A]))
   
   
   sealed trait ArgList {

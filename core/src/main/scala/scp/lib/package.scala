@@ -11,8 +11,12 @@ package object lib {
   def Imperative[A](effect: => Unit)(result: => A) =
     { effect; result }
   
+  
   final class ThunkParam private[lib]()
   private val ThunkParam = new ThunkParam
   def ThunkArg: ThunkParam = ThunkParam
+  
+  
+  final class Record[+Fields]
   
 }
