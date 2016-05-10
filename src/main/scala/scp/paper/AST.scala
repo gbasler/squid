@@ -2,6 +2,7 @@ package scp.paper
 
 import scala.reflect.runtime.universe.{MethodSymbol => Mtd}
 
+/*
 
 /**
   * Created by lptk on 21/03/16.
@@ -130,6 +131,7 @@ class ANF extends AST { self: Typing =>
       scopes.last += sym; sym }}
   // ... other defs elided ...
 }
+*/
 
 
 

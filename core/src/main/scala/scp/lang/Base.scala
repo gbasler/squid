@@ -107,6 +107,7 @@ class BaseDefs { base: Base =>
     override def toString = s"""dsl"${showRep(rep)}""""
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut
+  protected def Quote[A](r: Rep) = Quoted[A,{}](r)
   
   /** Note: 'QuotedType' cannot be covariant, because that would introduce unsoundness */
   @annotation.implicitNotFound(msg = "Could not find type representation evidence for ${Typ} (implicit of type QuotedType[${Typ}])")

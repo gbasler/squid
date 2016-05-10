@@ -25,7 +25,9 @@ object AST {
 }
 
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs
-  * TODO: should have a Liftable trait for constants, with the default impl resulting in storage in glbal hash table (when Scala is the backend) */
+  * TODO: should have a Liftable trait for constants, with the default impl resulting in storage in glbal hash table (when Scala is the backend)
+  * TODO generalize records to be usable outside of function parameters
+  * TODO encode tuples as records? (with _1, _2, etc. as names) */
 trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   import AST._
   
@@ -96,10 +98,18 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         //q"_root_.scala.reflect.classTag[String].runtimeClass" // object classTag is not a member of package reflect
         
       case Var(n) => q"${TermName(n)}"
+        
       case as @ Ascribe(v) =>
         //toTree(v)
         q"${toTree(v)}:${as.typ.asInstanceOf[ScalaTyping#TypeRep].typ}"
+        
       case Thunk(body) => toTree(body)
+        
+      case RecordGet(self, name, tp) => q"${TermName(name)}"
+        
+      case a @ Abs(pname, RecordType(fields), _) =>
+        q"(..${fields map { case(name,tp) => q"val ${TermName(name)}: ${tp.typ}" }}) => ${toTree(a.body)}"
+        
       case a: Abs =>
         val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
         /* // handling thunks:
@@ -258,12 +268,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   }
   
   def const[A: TypeEv](value: A): Rep = Const(value)
-  //def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = {
-  //  val v = Var(name)(typeRepOf[A])
-  //  Abs(v, fun(v))
-  //}
+  
+  //def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
   def lambda(params: Seq[(String, TypeRep)], fun: Seq[Rep] => Rep): Rep = {
-    Abs(params(0)._1, params(0)._2, (r: Rep) => fun(Seq(r)))
+    if (params.size == 1) Abs(params(0)._1, params(0)._2, (r: Rep) => fun(Seq(r)))
+    else Abs("params", RecordType(params.toList), { (ps: Rep) => fun(params map {case(name,tp) => RecordGet(ps, name, tp)}) })
   }
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
@@ -274,7 +283,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     MethodApp(self, mtd, targs, argss, tp)
   
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
-  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quoted[A,{}](arg)}".rep
+  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
   
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
@@ -307,6 +316,8 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     val typ = funType(ptyp, body.typ)
     
     def inline(arg: Rep): Rep = fun(arg) //body withSymbol (param -> arg)
+    
+    override def toString = s"Abs($param, $body)"
   }
   
   case class Ascribe[A: TypeEv](value: Rep) extends Rep {
@@ -323,6 +334,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   case class ModuleObject(fullName: String, typ: TypeRep) extends Rep
   
   case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep
+  
+  //case class Record(fields: List[(String, Rep)]) extends Rep { // TODO
+  //  val typ = RecordType
+  //}
+  case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Rep
   
   
   /**

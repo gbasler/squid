@@ -17,6 +17,6 @@ package object lib {
   def ThunkArg: ThunkParam = ThunkParam
   
   
-  final class Record[+Fields]
+  final class DummyRecord
   
 }

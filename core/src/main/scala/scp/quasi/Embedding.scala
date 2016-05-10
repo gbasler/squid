@@ -508,8 +508,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   
   
           /** Old lambda hoist that only worked for converting one-parameter lambdas into 'abs'.
-            * Could still be used as a special case (with a default definition of abs in Base), simply because it generates less code.
-            */
+            * Could still be used as a special case (with a default definition of abs in BaseDefs), simply because it generates less code. */
           /*
         case q"(${p @ ValDef(mods, name, tpt, _)}) => $body" =>
           //varCount += 1

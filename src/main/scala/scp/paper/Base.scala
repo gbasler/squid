@@ -3,6 +3,7 @@ package scp.paper
 //import scala.reflect.runtime.universe.MethodSymbol
 //import scala.reflect.runtime.universe.{MethodSymbol => Mtd}
 
+/*
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -61,6 +62,7 @@ trait Typing {
   
   
 }
+*/
 
 
 // OLD

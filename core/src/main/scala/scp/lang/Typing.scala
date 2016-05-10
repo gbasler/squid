@@ -386,6 +386,11 @@ trait ScalaTyping extends Base {
     override def toString = s"$$$name"
   }
   
+  case class RecordType(fields: List[(String, TypeRep)]) extends TypeRep { // TODO fully handle
+    val typ: ScalaType = typeOf[lib.DummyRecord]
+    override protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract] = ???
+  }
+  
   def typEq(a: TypeRep, b: TypeRep): Boolean = a =:= b
   
   //def extractType(typ: TypeRep[_], xtor: TypeExt): Option[Extract] = xtor.extract(typ)
