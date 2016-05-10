@@ -150,7 +150,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       if (xs isEmpty) this else transformPartial(this) { case r @ Hole(n) => xs getOrElse (n, r) }
     
     def extract(t: Rep): Option[Extract] = {
-      //println(s"$this << $t")
+      //println(s"${this.show} << ${t.show}")
       
       val r: Option[Extract] = (this, t) match {
         case (_, Ascribe(v)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
@@ -238,7 +238,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     
     def transform(f: Rep => Rep): Rep
     
-    def show(printer: RepPrinter): PrintResult
+    def print(printer: RepPrinter): PrintResult
     
   }
   
@@ -261,14 +261,15 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   //  Abs(v, fun(v))
   //}
   def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
-  def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App[A,B](fun, arg)
+  override def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = App[A,B](fun, arg)
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
   
   def newObject(tp: TypeRep): Rep = NewObject(tp)
   def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
-    MethodApp(self, mtd, targs, argss, tp)
+    if (mtd == Function1ApplySymbol) app(self, argss.head match { case Args(a) => a })(TypeEv(tp), TypeEv(tp))
+    else MethodApp(self, mtd, targs, argss, tp)
   
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
@@ -367,7 +368,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       case mo @ ModuleObject(fullName, tp) => mo
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)
-        MethodApp(tr(self), mtd, targs, argss map {
+        methodApp(tr(self), mtd, targs, argss map {
           case as: Args => trans(as)
           case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
           case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), va)
@@ -386,6 +387,24 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
+  
+  
+  object IfThenElse {
+    val Symbol = loadSymbol(true, "scp.lib.package", "IfThenElse")
+    def unapply(r: Rep) = r match {
+      case MethodApp(self, Symbol, _::Nil, Args(cond, thn, els)::Nil, _) => Some(cond, thn, els)
+      case _ => None
+    }
+  }
+  object Imperative {
+    val Symbol = loadSymbol(true, "scp.lib.package", "Imperative")
+    def unapply(r: Rep) = r match {
+      case MethodApp(self, Symbol, _::Nil, Args(eff)::Args(res)::Nil, _) => Some(eff, res)
+      case _ => None
+    }
+  }
+  
+  
   type PrintResult = (String, Precedence)
   class RepPrinter extends (Rep => String) {
     
@@ -393,6 +412,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
     val minPrecedence = Precedence(Int.MinValue/2)
     
     val lambdaPrec = Precedence(50)
+    val itePrec = Precedence(30)
     
     def noWrap(r: Rep) = print(r)._1
     def wrap(r: Rep, prec: Precedence, assoc: Boolean = false) = print(r) match {
@@ -419,6 +439,10 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           val path = fullName.splitSane('.')
           val prefix = if (path.size > 2) ".." else ""
           prefix+(path drop (path.size-2) mkString ".") -> maxPrecedence
+        case Imperative(eff, res) =>
+          s"${wrapAssoc(eff,minPrecedence)};; ${wrapAssoc(res,minPrecedence)}" -> 25
+        case IfThenElse(cond, thn, els) =>
+          s"if (${noWrap(cond)}) ${wrapAssoc(thn, itePrec)} else ${wrapAssoc(els, itePrec)}" -> itePrec
         case MethodApp(self, sym, targs, argss, _) =>
           val symName = sym.name.decodedName.toString
           val isNotOp = symName.head.isLetter
@@ -431,7 +455,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
           }
           val sep = if (isNotOp) "" else " "
           trunk + (targs.mkString("[",",","]")*(targs.size min 1)) + sep + (argss map (_ show (this, isNotOp)) mkString) -> prec
-        case or: OtherRep => or show this
+        case or: OtherRep => or print this
       }
     }
   }

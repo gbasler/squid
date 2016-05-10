@@ -770,11 +770,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   
   val virtualize = transformer (rec => {
     //case q"..$sts; $r" => q"$scp.lib.Impure(..${sts map (st => q"() => $st")})($r)"
-    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative($s)(${rec(q"..$sts; $r")})"
+    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative(${rec(s)})(${rec(q"..$sts; $r")})"
     case q"if ($cond) $thn else $els" =>
-      q"$scp.lib.IfThenElse($cond, $thn, $els)"
+      q"$scp.lib.IfThenElse(${rec(cond)}, ${rec(thn)}, ${rec(els)})"
     case q"while ($cond) $loop" =>
-      q"$scp.lib.While($cond, $loop)"
+      q"$scp.lib.While(${rec(cond)}, ${rec(loop)})"
   })
   
   object SelectMember {

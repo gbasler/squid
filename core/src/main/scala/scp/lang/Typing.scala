@@ -120,7 +120,7 @@ trait ScalaTyping extends Base {
     //println(mod, tp.isModuleClass, tp.isClass, tp.isPackageClass)
     val sign = (if (mod) if (tp.isModuleClass) tp.owner else tp.companion else tp).typeSignature
     //debug(s"Loaded $tp, sign: "+sign)
-    val mtd = ensureDefined(s"'$symName' in $typ", sign.member(TermName(symName)))
+    val mtd = ensureDefined(s"'$symName' in ${if (mod) "module" else "type"} $typ", sign.member(TermName(symName)))
     ( if (index < 0) {assert(mtd.alternatives.size == 1); mtd} else mtd.alternatives(index) )
       .asMethod // B/E?
   }

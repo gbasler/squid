@@ -5,6 +5,9 @@ import scala.reflect.macros.whitebox.Context
 
 object Debug {
   
+  import Console._
+  val GREY = "\u001B[37m"
+  
   def show[T](x: T): T = macro showImpl[T]
   
   def showImpl[T: c.WeakTypeTag](c: Context)(x: c.Tree) = {
@@ -12,7 +15,14 @@ object Debug {
     //println("Tree: "+x+" : "+x.tpe)
     //c.warning(c.enclosingPosition, "Tree: "+x+" : "+x.tpe)
     
-    q"""val r = $x; println(${x.toString} + " = " + r  + " : " + ${x.tpe.toString}); r"""
+    //val code = x.toString
+    val code = showCode(x)
+    
+    //q"""val r = $x; println(${x.toString} + " = " + r  + " : " + ${x.tpe.toString}); r"""
+    //q"""val r = $x; println(${x.toString} + ": " + ${x.tpe.toString} + " =\n\t\t" + r); r"""
+    
+    //q"""val r = $x; println(${x.toString} + $GREY + ": " + ${x.tpe.toString} + $RESET + " \n=\t" + r); r"""
+    q"""val r = $x; println($BOLD + ${code} + $RESET + " =\t" + r + $GREY + " : " + ${x.tpe.toString} + $RESET); r"""
   }
   
   

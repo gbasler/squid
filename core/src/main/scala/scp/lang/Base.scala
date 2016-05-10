@@ -23,7 +23,8 @@ trait Base extends BaseDefs { base =>
   
   def const[A: TypeEv](value: A): Rep
   def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep
-  def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
+  //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
+  // ^ 'app' is by default represented as Function1Apply, with underlying representation methodApp
   
   def newObject(tp: TypeRep): Rep
   def moduleObject(fullName: String, tp: TypeRep): Rep // TODO rm 'tp': this type can be retrieved from the fullName
@@ -124,6 +125,9 @@ class BaseDefs { base: Base =>
   //implicit def typeEvImplicit[A]: TypeEv[A] = macro Base.typeEvImplicitImpl[A]
   //def `private mkTypeRep`[A: ru.WeakTypeTag](extraction: Boolean = false): TypeRep // supposed to be a macro; TODOlater: better error on virtual call
   
+  protected lazy val Function1ApplySymbol = loadSymbol(false, "scala.Function1", "apply")
+  
+  def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, typeRepOf[B])
   def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = app[A,B](abs[A,B](name, body), value)
   def ascribe[A: TypeEv](value: Rep): Rep = value // FIXME don't all IRs need to override it to have sound match checking?
   def thunk[A: TypeEv](value: => Rep): Rep = abs[Unit, A]("thunk", (_: Rep) => value)(TypeEv(unitType), TypeEv(typeRepOf[A]))
@@ -212,6 +216,7 @@ class BaseDefs { base: Base =>
   
   implicit class RepHelp(private val self: Rep) { // extends AnyVal { // Error: value class may not be a member of another class
     def =~= (that: Rep): Boolean = repEq(self, that)
+    def show: String = showRep(self)
   }
   implicit class TypeRepHelp(private val self: TypeRep) { // extends AnyVal { // Error: value class may not be a member of another class
     def =:= (that: TypeRep): Boolean = typEq(self, that)
