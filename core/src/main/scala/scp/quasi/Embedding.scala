@@ -450,7 +450,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                 case ((a @ q"$t : _*") :: Nil, Stream(VarargParam(pt))) =>
                   //debug(s"vararg splice [$pt]", t)
                   t match {
-                    case q"$base.spliceVararg[$t,$scp]($idts)" if base equalsStructure Base => // TODO make that an xtor
+                    case q"$base.spliceVararg[$t,$scp]($idts)" if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
                       val splicedX = recNoType(q"$Base.unquote[$t,$scp]($$x$$)")
                       q"${mkArgs(acc)}($idts map (($$x$$:$Base.Q[$t,$scp]) => $splicedX): _*)" // ArgsVarargs creation using Args.apply
                     case _ =>
@@ -470,11 +470,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                   q"$Base.ArgsVarargs(${mkArgs(acc)}, ${processArgs(Nil)(as, Stream continually pt)})"
                   
                 case (a :: as, pt #:: pts) =>
-                  val bareType = pt match {
-                    case TypeRef(_, ByNameParamClass, pt :: Nil) => pt
-                    case _ => pt
+                  pt match {
+                    case TypeRef(_, ByNameParamClass, pt :: Nil) =>
+                              processArgs(q"$Base.byName[$pt](${rec(a, Some(pt))})" :: acc)(as, pts)
+                    case _ => processArgs(                      rec(a, Some(pt))    :: acc)(as, pts)
                   }
-                  processArgs(rec(a, Some(bareType)) :: acc)(as, pts)
                 case (Nil, Stream.Empty) => mkArgs(acc)
                 case (Nil, pts) if !pts.hasDefiniteSize => mkArgs(acc)
                 //case _ => // TODO B/E

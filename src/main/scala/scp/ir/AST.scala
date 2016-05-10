@@ -29,6 +29,9 @@ object AST {
 trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
   
+  object Quasi extends quasi.Quasi[this.type, Any] { val base: AST.this.type = AST.this }
+  import Quasi.QuasiContext
+  
   
   object Constant extends ConstAPI {
     override def unapply[A: ru.TypeTag, S](x: Q[A, S]): Option[A] = x.rep match {
@@ -96,6 +99,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
       case as @ Ascribe(v) =>
         //toTree(v)
         q"${toTree(v)}:${as.typ.asInstanceOf[ScalaTyping#TypeRep].typ}"
+      case Thunk(body) => toTree(body)
       case a: Abs =>
         val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
         /* // handling thunks:
@@ -267,6 +271,8 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
     MethodApp(self, mtd, targs, argss, tp)
   
+  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: Unit) => ${Quoted[A,{}](arg)}".rep
+  
   def hole[A: TypeEv](name: String) = Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
@@ -379,10 +385,17 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   
   
   
+  lazy val UnitType = typeRepOf[Unit]
   
   object App {
     def unapply(r: Rep) = r match {
       case MethodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, _) => Some(fun, arg)
+      case _ => None
+    }
+  }
+  object Thunk {
+    def unapply(r: Rep) = r match {
+      case a: Abs if a.ptyp =:= UnitType => Some(a.body)
       case _ => None
     }
   }
@@ -428,6 +441,7 @@ trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
         //case Var(name) => s"$name: $typ" -> minPrecedence
         case Var(name) => name -> maxPrecedence
         case Const(value) => s"$value" -> maxPrecedence
+        case Thunk(body) => s"=> ${noWrap(body)}" -> lambdaPrec
         case a: Abs => s"(${a.param.name}: ${a.param.typ}) => ${wrapAssoc(a.body, lambdaPrec)}" -> lambdaPrec
         case App(fun,arg) => s"${wrapAssoc(fun, 100)} ${wrap(arg, 100)}" -> 100
         case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}<:$typ" -> maxPrecedence //s"($value: $typ)"

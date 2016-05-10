@@ -30,6 +30,8 @@ trait Base extends BaseDefs { base =>
   def moduleObject(fullName: String, tp: TypeRep): Rep // TODO rm 'tp': this type can be retrieved from the fullName
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
+  def byName[A: TypeEv](arg: Rep): Rep
+  
   type DSLSymbol
   def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol
   def loadOverloadedSymbol(mod: Boolean, typ: String, symName: String, index: Int): DSLSymbol

@@ -42,7 +42,7 @@ class PartiallyEvaluatedStructures extends MyFunSuite(PartiallyEvaluatedStructur
 }
 
 object PartiallyEvaluatedStructures {
-  object DSL extends AST with MyDSL with ScalaTyping with Quasi[Any] { dsl =>
+  object DSL extends AST with MyDSL with ScalaTyping with QuasiBase[Any] { dsl =>
     
     case class PEDictRep(fields: Map[String, Rep], typ: TypeRep) extends OtherRep {
       def extractRep(that: Rep): Option[Extract] = that match {

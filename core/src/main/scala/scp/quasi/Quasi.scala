@@ -13,8 +13,9 @@ import utils.MacroUtils._
 /**
   * TODO: fix the interpretation of holes -- names like ??? are seen as beginning with a $ sign! (use .decodedName?...)
   */
-//trait Quasi[L <: Base] {
-trait Quasi[L] { self: Base =>
+trait Quasi[B <: Base, L] {
+  val base: B
+  import base._
   
   implicit class QuasiContext(private val ctx: StringContext) {
     
@@ -34,7 +35,12 @@ trait Quasi[L] { self: Base =>
     }
     
   }
+}
+object Quasi {
   
+}
+trait QuasiBase[L] extends Quasi[Base, L] { self: Base =>
+  val base: this.type = this
 }
 
 object QuasiMacro {
@@ -74,7 +80,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     val unapply = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[quasi.QuasiMacro.Ext])
     
     //debug(c.macroApplication)
-    val base = c.macroApplication match {
+    val quasiBase = c.macroApplication match {
       //case x @ q"$base.QuasiContext(scala.StringContext.apply(..${ Literal(Constant(head)) :: args }).${id @ TermName(name)}(..$args2)"
       case x @ q"$base.QuasiContext(scala.StringContext.apply(..$_)).${id @ TermName(name)}.apply(..$_)"
       if dslInterpolators(name)
@@ -88,6 +94,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         base
       //case _ => null
     }
+    //val base = q"$quasiBase.base"
+    val base = c.typecheck(q"$quasiBase.base")
     
     val builder = new PgrmBuilder[c.type](c)(unapply)
     
