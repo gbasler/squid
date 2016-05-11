@@ -539,7 +539,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
               q"$Base.newVar(${name.toString}, $tp.rep)" -> (p.symbol.asTerm -> name)
           } unzip;
           val paramDefs = bindings.unzip._2 zip params map {case(name,p) => q"val $name = $p"}
-          val body = rec(bo, typeIfNotNothing(bo.tpe)/*Note: could do better than that: match expected type with function type...*/)(ctx ++ bindings)
+          val body = rec(bo, typeIfNotNothing(bo.tpe) orElse expectedType flatMap FunctionType.unapply)(ctx ++ bindings)
           q"..$paramDefs; $Base.lambda(Seq(..${bindings map (_ _2)}), $body)"
           
           
@@ -868,6 +868,20 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         //debug(">> Not inferred:", tpt, typ.pos, typ.pos.point)
         None
     }
+  }
+  
+  object FunctionType {
+    val Fun0Sym = symbolOf[() => _]
+    val FunSym = symbolOf[_ => _]
+    val Fun2Sym = symbolOf[(_, _) => _]
+    val Fun3Sym = symbolOf[(_, _, _) => _]
+    def unapply(t: Type): Option[Type] = Option(t match {
+      case TypeRef(_, Fun0Sym, ret::Nil) => ret
+      case TypeRef(_, FunSym, _::ret::Nil) => ret
+      case TypeRef(_, Fun2Sym, _::_::ret::Nil) => ret
+      case TypeRef(_, Fun3Sym, _::_::_::ret::Nil) => ret
+      case _ => null
+    })
   }
   
   
