@@ -4,6 +4,7 @@ package ir
 import scala.collection.mutable
 import lang._
 import utils.Andable
+import utils.GenHelper
 
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
@@ -266,7 +267,17 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     case _ => throw EmbeddingException(s"Trying to splice-extract with invalid extractor $xtor")
   }
   
-  def const[A: TypeEv](value: A): Rep = Const(value)
+  private var inExtraction = false
+  protected def isInExtraction = inExtraction
+  
+  override def wrapExtraction[A](extr: => A) = try {
+    inExtraction = true
+    extr
+  } finally inExtraction = false
+  
+  def process(r: Rep) = if (inExtraction) r else applyTransform(r).rep 
+  
+  def const[A: TypeEv](value: A): Rep = Const(value) |> process
   def newVar(name: String, typ: TypeRep) = Var(name)(typ)
   
   def lambda(params: Seq[Var], body: Rep): Rep = {
@@ -279,22 +290,22 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       }
       Abs(p, tbody)
     }
-  }
+  } |> process
   
-  override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
+  override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value) |> process
   
-  def newObject(tp: TypeRep): Rep = NewObject(tp)
-  def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep)
+  def newObject(tp: TypeRep): Rep = NewObject(tp) |> process
+  def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep) |> process
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
-    MethodApp(self, mtd, targs, argss, tp)
+    MethodApp(self, mtd, targs, argss, tp) |> process
   
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
-  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
+  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep |> process
   
-  def hole[A: TypeEv](name: String) = Hole[A](name)
+  def hole[A: TypeEv](name: String) = Hole[A](name) |> process
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
-  def splicedHole[A: TypeEv](name: String): Rep = SplicedHole(name)
+  def splicedHole[A: TypeEv](name: String): Rep = SplicedHole(name) |> process
   
   
   /**
@@ -396,6 +407,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
       case Hole(_) | SplicedHole(_) | NewObject(_) => r
       case mo @ ModuleObject(fullName, tp) => mo
+      case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)
         methodApp(tr(self), mtd, targs, argss map {
@@ -495,13 +507,17 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           val isNotOp = symName.head.isLetter
           //val rightAssoc = symName.last == ':'
           val prec = if (isNotOp) maxPrecedence else Precedence(200)
-          val selfStr = wrapAssoc(self, maxPrecedence)
+          val selfStr = wrapAssoc(self, maxPrecedence) // Note: not 'prec' because the rules of prec/assoc for operators are complicated and not uniform
           val trunk = if (sym.isConstructor) s"$selfStr" else {
             if (isNotOp) s"$selfStr.$symName"
             else s"$selfStr $symName"
           }
           val sep = if (isNotOp) "" else " "
-          trunk + (targs.mkString("[",",","]")*(targs.size min 1)) + sep + (argss map (_ show (this, isNotOp)) mkString) -> prec
+          val args = argss match {
+            case Args(arg)::Nil => wrap(arg, prec)
+            case _ => argss map (_ show (this, isNotOp)) mkString
+          }
+          trunk + (targs.mkString("[",",","]")*(targs.size min 1)) + sep + args -> prec
         case or: OtherRep => or print this
       }
     }

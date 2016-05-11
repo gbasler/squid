@@ -525,6 +525,7 @@ class ScalaTypingMacros(val c: blackbox.Context) {
       && (tp.baseType(symbolOf[Base.HoleType]) != NoType) )
     
     //println(s"Searching rep for $tp (${tp.widen}) -- $isHole")
+    //println(s"Base $base") // FIXME: we have problems when the base is some annonymous class instantiation
     
     
     tp.widen match {

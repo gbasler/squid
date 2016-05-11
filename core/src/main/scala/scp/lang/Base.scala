@@ -76,6 +76,8 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
   def typeHole[A](name: String): TypeRep
   
+  def wrapExtraction[A](extr: => A) = extr
+  
   
 }
 

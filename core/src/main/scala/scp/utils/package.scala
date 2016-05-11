@@ -20,6 +20,28 @@ package object utils {
     
   }
   
+  
+  implicit class GenHelper[A](val __self: A) extends AnyVal {
+    
+    def |> [B] (rhs: A => B): B = rhs(__self)
+    
+    /**A lesser precedence one! */
+    def /> [B] (rhs: A => B): B = rhs(__self)
+    
+    /** 
+     * A helper to write left-associative applications, mainly used to get rid of paren hell
+     * Example:
+     *   println(Id(Sym(f(chars))))
+     *   println(Id <|: Sym.apply <|: f <|: chars)  // `Sym` needs `.apply` because it's overloaded
+     */
+    def <|: [B] (lhs: A => B): B = lhs(__self)
+    
+  }
+  implicit class FunHelper[A,B](val __self: A => B) extends AnyVal {
+    def <| (rhs: A): B = __self(rhs)
+    def |>: (lhs: A): B = __self(lhs)
+  }
+  
   implicit class SafeEq[T](val self: T) extends AnyVal {
     def === (that: T) = self == that
   }

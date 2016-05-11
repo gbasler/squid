@@ -11,6 +11,7 @@ import utils.UnknownContext
 /** Type and context-safe interface for program transformation.
   * It checks that rewrite rules rewrite things to the same type, and with a weaker or identical context
   * 
+  * TODO: use different sets of transfo based on the top-level node; have a:  Map[DSLSymbol,Rewrite]
   * TODO: better handling of situations where cases do not have the right shape
   * TODO: take function arguments instead of partial functions,
   *   which generate a lot of boilerplate and DUPLICATE the code between orElse and isDefinedAt
@@ -30,7 +31,7 @@ trait Transformer {
   def applyTransform(r: Rep) = {
     var currentQ = Quoted[Any,Nothing](r)
     `private rewrites` foreach { rw =>
-      //println("T "+rw+" "+rw.isDefinedAt(currentQ))
+      //println("T "+currentQ+" "+rw.isDefinedAt(currentQ))
       currentQ = rw.applyOrElse(currentQ, identity[Q[Any,Nothing]])
     }
     currentQ

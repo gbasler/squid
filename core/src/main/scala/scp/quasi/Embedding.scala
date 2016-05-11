@@ -748,10 +748,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           new {
             $typeInfo
             $contextInfo
-            ..$defs
-            ..$dslDefs
-            ..$dslTypes
-            def unapply(_t_ : $termType): Boolean = {
+            def unapply(_t_ : $termType): Boolean = $Base.wrapExtraction {
+              ..$defs
+              ..$dslDefs
+              ..$dslTypes
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
@@ -776,10 +776,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           new {
             $typeInfo
             $contextInfo
-            ..${defs}
-            ..$dslDefs
-            ..$dslTypes
-            def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
+            def unapply(_t_ : $termType): $scal.Option[$extrTuple] = $Base.wrapExtraction {
+              ..${defs}
+              ..$dslDefs
+              ..$dslTypes
               val _term_ = $res
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
