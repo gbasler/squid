@@ -388,7 +388,8 @@ trait ScalaTyping extends Base {
   
   case class RecordType(fields: List[(String, TypeRep)]) extends TypeRep { // TODO fully handle
     val typ: ScalaType = typeOf[lib.DummyRecord]
-    override protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract] = ???
+    protected[ScalaTyping] def extractTp(xtyp: ScalaType, va: Variance): Option[Extract] = ???
+    override def toString = s"Rec{${fields map {case(s,t) => s"$s: $t"} mkString "; "}}"
   }
   
   def typEq(a: TypeRep, b: TypeRep): Boolean = a =:= b

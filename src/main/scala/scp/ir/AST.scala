@@ -51,7 +51,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     toolBox.eval(t)
   }
   protected def toTree(r: Rep): ru.Tree = { // TODO remember (lazy val in Rep)
-    import ru._
+    import ru.{Typed => ScalaTyped, _}
     
     //println(s"To tree: $r")
     r match {
@@ -107,14 +107,13 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         
       case RecordGet(self, name, tp) => q"${TermName(name)}"
         
-      case a @ Abs(pname, RecordType(fields), _) =>
-        q"(..${fields map { case(name,tp) => q"val ${TermName(name)}: ${tp.typ}" }}) => ${toTree(a.body)}"
+      case a @ Abs(Typed(_, RecordType(fields)), body) =>
+        q"(..${fields map { case(name,tp) => q"val ${TermName(name)}: ${tp.typ}" }}) => ${toTree(body)}"
         
-      case a: Abs =>
-        val typ = a.ptyp.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
-        /* // handling thunks:
-        if (a.ptyp <:< unitType) q"() => ${toTree(a.body)}" else*/ // probably not safe in general (Unit params could occur in the presence of generics)
-        q"(${TermName(a.pname)}: $typ) => ${toTree(a.body)}"
+      case Abs(p, body) =>
+        val typ = p.typ.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
+        q"(${TermName(p.name)}: $typ) => ${toTree(body)}"
+        
       case dsln @ NewObject(tp) =>
         /** For extremely obscure reasons, I got problems with this line (on commit https://github.com/LPTK/SC-Paradise-Open-Terms-Proto/commit/7c63fba4486ac42c96fe55c754a7f5d636596d61)
           * The toolbox would crash with internal errors.
@@ -268,11 +267,18 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   }
   
   def const[A: TypeEv](value: A): Rep = Const(value)
+  def newVar(name: String, typ: TypeRep) = Var(name)(typ)
   
-  //def abs[A: TypeEv, B: TypeEv](name: String, fun: Rep => Rep): Rep = Abs(name, typeRepOf[A], fun)
-  def lambda(params: Seq[(String, TypeRep)], fun: Seq[Rep] => Rep): Rep = {
-    if (params.size == 1) Abs(params(0)._1, params(0)._2, (r: Rep) => fun(Seq(r)))
-    else Abs("params", RecordType(params.toList), { (ps: Rep) => fun(params map {case(name,tp) => RecordGet(ps, name, tp)}) })
+  def lambda(params: Seq[Var], body: Rep): Rep = {
+    if (params.size == 1) Abs(params.head, body)
+    else {
+      val ps = params.toSet
+      val p = newVar("params", RecordType(params.map(v => v.name -> v.typ).toList))
+      val tbody = transformPartial(body) {
+        case v @ Var(name) if ps(v) => RecordGet(p, name, v.typ)
+      }
+      Abs(p, tbody)
+    }
   }
   
   override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value)
@@ -302,18 +308,21 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     val typ = typeEv[A].rep
   }
   
-  case class Var(val name: String)(val typ: TypeRep) extends Rep {
+  case class Var(name: String)(val typ: TypeRep) extends Rep {
     def toHole = Hole(name)(TypeEv(typ))
+    override def equals(that: Any) = that match { case that: AnyRef => this eq that case _ => false }
+    //override def hashCode(): Int = name.hashCode // should be inherited
   }
+  
   
   case class Const[A: TypeEv](value: A) extends Rep {
     val typ = typeEv[A].rep
   }
-  case class Abs(pname: String, ptyp: TypeRep, fun: Rep => Rep) extends Rep {
-    val param = Var(pname)(ptyp)
-    val body = fun(param)
-    
+  case class Abs(param: Var, body: Rep) extends Rep {
+    def ptyp = param.typ
     val typ = funType(ptyp, body.typ)
+    
+    def fun(r: Rep) = transformPartial(body) { case `param` => r }
     
     def inline(arg: Rep): Rep = fun(arg) //body withSymbol (param -> arg)
     
@@ -379,7 +388,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     val tr = (r: Rep) => transform(r)(f)
     val ret = f(r match {
       //case Abs(p, b) => Abs(p, tr(b))
-      case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
+      //case a: Abs => Abs(a.pname, a.ptyp, (x: Rep) => tr(a.fun(x)))
+      case Abs(p, b) =>
+        //val p2 = tr(p)
+        //Abs(p2, tr(b))
+        Abs(p, tr(b)) // Note: we do not transform the parameter; could lead to surprising behaviors? (esp. in case of erroneous transform)
       case a: Ascribe[_] => Ascribe(tr(a.value))(TypeEv(a.typ))
       case Hole(_) | SplicedHole(_) | NewObject(_) => r
       case mo @ ModuleObject(fullName, tp) => mo
@@ -403,6 +416,8 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   def typ(r: Rep): TypeRep = r.typ
   
   
+  
+  object Typed { def unapply(r: Rep): Some[(Rep, TypeRep)] = Some(r,r.typ) }
   
   //lazy val UnitType = typeRepOf[Unit]
   lazy val ThunkParamType = typeRepOf[lib.ThunkParam]
@@ -462,10 +477,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         case Var(name) => name -> maxPrecedence
         case Const(value) => s"$value" -> maxPrecedence
         case Thunk(body) => s"=> ${noWrap(body)}" -> lambdaPrec
-        case a: Abs => s"(${a.param.name}: ${a.param.typ}) => ${wrapAssoc(a.body, lambdaPrec)}" -> lambdaPrec
+        case Abs(Typed(Var(name), typ), body) => s"($name: $typ) => ${wrapAssoc(body, lambdaPrec)}" -> lambdaPrec
         case App(fun,arg) => s"${wrapAssoc(fun, 100)} ${wrap(arg, 100)}" -> 100
         case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}<:$typ" -> maxPrecedence //s"($value: $typ)"
         case NewObject(_) => s"new $typ" -> maxPrecedence
+        case RecordGet(self, fieldName, typ) => s"${wrapAssoc(self, maxPrecedence)}.$fieldName" -> maxPrecedence
         case ModuleObject(fullName, _) =>
           val path = fullName.splitSane('.')
           val prefix = if (path.size > 2) ".." else ""

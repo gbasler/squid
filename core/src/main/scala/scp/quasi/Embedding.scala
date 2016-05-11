@@ -356,8 +356,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val retType = expectedType getOrElse x.tpe
           
-          q"letin[${vdef.symbol.typeSignature},${retType}](${name.toString}, $v2, ($name: Rep) => $body)(${
-            getType(vdef.symbol.typeSignature)},${getType(retType)})"
+          q"""val $name = newVar(${name.toString}, ${getType(vdef.symbol.typeSignature)}.rep)
+              letin($name, $v2, $body)"""
          
         case q"val $p = $v; ..$b" =>
           rec(q"$v match { case $p => ..$b }", expectedType)
@@ -536,14 +536,12 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             case p @ ValDef(mods, name, tpt, _) =>
               recNoType(tpt)
               val tp = getType(p.symbol.typeSignature)
-              q"(${name.toString} -> $tp.rep)" -> (p.symbol.asTerm -> name)
+              q"$Base.newVar(${name.toString}, $tp.rep)" -> (p.symbol.asTerm -> name)
           } unzip;
-          val body = q"{ ($$args$$: Seq[Rep]) => ..${
-            bindings.unzip._2.zipWithIndex map {case(name,i) => q"val $name = $$args$$($i)"}
-          }; ${
-            rec(bo, typeIfNotNothing(bo.tpe)/*Note: could do better than that: match expected type with function type...*/)(ctx ++ bindings)
-          } }"
-          q"$Base.lambda(Seq(..$params), $body)"
+          val paramDefs = bindings.unzip._2 zip params map {case(name,p) => q"val $name = $p"}
+          val body = rec(bo, typeIfNotNothing(bo.tpe)/*Note: could do better than that: match expected type with function type...*/)(ctx ++ bindings)
+          q"..$paramDefs; $Base.lambda(Seq(..${bindings map (_ _2)}), $body)"
+          
           
           
         // TODO
