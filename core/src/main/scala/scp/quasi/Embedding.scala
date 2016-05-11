@@ -15,10 +15,10 @@ case class EmbeddingException(msg: String) extends Exception(msg)
   * Note: currently, we generate free-standing functions (eg: const(...)), without qualifying them.
   * This can be useful, but also confusing.
   * We may require the presence of an implicit to retrieve a $base object.
+  *
+  * TODO: better let-binding of type evidences, binding common subtypes...
   * 
-  * 
-  * TODO: let-bind type evidences so as to make generated code cleaner, and avoid redundancy
-  * 
+  * TODO: cache extractors, so as not to recreate them all the time!
   * 
   */
 class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with ScopeAnalyser {
@@ -41,6 +41,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   val Any = typeOf[Any]
   val Nothing = typeOf[Nothing]
   val Unit = typeOf[Unit]
+  val UnknownContext = typeOf[utils.UnknownContext]
   
   def typeIfNotNothing(tp: Type) = {
     assert(tp != NoType)
@@ -75,8 +76,16 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         debug("Scrutinee type:", t.tpe)
         t.tpe.baseType(symbolOf[Base#Quoted[_,_]]) match {
           case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) if tpbase =:= Base.tpe => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
-            termScope ::= ctx
-            if (tp.typeSymbol.isClass) {
+            val newCtx = if (ctx <:< UnknownContext) {
+              val tname = TypeName("[Unknown Context]")
+              c.typecheck(q"class $tname; new $tname").tpe
+            } else ctx
+            debug("New context:",newCtx)
+            termScope ::= newCtx
+            if (tp.typeSymbol.isClass && !(Any <:< tp)) {
+              // ^ If the scrutinee is 'Any', we're better off with no ascription at all, as something like:
+              // 'List(1,2,3) map (_ + 1): Any' will typecheck to:
+              // 'List[Int](1, 2, 3).map[Int, Any]((x$1: Int) => x$1+1)(List.canBuildFrom[Int]): scala.Any'
               tp match {
                 case _: ConstantType => None // For some stupid reason, Scala typechecks `(($hole: String): String("Hello"))` as `"Hello"` ..................
                 case _ =>
@@ -113,7 +122,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           case q"..$stmts; $finalTree: $_" => stmts -> finalTree  // ie:  case Block(stmts, q"$finalTree: $_") =>
           //case q"..$stmts; $finalTree" => stmts -> finalTree
         }
-        Some(q"..$stmts; $finalTree", typed.tpe) // if type needed:  internal.setType(q"..$stmts; $finalTree", finalTree.tpe)
+        // Since the precise type is needed to define $ExtractedType$:
+        Some( internal.setType(q"..$stmts; $finalTree", finalTree.tpe), typed.tpe )
       } catch {
         case e: TypecheckException =>
           debug("Ascribed tree failed to typecheck: "+e.msg)
@@ -214,8 +224,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     /** `parent` is used to display an informative tree in errors; `expectedType` for knowing the type a hole should have  */
     def lift(x: c.Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, TermName]): c.Tree = {
-      //debug(x.symbol,">",x)
       //debug(s"TRAVERSING",x,"<:",expectedType getOrElse "?")
+      //debug(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?")
       
       def rec(x1: c.Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, TermName]): c.Tree = lift(x1, x, expTpe)
       def recNoType(x1: c.Tree)(implicit ctx: Map[TermSymbol, TermName]): c.Tree = lift(x1, x, None)
@@ -671,6 +681,9 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         
         q"..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($res)"
         
+        //val typeInfo = q"type $$ConstructedType$$ = ${typedTree.tpe}"
+        //q"$typeInfo; ..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($res)"
+        
       case Some(selector) =>
         
         //val typesToExtract = holeTypes map {
@@ -726,12 +739,17 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
         val termType = tq"SomeQ" // We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case dsl"..." => }'
         
+        val typeInfo = q"type $$ExtractedType$$ = ${typedTree.tpe}" // Note: typedTreeType can be shadowed by a scrutinee type
+        val contextInfo = q"type $$ExtractedContext$$ = ${termScope.last}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
+        
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
           assert(traits.isEmpty && defs.isEmpty)
             //def unapply(_t_ : SomeRep): Boolean = {
             //  _term_.extract(_t_.rep) match {
           q"""
           new {
+            $typeInfo
+            $contextInfo
             ..$defs
             ..$dslDefs
             ..$dslTypes
@@ -758,6 +776,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           q"""{
           ..$typedTraits
           new {
+            $typeInfo
+            $contextInfo
             ..${defs}
             ..$dslDefs
             ..$dslTypes

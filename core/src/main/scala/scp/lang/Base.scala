@@ -1,4 +1,5 @@
-package scp.lang
+package scp
+package lang
 
 import annotation.StaticAnnotation
 import scala.reflect.runtime.{universe => ru}
@@ -14,7 +15,9 @@ import scala.reflect.runtime.{universe => ru}
     
  */
 /** Main language trait, encoding second order lambda calculus with records, let-bindings and ADTs */
-trait Base extends BaseDefs { base =>
+trait Base extends BaseDefs with ir.Transformer { //base =>
+  
+  val base: this.type = this
   
   //type Rep[Typ, -Scp]
   //type TypeRep[A]
@@ -107,7 +110,7 @@ class BaseDefs { base: Base =>
     override def toString = s"""dsl"${showRep(rep)}""""
   }
   type Q[+T,-S] = Quoted[T, S] // shortcut
-  protected def Quote[A](r: Rep) = Quoted[A,{}](r)
+  protected[scp] def Quote[A](r: Rep) = Quoted[A,{}](r)
   
   /** Note: 'QuotedType' cannot be covariant, because that would introduce unsoundness */
   @annotation.implicitNotFound(msg = "Could not find type representation evidence for ${Typ} (implicit of type QuotedType[${Typ}])")
@@ -258,9 +261,6 @@ class BaseDefs { base: Base =>
   
   
   
-  //def online(tr: PartialFunction[])
-  
-  
   
   
   //type `type scala.Function1` // TODO possibility not to mix it in
@@ -302,6 +302,7 @@ class BaseDefs { base: Base =>
   }
   
   
+  /*
   class Transformer {
     
     abstract class RewriteRulePoly {
@@ -392,7 +393,7 @@ class BaseDefs { base: Base =>
   def iso2[A,S](qf: Q[A,S] => Q[A,S]): Any = ???
   
   //def iso3[A](qf: (Q[A,s] => Q[A,s]) forSome {type s}): Any = ??? // nope
-  
+  */
   
   
   // PRIVATE
@@ -421,6 +422,7 @@ class BaseDefs { base: Base =>
 
 object Base {
   import reflect.macros.whitebox.Context
+  /*
   def isoImpl(c: Context)(qf: c.Tree) = {
     import c.universe._
     println(qf+" : "+qf.tpe)
@@ -445,6 +447,7 @@ object Base {
     }
     qf
   }
+  */
   
   trait HoleType // Used to tag types generated for type holes
   

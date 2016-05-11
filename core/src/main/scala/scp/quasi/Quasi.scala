@@ -40,7 +40,7 @@ object Quasi {
   
 }
 trait QuasiBase[L] extends Quasi[Base, L] { self: Base =>
-  val base: this.type = this
+  override val base: this.type = this
 }
 
 object QuasiMacro {
@@ -94,8 +94,12 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         base
       //case _ => null
     }
-    //val base = q"$quasiBase.base"
+    
     val base = c.typecheck(q"$quasiBase.base")
+    
+    //val base = internal.setType(q"$quasiBase.base", quasiBase.tpe.member(TermName("base")).typeSignature)
+    // ^ gets weird types like:  => scp.quasi.QuasiBase.<refinement>.type  which break everything 
+    
     
     val builder = new PgrmBuilder[c.type](c)(unapply)
     
