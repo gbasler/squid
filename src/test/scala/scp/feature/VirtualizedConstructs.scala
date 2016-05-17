@@ -42,29 +42,29 @@ class VirtualizedConstructs extends MyFunSuite {
     
     setEv(0)
     
-    val impure = dsl"setEv(getEv+1); getEv"
+    val impure = dsl"setEv(getEv+1); setEv(getEv+1); getEv"
     
     impure match {
-      case dsl"setEv(getEv+(${Constant(n)}:Int)); getEv" => assert(n == 1)
+      case dsl"setEv(getEv+(${Constant(n)}:Int)); setEv(getEv+1); getEv" => assert(n == 1)
     }
     impure matches {
     // Oddity: with 'matches', the 'ConstQ' extraction fails with: Error:(48, 31) No TypeTag available for A
     //case dsl"setEv(getEv+(${ConstQ(n:Int)}:Int)); getEv" => assert(n == 1) // fixme ?!
-      case dsl"setEv(getEv+1); getEv" =>
+      case dsl"setEv(getEv+1); setEv(getEv+1); getEv" =>
     } and {
-      case dsl"lib.Imperative(setEv(getEv+1))(getEv)" =>
+      case dsl"lib.Imperative(setEv(getEv+1), setEv(getEv+1))(getEv)" =>
     }
     
-    same(impure.run, 1)
-    same(getEv, 1)
+    same(impure.run, 2)
+    same(getEv, 2)
     
     same(dsl"ev = 0; ev".run, 0)
     same(getEv, 0)
     
     
     // Support for translation done by Scala:  nonUnitValue ~> { nonUnitValue; () }
-    dsl"getEv; getEv" matches {
-      case dsl"lib.Imperative(getEv)(getEv)" =>
+    dsl"getEv; getEv; getEv" matches {
+      case dsl"lib.Imperative(getEv,getEv)(getEv)" =>
     }
     
   }

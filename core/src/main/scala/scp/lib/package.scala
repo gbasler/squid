@@ -8,7 +8,7 @@ package object lib {
   def While(cond: => Boolean, loop: => Unit) =
     while (cond) loop
   
-  def Imperative[A](effect: Any)(result: A) = result  // TODO make effect a vararg
+  def Imperative[A](effects: Any*)(result: A) = result
   
   
   final class ThunkParam private[lib]()

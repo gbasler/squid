@@ -485,7 +485,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   object Imperative {
     val Symbol = loadSymbol(true, "scp.lib.package", "Imperative")
     def unapply(r: Rep) = r match {
-      case MethodApp(self, Symbol, _::Nil, Args(eff)::Args(res)::Nil, _) => Some(eff, res)
+      case MethodApp(self, Symbol, _::Nil, ArgsVarargs(Args(),Args(effs @ _*))::Args(res)::Nil, _) => Some(effs, res)
       case _ => None
     }
   }
@@ -536,8 +536,8 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           val path = fullName.splitSane('.')
           val prefix = if (path.size > 2) ".." else ""
           prefix+(path drop (path.size-2) mkString ".") -> maxPrecedence
-        case Imperative(eff, res) =>
-          s"${wrapAssoc(eff,minPrecedence)};; ${wrapAssoc(res,minPrecedence)}" -> 25
+        case Imperative(effs, res) =>
+          s"{ ${ effs map (wrapAssoc(_,minPrecedence)) mkString "; " }; ${ wrapAssoc(res,minPrecedence) } }" -> maxPrecedence
         case IfThenElse(cond, Thunk(thn), Thunk(els)) =>
           s"if ${noWrap(cond)} then ${wrapAssoc(thn, itePrec)} else ${wrapAssoc(els, itePrec)}" -> itePrec
         case MethodApp(self, sym, Nil, Nil, _) if sym.name.decodedName.toString.startsWith(UnaryPrefix) =>
