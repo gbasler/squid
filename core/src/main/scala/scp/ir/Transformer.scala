@@ -1,6 +1,8 @@
 package scp
 package ir
 
+import utils._
+
 import scala.language.dynamics
 import scala.language.experimental.macros
 
@@ -29,6 +31,7 @@ trait Transformer {
   
   def applyTransform[T,C](q: Q[T,C]): Quoted[T,C] = applyTransform(q.rep).asInstanceOf[Quoted[T,C]]
   def applyTransform(r: Rep) = {
+    //println("Trans "+r.show)
     var currentQ = Quoted[Any,Nothing](r)
     `private rewrites` foreach { rw =>
       //println("T "+currentQ+" "+rw.isDefinedAt(currentQ))
@@ -36,12 +39,26 @@ trait Transformer {
     }
     currentQ
   }
+  
+  private var online = false
+  def isOnline = online
+  
+  /** calls to `wrapExtract` in a pattern passed to `rewrite` are rewritten to `wrapExtractOnline` */
+  def wrapExtractOnline(r: => Rep) = {
+    try {
+      online = true
+      wrapExtract(r)
+    } finally online = false
+  }
+  
 }
 
-object TransformerMacros {
-  import reflect.macros.blackbox.Context
+import reflect.macros.whitebox.Context
+class TransformerMacros(val c: Context) extends MacroShared {
+  type Ctx = c.type
+  val Ctx: Ctx = c
   
-  def rewrite(c: Context)(tr: c.Tree) = {
+  def rewrite(tr: c.Tree) = {
     import c.universe._
     
     val trans = c.macroApplication match {
@@ -55,12 +72,12 @@ object TransformerMacros {
           templ.body collectFirst {
             case DefDef(mods, TermName("applyOrElse"), tparams, paramss, typ, valu) =>
               valu match {
-                case q"$_ match { case ..${cases2} }" => cases2.init // last is the default
+                case q"$_ match { case ..${cases2} }" => cases2.init // last is the default case, so we just take the initial elements
               }
           } get;
       }
     }
-        
+    
     cases foreach {
       case cas @ CaseDef(pat, cond, expr) =>
         //println("Case on line "+cas.pos.line)
@@ -99,11 +116,18 @@ object TransformerMacros {
   
     }
     
-    q"$trans.`private rewrites` += $tr.asInstanceOf[$trans.Rewrite]"
+    val newTR = tr transform {
+      case t @ q"$base.wrapExtract($arg)" => // if base.tpe == ...
+        c.typecheck(q"$trans.base.wrapExtractOnline($arg)")
+    }
+    
+    q"$trans.`private rewrites` += $newTR.asInstanceOf[$trans.Rewrite]"
   }
   
-  
 }
+
+
+
 
 
 

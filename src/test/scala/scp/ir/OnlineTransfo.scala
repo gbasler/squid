@@ -8,7 +8,7 @@ class OnlineTransfo extends MyFunSuite(OnlineTransfo.DSL) {
   import DSL._
   import DSL.Quasi.QuasiContext
   
-  test("Naive Addition/Multiplication Partial Evaluation") {
+  test("Constructed Terms are Rewritten") {
     
     eqt(dsl"2 + (readInt+1) + 3",
         dsl"6 + readInt")
@@ -21,6 +21,29 @@ class OnlineTransfo extends MyFunSuite(OnlineTransfo.DSL) {
     
   }
   
+  test("Extractor Terms are Rewritten") {
+    
+    dsl"4" match {
+      case dsl"2 + 2" =>
+    }
+    
+    dsl"1 + readInt" match {
+      case dsl"readInt + 1" =>
+    }
+    
+    dsl"6 + readInt" match {
+      case dsl"2 + (($n:Int)+1) + 3" => eqt(n, dsl"readInt")
+    }
+    
+  }
+  
+  test("Online Rewriting is Properly Recursive") {
+    
+    // Note: I verified that Scala does NOT P/E this, although it does things like '2+2'
+    eqt(dsl"readInt + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1",
+        dsl"10 + readInt")
+    
+  }
   
 }
 object OnlineTransfo {
@@ -28,7 +51,7 @@ object OnlineTransfo {
   object DSL extends AST with lang.ScalaTyping {
     import Quasi.QuasiContext
     
-    rewrite {
+    rewrite { // Naive Addition/Multiplication Partial Evaluation
       
       // Addition P/E
       

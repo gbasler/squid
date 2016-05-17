@@ -27,7 +27,7 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
   def const[A: TypeEv](value: A): Rep
   def newVar(name: String, typ: TypeRep): Var
-  def lambda(params: Seq[Var], body: Rep): Rep
+  def lambda(params: Seq[Var], body: => Rep): Rep
   
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   // ^ 'app' is by default represented as Function1Apply, with underlying representation methodApp
@@ -36,7 +36,7 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   def moduleObject(fullName: String, tp: TypeRep): Rep // TODO rm 'tp': this type can be retrieved from the fullName
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
-  def byName[A: TypeEv](arg: Rep): Rep
+  def byName(arg: => Rep): Rep
   
   type DSLSymbol
   def loadSymbol(mod: Boolean, typ: String, symName: String): DSLSymbol
@@ -76,7 +76,8 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
   def typeHole[A](name: String): TypeRep
   
-  def wrapExtraction[A](extr: => A) = extr
+  def wrapConstruct(r: => Rep) = r
+  def wrapExtract(r: => Rep) = r
   
   
 }
@@ -141,7 +142,7 @@ class BaseDefs { base: Base =>
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, typeRepOf[B])
   def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, retTp)
   //def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = {
-  def letin(bound: Var, value: Rep, body: Rep): Rep = {
+  def letin(bound: Var, value: Rep, body: => Rep): Rep = {
     //app[A,B](lambda(Seq(param), body(param)), value)
     app(lambda(Seq(bound), body), value)(typ(body))
   }
@@ -246,6 +247,7 @@ class BaseDefs { base: Base =>
   val EmptyExtract: Extract = (Map(), Map(), Map())
   
   
+  protected def mergeOpt(a: Option[Extract], b: => Option[Extract]): Option[Extract] = for { a <- a; b <- b; m <- merge(a,b) } yield m
   protected def merge(a: Extract, b: Extract): Option[Extract] = {
     b._1 foreach { case (name, vb) => (a._1 get name) foreach { va => if (!(va =~= vb)) return None } }
     b._3 foreach { case (name, vb) => (a._3 get name) foreach { va =>

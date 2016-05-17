@@ -3,8 +3,7 @@ package ir
 
 import scala.collection.mutable
 import lang._
-import utils.Andable
-import utils.GenHelper
+import utils._
 
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
@@ -122,7 +121,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           */
         //New(tq"${tp.typ}") // FAILS SOMETIMES -- depending on what happened before...
         
-        New(tp.typ match {
+        ru.New(tp.typ match {
           case TypeRef(tpe, sym, args) =>
             def path(s: Symbol): Tree =
               // In some contexts, we get some weird '_root_.<root>.blah' paths
@@ -156,6 +155,8 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   sealed trait Rep { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     
+    def isPure = true
+    
     def quoted = Quoted[Nothing, Nothing](this)
     
     /** Used to replace free variables with bound ones when an unquote captures bound variables */
@@ -165,6 +166,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     
     def extract(t: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
+      //println(s"${this} << ${t}")
       
       val r: Option[Extract] = (this, t) match {
         case (_, Ascribe(v)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
@@ -226,7 +228,10 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
           } yield m2
+          
         case (or: OtherRep, r) => or extractRep r
+        case (r, or: OtherRep) => or getExtractedBy r
+          
         case _ => None
       }
       
@@ -247,6 +252,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     // TODO add missing methods (toTree, ...) + update pattern matches
     
     def extractRep(that: Rep): Option[Extract]
+    def getExtractedBy(that: Rep): Option[Extract]
     
     def transform(f: Rep => Rep): Rep
     
@@ -270,42 +276,53 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   private var inExtraction = false
   protected def isInExtraction = inExtraction
   
-  override def wrapExtraction[A](extr: => A) = try {
+  override def wrapExtract(r: => Rep) = try {
     inExtraction = true
-    extr
+    super.wrapExtract(r)
   } finally inExtraction = false
   
-  def process(r: Rep) = if (inExtraction) r else applyTransform(r).rep 
+  def process(r: => Rep) = {
+    val res = r
+    if (inExtraction && isOnline) res else applyTransform(res).rep
+  }
+  final def << (r: => Rep) = process(r)
   
-  def const[A: TypeEv](value: A): Rep = Const(value) |> process
+  def const[A: TypeEv](value: A): Rep = this << Const(value)
   def newVar(name: String, typ: TypeRep) = Var(name)(typ)
+  def freshVar(typ: TypeRep) = Var("var$"+varCount)(typ) oh_and (varCount += 1)
+  private var varCount = 0
   
-  def lambda(params: Seq[Var], body: Rep): Rep = {
+  def lambda(params: Seq[Var], body: => Rep): Rep = this << {
     if (params.size == 1) Abs(params.head, body)
     else {
       val ps = params.toSet
-      val p = newVar("params", RecordType(params.map(v => v.name -> v.typ).toList))
+      val p = freshVar(RecordType(params.map(v => v.name -> v.typ).toList)) // would be nice to give the freshVar a name hint "params"
       val tbody = transformPartial(body) {
-        case v @ Var(name) if ps(v) => RecordGet(p, name, v.typ)
+        case v @ Var(name) if ps(v) => recordGet(p, name, v.typ)
       }
       Abs(p, tbody)
     }
-  } |> process
+  }
   
-  override def ascribe[A: TypeEv](value: Rep): Rep = Ascribe[A](value) |> process
+  override def ascribe[A: TypeEv](value: Rep): Rep =
+    this << Ascribe[A](value)
   
-  def newObject(tp: TypeRep): Rep = NewObject(tp) |> process
-  def moduleObject(fullName: String, tp: TypeRep): Rep = ModuleObject(fullName: String, tp: TypeRep) |> process
+  def newObject(tp: TypeRep): Rep = this << NewObject(tp)
+  def moduleObject(fullName: String, tp: TypeRep): Rep = this << ModuleObject(fullName: String, tp: TypeRep)
   def methodApp(self: Rep, mtd: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
-    MethodApp(self, mtd, targs, argss, tp) |> process
+    this << MethodApp(self, mtd, targs, argss, tp) //and println
   
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
-  def byName[A: TypeEv](arg: Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep |> process
+  //def byName(arg: => Rep): Rep = this << dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
+  def byName(arg: => Rep): Rep = this << lambda(Seq(freshVar(typeRepOf[lib.ThunkParam])), arg)
   
-  def hole[A: TypeEv](name: String) = Hole[A](name) |> process
+  def recordGet(self: Rep, name: String, typ: TypeRep) = RecordGet(self, name, typ)
+  
+  
+  def hole[A: TypeEv](name: String) = this << Hole[A](name)
   //def hole[A: TypeEv](name: String) = Var(name)(typeRepOf[A])
   
-  def splicedHole[A: TypeEv](name: String): Rep = SplicedHole(name) |> process
+  def splicedHole[A: TypeEv](name: String): Rep = this << SplicedHole(name)
   
   
   /**
@@ -314,9 +331,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     */
   case class Hole[+A: TypeEv](name: String) extends Rep {
     val typ = typeEv[A].rep
+    override def isPure: Bool = false
   }
   case class SplicedHole[+A: TypeEv](name: String) extends Rep {
     val typ = typeEv[A].rep
+    override def isPure: Bool = false
   }
   
   case class Var(name: String)(val typ: TypeRep) extends Rep {
@@ -353,7 +372,9 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   
   case class ModuleObject(fullName: String, typ: TypeRep) extends Rep
   
-  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep
+  case class MethodApp(self: Rep, sym: DSLSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Rep {
+    override def isPure: Bool = false
+  }
   
   //case class Record(fields: List[(String, Rep)]) extends Rep { // TODO
   //  val typ = RecordType
@@ -410,7 +431,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)
-        methodApp(tr(self), mtd, targs, argss map {
+        MethodApp(tr(self), mtd, targs, argss map {
           case as: Args => trans(as)
           case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
           case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), va)
@@ -420,7 +441,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case Const(_) => r
       case or: OtherRep => or.transform(f)
     })
-    //println(s"Traversing $r, getting $ret")
+    //println(s"Traversed $r, got $ret")
     //println(s"=> $ret")
     ret
   }
@@ -437,6 +458,14 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   object App {
     def unapply(r: Rep) = r match {
       case MethodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, _) => Some(fun, arg)
+      case _ => None
+    }
+  }
+  object New {
+    def unapply(r: Rep) = r match {
+      case m @ MethodApp(NewObject(typ), _, targs, argss, _) =>
+        assert(m.sym.isConstructor)
+        Some(typ, targs, argss)
       case _ => None
     }
   }
@@ -465,11 +494,18 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   type PrintResult = (String, Precedence)
   class RepPrinter extends (Rep => String) {
     
+    var currentIndent = 0
+    def indent[A](x: => A) = {
+      currentIndent += 1
+      try x finally currentIndent -= 1
+    }
+    
     val maxPrecedence = Precedence(Int.MaxValue/2)
     val minPrecedence = Precedence(Int.MinValue/2)
     
     val lambdaPrec = Precedence(50)
     val itePrec = Precedence(30)
+    val opPrec = Precedence(200)
     
     def noWrap(r: Rep) = print(r)._1
     def wrap(r: Rep, prec: Precedence, assoc: Boolean = false) = print(r) match {
@@ -478,6 +514,8 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case (s,_) => s"($s)"
     }
     def wrapAssoc(r: Rep, prec: Precedence) = wrap(r, prec, true)
+    
+    private val UnaryPrefix = "unary_"
     
     final def apply(r: Rep): String = print(r)._1
     def print(r: Rep): PrintResult = {
@@ -489,7 +527,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         case Var(name) => name -> maxPrecedence
         case Const(value) => s"$value" -> maxPrecedence
         case Thunk(body) => s"=> ${noWrap(body)}" -> lambdaPrec
-        case Abs(Typed(Var(name), typ), body) => s"($name: $typ) => ${wrapAssoc(body, lambdaPrec)}" -> lambdaPrec
+        case Abs(Typed(v, typ), body) => s"(${noWrap(v)}: $typ) => ${wrapAssoc(body, lambdaPrec)}" -> lambdaPrec
         case App(fun,arg) => s"${wrapAssoc(fun, 100)} ${wrap(arg, 100)}" -> 100
         case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}<:$typ" -> maxPrecedence //s"($value: $typ)"
         case NewObject(_) => s"new $typ" -> maxPrecedence
@@ -500,13 +538,15 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           prefix+(path drop (path.size-2) mkString ".") -> maxPrecedence
         case Imperative(eff, res) =>
           s"${wrapAssoc(eff,minPrecedence)};; ${wrapAssoc(res,minPrecedence)}" -> 25
-        case IfThenElse(cond, thn, els) =>
-          s"if (${noWrap(cond)}) ${wrapAssoc(thn, itePrec)} else ${wrapAssoc(els, itePrec)}" -> itePrec
+        case IfThenElse(cond, Thunk(thn), Thunk(els)) =>
+          s"if ${noWrap(cond)} then ${wrapAssoc(thn, itePrec)} else ${wrapAssoc(els, itePrec)}" -> itePrec
+        case MethodApp(self, sym, Nil, Nil, _) if sym.name.decodedName.toString.startsWith(UnaryPrefix) =>
+          s"${sym.name.decodedName.toString.drop(UnaryPrefix.size)}${wrap(self, opPrec)}" -> opPrec
         case MethodApp(self, sym, targs, argss, _) =>
           val symName = sym.name.decodedName.toString
-          val isNotOp = symName.head.isLetter
+          val isNotOp = sym.isConstructor || symName.head.isLetter
           //val rightAssoc = symName.last == ':'
-          val prec = if (isNotOp) maxPrecedence else Precedence(200)
+          val prec = if (isNotOp) maxPrecedence else opPrec
           val selfStr = wrapAssoc(self, maxPrecedence) // Note: not 'prec' because the rules of prec/assoc for operators are complicated and not uniform
           val trunk = if (sym.isConstructor) s"$selfStr" else {
             if (isNotOp) s"$selfStr.$symName"

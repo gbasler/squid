@@ -51,6 +51,7 @@ object PartiallyEvaluatedStructures {
           mergeAll(fields.map {case (name, v) => v extract fields2(name)})
         case _ => None
       }
+      def getExtractedBy(that: Rep): Option[Extract] = ???
       def transform(f: Rep => Rep): Rep = PEDictRep(fields mapValues (dsl.transform(_)(f)), typ)
       def print(p: RepPrinter): PrintResult = toString -> p.maxPrecedence
     }

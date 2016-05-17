@@ -19,6 +19,7 @@ case class EmbeddingException(msg: String) extends Exception(msg)
   * TODO: better let-binding of type evidences, binding common subtypes...
   * 
   * TODO: cache extractors, so as not to recreate them all the time!
+  *   note that the caching should still take type evidences dynamically, somehow...
   * 
   */
 class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with ScopeAnalyser {
@@ -482,8 +483,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                 case (a :: as, pt #:: pts) =>
                   pt match {
                     case TypeRef(_, ByNameParamClass, pt :: Nil) =>
-                              processArgs(q"$Base.byName[$pt](${rec(a, Some(pt))})" :: acc)(as, pts)
-                    case _ => processArgs(                      rec(a, Some(pt))    :: acc)(as, pts)
+                              processArgs(q"$Base.byName(${rec(a, Some(pt))})" :: acc)(as, pts)
+                    case _ => processArgs(                 rec(a, Some(pt))    :: acc)(as, pts)
                   }
                 case (Nil, Stream.Empty) => mkArgs(acc)
                 case (Nil, pts) if !pts.hasDefiniteSize => mkArgs(acc)
@@ -677,7 +678,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           case (acc, (n,t)) => tq"$acc{val $n: $t}"
         }
         
-        q"..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($res)"
+        q"..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($Base.wrapConstruct($res))"
         
         //val typeInfo = q"type $$ConstructedType$$ = ${typedTree.tpe}"
         //q"$typeInfo; ..$dslTypes; ..$dslDefs; Quoted[$retType, $context]($res)"
@@ -748,11 +749,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           new {
             $typeInfo
             $contextInfo
-            def unapply(_t_ : $termType): Boolean = $Base.wrapExtraction {
+            def unapply(_t_ : $termType): Boolean = {
               ..$defs
               ..$dslDefs
               ..$dslTypes
-              val _term_ = $res
+              val _term_ = wrapExtract($res)
               $Base.extract(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
                 case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and spliced values "+fvs); ???
@@ -776,11 +777,11 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           new {
             $typeInfo
             $contextInfo
-            def unapply(_t_ : $termType): $scal.Option[$extrTuple] = $Base.wrapExtraction {
+            def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
               ..${defs}
               ..$dslDefs
               ..$dslTypes
-              val _term_ = $res
+              val _term_ = wrapExtract($res)
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`private checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
                 (..$tupleConv)
@@ -805,8 +806,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   val scp = q"_root_.scp"
   
   val virtualize = transformer (rec => {
-    //case q"..$sts; $r" => q"$scp.lib.Impure(..${sts map (st => q"() => $st")})($r)"
-    case q"$s; ..$sts; $r" if !s.isDef => q"$scp.lib.Imperative(${rec(s)})(${rec(q"..$sts; $r")})"
+    case q"$s; ..$sts; $r" =>
+      val rect = rec(q"..$sts; $r")
+      if (s.isDef) q"$s; $rect"
+      else q"$scp.lib.Imperative(${rec(s)})($rect)"
     case q"if ($cond) $thn else $els" =>
       q"$scp.lib.IfThenElse(${rec(cond)}, ${rec(thn)}, ${rec(els)})"
     case q"while ($cond) $loop" =>

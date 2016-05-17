@@ -2,6 +2,9 @@ package scp
 
 package object utils {
   
+  type Bool = Boolean
+  
+  
   import scala.language.existentials
   type ? = t forSome{type t}
   
@@ -41,6 +44,11 @@ package object utils {
     def <| (rhs: A): B = __self(rhs)
     def |>: (lhs: A): B = __self(lhs)
   }
+  /*
+  implicit class FunHelper2[A,B](val __self: (=>A) => B) extends AnyVal {
+    def <| (rhs: => A): B = __self(rhs)
+  }
+  */
   
   implicit class SafeEq[T](val self: T) extends AnyVal {
     def === (that: T) = self == that
