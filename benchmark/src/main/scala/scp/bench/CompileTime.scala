@@ -102,6 +102,40 @@ object CompileTime extends Bench.OfflineRegressionReport {
   }
   
   
+  // Putting runtime tests here so we get a common report...
+  
+  import org.scalameter.picklers.Implicits._
+  import scp.generated._
+  
+  val nbConstructs = Gen.enumeration("Number of constructs")(50, 100, 200)
+  
+  def testSetups2 = for { n <- nbConstructs } yield { n match {
+    case 50 => Appli50
+    case 100 => Appli100
+    case 200 => Appli200
+  }}
+  
+  def times50(x: => Any) { var i = 0; while(i<500) {x;i+=1} }
+  
+  performance of "Reification" in {
+    measure method "Exp" in {
+      using(testSetups2) in { appli =>
+        this times50 appli.reifyExp
+      }
+    }
+    measure method "QQ Together" in {
+      using(testSetups2) in { appli =>
+        this times50 appli.reifyQQ
+      }
+    }
+    measure method "QQ Separate" in {
+      using(testSetups2) in { appli =>
+        this times50 appli.reifyQQSep
+      }
+    }
+  
+  }
+  
   
   
   

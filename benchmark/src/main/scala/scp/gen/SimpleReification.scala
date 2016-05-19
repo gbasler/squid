@@ -40,9 +40,10 @@ object SimpleReification {
     
     val reif = if (useQQ && !separateQQ) q"StringContext(${showCode(pgrm)}).dsl()" else pgrm
     
-    val importDSL =
-      if (useQQ) q"import TestDSL._" :: q"import _root_.scp.generated.Shallow._" :: Nil // :: q"import _root_.scp.generated.Shallow.DSLClass2" :: Nil
+    val importDSL = q"import _root_.scp.generated.Shallow._" :: (
+      if (useQQ) q"import TestDSL._" :: Nil // :: q"import _root_.scp.generated.Shallow.DSLClass2" :: Nil
       else q"import _root_.scp.gen.TestDSLExp._" :: q"import _root_.scp.generated.Deep._" :: Nil
+    )
     
     //val classDefs = classDefss map (_ head)
     val classDefs = if (withClasses) classDefss map (_ head) else Nil
