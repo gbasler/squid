@@ -73,9 +73,12 @@ object OnlineTransfo {
       case dsl"($x: Int) * (${Constant(n)}: Int)"             => dsl"$n * $x"
       case dsl"($x: Int) * (($y: Int) * ($z: Int))"           => dsl"($x * $y) * $z"
       case dsl"($x: Int) * (($y: Int) + ($z: Int))"           => dsl"$x * $y + $x * $z" // Note: duplication of 'x'
-      //case dsl"($x: Int) * (($y: Int) + ($z: Int))"           => dsl"val t = $x; t * $y + t * $z" // only good with ANF
+      //case dsl"($x: Int) * (($y: Int) + ($z: Int))"           => dsl"val t = $x; t * $y + t * $z" // if not in ANF
       
     }
+    /* // Note:
+      case dsl"0 + ($x: Int)" => dsl"$x+($$y:Int)" // Error:(58, 34) Cannot rewrite a term of context [Unknown Context] to a stricter context [Unknown Context]{val y: Int}
+    */
     
   }
 }
