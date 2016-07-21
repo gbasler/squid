@@ -97,7 +97,16 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         //q"_root_.scala.reflect.classTag[${TypeName(cl.getName)}].runtimeClass" // object classTag is not a member of package reflect
         //q"_root_.scala.reflect.classTag[String].runtimeClass" // object classTag is not a member of package reflect
         
-      case Var(n) => q"${TermName(n)}"
+      case BoundVal(n) => q"${TermName(n)}"
+        
+      case Var(init) => q"_root_.scp.lib.Var(${toTree(init)})" // a Var not in a letin position... weird... can happen?
+
+      case ReadVar(BoundVal(n)) => q"${TermName(n)}"
+        
+      case SetVar(BoundVal(n), valu) => q"${TermName(n)} = ${toTree(valu)}"
+        
+      case Imperative(effs, res) =>
+        q"..${effs map toTree}; ${toTree(res)}"
         
       case as @ Ascribe(v) =>
         //toTree(v)
@@ -113,6 +122,14 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case Abs(p, body) =>
         val typ = p.typ.asInstanceOf[ScalaTyping#TypeRep].typ // TODO adapt API
         q"(${TermName(p.name)}: $typ) => ${toTree(body)}"
+        
+      case App(Abs(p, body), Var(init)) =>
+        val typ = p.typ.asInstanceOf[ScalaTypeRep].targs.head.typ
+        q"var ${TermName(p.name)}: $typ = ${toTree(init)}; ${toTree(body)}"
+        
+      case App(Abs(p, body), arg) =>
+        val typ = p.typ.typ
+        q"val ${TermName(p.name)}: $typ = ${toTree(arg)}; ${toTree(body)}"
         
       case dsln @ NewObject(tp) =>
         /** For extremely obscure reasons, I got problems with this line (on commit https://github.com/LPTK/SC-Paradise-Open-Terms-Proto/commit/7c63fba4486ac42c96fe55c754a7f5d636596d61)
@@ -176,13 +193,13 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)
           typ extract (t.typ, Covariant) flatMap { merge(_, (Map(name -> t), Map(), Map())) }
           
-        case (Var(n1), Hole(n2)) if n1 == n2 => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
+        case (BoundVal(n1), Hole(n2)) if n1 == n2 => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
           Some(EmptyExtract)
           //typ.extract(t.typ, Covariant) // I think the types cannot be wrong here (case for Abs checks parameter types)
           
         case (_, Hole(_)) => None
           
-        case (v1: Var, v2: Var) =>
+        case (v1: BoundVal, v2: BoundVal) =>
           // Bound variables are never supposed to be matched;
           // if we match a binder, we'll replace the bound variable with a free variable first
           throw new AssertionError("Bound variables are not supposed to be matched.")
@@ -288,17 +305,18 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   final def << (r: => Rep) = process(r)
   
   def const[A: TypeEv](value: A): Rep = this << Const(value)
-  def newVar(name: String, typ: TypeRep) = Var(name)(typ)
-  def freshVar(typ: TypeRep) = Var("var$"+varCount)(typ) oh_and (varCount += 1)
+  def boundVal(name: String, typ: TypeRep) = BoundVal(name)(typ)
+  def setVar(vari: Rep, valu: Rep): Rep = SetVar(vari, valu)
+  def freshVar(typ: TypeRep) = BoundVal("val$"+varCount)(typ) oh_and (varCount += 1)
   private var varCount = 0
   
-  def lambda(params: Seq[Var], body: => Rep): Rep = this << {
+  def lambda(params: Seq[BoundVal], body: => Rep): Rep = this << {
     if (params.size == 1) Abs(params.head, body)
     else {
       val ps = params.toSet
       val p = freshVar(RecordType(params.map(v => v.name -> v.typ).toList)) // would be nice to give the freshVar a name hint "params"
       val tbody = transformPartial(body) {
-        case v @ Var(name) if ps(v) => recordGet(p, name, v.typ)
+        case v @ BoundVal(name) if ps(v) => recordGet(p, name, v.typ)
       }
       Abs(p, tbody)
     }
@@ -338,7 +356,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     override def isPure: Bool = false
   }
   
-  case class Var(name: String)(val typ: TypeRep) extends Rep {
+  case class BoundVal(name: String)(val typ: TypeRep) extends Rep {
     def toHole = Hole(name)(TypeEv(typ))
     override def equals(that: Any) = that match { case that: AnyRef => this eq that case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
@@ -348,7 +366,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   case class Const[A: TypeEv](value: A) extends Rep {
     val typ = typeEv[A].rep
   }
-  case class Abs(param: Var, body: Rep) extends Rep {
+  case class Abs(param: BoundVal, body: Rep) extends Rep {
     def ptyp = param.typ
     val typ = funType(ptyp, body.typ)
     
@@ -437,7 +455,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
           case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), va)
         }, tp)
       //case s: Symbol => s
-      case v: Var => v
+      case v: BoundVal => v
       case Const(_) => r
       case or: OtherRep => or.transform(f)
     })
@@ -489,6 +507,28 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
       case _ => None
     }
   }
+  object Var {
+    val Symbol = loadSymbol(true, "scp.lib.Var", "apply")
+    def unapply(r: Rep) = r match {
+      case MethodApp(self, Symbol, _::Nil, Args(init)::Nil, _) => Some(init)
+      case _ => None
+    }
+  }
+  object ReadVar {
+    val Symbol = loadSymbol(false, "scp.lib.Var", "$bang")
+    def unapply(r: Rep) = r match {
+      case MethodApp(self, Symbol, Nil, Nil, _) => Some(self)
+      case _ => None
+    }
+  }
+  object SetVar {
+    val Symbol = loadSymbol(false, "scp.lib.Var", "$colon$eq")
+    def apply(vari: Rep, valu: Rep) = methodApp(vari, Symbol, Nil, Args(valu)::Nil, typeRepOf[Unit])
+    def unapply(r: Rep) = r match {
+      case MethodApp(self, Symbol, Nil, Args(valu)::Nil, _) => Some(self,valu)
+      case _ => None
+    }
+  }
   
   
   type PrintResult = (String, Precedence)
@@ -524,12 +564,13 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         case Hole(name) => s"$$$name: $typ" -> minPrecedence  // used to be:  s"$$$$$name: $typ"
         case SplicedHole(name) => s"$$$name: $typ*" -> minPrecedence
         //case Var(name) => s"$name: $typ" -> minPrecedence
-        case Var(name) => name -> maxPrecedence
+        case BoundVal(name) => name -> maxPrecedence
         case Const(value) => s"$value" -> maxPrecedence
         case Thunk(body) => s"=> ${noWrap(body)}" -> lambdaPrec
         case Abs(Typed(v, typ), body) => s"(${noWrap(v)}: $typ) => ${wrapAssoc(body, lambdaPrec)}" -> lambdaPrec
         case App(fun,arg) => s"${wrapAssoc(fun, 100)} ${wrap(arg, 100)}" -> 100
         case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}<:$typ" -> maxPrecedence //s"($value: $typ)"
+        //case Ascribe(value) => s"${wrapAssoc(value,maxPrecedence)}" -> maxPrecedence //s"($value: $typ)" // enable to get prettier printing
         case NewObject(_) => s"new $typ" -> maxPrecedence
         case RecordGet(self, fieldName, typ) => s"${wrapAssoc(self, maxPrecedence)}.$fieldName" -> maxPrecedence
         case ModuleObject(fullName, _) =>
@@ -552,7 +593,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
             if (isNotOp) s"$selfStr.$symName"
             else s"$selfStr $symName"
           }
-          val sep = if (isNotOp) "" else " "
+          val sep = if (isNotOp || argss.isEmpty) "" else " "
           val args = argss match {
             case Args(arg)::Nil => wrap(arg, prec)
             case _ => argss map (_ show (this, isNotOp)) mkString

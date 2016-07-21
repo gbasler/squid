@@ -9,6 +9,11 @@ trait ScopeAnalyser { //self: MacroShared =>
   val uni: scala.reflect.api.Universe
   import uni._
   
+  // TODO get rid of this 'lazy'; have:  type Uni<:scala.reflect.api.Universe; def uni: Uni; lazy private val universe = uni; import universe._
+  // TODO or simply a sane ReflectionShared abstract class
+  lazy val ByNameParamClass = uni.definitions.ByNameParamClass
+  lazy val RepeatedParamClass = uni.definitions.RepeatedParamClass // JavaRepeatedParamClass
+  
   /*
   
   For a refinement like {val x: Int},
@@ -30,7 +35,14 @@ trait ScopeAnalyser { //self: MacroShared =>
           //  println((sym, sym.isMethod, sym.asMethod.isGetter, sym.asMethod.isStable))
           //  None
           case sym: MethodSymbol if sym.isGetter =>
-            List(sym.name -> sym.typeSignature)
+            val typ = sym.typeSignature match {
+              //case TypeRef(_, ByNameParamClass, typ::Nil) => typ
+              //case TypeRef(_, s, typ::Nil) => println(s); ???
+              case NullaryMethodType(typ) => typ
+              //case typ => typ
+            }
+            //println("!!!!",sym,sym.typeSignature,typ,typ.getClass)
+            List(sym.name -> typ)
           case _ => Nil
         };
         (basess.flatten, varss.flatten ++ vars)

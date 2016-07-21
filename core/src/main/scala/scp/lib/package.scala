@@ -16,6 +16,13 @@ package object lib {
   def ThunkArg: ThunkParam = ThunkParam
   
   
+  case class Var[A](var value: A) {
+    def := (that: A) = value = that
+    def ! = value
+  }
+  implicit def readVar[A](v: Var[A]): A = v!
+  
+  
   final class DummyRecord
   
 }

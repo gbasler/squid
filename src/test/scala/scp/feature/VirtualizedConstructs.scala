@@ -67,8 +67,19 @@ class VirtualizedConstructs extends MyFunSuite {
       case dsl"lib.Imperative(getEv,getEv)(getEv)" =>
     }
     
+    // Just checking virtualization also works here:
+    eqt( dsl"val x = {println; 42}; x",  dsl"val x = lib.Imperative(println)(42); x" )
+    
+    
   }
   
+  test("Variables") {
+    
+    eqt( dsl"var x = 0; x = 1; x",  dsl"val x = lib.Var(0); x := 1; x!" )
+    
+    eqt( dsl"var x = 0; x += 1",  dsl"val x = lib.Var(0); x := x.! + 1" )
+    
+  }
   
 }
 object VirtualizedConstructs {

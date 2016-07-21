@@ -23,11 +23,13 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   //type TypeRep[A]
   type Rep
   type TypeRep
-  type Var <: Rep
+  type BoundVal <: Rep
   
   def const[A: TypeEv](value: A): Rep
-  def newVar(name: String, typ: TypeRep): Var
-  def lambda(params: Seq[Var], body: => Rep): Rep
+  def boundVal(name: String, typ: TypeRep): BoundVal
+  //def newVar(init: Rep, typ: TypeRep): Var
+  def setVar(vari: Rep, valu: Rep): Rep // TODO rm
+  def lambda(params: Seq[BoundVal], body: => Rep): Rep
   
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
   // ^ 'app' is by default represented as Function1Apply, with underlying representation methodApp
@@ -142,7 +144,7 @@ class BaseDefs { base: Base =>
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, typeRepOf[B])
   def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, retTp)
   //def letin[A: TypeEv, B: TypeEv](name: String, value: Rep, body: Rep => Rep): Rep = {
-  def letin(bound: Var, value: Rep, body: => Rep): Rep = {
+  def letin(bound: BoundVal, value: Rep, body: => Rep): Rep = {
     //app[A,B](lambda(Seq(param), body(param)), value)
     app(lambda(Seq(bound), body), value)(typ(body))
   }
