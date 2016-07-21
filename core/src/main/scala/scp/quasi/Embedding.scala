@@ -8,6 +8,7 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
 import lang._
+import utils.CollectionUtils._
 
 case class EmbeddingException(msg: String) extends Exception(msg)
 
@@ -58,7 +59,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     //debug("HOLES:",holes)
     
-    val (termHoles, typeHoles) = (holes.collect{case Left(n) => n}.toSet, holes.collect{case Right(n) => n}.toSet)
+    val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
     
     //val traits = typeHoles map { typ => q"trait $typ" }
     val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.lang.Base.HoleType" }
