@@ -70,7 +70,7 @@ trait MacroShared {
        //|$s:""".stripMargin
   
   
-  def assume(cond: Boolean, msg: String = null) =
+  def assume(cond: Boolean, msg: String = null) = // TODO more precise warning message!
     if (!cond) Ctx.warning(Ctx.enclosingPosition, "An assumption was violated. Please report this to the quasiquote maintainers."+(
         if (msg != null) s" [message: $msg]" else ""
       ))

@@ -99,8 +99,10 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         
       case BoundVal(n) => q"${TermName(n)}"
         
-      case Var(init) => q"_root_.scp.lib.Var(${toTree(init)})" // a Var not in a letin position... weird... can happen?
-
+      case Var(init) => // a Var not in a letin position... weird... can happen?
+        System.err.println(s"Warning: Unexpected Var cosntruction: `Var(${init.show})`")
+        q"_root_.scp.lib.Var(${toTree(init)})"
+        
       case ReadVar(BoundVal(n)) => q"${TermName(n)}"
         
       case SetVar(BoundVal(n), valu) => q"${TermName(n)} = ${toTree(valu)}"
@@ -125,11 +127,11 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
         
       case App(Abs(p, body), Var(init)) =>
         val typ = p.typ.asInstanceOf[ScalaTypeRep].targs.head.typ
-        q"var ${TermName(p.name)}: $typ = ${toTree(init)}; ${toTree(body)}"
+        q"var ${TermName(p.name)}: $typ = ${toTree(init)}; ..${toTree(body)}"
         
       case App(Abs(p, body), arg) =>
         val typ = p.typ.typ
-        q"val ${TermName(p.name)}: $typ = ${toTree(arg)}; ${toTree(body)}"
+        q"val ${TermName(p.name)}: $typ = ${toTree(arg)}; ..${toTree(body)}"
         
       case dsln @ NewObject(tp) =>
         /** For extremely obscure reasons, I got problems with this line (on commit https://github.com/LPTK/SC-Paradise-Open-Terms-Proto/commit/7c63fba4486ac42c96fe55c754a7f5d636596d61)
@@ -306,15 +308,14 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   
   def const[A: TypeEv](value: A): Rep = this << Const(value)
   def boundVal(name: String, typ: TypeRep) = BoundVal(name)(typ)
-  def setVar(vari: Rep, valu: Rep): Rep = SetVar(vari, valu)
-  def freshVar(typ: TypeRep) = BoundVal("val$"+varCount)(typ) oh_and (varCount += 1)
+  def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ) oh_and (varCount += 1)
   private var varCount = 0
   
   def lambda(params: Seq[BoundVal], body: => Rep): Rep = this << {
     if (params.size == 1) Abs(params.head, body)
     else {
       val ps = params.toSet
-      val p = freshVar(RecordType(params.map(v => v.name -> v.typ).toList)) // would be nice to give the freshVar a name hint "params"
+      val p = freshBoundVal(RecordType(params.map(v => v.name -> v.typ).toList)) // would be nice to give the freshVar a name hint "params"
       val tbody = transformPartial(body) {
         case v @ BoundVal(name) if ps(v) => recordGet(p, name, v.typ)
       }
@@ -332,7 +333,7 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
   //def byName(arg: => Rep): Rep = this << dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
-  def byName(arg: => Rep): Rep = this << lambda(Seq(freshVar(typeRepOf[lib.ThunkParam])), arg)
+  def byName(arg: => Rep): Rep = this << lambda(Seq(freshBoundVal(typeRepOf[lib.ThunkParam])), arg)
   
   def recordGet(self: Rep, name: String, typ: TypeRep) = RecordGet(self, name, typ)
   
@@ -405,7 +406,9 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
     * since it checks that each extraction extracts exactly a hole with the same name
     */
   def repEq(a: Rep, b: Rep): Boolean = {
-    (a extract b, b extract a) match {
+    val a_e_b = a extract b
+    if (a_e_b.isEmpty) return false
+    (a_e_b, b extract a) match {
       //case (Some((xs,xts)), Some((ys,yts))) => xs.keySet == ys.keySet && xts.keySet == yts.keySet
       case (Some((xs,xts,fxs)), Some((ys,yts,fys))) =>
         // Note: could move these out of the function body:
@@ -523,7 +526,6 @@ trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
   }
   object SetVar {
     val Symbol = loadSymbol(false, "scp.lib.Var", "$colon$eq")
-    def apply(vari: Rep, valu: Rep) = methodApp(vari, Symbol, Nil, Args(valu)::Nil, typeRepOf[Unit])
     def unapply(r: Rep) = r match {
       case MethodApp(self, Symbol, Nil, Args(valu)::Nil, _) => Some(self,valu)
       case _ => None

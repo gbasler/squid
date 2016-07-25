@@ -27,8 +27,6 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
   def const[A: TypeEv](value: A): Rep
   def boundVal(name: String, typ: TypeRep): BoundVal
-  //def newVar(init: Rep, typ: TypeRep): Var
-  def setVar(vari: Rep, valu: Rep): Rep // TODO rm
   def lambda(params: Seq[BoundVal], body: => Rep): Rep
   
   //def app[A: TypeEv, B: TypeEv](fun: Rep, arg: Rep): Rep
