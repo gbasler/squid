@@ -58,6 +58,7 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
   
   //def transform(r: Rep)(f: PartialFunction[Rep, Rep]): Rep
+  /** Bottom-up tree transformation */ // TODO rename
   def transform(r: Rep)(f: Rep => Rep): Rep
   
   def typ(r: Rep): TypeRep
@@ -82,7 +83,7 @@ trait Base extends BaseDefs with ir.Transformer { //base =>
   
 }
 
-class BaseDefs { base: Base =>
+class BaseDefs { baseSelf: Base =>
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Provided Definitions:
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +94,7 @@ class BaseDefs { base: Base =>
   
   sealed case class Quoted[+Typ, -Scp](rep: Rep) {
     def typ[T >: Typ] = QuotedType[T](trep)
-    def trep = base.typ(rep)
+    def trep = baseSelf.typ(rep)
     
     type Type <: Typ
     
@@ -111,6 +112,15 @@ class BaseDefs { base: Base =>
     
     def cast[T >: Typ]: Quoted[T, Scp] = this
     def erase: Quoted[Any, Scp] = this
+    
+    /** Useful when we have non-denotable types (e.g., extracted types) */
+    def withTypeOf[T >: Typ](x: Q[T, Nothing]) = this: Q[T,Scp]
+    
+    /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
+    def withContextOf[C <: Scp](x: Q[Any, C]) = this: Q[Typ,C]
+    
+    def bottomUpTransform(trans: ir.Transformer{val base: baseSelf.type }) =
+      Quoted[Typ,Scp](transform(rep)(r => trans.applyTransform(r).rep))
     
     override def toString = s"""dsl"${showRep(rep)}""""
   }
@@ -160,12 +170,12 @@ class BaseDefs { base: Base =>
       } yield m
       case (ArgsVarargSpliced(a0, va0), ArgsVarargSpliced(a1, va1)) => for {
         a <- a0 extract a1
-        va <- base.extract(va0, va1)
+        va <- baseSelf.extract(va0, va1)
         m <- merge(a, va)
       } yield m
       case (ArgsVarargSpliced(a0, va0), ArgsVarargs(a1, vas1)) => for { // case dsl"List($xs*)" can extract dsl"List(1,2,3)"
         a <- a0 extract a1
-        va <- base.spliceExtract(va0, vas1)
+        va <- baseSelf.spliceExtract(va0, vas1)
         m <- merge(a, va)
       } yield m
       case _ => None
@@ -190,7 +200,7 @@ class BaseDefs { base: Base =>
     }
     def extractRelaxed(that: Args): Option[Extract] = {
       if (reps.size != that.reps.size) return None
-      val args = (reps zip that.reps) map { case (a,b) => base.extract(a, b) }
+      val args = (reps zip that.reps) map { case (a,b) => baseSelf.extract(a, b) }
       (Some(EmptyExtract) +: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
         case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
     }
@@ -292,7 +302,7 @@ class BaseDefs { base: Base =>
       
     }
     def transform(rewrites: Rewrite[_]*): Q[Typ,Scp] = {
-      val r = base.transform(self.rep) {
+      val r = baseSelf.transform(self.rep) {
         (r: Rep) =>
           val qr = Quoted(r)
           println("R "+rewrites.head.apply[Any].isDefinedAt(qr))

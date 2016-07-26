@@ -39,6 +39,8 @@ package object utils {
      */
     def <|: [B] (lhs: A => B): B = lhs(__self)
     
+    def withTypeOf[T >: A](x: T) = __self: T
+    
   }
   implicit class FunHelper[A,B](val __self: A => B) extends AnyVal {
     def <| (rhs: A): B = __self(rhs)

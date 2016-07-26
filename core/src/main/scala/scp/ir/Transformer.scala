@@ -1,13 +1,12 @@
 package scp
 package ir
 
+import scp.utils.MacroUtils.{MacroDebug, MacroDebugger, MacroSetting}
 import utils._
 
 import scala.language.dynamics
 import scala.language.experimental.macros
-
 import scala.collection.mutable
-
 import utils.UnknownContext
 
 /** Type and context-safe interface for program transformation.
@@ -26,6 +25,7 @@ trait Transformer {
   type Rewrite = PartialFunction[Q[Any,Nothing],Q[Any,Nothing]]
   
   def rewrite(tr: PartialFunction[Q[Any,UnknownContext],Q[Any,_]]): Unit = macro TransformerMacros.rewrite
+  @MacroSetting(debug = true) def dbgrewrite(tr: PartialFunction[Q[Any,UnknownContext],Q[Any,_]]): Unit = macro TransformerMacros.rewrite
   
   val `private rewrites` = mutable.Buffer[Rewrite]()
   
@@ -52,18 +52,24 @@ trait Transformer {
     } finally online = false
   }
   
+  def bottomUp[T,C](q: Quoted[T,C]) = Quoted[T,C](transform(q.rep)(r => applyTransform(r).rep))
+  
 }
+class OfflineTransformer[B <: lang.Base](val base: B) extends Transformer
 
 import reflect.macros.whitebox.Context
 class TransformerMacros(val c: Context) extends MacroShared {
   type Ctx = c.type
   val Ctx: Ctx = c
   
+  val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
+  
   def rewrite(tr: c.Tree) = {
     import c.universe._
     
     val trans = c.macroApplication match {
       case q"$trans.rewrite($_)" => trans
+      case q"$trans.dbgrewrite($_)" => trans
     }
     val base = c.typecheck(q"$trans.base")
     
@@ -84,7 +90,7 @@ class TransformerMacros(val c: Context) extends MacroShared {
         //println("Case on line "+cas.pos.line)
         
         def notFound(obj: String) = c.abort(cas.pos, s"Could not determine $obj for that case.")
-    
+        
         val extractedType = (pat.find {
           case td@TypeDef(_, TypeName("$ExtractedType$"), _, _) => true
           case _ => false
@@ -93,26 +99,28 @@ class TransformerMacros(val c: Context) extends MacroShared {
           case td@TypeDef(_, TypeName("$ExtractedContext$"), _, _) => true
           case _ => false
         } getOrElse notFound("extracted type")).symbol.asType.typeSignature
-    
+        
         val constructedPos = expr match {
           case Block(_, r) => r.pos
           case _ => expr.pos
         }
         expr.tpe.baseType(symbolOf[lang.Base#Quoted[_, _]]) match {
           case tpe@TypeRef(tpbase, _, constructedType :: constructedCtx :: Nil) if tpbase =:= base.tpe =>
-        
+            
             if (extractedType =:= constructedType) {
               //println("Rewriting " + extractedType)
             } else {
               c.abort(constructedPos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType")
             }
-        
+            
             if (!(extractedCtx <:< constructedCtx))
               c.abort(constructedPos,
                 if (constructedCtx <:< extractedCtx)
                   s"Cannot rewrite a term of context $extractedCtx to a stricter context $constructedCtx"
                 else s"Cannot rewrite a term of context $extractedCtx to an unrelated context $constructedCtx")
-      
+          case NoType =>
+            c.abort(constructedPos, s"This rewriting does not produce a ${base.tpe}.Quoted type as a return.")
+            
         }
   
     }

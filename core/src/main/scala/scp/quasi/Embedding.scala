@@ -83,7 +83,8 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
       case Some(t) =>
         debug("Scrutinee type:", t.tpe)
         t.tpe.baseType(symbolOf[Base#Quoted[_,_]]) match {
-          case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) if tpbase =:= Base.tpe => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
+          case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
+            if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
               val tname = TypeName("[Unknown Context]")
               c.typecheck(q"class $tname; new $tname").tpe
