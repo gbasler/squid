@@ -30,6 +30,14 @@ class Functions extends MyFunSuite {
     
   }
   
+  test("Functions of Arity 1") {
+    
+    val f = dsl"(x: Int) => x + 1"
+    same(f.run apply 1, 2)
+    eqt(dsl"${f}${dsl"1"}", dsl"$f(1)")
+    
+  }
+  
   test("Functions of Arity 2") {
     
     val f = dsl"(x: Int, y: Symbol) => x+y.toString"

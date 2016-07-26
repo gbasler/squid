@@ -103,7 +103,7 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     val builder = new PgrmBuilder[c.type](c)(unapply)
     
-    //debug("Built:", showCode(builder.tree))
+    //debug("Parsed:", showCode(builder.tree))
     
     var holes: List[Either[TermName,TypeName]] = Nil // Left: value hole; Right: type hole
     val splicedHoles = mutable.Set[TermName]()
@@ -235,7 +235,12 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
     
     val embed = new Embedding[c.type](c)
     
-    val tree = embed(base, pgrm, holes.reverse, splicedHoles, unquotedTypes, if (unapply) Some(t.head) else None)
+    val tree = try embed(base, pgrm, holes.reverse, splicedHoles, unquotedTypes, if (unapply) Some(t.head) else None)
+    catch {
+      case e @ EmbeddingException.Typing(msg) if builder.hasVarargs =>
+        c.warning(c.enclosingPosition, "Note: the problem may be caused by an accidental use of the vararg syntax `$name*`")
+        throw e
+    }
     
     if (debug.debugOptionEnabled)
       //debug("Generated: "+showCode(tree))

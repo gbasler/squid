@@ -35,12 +35,12 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
       case (tree, (part, pos)) => new Hole(tree, false) -> part
     } map {
       case (hole, part) =>
-        //val freshName = hole.name map (c.freshName(_)) getOrElse TermName("ANON_HOLE")
-        val freshName = c.freshName(hole.name getOrElse TermName("")).toTermName //TermName("ANON_HOLE"))
-        // Note: s"($freshName)$part" will not work, as it breaks things like "$x = 42"
-        freshName -> hole -> s"$freshName$part"
+        val freshName = c.freshName(hole.name getOrElse TermName("")).toTermName
+        // Note: q"($freshName)$part" will prevent things like var assignment "$x = 42" to work, but prevent mis-parsing two consecutive holes
+        //freshName -> hole -> s"$freshName$part" // possible mis-parsing
+        freshName -> hole -> s"($freshName)$part" // "$x = 42" not supported
     }).unzip
-
+    
     //println("Parsing: "+(partsPos.head._1 :: codeParts).mkString)
     
     val codeTree = try c.parse((partsPos.head._1 :: codeParts).mkString) catch {

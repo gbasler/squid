@@ -10,7 +10,13 @@ import scala.reflect.macros.whitebox.Context
 import lang._
 import utils.CollectionUtils._
 
-case class EmbeddingException(msg: String) extends Exception(msg)
+sealed class EmbeddingException(val msg: String) extends Exception(msg)
+object EmbeddingException {
+  def apply(msg: String) = new EmbeddingException(msg)
+  def unapply(ee: EmbeddingException) = Some(ee.msg)
+  case class Typing(typeError: String) extends EmbeddingException("Quoted expression does not type check – "+typeError)
+}
+
 
 /** 
   * Note: currently, we generate free-standing functions (eg: const(...)), without qualifying them.
@@ -151,7 +157,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
         typed -> typed.tpe
       } catch {
         case e: TypecheckException =>
-          throw EmbeddingException(e.msg) // TODO better reporting
+          throw EmbeddingException.Typing(e.msg)
       }
     }
     
