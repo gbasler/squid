@@ -29,6 +29,7 @@ trait Transformer {
   
   val `private rewrites` = mutable.Buffer[Rewrite]()
   
+  // TODO a way to avoid the crazy object creation/destruction here, esp. when there are no rewrites...
   def applyTransform[T,C](q: Q[T,C]): Quoted[T,C] = applyTransform(q.rep).asInstanceOf[Quoted[T,C]]
   def applyTransform(r: Rep) = { // TODO use lifted partial functions instead...
     //println("Trans "+r.show)

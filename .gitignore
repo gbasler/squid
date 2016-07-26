@@ -9,6 +9,7 @@ dist/*
 
 target/*
 core/target/
+sc-backend/target/
 project/target/
 project/project/
 benchmark/target/*

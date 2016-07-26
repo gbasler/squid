@@ -23,7 +23,7 @@ lazy val main = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     // other settings here
-    addCommandAlias("bench", "benchmark/runMain"): _*
+    addCommandAlias("bench", "benchmark/run"): _*
   )
 
 lazy val core = (project in file("core")).

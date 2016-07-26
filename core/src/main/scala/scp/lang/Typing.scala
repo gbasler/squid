@@ -409,8 +409,9 @@ trait ScalaTyping extends Base {
   //  implicit val B = typeEv[B].rep.tagAs[B]
   //  TypeEv(ScalaTypeRep(typeTag[A => B], typeEv[A], typeEv[B]))
   //}
+  val funSymName = symbolOf[Any => Any].fullName
   def funType(a: TypeRep, b: TypeRep): TypeRep = {
-    DynamicTypeRep(symbolOf[Any => Any].fullName, a, b)
+    DynamicTypeRep(funSymName, a, b)
   }
   val unitType: TypeRep = {
     SimpleTypeRep(typeOf[Unit])
