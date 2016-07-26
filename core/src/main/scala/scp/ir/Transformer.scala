@@ -30,7 +30,7 @@ trait Transformer {
   val `private rewrites` = mutable.Buffer[Rewrite]()
   
   def applyTransform[T,C](q: Q[T,C]): Quoted[T,C] = applyTransform(q.rep).asInstanceOf[Quoted[T,C]]
-  def applyTransform(r: Rep) = {
+  def applyTransform(r: Rep) = { // TODO use lifted partial functions instead...
     //println("Trans "+r.show)
     var currentQ = Quoted[Any,Nothing](r)
     `private rewrites` foreach { rw =>

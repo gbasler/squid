@@ -26,6 +26,13 @@ object Debug {
   }
   
   
+  def showLine[T](x: T): T = macro showLineImpl[T]
+  
+  def showLineImpl[T: c.WeakTypeTag](c: Context)(x: c.Tree) = {
+    import c.universe._
+    q"""val r = $x; println($BOLD + "[" + ${c.enclosingPosition.line.toString} + "]:" + $RESET + "\t" + r + $GREY + " : " + ${x.tpe.toString} + $RESET); r"""
+  }
+  
   
   //def showTyped[T](x: T): T = macro showTypedImpl[T]
   //

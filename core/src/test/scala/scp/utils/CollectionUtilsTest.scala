@@ -1,0 +1,72 @@
+package scp.utils
+
+import org.scalatest.FunSuite
+
+class CollectionUtilsTest extends FunSuite {
+  import CollectionUtils._
+  
+  test("List Test") {
+    
+    val (even,odd) = List(1,2,3,4,5) collectPartition {
+      case n if n % 2 == 1 => s"${n/2}*2+1"
+    }
+    
+    assert((even: List[String]) == List("0*2+1", "1*2+1", "2*2+1"))
+    assert((odd: List[Int]) == List(2, 4))
+    
+    {
+      val (evenStrs,oddStrs) = List(1,2,3,4,5) mapSplit {
+        case n if n % 2 == 0 => Left( s"${n/2} * 2")
+        case n               => Right(s"${n/2} * 2 + 1")
+      }
+      
+      assert((evenStrs: List[String]) == List("1 * 2", "2 * 2"))
+      assert((oddStrs: List[String]) == List("0 * 2 + 1", "1 * 2 + 1", "2 * 2 + 1")) 
+    }
+    
+    {
+      val (evenStrs,oddStrs) = List(1,2,3,4,5) collectOr ({
+        case n if n % 2 == 0 => s"${n/2} * 2"
+      }, n => s"${n/2} * 2 + 1")
+      
+      assert((evenStrs: List[String]) == List("1 * 2", "2 * 2"))
+      assert((oddStrs: List[String]) == List("0 * 2 + 1", "1 * 2 + 1", "2 * 2 + 1")) 
+    }
+    
+  }
+  
+  test("String Test") {
+    
+    val (es,rest) = "el toro fuerte" collectPartition {
+      case c @ ('e' | 'o') => c.toUpper
+    }
+    
+    assert((es: String) == "EOOEE")
+    assert((rest: String) == "l tr furt")
+    
+  }
+  
+  
+  test("Seq of Either to 2 Seqs") {
+    
+    val ls = Seq(Left('ok), Right(42), Right(666), Left('ko), Right(-1))
+    
+    val (syms, ints) = ls mapSplit identity
+    
+    assert((syms: Seq[Symbol]) == List('ok, 'ko))
+    assert((ints: Seq[Int]) == List(42, 666, -1))
+    
+  }
+  
+  test("With map") {
+    
+    val ctx = Map('a -> 1, 'b -> 2) map {case(n,v) => n->(n,v)}
+    val (bound, unbound) = Vector('a, 'a, 'c, 'b) collectPartition ctx
+    
+    assert( (bound: Vector[(Symbol, Int)], unbound: Vector[Symbol]) == (Vector(('a,1), ('a,1), ('b,2)),Vector('c)) )
+    
+  }
+  
+  
+  
+}

@@ -8,6 +8,7 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
 import lang._
+import utils.CollectionUtils._
 
 case class EmbeddingException(msg: String) extends Exception(msg)
 
@@ -36,13 +37,13 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   
   val scal = q"_root_.scala"
   
-  val ByNameParamClass = c.universe.definitions.ByNameParamClass
-  val RepeatedParamClass = c.universe.definitions.RepeatedParamClass // JavaRepeatedParamClass
   
   val Any = typeOf[Any]
   val Nothing = typeOf[Nothing]
   val Unit = typeOf[Unit]
   val UnknownContext = typeOf[utils.UnknownContext]
+  
+  lazy val TypeRef(varTypeMod, varTypeSym, _) = typeOf[lib.Var[Any]]
   
   def typeIfNotNothing(tp: Type) = {
     assert(tp != NoType)
@@ -58,7 +59,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     //debug("HOLES:",holes)
     
-    val (termHoles, typeHoles) = (holes.collect{case Left(n) => n}.toSet, holes.collect{case Right(n) => n}.toSet)
+    val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
     
     //val traits = typeHoles map { typ => q"trait $typ" }
     val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.lang.Base.HoleType" }
@@ -222,8 +223,10 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
     
     
     
-    
-    /** `parent` is used to display an informative tree in errors; `expectedType` for knowing the type a hole should have  */
+    /** Recursive function for lifting DSL code.
+      * `parent` is used to display an informative tree in errors; `expectedType` for knowing the type a hole should have
+      * Several tricky things happening in there [TODO describe (var-virt, dirty symbol stuff, etc.)]
+      */
     def lift(x: c.Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, TermName]): c.Tree = {
       //debug(s"TRAVERSING",x,"<:",expectedType getOrElse "?")
       //debug(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?")
@@ -317,8 +320,37 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           q"$Base.const($c)"
           //q"$base.const($c)"
           
+          
         //case Ident(name) if !x.symbol.isTerm => q"" // FIXME: can happen when calling rec with a param valdef...
-        case Ident(name) if x.symbol.isTerm && (ctx isDefinedAt x.symbol.asTerm) => q"${ctx(x.symbol.asTerm)}"
+        case Ident(name) if x.symbol.isTerm && (ctx isDefinedAt x.symbol.asTerm) =>
+          val ref = q"${ctx(x.symbol.asTerm)}"
+          
+          if (x.symbol.asTerm.isVar) {
+            val varTyp = x.symbol.typeSignature
+            val virtTyp = internal.typeRef(varTypeMod, varTypeSym, varTyp::Nil)
+            
+            val method = virtTyp.member(TermName("$bang")).asMethod
+            val mtd = usedFeatures.getOrElseUpdate((virtTyp, method), {
+              c.freshName[TermName](method.name.encodedName.toTermName)
+            })
+            
+            q"$Base.methodApp($ref, $mtd, Nil, Nil, ${getType(varTyp)}.rep)"
+          }
+          else ref
+          
+        case q"$vari = $valu" =>
+          val ref = q"${ctx(vari.symbol.asTerm)}"
+          
+          val varTyp = vari.symbol.typeSignature
+          val virtTyp = internal.typeRef(varTypeMod, varTypeSym, varTyp::Nil)
+          
+          val method = virtTyp.member(TermName(":=").encodedName).asMethod
+          val mtd = usedFeatures.getOrElseUpdate((virtTyp, method), {
+            c.freshName[TermName](method.name.encodedName.toTermName)
+          })
+          
+          q"$Base.methodApp(${vari.symbol.name.toTermName}, $mtd, Nil, Args(${rec(valu, Some(vari.symbol.typeSignature))})::Nil, ${getType(Unit)}.rep)"
+          
           
         case id @ Ident(name) if x.symbol.isTerm && !x.symbol.isModule =>
           throw EmbeddingException(s"Cannot refer to local variable '$name' (from '${id.symbol.owner}'). " +
@@ -330,20 +362,18 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                                         |Try explicitly qualifying the name, as in '$from.$name'.""".stripMargin)
           else throw EmbeddingException(s"""Cannot refer to member '$name'. Try explicitly qualifying it.""")
           
-          /*
-        case q"${x @ q"..$mods val ${name: TermName}: $_ = $v"}; $b" =>
-        //case q"${x @ ValDef(mods: Modifiers, name: TermName, tpt: Tree, rhs)}; $b" =>
-          // TODO check mods?
           
-          //varCount += 1
-          //val name = TermName("x"+varCount)
-          q"letin(${rec(v)}, ($name: Rep[${x.symbol.typeSignature}]) => ${rec(b)(ctx + (x.symbol -> name))})"
-
-        ////case q"${x: ValDef}" =>
-        //case q"${x @ ValDef(mods: Modifiers, name: TermName, tpt: Tree, rhs)}" =>
-        //  debug(x, mods)
-        //  ???
-          */
+        case q"${vdef @ q"$mods var ${name: TermName}: $tpt = $rhs"}; ..$b" if mods.hasFlag(Flag.MUTABLE) =>
+          
+          /** This is tricky, as `rhs` may contain references to stuff defined/imported inside the QQ,
+            * but we typecheck using context `c` of the macro...
+            * However, it seems to work nonetheless, since `rhs` has already been typed (and its symbols resolved!) 
+            * Note: using `typecheck` is a lazy "hack" – we could manually do what is done for val defs (case below),
+            * but that would create code duplication */
+          val app = c.typecheck(q"$Scp.lib.Var[$tpt]($rhs)")
+          
+          val newVdef = internal.setSymbol(q"val $name: $Scp.lib.Var[$tpt] = $app", vdef.symbol)
+          rec(internal.setType(q"$newVdef; ..$b", x.tpe), expectedType)(ctx + (vdef.symbol.asTerm -> name))
           
         case q"${vdef @ q"$mods val ${name: TermName}: $t = $v"}; ..$b" =>
           assume(!t.isEmpty) //if (!t.isEmpty)
@@ -357,13 +387,17 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val retType = expectedType getOrElse x.tpe
           
-          q"""val $name = newVar(${name.toString}, ${getType(vdef.symbol.typeSignature)}.rep)
+          /** We used to get the type from vdef's symbol.
+            * However, with var virtualization, this symbol refers to the original var def of type T, while the type should be Var[T] */
+          //val valType = vdef.symbol.typeSignature
+          val valType = v.tpe
+          
+          q"""val $name = boundVal(${name.toString}, ${getType(valType)}.rep)
               letin($name, $v2, $body)"""
          
-        case q"val $p = $v; ..$b" =>
+        case q"val $p = $v; ..$b" => // TODO do at syntactic virtualization time...
           rec(q"$v match { case $p => ..$b }", expectedType)
           
-        //case q"val $p: $t = $v" => ???
           
           
         case q"$base.unquote[$t]($idt)" => // TODO need to ask for evidence here?
@@ -382,16 +416,24 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
           
           val (bases, vars) = bases_variables(scp.tpe)
           
-          val varsInScope = ctx.values.toSet
           
-          val (captured,free) = vars partition {case(n,t) => varsInScope(n)} // TODO check correct free var types
+          val varsInScope = ctx map (_ swap)
+          val (captured,free) = vars partition {
+            case(n,t) => varsInScope get n match {
+              case Some(sym) =>
+                val symt = sym.typeSignature
+                symt <:< t ||
+                  (throw EmbeddingException(s"Captured variable `$n: $symt` has incompatible type with free variable `$n: $t`"))
+              case None => false
+            }
+          } // TODO check correct free var types
+          
           
           termScope ++= bases
           //importedFreeVars ++= vars filter {case(n,t) => !varsInScope(n)} // TODO check correct free var types
           importedFreeVars ++= free
           
           val bindings = captured map {case(n,t) => q"${n.toString} -> $n"}
-          
           debug("Unquoting",s"$idt: Q[$t,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
           
           q"$base.unquoteDeep($idt.rep).subs(..${bindings})"
@@ -537,7 +579,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
             case p @ ValDef(mods, name, tpt, _) =>
               recNoType(tpt)
               val tp = getType(p.symbol.typeSignature)
-              q"$Base.newVar(${name.toString}, $tp.rep)" -> (p.symbol.asTerm -> name)
+              q"$Base.boundVal(${name.toString}, $tp.rep)" -> (p.symbol.asTerm -> name)
           } unzip;
           val paramDefs = bindings.unzip._2 zip params map {case(name,p) => q"val $name = $p"}
           val body = rec(bo, typeIfNotNothing(bo.tpe) orElse expectedType flatMap FunctionType.unapply)(ctx ++ bindings)
@@ -803,23 +845,33 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
   
   
   
-  val scp = q"_root_.scp"
+  val Scp = q"_root_.scp"
   
   val virtualize = transformer (rec => {
     case q"$s; ..$sts; $r" =>
-      if (s.isDef) q"$s; ${ rec(q"..$sts; $r") }"
-      else {
-        var (hs, tl) = (s :: Nil, sts)
-        while (tl.nonEmpty && !tl.head.isDef) {
-          hs ::= tl.head
-          tl = tl.tail
-        }
-        q"$scp.lib.Imperative(..${hs map rec})(${ rec(q"..$tl; $r") })"
+      s match {
+        case ValDef(mods, name, tpt, rhs) =>
+          val vd =
+            internal.setSymbol( // get crazy compiler crashes if omitted... seems to be related to nested uses of dsl"" ... ???
+                                // cf: << symbol value String$macro$959#78775 does not exist in scp.feature.NestedQuoting.<init>, which contains locals . >>
+                                // Note that normally, the symbol is NoSymbol at this stage...
+              q"$mods val $name: $tpt = ${rec(rhs)}",
+              s.symbol)
+          q"$vd; ${ rec(q"..$sts; $r") }"
+        case _ if s.isDef =>
+          throw EmbeddingException(s"Definition '$s' is not supported in quasiquote.")
+        case _ =>
+          var (hs, tl) = (s :: Nil, sts)
+          while (tl.nonEmpty && !tl.head.isDef) {
+            hs ::= tl.head
+            tl = tl.tail
+          }
+          q"$Scp.lib.Imperative(..${hs map rec})(${ rec(q"..$tl; $r") })"
       }
     case q"if ($cond) $thn else $els" =>
-      q"$scp.lib.IfThenElse(${rec(cond)}, ${rec(thn)}, ${rec(els)})"
+      q"$Scp.lib.IfThenElse(${rec(cond)}, ${rec(thn)}, ${rec(els)})"
     case q"while ($cond) $loop" =>
-      q"$scp.lib.While(${rec(cond)}, ${rec(loop)})"
+      q"$Scp.lib.While(${rec(cond)}, ${rec(loop)})"
   })
   
   object SelectMember {
