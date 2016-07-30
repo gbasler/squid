@@ -28,7 +28,7 @@ object AST {
   * TODO: should have a Liftable trait for constants, with the default impl resulting in storage in glbal hash table (when Scala is the backend)
   * TODO generalize records to be usable outside of function parameters
   * TODO encode tuples as records? (with _1, _2, etc. as names) */
-trait AST extends Base with RecordsTyping { // TODO rm dep to ScalaTyping
+trait AST extends Base with ScalaTyping { // TODO rm dep to ScalaTyping
   import AST._
   
   object Quasi extends quasi.Quasi[this.type, Any] { val base: AST.this.type = AST.this }
