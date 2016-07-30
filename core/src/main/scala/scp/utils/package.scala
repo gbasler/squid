@@ -57,5 +57,16 @@ package object utils {
   }
   
   
+  implicit class StringOps(self: String) {
+    import collection.mutable
+    def splitSane(Sep: Char) = {
+      val buf = mutable.ArrayBuffer(new StringBuilder)
+      for (c <- self) if (c == Sep) buf += new StringBuilder else buf.last append c
+      buf.map(_.toString)
+    }
+  }
+  
+  
+  
 }
 

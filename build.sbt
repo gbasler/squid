@@ -20,6 +20,7 @@ lazy val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % sca
 
 lazy val main = (project in file(".")).
   dependsOn(core).
+  dependsOn(core % "test->test").
   settings(commonSettings: _*).
   settings(
     // other settings here

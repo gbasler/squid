@@ -510,7 +510,7 @@ class Embedding[C <: whitebox.Context](val c: C) extends utils.MacroShared with 
                 case ((a @ q"$t : _*") :: Nil, Stream(VarargParam(pt))) =>
                   //debug(s"vararg splice [$pt]", t)
                   t match {
-                    case q"$base.spliceVararg[$t,$scp]($idts)" if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
+                    case q"$base.spliceVararg[$t,$scp]($idts)" if base.tpe =:= Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
                       val splicedX = recNoType(q"$Base.unquote[$t,$scp]($$x$$)")
                       q"${mkArgs(acc)}($idts map (($$x$$:$Base.Q[$t,$scp]) => $splicedX): _*)" // ArgsVarargs creation using Args.apply
                     case _ =>

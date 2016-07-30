@@ -1,7 +1,6 @@
 package scp.utils
 
 import annotation.StaticAnnotation
-import collection.mutable.ArrayBuffer
 import reflect.api.Position
 
 object MacroUtils {
@@ -85,16 +84,6 @@ object MacroUtils {
   }
   
   //private[scp] def showCodeOpen(t: Context# Tree) = {
-  
-  implicit class StringOps(self: String) {
-    def splitSane(Sep: Char) = {
-      //self.map {
-      //  case Sep =>
-      val buf = ArrayBuffer(new StringBuilder)
-      for (c <- self) if (c == Sep) buf += new StringBuilder else buf.last append c
-      buf.map(_.toString)//.toArray
-    }
-  }
   
   // Note: depending on where it comes from (typed tree or external symbol), Scala will not always display vararg symbols with the same name... (thanks for that!)
   val SCALA_REPEATED = Set("scala.<repeated>", "scala.<repeated...>")

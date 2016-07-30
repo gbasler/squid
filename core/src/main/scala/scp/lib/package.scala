@@ -2,13 +2,13 @@ package scp
 
 package object lib {
   
-  def IfThenElse[A](cond: Boolean, thn: => A, els: => A) =
+  def IfThenElse[A](cond: Boolean, thn: => A, els: => A): A =
     if (cond) thn else els
   
-  def While(cond: => Boolean, loop: => Unit) =
+  def While(cond: => Boolean, loop: => Unit): Unit =
     while (cond) loop
   
-  def Imperative[A](effects: Any*)(result: A) = result
+  def Imperative[A](effects: Any*)(result: A): A = result
   
   
   final class ThunkParam private[lib]()

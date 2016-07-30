@@ -8,7 +8,6 @@ import utils._
 import scala.reflect.runtime.{universe => ru}
 import ScalaTyping.{Contravariant, Covariant, Variance}
 import scp.quasi.EmbeddingException
-import scp.utils.MacroUtils.StringOps
 
 /**
   * TODO: add a lock on the HashMap...

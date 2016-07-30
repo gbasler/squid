@@ -1,7 +1,7 @@
 package scp
 package lang
 
-import utils.MacroUtils._
+import utils._
 
 case class DSLDef(fullName: String, info: String, module: Boolean) { // TODO rename DSLMethod
   override def toString = s"${prefix} $fullName: $info"
