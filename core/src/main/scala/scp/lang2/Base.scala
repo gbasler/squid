@@ -3,7 +3,7 @@ package lang2
 
 import scala.reflect.runtime.universe.TypeTag
 
-trait Base {
+trait Base extends TypingBase {
   
   type Rep
   type BoundVal
@@ -30,23 +30,10 @@ trait Base {
   def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int] = None, static: Boolean = false): MtdSymbol
   
   
-  type TypeRep
-  
-  def uninterpretedType[A: TypeTag]: TypeRep
-  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep
-  def recordType(fields: List[(String, TypeRep)]): TypeRep
-  
-  type TypSymbol
-  def loadTypSymbol(fullName: String): TypSymbol 
-  
-  
-  def repType(r: Rep): TypeRep // FIXME only available to SOME bases
-  def reinterpret(r: Rep, newBase: Base): newBase.Rep = ??? // FIXME only available to SOME bases – move to trait IntermediateBase
-  
   
   
   /** Just a shortcut for methodApp */
-  def mapp(self: Rep, mtd: MtdSymbol, tp: TypeRep)(targs: TypeRep*)(argss: ArgList*): Rep =
+  final def mapp(self: Rep, mtd: MtdSymbol, tp: TypeRep)(targs: TypeRep*)(argss: ArgList*): Rep =
     methodApp(self, mtd, targs.toList, argss.toList, tp)
   
   

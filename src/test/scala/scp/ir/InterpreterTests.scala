@@ -9,7 +9,7 @@ import scala.reflect.runtime.{universe => sru}
 import MacroTesters._
 
 class InterpreterTests extends FunSuite {
-  object b extends ir2.AST
+  object b extends ir2.SimpleAST
   
   //object MBM extends MirrorBaseTemplate {
   //  val u: sru.type = sru

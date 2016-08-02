@@ -53,7 +53,7 @@ object MacroTesters {
   }
   
   
-  def staticExecAsConst[Base](code: Any): Any = macro staticExecAsConstImpl[Base]
+  def staticExecAsConst[Base <: IntermediateBase](code: Any): Any = macro staticExecAsConstImpl[Base]
   def staticExecAsConstImpl[AST: c.WeakTypeTag](c: Context)(code: c.Tree) = {
     import c.universe._
     
@@ -63,7 +63,7 @@ object MacroTesters {
     val m: sru.Mirror = reflect.runtime.currentMirror
     val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
     
-    val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).newInstance().asInstanceOf[Base]
+    val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).newInstance().asInstanceOf[IntermediateBase]
     object ME extends ModularEmbedding[c.universe.type, AST.type](c.universe, AST, str => debug(str)) {
       def className(cls: ClassSymbol): String = m.runtimeClass(imp.importSymbol(cls).asClass).getName
     }

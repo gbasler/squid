@@ -11,6 +11,8 @@ import MacroTesters._
 /** Due to reflection problems, I've commented some of these tests because they sometimes crash the compiler (and sometimes not!) */
 class StaticExecTests extends FunSuite {
   
+  type AST = SimpleAST
+  
   def same[A](xy: (A, A)) = assert(xy._1 == xy._2)
   //def same(cond: Boolean) = assert(cond)
   
@@ -40,7 +42,7 @@ class StaticExecTests extends FunSuite {
     
     same(staticExecAndSource[AST]{ val x = 0; x + 1 } )
     same(staticExecAndSource[AST]{ ((x: Int) => x + 1)(42) } )
-    same(staticExecAndSource[AST]{ {x: Int => x + 1}.apply(42) } )
+    same(staticExecAndSource[AST]{ { x: Int => x + 1}.apply(42) } )
     
   }
   
