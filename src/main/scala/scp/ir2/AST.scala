@@ -152,6 +152,7 @@ trait AST extends Base with ScalaTyping with RuntimeSymbols { self: Intermediate
           rect(tp))
       case ModuleObject(fullName, isPackage) => newBase.moduleObject(fullName, isPackage)
       case bv @ BoundVal(name) => newBase.readVal(bound(bv))
+      case Ascribe(r,t) => newBase.ascribe(apply(r), rect(t))
     }
     protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ)) and (bound += bv -> _)
     def rect(r: TypeRep): newBase.TypeRep = r match {

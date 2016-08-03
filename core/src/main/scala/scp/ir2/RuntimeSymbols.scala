@@ -2,16 +2,27 @@ package scp
 package ir2
 
 import utils._
+
 import collection.mutable
 
-object RuntimeSymbols extends RuntimeSymbols with TraceDebug { // TODO move this to general helpers
+object RuntimeSymbols extends RuntimeSymbols /*with TraceDebug*/ { // TODO move this to general helpers
   
   private val typSymbolCache = mutable.HashMap[String, TypSymbol]()
   
 }
-trait RuntimeSymbols {
+trait RuntimeSymbols extends TraceDebug {
   import RuntimeSymbols._
   import meta.RuntimeUniverseHelpers._
+  import reflect.runtime.ScalaReflectSurgeon
+  
+  /*
+  // TODO migrate to use these instead
+  def classSymbol(rtcls: Class[_]): sru.ClassSymbol = srum.classSymbol(rtcls)
+  def moduleSymbol(rtcls: Class[_]): sru.ModuleSymbol = {
+    val clsSym = srum.classSymbol(rtcls)
+    srum.moduleSymbol(rtcls)  oh_and  ScalaReflectSurgeon.cache.enter(rtcls, clsSym) 
+  }
+  */
   
   protected def ensureDefined(name: String, sym: sru.Symbol) = sym match {
     case sru.NoSymbol => 
@@ -37,7 +48,7 @@ trait RuntimeSymbols {
       case n => n
     }
     debug(s"Loading type from class name $className")
-    srum.classSymbol(Class.forName(className)) //and (x => debug(s"Loaded: $x"))
+    srum.classSymbol(Class.forName(className)) and (x => debug(s"Loaded: $x"))
   })}
   
   def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {

@@ -30,9 +30,18 @@ object MacroTesters {
       //str => debug(str)
       str => ()
     ){
+      /** Only true cowboys can deal with nondeterministic shit like that */
       def className(cls: ClassSymbol): String = {
         //debug("CLS NAME",cls)
-        srum.runtimeClass(imp.importSymbol(cls).asClass).getName
+        //srum.runtimeClass(imp.importSymbol(cls).asClass).getName
+        
+        def tryAgainJerryJoe(bullets: Int): String = 
+          try srum.runtimeClass(imp.importSymbol(cls).asClass).getName
+          catch { case _: java.lang.IndexOutOfBoundsException => if (bullets > 0) tryAgainJerryJoe(bullets-1) else {
+            System.err.println(s"Ay, I missed $cls again Billy Ben. Let's hope the Sherriff won't see it.")
+            cls.fullName
+          }}
+        tryAgainJerryJoe(8)
       }
     }
     
@@ -72,7 +81,8 @@ object MacroTesters {
     
     val EB = new BaseInterpreter
     
-    val res = AST.reinterpret(newCode, EB)
+    val res = //EB.debugFor
+      { AST.reinterpret(newCode, EB) }
     debug("EXEC", res)
     
     Literal(Constant(res))
