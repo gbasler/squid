@@ -16,6 +16,11 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   class BoundVal(var value: Any = null)
   type TypeRep = Unit
   
+  
+  def repEq(a: Rep, b: Rep): Boolean = a == b
+  def typEq(a: TypeRep, b: TypeRep): Boolean = true
+  
+  
   def bindVal(name: String, typ: TypeRep): BoundVal = new BoundVal()
   def readVal(v: BoundVal): Rep = v.value
   def const[A: sru.TypeTag](value: A): Rep = value

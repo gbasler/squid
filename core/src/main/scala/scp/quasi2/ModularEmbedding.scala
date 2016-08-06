@@ -1,6 +1,7 @@
 package scp
 package quasi2
 
+import utils._
 import utils.meta._
 import lang2._
 import quasi.EmbeddingException
@@ -54,6 +55,9 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   
   
   def getTyp(tsym: TypeSymbol): TypSymbol = {
+    
+    // Note: doesn't work properly to inspect tsym.toType.
+    // For example, a refinement won't be matched by `case RefinedType(_, _)` but by `case TypeRef(_, _, _) =>` ...
     
     // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     // Assuming AnyRef for Any may not be perfectly safe, though... (to see)
@@ -123,6 +127,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   
    
   // TODO pull in all remaining cases from Embedding
+  /** @throws EmbeddingException */
   def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
     def rec(x1: Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = liftTerm(x1, x, expTpe)
     
@@ -361,12 +366,12 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       /** --- --- --- ERRORS --- --- --- */
         
       case q"${s: DefDef}; ..$_" =>
-        throw EmbeddingException(s"Embedding of definition '$s' is not supported.")
+        throw EmbeddingException.Unsupported(s"Definition '$s'")
         
       case _: DefDef =>
         throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
         
-      case _ => throw EmbeddingException("Unsupported feature: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
+      case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
         
     }
   }
@@ -379,6 +384,12 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
     //  liftType(AnyRef)
+      
+    case tpe @ RefinedType(tp :: Nil, scp) if scp.isEmpty =>
+      liftType(tp)
+      
+    case tpe @ RefinedType(tpes, scp) =>
+      throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
     case TypeRef(prefix, sym, targs) =>
       
@@ -399,6 +410,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     case _ => // TODO verify no holes in 'tp'! If holes, try widening first
       val s = tp.typeSymbol
       if (s.isModule || s.isPackage || s.isModuleClass) {
+        dbg("Yet unhandled case!", s) // FIXME
         ??? // TODO B/E
       }
       else if (tp <:< typeOf[AnyRef]) {
@@ -417,7 +429,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       assert(sym.isStatic) // TODO BE
       moduleObject(sym.fullName, sym.isPackage)
     case SingleType(pre,sym) =>
-      assert(sym.isStatic) // TODO BE
+      assert(sym.isStatic, s"Symbol $sym is not static.") // TODO BE
       //assert(sym.isPackage && sym.isPackageClass && sym.isModule) // fails
       moduleObject(sym.fullName, sym.isPackage)
   }

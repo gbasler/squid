@@ -6,10 +6,11 @@ import utils._
 
 
 
-class SimpleAST extends AST with IntermediateBase with ScalaTyping {
+class SimpleAST extends AST {
   
   case class Rep(dfn: Def)
   def rep(dfn: Def) = new Rep(dfn)
+  def dfn(r: Rep): Def = r.dfn
   
   def repType(r: Rep): TypeRep = r.dfn.typ
   

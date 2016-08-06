@@ -54,6 +54,7 @@ package object utils {
   
   implicit class SafeEq[T](val self: T) extends AnyVal {
     def === (that: T) = self == that
+    def =/= (that: T) = self != that
   }
   
   

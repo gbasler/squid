@@ -11,7 +11,7 @@ trait Base extends TypingBase {
   def bindVal(name: String, typ: TypeRep): BoundVal
   
   def readVal(v: BoundVal): Rep
-  def const[A: TypeTag](value: A): Rep
+  def const[A: TypeTag](value: A): Rep // TODO make the bound ClassTag, which is sufficient for literals... or even just take a Constant as argument!
   def lambda(params: List[BoundVal], body: => Rep): Rep
   
   /** Important to support packages that are not objects because of typeApp (that may take sthg like `java.lang` for `String`)
@@ -31,6 +31,20 @@ trait Base extends TypingBase {
   
   
   
+  
+  
+  def repEq(a: Rep, b: Rep): Boolean
+  
+  
+  
+  implicit class RepOps(private val self: Rep) {
+    def =~= (that: Rep) = repEq(self, that)
+  }
+  
+  
+  
+  
+  // Helpers:
   
   /** Just a shortcut for methodApp */
   final def mapp(self: Rep, mtd: MtdSymbol, tp: TypeRep)(targs: TypeRep*)(argss: ArgList*): Rep =

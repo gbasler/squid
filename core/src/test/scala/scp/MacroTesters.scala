@@ -35,7 +35,7 @@ object MacroTesters {
         //debug("CLS NAME",cls)
         //srum.runtimeClass(imp.importSymbol(cls).asClass).getName
         
-        def tryAgainJerryJoe(bullets: Int): String = 
+        def tryAgainJerryJoe(bullets: Int): String =  // TODO try simple asInstanceOf instead of importer 
           try srum.runtimeClass(imp.importSymbol(cls).asClass).getName
           catch { case _: java.lang.IndexOutOfBoundsException => if (bullets > 0) tryAgainJerryJoe(bullets-1) else {
             System.err.println(s"Ay, I missed $cls again Billy Ben. Let's hope the Sherriff won't see it.")

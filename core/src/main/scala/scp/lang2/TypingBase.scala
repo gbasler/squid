@@ -14,4 +14,13 @@ trait TypingBase { self: Base =>
   type TypSymbol
   def loadTypSymbol(fullName: String): TypSymbol 
   
+  def typEq(a: TypeRep, b: TypeRep): Boolean
+  
+  
+  
+  implicit class RepOps(private val self: TypeRep) {
+    def =:= (that: TypeRep) = typEq(self, that)
+  }
+  
+  
 }

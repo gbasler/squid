@@ -93,11 +93,14 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   
   
   implicit class TreeOps(private val self: Tree) {
+    def analyse(pf: PartialFunction[Tree, Unit]) =  {
+      new Traverser {
+        override def traverse(x: Tree) = pf.applyOrElse(x, super.traverse)
+      } traverse self
+    }
     def transform(pf: PartialFunction[Tree, Tree]) =  {
       new Transformer {
-        override def transform(x: Tree) =
-          if (pf isDefinedAt x) pf(x)
-          else super.transform(x)
+        override def transform(x: Tree) = pf.applyOrElse(x, super.transform)
       } transform self
     }
     def transformRec(rec_pf: (Tree => Tree) => PartialFunction[Tree, Tree]) = transformer(rec_pf)(self)

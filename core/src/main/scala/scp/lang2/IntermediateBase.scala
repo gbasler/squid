@@ -11,6 +11,11 @@ trait IntermediateBase extends Base {
   def reinterpret(r: Rep, newBase: Base): newBase.Rep
   
   
+  implicit class IntermediateRepOps(private val self: Rep) {
+    def typ = repType(self)
+  }
+
+  
   
 }
 

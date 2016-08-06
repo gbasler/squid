@@ -142,6 +142,8 @@ class QuasiMacro(val c: Context) extends utils.MacroShared {
         if (unapply) {
           //q"holeExtract()"
           //val n = h.name.filter(_.toString != "_").map(n => q"$n").getOrElse(h.tree)
+          
+          // gives neat names, but prevents things like:  case ir"val n: Int = $n; ..." =>
           val n = h.name.filter(_.toString != "_") map (_.toTermName) getOrElse // hygiene? (can taking the name as specified by the user make collisions?)
             c.freshName(TermName("ANON_HOLE"))
           holes ::= Left(n)

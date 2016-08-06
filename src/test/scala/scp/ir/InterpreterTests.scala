@@ -37,6 +37,8 @@ class InterpreterTests extends FunSuite {
   
   test("Bindings") {
     
+    //runSame( shallowAndDeep(b){ (arg: {val y:Int}) => arg.y } )  // Unsupported feature: Refinement type 'AnyRef{val y: Int}'
+    
     runSame( shallowAndDeep(b){ val x = 0; x + 1 } )
     runSame( shallowAndDeep(b){ ((x: Int) => x + 1)(42) } )
     runSame( shallowAndDeep(b){ {x: Int => x + 1}.apply(42) } )
