@@ -3,118 +3,169 @@ package feature
 
 /**
   * Note: Because of the implementation, we have the same restrictions as Scala's _*
-  * For example, dsl"List(0, $args*)" is illegal the same way 'List(1, args:_*)' is illegal
+  * For example, ir"List(0, $args*)" is illegal the same way 'List(1, args:_*)' is illegal
   * It will generate the same error (in the case of QQ, *after* type-checking the deep embedding!):
   *   Error:(13, 14) no ': _*' annotation allowed here
   *   (such annotations are only allowed in arguments to *-parameters)
   *  
   *  With more effort (and support from the IR!), we could introduce the same flexibility as Scala QQ splicing, as in: q"List(0, ..$args)"
+  *  
+  *  Future?: allow syntax `case ir"List($xs:(Int*))`, which parses; useful when need to annotate hole type 
   */
-class Varargs extends MyFunSuite {
-  import TestDSL._
+class Varargs extends MyFunSuite2 {
+  import TestDSL2.Predef._
   
-  val args = Seq(dsl"1", dsl"2", dsl"3")
+  val args = Seq(ir"1", ir"2", ir"3")
   
-  val list123 = dsl"List(1,2,3)"
+  val list123 = ir"List(1,2,3)"
   
   test("No splices in type position") {
-    assertDoesNotCompile(""" dsl"Map[Int,Int]()" match { case dsl"Map[$ts*]()" => } """)
+    assertDoesNotCompile(""" ir"Map[Int,Int]()" match { case ir"Map[$ts*]()" => } """)
   }
   
   test("Simple Vararg Usage") {
-    dsl"Seq(1,2,3)" match {
-      case dsl"Seq[Int]($a,$b,$c)" => same(Seq(a,b,c), args)
+    ir"Seq(1,2,3)" match {
+      case ir"Seq[Int]($a,$b,$c)" => same(Seq(a,b,c), args)
     }
     import BasicEmbedding._
-    dsl"new MC(42)('ok, 'ko)" match {
-      case dsl"new MC(42)($a, $b)" =>
-        eqt(a, dsl"'ok")
-        eqt(b, dsl"'ko")
-    }
+    // FIXME new
+    //ir"new MC(42)('ok, 'ko)" match {
+    //  case ir"new MC(42)($a, $b)" =>
+    //    eqt(a, ir"'ok")
+    //    eqt(b, ir"'ko")
+    //}
   }
   
   test("Vararg Construction and Extraction") {
-    dsl"List(Seq(1,2,3): _*)" matches {
-      case dsl"List[Int]($xs*)" => fail
-      case dsl"List[Int](${xs @ __*})" => fail
-      case dsl"List[Int]($xs: _*)" => assert(xs == dsl"Seq(1,2,3)")
+    ir"List(Seq(1,2,3): _*)" matches {
+      case ir"List[Int]($xs*)" => fail
+      case ir"List[Int](${xs @ __*})" => fail
+      case ir"List[Int]($xs: _*)" => assert(xs == ir"Seq(1,2,3)")
     }
-    eqt(dsl"List(List(1,2,3): _*)", dsl"List($list123: _*)")
+    eqt(ir"List(List(1,2,3): _*)", ir"List($list123: _*)")
   }
   
   test("Spliced Unquote, Construction") {
     
-    val a = dsl"List($args*)"
+    val a = ir"List($args*)"
     eqt(a, list123)
     
-    val b = dsl"List(${args: _*})"
+    val b = ir"List(${args: _*})"
     eqt(a, b)
     eqt(b, list123)
     
-    val c = dsl"List(${args: __*})"
-    eqt(a, c)
-    eqt(c, list123)
+    // TODO removed this syntax (type __*)
+    //val c = ir"List(${args: __*})"
+    //eqt(a, c)
+    //eqt(c, list123)
     
     // Note: same limitations as Scala
-    //val a = dbgdsl"List(0,$args*)" // Error:(13, 14) no ': _*' annotation allowed here
+    //val a = dbgir"List(0,$args*)" // Error:(13, 14) no ': _*' annotation allowed here
     
     // Note: cannot splice free variables (good)
-    // dsl"$$xs*" // Error:(31, 6) Embedding Error: value * is not a member of Nothing
+    // ir"$$xs*" // Error:(31, 6) Embedding Error: value * is not a member of Nothing
     
     val ls = List(1,2,3)
     assert(a.run == ls)
     assert(b.run == ls)
-    assert(c.run == ls)
+    //assert(c.run == ls)
     
     
-    val args2 = Seq(dsl"1", dsl"2 + ($$x:Int)")
-    val d = dsl"List($args2*)"
+    val args2 = Seq(ir"1", ir"2 + ($$x:Int)")
+    val d = ir"List($args2*)"
     val d2: Q[List[Int], {val x: Int}] = d
     assertDoesNotCompile(""" d: Q[List[Int], {}] """) // Error:(73, 5) type mismatch; found: scp.TestDSL.Quoted[List[Int],Any{val x: Int}]; required: scp.TestDSL.Q[List[Int],AnyRef]
     
-    val e = dsl"val x = 0; List($args2*)" : Q[List[Int], {}]
+    
+    val e = ir"val x = 0; List($args2*)" : Q[List[Int], {}]
+    eqt(e, ir"val x = 0; List(1, 2 + x)")
     
   }
   
-  test("Spliced Unquote, Extraction") { // TODO
+  test("Spliced Unquote, Extraction") {
     
     list123 matches {
-      case dsl"List[Int]($xs*)" =>
+      case ir"List[Int]($xs*)" =>
         assert((xs: Seq[Q[Int,_]]) == args)
     } and {
-      case dsl"List[Int](${xs @ __*})" =>
+      case ir"List[Int](${xs @ __*})" =>
         assert((xs: Seq[Q[Int,_]]) == args)
     } and {
-      case dsl"List[Int](${Seq(dsl"1", xs @ _*)}*)" =>
+      case ir"List[Int](${Seq(ir"1", xs @ _*)}*)" =>
         assert((xs: Seq[Q[Int,_]]) == args.tail)
     } and {
-      case dsl"List[Int]($xs: _*)" =>
-        val seq = dsl"Seq(1,2,3)"
+      case ir"List[Int]($xs: _*)" =>
+        val seq = ir"Seq(1,2,3)"
         eqt(xs, seq)
         eqt(xs.trep, seq.trep)
         eqt(xs.trep, typeRepOf[Seq[Int]])
     }
     
-    val lss = dsl"List(Seq(1,2,3):_*)"
+    val lss = ir"List(Seq(1,2,3):_*)"
     lss match {
-      case dsl"List[Int](($xs:Seq[Int]): _*)" =>
-        eqt((xs: Q[Seq[Int],{}]), dsl"Seq(1,2,3)")
-      case dsl"List[Int]($xs: _*)" =>
-        eqt((xs: Q[Seq[Int],{}]), dsl"Seq(1,2,3)")
+      case ir"List[Int](($xs:Seq[Int]): _*)" =>
+        eqt((xs: Q[Seq[Int],{}]), ir"Seq(1,2,3)")
+      case ir"List[Int]($xs: _*)" =>
+        eqt((xs: Q[Seq[Int],{}]), ir"Seq(1,2,3)")
     }
     lss match {
-      case dsl"List[Int](Seq($xs*):_*)" => fail // Note: for some reason, does not warn for the inferred Seq[Nothing]
-      case dsl"List[Int](Seq[Nothing]($xs*):_*)" => fail // Note: we do not warn for Nothing holes in spliced vararg position anymore
-      case dsl"List(Seq[Int]($xs*):_*)" =>
+      //case ir"List[Int](Seq($xs*):_*)" => fail // warns: Warning:(135, 12) Type inferred for hole 'xs' was Nothing. Ascribe the hole explicitly to remove this warning.
+      //case ir"List[Int](Seq[Nothing]($xs*):_*)" => fail // warns: Warning:(136, 12) Type inferred for hole 'xs' was Nothing. Ascribe the hole explicitly to remove this warning.
+      case ir"List(Seq[Int]($xs*):_*)" =>
         assert((xs: Seq[Q[Int,{}]]) == args)
     }
     assertDoesNotCompile("""
     lss match {
-      case dsl"List[Int](Seq($xs*:Nothing):_*)" =>
+      case ir"List[Int](Seq($xs*:Nothing):_*)" =>
     }
     """) // Error:(104, 12) Embedding Error: Misplaced spliced hole: 'xs'
     
   }
+  
+  
+  test("Vararg Extraction") {
+    
+    val seq @ Seq(x,y,z) = Seq( ir"1", ir"2", ir"3" )
+    val irSeq = ir"Seq($x,$y,$z)"
+    val ls = ir"List($irSeq: _*)"
+    
+    ls match {
+      //case ir"List($xs: _*)" => fail // Warning:(47, 12) Type inferred for vararg hole 'xs' was Nothing. This is unlikely to be what you want.
+      case ir"List[Int]($xs: _*)" => assert(xs =~= ir"Seq(1,2,3)")
+    }
+    
+    ls matches {
+      //case ir"List($$seq: _*)" => // make better error?: Error:(54, 12) Embedding Error: Quoted expression does not type check: overloaded method value $ with alternatives:
+         // [T, C](q: scp.TestDSL2.IR[T,C])T <and>
+         // [T, C](q: scp.TestDSL2.IR[T,C]*)T
+         //cannot be applied to (Seq[scp.TestDSL2.IR[Int,Any]])
+      case ir"List($$irSeq: _*)" =>
+    } and {
+      case ir"List(Seq($$x,$$y,$$z): _*)" => 
+    }
+    
+    ir"List(1,2,3)" matches {
+      case ir"List[Int]($xs: _*)" => assert(xs =~= ir"Seq(1,2,3)")
+    } and {
+      case ir"List[Int](${xs @ __*})" => assert(xs == seq)
+    } and {
+      case ir"List[Int]($xs*)" => assert(xs == seq)
+    } and {
+      case ir"List($$(seq: _*))" =>
+    }
+    
+  }
+  
+  test("Vararg Extraction w/ Repeated Holes") {
+    
+    ir"List(1,2,3) -> Seq(1,2,3)" matches {
+      //case ir"List[Int]($xs: _*) -> xs" => assert(xs =~= ir"Seq(1,2,3)")  // TODO aggregate type holes before lifting
+      case ir"List[Int]($xs: _*) -> (xs: Seq[Int])" => assert(xs =~= ir"Seq(1,2,3)")
+    }
+    
+    
+  }
+  
   
 }
 

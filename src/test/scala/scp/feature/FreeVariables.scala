@@ -1,66 +1,69 @@
 package scp
 package feature
 
-class FreeVariables extends MyFunSuite {
+class FreeVariables extends MyFunSuite2 {
   
-  import TestDSL._
+  import TestDSL2.Predef._
   
   test("Explicit Free Variables") {
     
-    val x: Q[Int,{val x: Int}] = dsl"$$x: Int"
+    val x: Q[Int,{val x: Int}] = ir"$$x: Int"
     assert(x.rep match {
-      case Ascribe(Hole("x")) => true
+      case base.RepDef(base.Ascribe(base.RepDef(base.Hole("x")), _)) => true
       case _ => false
     })
     
-    val d = dsl"$x.toDouble" : Q[Double, {val x: Int}]
+    val d = ir"$x.toDouble" : Q[Double, {val x: Int}]
     
-    val s = dsl"($$str: String) + $d" : Q[String, {val x: Int; val str: String}]
+    val s = ir"($$str: String) + $d" : Q[String, {val x: Int; val str: String}]
     
-    val closed = dsl"(str: String) => (x: Int) => $s" : Q[String => Int => String, {}]
-    val closed2 = dsl"(x: Int) => (str: String) => $s" : Q[Int => String => String, {}]
+    val closed = ir"(str: String) => (x: Int) => $s" : Q[String => Int => String, {}]
+    val closed2 = ir"(x: Int) => (str: String) => $s" : Q[Int => String => String, {}]
     
-    assert(closed =~= dsl"(a: String) => (b: Int) => a + b.toDouble")
-    assert(closed2 =~= dsl"(b: Int) => (a: String) => a + b.toDouble")
+    assert(closed =~= ir"(a: String) => (b: Int) => a + b.toDouble")
+    assert(closed2 =~= ir"(b: Int) => (a: String) => a + b.toDouble")
     
     
-    assertDoesNotCompile(""" dsl"42: $$t" """) // scp.quasi.EmbeddingException: Free type variables are not supported: '$$t'
+    assertDoesNotCompile(""" ir"42: $$t" """) // scp.quasi.EmbeddingException: Free type variables are not supported: '$$t'
     
   }
   
   test("Rep extraction") {
-    hopefully(dsl"Some($$x:Int)".rep extract dsl"Some(42)".rep isDefined)
-    hopefully(dsl"Some(42)".rep extract dsl"Some($$x:Int)".rep isEmpty)
+    hopefully(ir"Some($$x:Int)".rep extract ir"Some(42)".rep isDefined)
+    hopefully(ir"Some(42)".rep extract ir"Some($$x:Int)".rep isEmpty)
   }
   
   test("Term Equivalence") {
     
-    //val a = dsl"($$x: Int)"
-    //val b = dsl"($$x: Int):Int"
+    //val a = ir"($$x: Int)"
+    //val b = ir"($$x: Int):Int"
     //println(a.rep extract b.rep, b.rep extract a.rep)
     
-    assert(dsl"($$x: Int)" =~= dsl"($$x: Int)")
-    assert(!(dsl"($$x: Int)" =~= dsl"($$y: Int)"))
+    assert(ir"($$x: Int)" =~= ir"($$x: Int)")
+    assert(!(ir"($$x: Int)" =~= ir"($$y: Int)"))
     
-    assert(dsl"($$x: Int)" =~= dsl"($$x: Int):Int")
-    assert(!(dsl"($$x: Int)" =~= dsl"($$y: Int)+1"))
-    assert(!(dsl"($$x: Int)" =~= dsl"($$y: String)"))
+    assert(ir"($$x: Int)" =~= ir"($$x: Int):Int")
+    assert(!(ir"($$x: Int)" =~= ir"($$y: Int)+1"))
+    assert(!(ir"($$x: Int)" =~= ir"($$y: String)"))
     
-    assert(dsl"($$x: Int) + ($$y: Int)" =~= dsl"($$x: Int) + ($$y: Int)")
+    assert(ir"($$x: Int) + ($$y: Int)" =~= ir"($$x: Int) + ($$y: Int)")
     
-    assert(!(dsl"($$x: Int) + ($$y: Int)" =~= dsl"($$y: Int) + ($$x: Int)"))
+    assert(!(ir"($$x: Int) + ($$y: Int)" =~= ir"($$y: Int) + ($$x: Int)"))
     
   }
   
   test("Ascription and Hole Types are Checked") {
+    import base.hole
     
-    hopefullyNot(dsl"$$str:String" =~=  dsl"$$str:Any")
-    hopefullyNot(dsl"$$str:String" =~= Quoted(hole("str")))
+    val N = typeRepOf[Nothing]
     
-    hopefully(hole("str") =~=  hole("str"))
-    eqt( (hole[Any]("str") extract hole("str")).get._1("str"), hole("str") )
-    hopefullyNot(hole("str") =~=  hole[Int]("str"))
-    hopefullyNot(hole[String]("str") =~=  hole[Int]("str"))
+    hopefullyNot(ir"$$str:String" =~=  ir"$$str:Any")
+    hopefullyNot(ir"$$str:String" =~= base.`internal IR`(hole("str", N)))
+    
+    hopefully(hole("str", N) =~=  hole("str", N))
+    eqt( (hole("str", typeRepOf[Any]) extract hole("str", N)).get._1("str"), hole("str", N) )
+    hopefullyNot(hole("str", N) =~=  hole("str", typeRepOf[Int]))
+    hopefullyNot(hole("str", typeRepOf[String]) =~=  hole("str", typeRepOf[Int]))
     
   }
   

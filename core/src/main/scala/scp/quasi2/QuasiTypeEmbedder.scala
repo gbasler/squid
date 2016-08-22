@@ -75,6 +75,12 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
         val tagType = c.typecheck(tq"_root_.scala.reflect.runtime.universe.TypeTag[$tp]", c.TYPEmode)
         c.inferImplicitValue(tagType.tpe) match {
           case EmptyTree =>
+            
+            if (tp.typeSymbol == symbolOf[Array[_]]) {
+              // Note: srum.runtimeClass(sru.typeOf[Array[Int]]).toString == [I
+              throw EmbeddingException.Unsupported("Arrays of unresolved type.")
+            }
+            
             throw EmbeddingException(s"Unknown type `$tp` does not have a TypeTag to embed it as uninterpreted.")
           case impt =>
             super.unknownTypefallBack(tp)

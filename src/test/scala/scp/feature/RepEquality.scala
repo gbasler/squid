@@ -1,19 +1,17 @@
 package scp
 package feature
 
-import org.scalatest.FunSuite
-
-class RepEquality extends FunSuite {
+class RepEquality extends MyFunSuite2 {
   
-  import TestDSL._
+  import TestDSL2.Predef._
   
   test("Functions") {
     
-    assert(dsl"(x: Int) => x" =~= dsl"(x: Int) => x")
+    assert(ir"(x: Int) => x" =~= ir"(x: Int) => x")
     
-    assert(dsl"(x: Int) => x" =~= dsl"(y: Int) => y")
+    assert(ir"(x: Int) => x" =~= ir"(y: Int) => y")
     
-    assert(dsl"val x = 42.toDouble; x + 1" =~= dsl"val y = 42.toDouble; y + 1")
+    assert(ir"val x = 42.toDouble; x + 1" =~= ir"val y = 42.toDouble; y + 1")
     
   }
   

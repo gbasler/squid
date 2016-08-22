@@ -1,37 +1,35 @@
 package scp
 package functional
 
-import org.scalatest.FunSuite
-
-class FunBodyXion extends FunSuite {
+class FunBodyXion extends MyFunSuite2 {
   
-  import TestDSL._
+  import TestDSL2.Predef._
   
-  val fun = dsl"(x: Int) => x + 1"
+  val fun = ir"(x: Int) => x + 1"
   val body = fun match {
-    case dsl"(y: Int) => $b: Int" => b
+    case ir"(y: Int) => $b: Int" => b
   }
   
   test("Function Body Extraction") {
     
-    //println(body, dsl"($$y: Int) + 1")
-    //println(body.rep extract dsl"($$y: Int) + 1".rep)
-    //println(dsl"($$y: Int) + 1".rep extract body.rep)
+    //println(body, ir"($$y: Int) + 1")
+    //println(body.rep extract ir"($$y: Int) + 1".rep)
+    //println(ir"($$y: Int) + 1".rep extract body.rep)
     
-    assert(body =~= dsl"($$y: Int) + 1")
-    assert(!(body =~= dsl"($$x: Int) + 1"))
+    assert(body =~= ir"($$y: Int) + 1")
+    assert(!(body =~= ir"($$x: Int) + 1"))
     
     val bodyPart = body match {
-      case dsl"($x: Int) + 1" => x
+      case ir"($x: Int) + 1" => x
     }
-    assert(bodyPart =~= dsl"$$y: Int")
-    assert(!(bodyPart =~= dsl"$$x: Int"))
+    assert(bodyPart =~= ir"$$y: Int")
+    assert(!(bodyPart =~= ir"$$x: Int"))
     
   }
   
   test("Function Body Reconstruction") {
     
-    val fun2 = dsl"(y: Int) => $body" : Q[Int => Int, {}]
+    val fun2 = ir"(y: Int) => $body" : Q[Int => Int, {}]
     assert(fun =~= fun2)
     
   }

@@ -125,7 +125,7 @@ class QuasiMacros(val c: whitebox.Context) {
     scrutinee.tpe.baseType(IRSym) match {
       case TypeRef(baseType, IRSym, typ :: ctx :: Nil) if base.tpe =:= baseType =>
       case _ => throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a subtype of `$base.${IRSym.name}[_,_]`"
-        +"\n\tTry matching { case x: Rep[_] => ... } first.")
+        +"\n\tTry matching { case x: IR[_,_] => ... } first.")
     }
     
     quasiquoteImpl[L](base, Some(scrutinee))

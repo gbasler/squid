@@ -170,7 +170,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   
   
   case class BoundVal(name: String)(val typ: TypeRep) extends Def {
-    def toHole = Hole(name)(typ, Some(this))
+    def toHole(newName: String) = Hole(newName)(typ, Some(this))
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
     override def toString = s"[$name:$typ]"
@@ -197,19 +197,9 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     def ptyp = param.typ
     val typ = funType(ptyp, repType(body))
     
-    def fun(r: Rep) = bottomUpPartial(body) {
-      case rep if dfn(rep) === `param` =>
-        val rt = repType(r)
-        if (weakTypLeq(rt, ptyp, Contravariant)) {
-          if (ptyp <:< rt) r
-          else ascribe(r, ptyp)
-          // ^ In Scala, substituting a term with a term of more precise type may break the program;
-          // for example substituting `x` of type Int with `???` (of type Nothing <: Int) in `(x:Int)=>x.toDouble` ...
-          // So we actually substitute each _use_ of `x` with `x:Int` as in `(x:Nothing)=>(x:Int).toDouble`
-        } else throw IRException(s"Substituting parameter '$param' of type '$ptyp' for term '$r' of incompatible type '$rt'")
+    def inline(arg: Rep) = bottomUpPartial(body) { //body withSymbol (param -> arg)
+      case rep if dfn(rep) === `param` => arg
     }
-    
-    def inline(arg: Rep): Rep = fun(arg) //body withSymbol (param -> arg)
     
     override def toString = s"$param => $body"
     //override def toString = s"$param [$typ]=> $body"
@@ -277,7 +267,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
           // body of the matcher, so what the matcher extracts contains potentially (safely) extruded variables.
           for {
             pt <- a1.ptyp extract (a2.ptyp, Contravariant)
-            b <- a1.body.extract(a2.fun(rep(a1.param.toHole))) // 'a1.param.toHole' represents a free variables
+            b <- a1.body.extract(a2.inline(rep(a2.param.toHole(a1.param.name)))) // 'a2.param.toHole' is a free variable that 'retains' the memory that it was bound to 'a2.param'
             m <- merge(pt, b)
           } yield m
           

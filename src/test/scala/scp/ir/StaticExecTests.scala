@@ -47,6 +47,7 @@ class StaticExecTests extends FunSuite {
     
     same(staticExecAndSource[AST]{ lib.Var(0).! } ) // FIXME
     same(staticExecAndSource[AST]{ var x = ("ok" + "ko".reverse).length; x-=1; (x+=1, x, 'lol).hashCode } )
+    same(staticExecAndSource[AST]{ var ls: List[Int] = Nil; ls ::= 1; ls ::= 2; ls ::= 3; ls.reverse mkString " " } )
     
   }
   

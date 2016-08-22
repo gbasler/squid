@@ -117,6 +117,7 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
       case _ => None
     }
   }
+  def hasHoles(tp: TypeRep) = tp exists { case TypeHoleRep(_) => true  case _ => false }
   
   def extractType(self: TypeRep, other: TypeRep, va: Variance): Option[Extract] = {
     import sru._

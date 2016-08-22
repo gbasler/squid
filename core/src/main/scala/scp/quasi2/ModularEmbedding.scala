@@ -196,7 +196,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
             val tp = typeApp(scpLib, varTypSym, varType :: Nil)
             methodApp(scpLibVar, mtd, varType :: Nil, Args(value)::Nil, tp) -> tp
           }
-          else value -> liftType(rhs.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
+          else value -> liftType(typeIfNotNothing(rhs.tpe) getOrElse tpt.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
         }
         
         val bound = bindVal(name.toString, valType)
@@ -426,7 +426,9 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         
       } catch {
         case e: ClassNotFoundException =>
-          // Types like `scala.Any` do not have an associated class (though Any is currently already handled in the case above)
+          dbg(s"No class found for $tp")
+          
+          // Types like `scala.Any` and `scala.Array[_]` do not have an associated class (though Any is currently already handled in the case above)
           unknownTypefallBack(tp)
       }
 

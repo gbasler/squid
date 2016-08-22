@@ -1,26 +1,31 @@
 package scp
 package feature
 
-class VirtualizedConstructs extends MyFunSuite {
-  import TestDSL._
+class VirtualizedConstructs extends MyFunSuite2 {
+  import TestDSL2.Predef._
   
   test("If-Then-Else") {
     
-    val ite = dsl"if (1 > 2) 666 else 42"
+    val ite = ir"if (1 > 2) 666 else 42"
     
-    ite matches {
-      //case dsl"if ($c) $t else $e" => fail // infers Nothing for the return type... generates a warning
-      //case dsl"if ($c) $t: Nothing else $e: Nothing" => fail // still generates an annoying warning (because it's desugared to IfThenElse[Nothing](...)) ... so I commented
+    ite match {
+      case ir"if ($c) $t else $e" => // scrutinee type Int is propagated to the branch holes 
+    }
+    
+    ite matches { // scrutinee type erased by `matches`
       
-      //case dsl"scp.lib.IfThenElse[Nothing]($c, $t, $e)" => fail // Warning:(14, 12) Type inferred for hole 't' was Nothing. Ascribe the hole explicitly to remove this warning.
-      case dsl"scp.lib.IfThenElse[Nothing]($c, $t:Nothing, $e:Nothing)" => fail
+      //case ir"if ($c) $t else $e" => fail // infers Nothing for the return type... generates a warning
+      //case ir"if ($c) $t: Nothing else $e: Nothing" => fail // still generates an annoying warning (because it's desugared to IfThenElse[Nothing](...)) ... so I commented
+      
+      //case ir"scp.lib.IfThenElse[Nothing]($c, $t, $e)" => fail // Warning:(14, 12) Type inferred for hole 't' was Nothing. Ascribe the hole explicitly to remove this warning.
+      case ir"scp.lib.IfThenElse[Nothing]($c, $t:Nothing, $e:Nothing)" => fail
         
-      case dsl"if ($c) $t else $e: Int" =>
-        c eqt dsl"1 > 2"
-        t eqt dsl"666"
-        e eqt dsl"42"
+      case ir"if ($c) $t else $e: Int" =>
+        c eqt ir"1 > 2"
+        t eqt ir"666"
+        e eqt ir"42"
     } and {
-      case dsl"if ($c) $t else $e: $tp" => eqt(tp.rep, typeRepOf[Int])
+      case ir"if ($c) $t else $e: $tp" => eqt(tp.rep, typeRepOf[Int])
     }
     
     assert(ite.run == 42)
@@ -29,57 +34,58 @@ class VirtualizedConstructs extends MyFunSuite {
   
   test("While") {
     
-    dsl"while (readInt > 0) println('ok)" match {
-      case dsl"while ($cond) $loop" =>
-        cond eqt dsl"readInt > 0"
-        loop eqt dsl"println('ok)"
+    ir"while (readInt > 0) println('ok)" match {
+      case ir"while ($cond) $loop" =>
+        cond eqt ir"readInt > 0"
+        loop eqt ir"println('ok)"
     }
     
   }
   
   test("Imperative") {
-    import VirtualizedConstructs._
+    //import VirtualizedConstructs._  // FIXME class loading
+    import Dummies.VirtualizedConstructs._
     
     setEv(0)
     
-    val impure = dsl"setEv(getEv+1); setEv(getEv+1); getEv"
+    val impure = ir"setEv(getEv+1); setEv(getEv+1); getEv"
     
     impure match {
-      case dsl"setEv(getEv+(${Constant(n)}:Int)); setEv(getEv+1); getEv" => assert(n == 1)
+      case ir"setEv(getEv+(${Const(n)}:Int)); setEv(getEv+1); getEv" => assert(n == 1)
     }
     impure matches {
     // Oddity: with 'matches', the 'ConstQ' extraction fails with: Error:(48, 31) No TypeTag available for A
-    //case dsl"setEv(getEv+(${ConstQ(n:Int)}:Int)); getEv" => assert(n == 1) // fixme ?!
-      case dsl"setEv(getEv+1); setEv(getEv+1); getEv" =>
+    //case ir"setEv(getEv+(${ConstQ(n:Int)}:Int)); getEv" => assert(n == 1) // fixme ?!
+      case ir"setEv(getEv+1); setEv(getEv+1); getEv" =>
     } and {
-      case dsl"lib.Imperative(setEv(getEv+1), setEv(getEv+1))(getEv)" =>
+      case ir"lib.Imperative(setEv(getEv+1), setEv(getEv+1))(getEv)" =>
     }
     
     same(impure.run, 2)
     same(getEv, 2)
     
-    same(dsl"ev = 0; ev".run, 0)
+    same(ir"ev = 0; ev".run, 0)
     same(getEv, 0)
     
     
     // Support for translation done by Scala:  nonUnitValue ~> { nonUnitValue; () }
-    dsl"getEv; getEv; getEv" matches {
-      case dsl"lib.Imperative(getEv,getEv)(getEv)" =>
+    ir"getEv; getEv; getEv" matches {
+      case ir"lib.Imperative(getEv,getEv)(getEv)" =>
     }
     
     // Just checking virtualization also works here:
-    eqt( dsl"val x = {println; 42}; x",  dsl"val x = lib.Imperative(println)(42); x" )
+    eqt( ir"val x = {println; 42}; x",  ir"val x = lib.Imperative(println)(42); x" )
     
     
   }
   
   test("Variables") {
     
-    eqt( dsl"var x = 0; x = 1; x",  dsl"val x = lib.Var(0); x := 1; x!" )
+    eqt( ir"var x = 0; x = 1; x",  ir"val x = lib.Var(0); x := 1; x!" )
 
-    eqt( dsl"var x = 0; x += 1",  dsl"val x = lib.Var(0); x := x.! + 1" )
+    eqt( ir"var x = 0; x += 1",  ir"val x = lib.Var(0); x := x.! + 1" )
     
-    same(dsl"val lol = 42; var v = lol-1; v += 1; v.toDouble".run, 42.0)
+    same(ir"val lol = 42; var v = lol-1; v += 1; v.toDouble".run, 42.0)
     
   }
   
