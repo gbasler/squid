@@ -9,6 +9,9 @@ import sru._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.ScalaReflectSurgeon
 
+/**
+  * TODO: a smarter version that creates the invokers and returns a _runner_ that can be ran more efficiently.
+  */
 class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   import BaseInterpreter._
   
@@ -25,14 +28,16 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def readVal(v: BoundVal): Rep = v.value
   def const[A: sru.TypeTag](value: A): Rep = value
   
-  /** Note: HOAS would be better, but we can't abstract over arity with HOAS so the rest of the code would suffer anyway */
-  def lambda(params: List[BoundVal], body: => Rep): Rep = params match {
-    case Nil => () => body
-    case x0 :: Nil => (p0: Any) => x0.value = p0; body
-    case x0 :: x1 :: Nil => (p0: Any, p1: Any) => x0.value = p0; x1.value = p1; body
-    // TODO
-    case _ => ???
-  }
+  /* Note: HOAS may be nicer to have here, but we can't abstract over arity with HOAS so the rest of the code would suffer anyway */
+  def lambda(params: List[BoundVal], body: => Rep): Rep = BaseInterpreterMacros.genLambdaBody
+  /* The above macro generates code following the pattern below for all 22 cases:  
+    params match {
+      case Nil => () => body
+      case x0 :: Nil => (p0: Any) => x0.value = p0; body
+      case x0 :: x1 :: Nil => (p0: Any, p1: Any) => x0.value = p0; x1.value = p1; body
+      ...
+    }
+  */
   
   def byName(arg: => Rep): Rep = () => arg
   

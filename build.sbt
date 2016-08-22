@@ -28,6 +28,7 @@ lazy val main = (project in file(".")).
   )
 
 lazy val core = (project in file("core")).
+  dependsOn(core_macros).
   settings(commonSettings: _*).
   settings(
     libraryDependencies += scalaReflect.value,
@@ -41,6 +42,12 @@ lazy val core = (project in file("core")).
         if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
         else Nil
       )
+  )
+
+lazy val core_macros = (project in file("core_macros")).
+  settings(commonSettings: _*).
+  settings(
+    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
   )
 
 lazy val benchmark = (project in file("benchmark")).
