@@ -22,12 +22,15 @@ class DefaultQuasiConfig extends QuasiConfig {
     import c.universe._
     
     object Meta extends MetaBases {
+      private var cnt = 0
       val u: c.universe.type = c.universe
-      def freshName(hint: String) = c.freshName(u.TermName(hint))
+      //def freshName(hint: String) = c.freshName(u.TermName(hint)) // Creates problems with the Scala compiler when the produced code is processed by another macro
+      def freshName(hint: String) = TermName(s"_${cnt}_$hint") oh_and (cnt += 1)
     }
     object base extends Meta.MirrorBase(baseTree)
     
     val code = user(base) {
+      case (q"$tr: _*", bind) => q"$tr map (__$$ir => ${base.substitute(q"__$$ir.rep", bind mapValues base.readVal)}): _*"
       case (tr, bind) => base.substitute(q"$tr.rep", bind mapValues base.readVal)
     }
     

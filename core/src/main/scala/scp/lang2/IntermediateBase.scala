@@ -14,7 +14,19 @@ trait IntermediateBase extends Base {
   implicit class IntermediateRepOps(private val self: Rep) {
     def typ = repType(self)
   }
-
+  
+  implicit class IntermediateIROps[Typ,Ctx](private val self: IR[Typ,Ctx]) {
+    /* Note: making it `def typ: IRType[Typ]` woule probably be unsound! */
+    def typ: IRType[_ <: Typ] = `internal IRType`(trep)
+    def trep = repType(self.rep)
+    
+    def run(implicit ev: {} <:< Ctx): Typ = {
+      val Inter = new ir2.BaseInterpreter
+      reinterpret(self.rep, Inter).asInstanceOf[Typ]
+    }
+    
+  }
+  
   
   
 }

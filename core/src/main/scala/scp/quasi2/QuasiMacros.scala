@@ -9,6 +9,7 @@ import quasi.EmbeddingException
 
 import collection.mutable
 import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
 
 object QuasiMacros {
@@ -44,18 +45,30 @@ class QuasiMacros(val c: whitebox.Context) {
   /** Generates a proper macro abort/error if a quasi or embedding exception is raised,
     * unless debugging is on (in which case it is often useful to see the stack trace) */
   def wrapError(code: => Tree): Tree = try code catch {
-    case QuasiException(msg) if !debug.debugOptionEnabled =>
-      c.abort(c.enclosingPosition, "Quasiquote Error: "+msg)
-    case EmbeddingException(msg) if !debug.debugOptionEnabled =>
-      c.abort(c.enclosingPosition, "Embedding Error: "+msg)
+    case e: Throwable =>
+      val (err, report) = e match {
+        case QuasiException(msg) => "Quasiquote Error: "+msg -> true
+        case EmbeddingException(msg) => "Embedding Error: "+msg -> true
+        case e => e.getMessage -> false
+      }
+      if (debug.debugOptionEnabled) {
+        debug("Macro failed with: "+e)
+        //debug(e.getStackTrace mkString "\n")
+        throw e
+      }
+      else if (report) c.abort(c.enclosingPosition, err)
+      else {
+        c.warning(c.enclosingPosition, "Macro failed with: "+e)
+        throw e
+      }
   }
   
   
   def forward$(q: Tree*): Tree = c.macroApplication match {
-    case q"$qc.$$[$t,$c](..$code)" => q"$qc.base.$$[$t,$c](..$code)"
+    case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
   }
   def forward$$(name: Tree): Tree = c.macroApplication match {
-    case q"$qc.$$$$[$t]($n)" => q"$qc.base.$$$$[$t]($n)"
+    case q"$qc.$$$$[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
   }
   
   
@@ -65,25 +78,29 @@ class QuasiMacros(val c: whitebox.Context) {
   
   def quasicodeImpl[Config: c.WeakTypeTag](tree: c.Tree) = wrapError {
     
+    debug(s"Typed[${tree.tpe}]: "+showCode(tree))
+    
     val quasiBase = c.macroApplication match {
       case x @ q"$qc.${id @ TermName(name)}[$tp]($code)" if dslInterpolators(name) =>
         debug("Found quasicode base: "+qc)
         qc
     }
-    val base = c.typecheck(q"$quasiBase.base")
+    val base = c.typecheck(q"$quasiBase.qcbase")
     
     val config = mkConfig(weakTypeOf[Config])
     
     val code = tree //transform { case q"$qc.$$[$typ,$ctx]($t)" =>  }
+    //val code = tree transform { case q"$qc.$$[$typ,$ctx](..$xs)" if xs.size != 1 => ??? }
     
     object Embedder extends QuasiEmbedder[c.type](c)
     val res = Embedder(base, code, Nil,
        config,
-      None, Map(), Set(), Seq(), Set(), Set(), Set(), code, Nil)
+      None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil)
     
     debug("Generated:\n"+showCode(res))
     
     res: c.Tree
+    //c.parse(showCode(res))
   }
   
   
@@ -150,36 +167,59 @@ class QuasiMacros(val c: whitebox.Context) {
         unquotedTypes ::= ((name.toTypeName, tp, tree))
         tq"$tp"
       case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot unquote type '$tp': it is not from base $base.")
-      case _ => throw EmbeddingException(s"Cannot unquote type '$tp': it is not a QuotedType[_].")
+      case _ => throw EmbeddingException(s"Cannot unquote type '$tp': it is not an IRType[_].")
+    }
+    
+    def mkTermHole(name: TermName, followedBySplice: Boolean) = {
+      val h = builder.holes(name)
+      
+      //debug("HOLE: "+h)
+      
+      if (isUnapply) {
+        
+        val n = h.name filter (_.toString != "_") getOrElse c.freshName(TermName("ANON_HOLE")) toTermName;
+        holes ::= Left(n)
+        
+        if (followedBySplice) {
+          // This is to help Scala typecheck the spliced hole; 
+          // if we don't and call $$ instead of $$_*, typechecking usually silently fails and makes <error> types, for some reason...
+          q"$base.$$$$_*(${Symbol(n toString)}): _*"
+        }
+        else  {
+          if (h.vararg) splicedHoles += n
+          else h.tree match { case pq"$p @ __*" => splicedHoles += n   case _ => }
+          if (splicedHoles(n)) q"$base.$$$$_*(${Symbol(n toString)}): _*"
+          else
+          q"$base.$$$$(${Symbol(n toString)})"
+        }
+        
+      } else {
+        h.tree match {
+          //case t @ q"$_: _*" => q"$base.$$($t: _*)"  // not actually useful...
+          case q"$t: _*" => q"$base.$$($t: _*)"
+          //case q"$t: _*" => q"$base.$$($t: _*): _*" // Adding the _* so that typing does not think of this term as a Seq[T] (see vararg $'s type) -- EDIT: won't work, as ModEmb will interpret it as an object-language splice (which we don't want)
+          case q"($t: $tp)" if (tp.tpe match { /** This is specifically for handling the {{{xs : __*}}} syntax (which is there as a complementary of the {{{xs @ __*}}} pattern) */
+            case TypeRef(btp, sym, Nil) => (btp =:= base.tpe) && sym == SubstituteVarargSym
+            case _ => false
+          }) => q"$base.$$($t: _*)"
+          case t if h.vararg => q"$base.$$($t: _*)"
+          case t => q"$base.$$($t)"
+        }
+      }
     }
     
     val code = (builder.tree: Tree) transform {
+      
+      // FIXME: these does not seem to work:
+      //case q"(_ : $_) => $_" if isUnapply => 
+      case ValDef(_, TermName("_"), _, _) if isUnapply => throw QuasiException("All extracted bindings should be named.")
+        
+      // This is to help Scala typecheck the spliced hole; if we don't and call $$ instead of $$_*, typechecking usually silently fails and makes <error> types, for some reason...
+      case q"${Ident(name: TermName)}: _*" if isUnapply && builder.holes.contains(name) =>
+        mkTermHole(name, true)
         
       case Ident(name: TermName) if builder.holes.contains(name) =>
-        val h = builder.holes(name)
-        
-        //debug("HOLE: "+h)
-        
-        if (isUnapply) {
-          
-          val n = h.name filter (_.toString != "_") getOrElse c.freshName(TermName("ANON_HOLE")) toTermName;
-          holes ::= Left(n)
-          if (h.vararg) splicedHoles += n
-          else h.tree match { case pq"$p @ __*" => splicedHoles += n   case _ => }
-          q"$base.$$$$(${Symbol(n toString)})"
-          
-        } else {
-          h.tree match {
-            //case t @ q"$_: _*" => q"$base.$$($t: _*)"  // not actually useful...
-            case q"$t: _*" => q"$base.$$($t: _*)"
-            case q"($t: $tp)" if (tp.tpe match { /** This is specifically for handling the {{{xs : __*}}} syntax (which is there as a complementary of the {{{xs @ __*}}} pattern) */
-              case TypeRef(btp, sym, Nil) => (btp =:= base.tpe) && sym == SubstituteVarargSym
-              case _ => false
-            }) => q"$base.$$($t: _*)"
-            case t if h.vararg => q"$base.$$($t: _*)"
-            case t => q"$base.$$($t)"
-          }
-        }
+        mkTermHole(name, false)
         
       case Ident(name: TypeName) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
         val hole = builder.holes(name.toTermName)
@@ -229,8 +269,9 @@ class QuasiMacros(val c: whitebox.Context) {
     
     
     if (isUnapply && holes.size != builder.holes.size) {
+      //println(builder.holes, holes.map(_.fold(identity, _ |> hol))) // TODO
       val missing = builder.holes -- holes.map(_.fold(identity, _.toTermName)) map (h => h._2.name map ("$"+_) getOrElse s"$${${showCode(h._2.tree)}}")
-      throw QuasiException(s"Illegal hole position${if (missing.size > 1) "s" else ""} for: "+missing.mkString(","))
+      throw QuasiException(s"Illegal hole position${if (missing.size > 1) "s" else ""} for: "+missing.mkString(", "))
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
@@ -239,17 +280,54 @@ class QuasiMacros(val c: whitebox.Context) {
     debug("Generated:\n"+showCode(res))
     
     res: c.Tree
+    //c.parse(showCode(res)): c.Tree
   }
   
   
   
-  
+  def implicitTypeImpl[Config: c.WeakTypeTag, T: c.WeakTypeTag] = wrapError {
+    val T = weakTypeOf[T]
+    
+    debug("Implicit for "+T)
+    
+    val config = mkConfig(weakTypeOf[Config])
+    
+    val quasiBase = c.macroApplication match {
+      case q"$qc.dbg.implicitType[$tp]" =>
+        debug("Found implicitType base: "+qc)
+        qc
+      case q"$qc.implicitType[$tp]" =>
+        debug("Found implicitType base: "+qc)
+        qc
+    }
+    val myBaseTree = c.typecheck(q"$quasiBase.base")
+    
+    val codeTree = config.embed(c)(myBaseTree, new BaseUser[c.type](c) {
+      def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
+        object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
+          val helper = QuasiMacros.this.Helpers
+          val baseTree = myBaseTree
+        }
+        object ME extends QTE.Impl
+        ME.liftType(T).asInstanceOf[b.Rep] // TODO proper way to do that!
+      }
+    })
+    
+    val res = q"$myBaseTree.`internal IRType`[$T]($codeTree)"
+    
+    debug("Generated: "+res)
+    //if (debug.debugOptionEnabled) debug("Of Type: "+c.typecheck(res).tpe) // Makes a StackOverflow when type evidence macro stuff happen
+    
+    //codeTree: c.Tree
+    res
+  }
   
   
   
   
 }
 
+class QuasiBlackboxMacros(val ctx: blackbox.Context) extends QuasiMacros(ctx.asInstanceOf[whitebox.Context])
 
 
 

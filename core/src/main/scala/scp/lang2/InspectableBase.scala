@@ -24,11 +24,13 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
     assert(xkeys -- keys isEmpty, "Unexpected extracted type keys "+(xkeys -- keys)+", not in specified keys "+keySets())//+keys)
     val noExtr = keys -- xkeys
     val plur = "s" * (noExtr.size - 1)
+    
+    // This is obsolete. All type holes should be assigned an extracted type, be it the Nothing..Any interval. 
     if (noExtr nonEmpty) System.err.print( // not 'println' since the position String contains a newLine
       s"""Warning: no type representations were extracted for type hole$plur: ${prnt(noExtr map ("$"+_))}
          |  Perhaps the type hole$plur ${if (plur isEmpty) "is" else "are"} in the position of an unconstrained GADT type parameter where the GADT is matched contravariantly...
          |${position}""".stripMargin)
-    ( maps._1, maps._2 ++ (noExtr map (k => k -> typeHole(s"$k<error>"))), maps._3 ) // probably not safe to return a hole here, but at this point we're screwed anyway...
+    ( maps._1, maps._2 ++ (noExtr map (k => k -> typeHole(s"<error $k>"))), maps._3 ) // probably not safe to return a hole here, but at this point we're screwed anyway...
   }
   
   def extractType(xtor: TypeRep, xtee: TypeRep, va: Variance): Option[Extract]

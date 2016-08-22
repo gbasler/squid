@@ -79,6 +79,14 @@ package object utils {
   def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
   
   
+  def wtf = wth("Program reached and unexpected state.")
+  def wth(msg: String) = throw new Exception(s"Internal Error: $msg")
+  
+  object oh {
+    def wait(msg: String) = wth(msg)
+  }
+  
+  
   
 }
 

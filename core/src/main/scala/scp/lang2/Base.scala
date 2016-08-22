@@ -1,9 +1,9 @@
 package scp
 package lang2
 
-import scala.reflect.runtime.universe.TypeTag
+import utils.meta.RuntimeUniverseHelpers.sru
 
-trait Base extends TypingBase {
+trait Base extends TypingBase with quasi2.QuasiBase {
   
   type Rep
   type BoundVal
@@ -11,12 +11,14 @@ trait Base extends TypingBase {
   def bindVal(name: String, typ: TypeRep): BoundVal
   
   def readVal(v: BoundVal): Rep
-  def const[A: TypeTag](value: A): Rep // TODO make the bound ClassTag, which is sufficient for literals... or even just take a Constant as argument!
+  def const(value: Any): Rep // Note: not taking a sru.Constant as argument, because `const` also receives things like () -- Unit "literal"
   def lambda(params: List[BoundVal], body: => Rep): Rep
   
   /** Important to support packages that are not objects because of typeApp (that may take sthg like `java.lang` for `String`)
     * Note: for consistency, maybe we should separate into two methods package/module, where typeApp and module are based on a package... */
-  def moduleObject(fullName: String, isPackage: Boolean): Rep
+  def moduleObject(fullName: String, isPackage: Boolean): Rep // TODO rm; fix typeApp
+  def staticModule(fullName: String): Rep
+  def module(prefix: Rep, name: String, typ: TypeRep): Rep
   def newObject(tp: TypeRep): Rep
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
@@ -31,6 +33,11 @@ trait Base extends TypingBase {
   
   
   
+  val Const: ConstAPI
+  trait ConstAPI { // TODO put in InspectableBase!
+    def apply[T: sru.TypeTag](v: T): IR[T,{}] = `internal IR`(const(v))  // TODO rm TypeTag
+    def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T]  // TODO make it IRType?
+  }
   
   
   def repEq(a: Rep, b: Rep): Boolean

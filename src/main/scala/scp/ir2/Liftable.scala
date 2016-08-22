@@ -37,7 +37,8 @@ object Liftable {
   
   
 }
-trait QuasiLiftable[-BaseType <: QuasiBase, T] extends Liftable[BaseType, T] {
+// TODO merge this with Liftable
+trait QuasiLiftable[-BaseType <: Base, T] extends Liftable[BaseType, T] {
   def lift(b: BaseType, x: T): b.Rep = apply(b, x).rep
   def apply(b: BaseType, x: T): b.IR[T,{}]
 }

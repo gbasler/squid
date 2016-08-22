@@ -5,6 +5,7 @@ import utils._
 import utils.meta._
 import lang2._
 import quasi.EmbeddingException
+
 import collection.mutable
 
 /**
@@ -14,6 +15,8 @@ import collection.mutable
   * TODO: move the caching code to a BaseCacher class, and combine it with a BaseForwarder
   * 
   * TODO: would it be possible to write out method apps (like for Var and Imperative) using a quasiquote itself..!? (would need circular macro dependency)
+  * 
+  * TODO check that expectedType is used whenever possible (dont blindly lift x.tpe instead...)
   * 
   */
 abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](val uni: U, val base: B, debug: String => Unit = println) extends UniverseHelpers[U] {
@@ -32,6 +35,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     val varCls = srum.runtimeClass(sru.typeOf[scp.lib.Var[Any]].typeSymbol.asClass).getName
     (varCls, srum.runtimeClass(sru.typeOf[scp.lib.Var.type].typeSymbol.asClass).getName, loadTypSymbol(varCls))
   }
+  lazy val scpLibVar = moduleObject("scp.lib.Var", false)
   
   lazy val scpLib = moduleObject("scp.lib.package", false)
   lazy val scpLibTyp =
@@ -128,18 +132,26 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
    
   // TODO pull in all remaining cases from Embedding
   /** @throws EmbeddingException */
-  def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
+    def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
     def rec(x1: Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = liftTerm(x1, x, expTpe)
     
     //debug(List(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?") mkString " ")
+    //dbg(s"TRAVERSING",showCode(x),s"[${x.tpe}]  <:",expectedType getOrElse "?")
     
     x match {
       
       case q"" => throw EmbeddingException("Empty program fragment")
         
+      case q"""({
+        val $$u: $_ = $_
+        val $$m: $_ = $_
+        $$u.TypeTag.apply[$tpt]($$m, $_)
+      }): $_      
+      """ => throw EmbeddingException.Unsupported(s"TypeTag construction (for $tpt)")
+        
+        
       /** --- --- --- Literals --- --- --- */
-      case c @ Literal(Constant(x)) =>
-        base.const(x)(mkTag(c.tpe))
+      case c @ Literal(Constant(x)) => base.const(x)
         
       /** --- --- --- BOUND VARIABLE REFERENCES --- --- --- */
       case Ident(name) if x.symbol.isTerm && (ctx isDefinedAt x.symbol.asTerm) =>
@@ -160,7 +172,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val varTyp = vari.symbol.typeSignature
         val mtd = loadMtdSymbol(varTypSym, "$colon$eq", None)
         
-        methodApp(ref, mtd, Nil, Args(rec(valu, Some(vari.symbol.typeSignature)))::Nil, liftType(varTyp))
+        methodApp(ref, mtd, Nil, Args(rec(valu, Some(vari.symbol.typeSignature)))::Nil, liftType(Unit))
         
       /** --- --- --- VAL/VAR BINDINGS --- --- --- */
       case q"${vdef @ ValDef(mods, name, tpt, rhs)}; ..$b" =>
@@ -174,16 +186,17 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
           /** We used to get the type from vdef's symbol.
             * However, with var virtualization, this symbol refers to the original var def of type T, while the type should be Var[T] */
           //val valType = vdef.symbol.typeSignature
-          val valType = liftType(rhs.tpe)
           
           if (mods.hasFlag(Flag.MUTABLE)) {
+            val varType = liftType(tpt.tpe) // be careful not to use the type of the initial value
             
             val mtd = loadMtdSymbol(loadTypSymbol(varModCls), "apply")
             
-            val tp = typeApp(moduleObject("scp.lib.package", false), varTypSym, valType::Nil)
-            methodApp(moduleObject("scp.lib.package.Var", false), mtd, Nil, Args(value)::Nil, tp) -> tp
+            //val tp = typeApp(moduleObject("scp.lib.package", false), varTypSym, varType :: Nil)
+            val tp = typeApp(scpLib, varTypSym, varType :: Nil)
+            methodApp(scpLibVar, mtd, varType :: Nil, Args(value)::Nil, tp) -> tp
           }
-          else value -> valType
+          else value -> liftType(rhs.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
         }
         
         val bound = bindVal(name.toString, valType)
@@ -192,21 +205,20 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
           internal.setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
           expectedType)(ctx + (vdef.symbol.asTerm -> bound))
         
-        letin(bound, value, body, liftType(x.tpe))
+        letin(bound, value, body, liftType(expectedType getOrElse x.tpe))
         
         
       /** --- --- --- MODULE REFERENCES --- --- --- */
-      case _ if x.symbol != null && x.symbol.isModule => // Note: when testing 'x.tpe.termSymbol.isModule', we sometimes ended up applying this case on some type parameters!
-        //debug(List(">>", x.tpe, x.tpe <:< typeOf[AnyRef], x.symbol.typeSignature, x.symbol.typeSignature <:< typeOf[AnyRef]) mkString " ")
+      // Note: when testing 'x.tpe.termSymbol.isModule', we sometimes ended up applying this case on some type parameters!
+      case q"$pre.${name}" if x.symbol != null && x.symbol.isModule =>
+        //dbg("MODULE",x,x.symbol,x.tpe,x.tpe.typeSymbol,x.tpe.typeSymbol.isModuleClass)
+        if (x.tpe.typeSymbol.isStatic) liftModule(x.symbol.asModule.moduleClass.asType.toType)
+        else module(rec(pre, Some(pre.tpe)), name.toString, liftType(x.tpe)) // TODO use expectedType?
         
-        /*if (x.symbol.isJava) {
-          assume(!(x.symbol.typeSignature <:< typeOf[AnyRef]))
-          moduleObject(x.symbol.fullName)
-        } else {
-          val objName = x.tpe match { case SingleType(tp,sym) => s"${tp.typeSymbol.fullName}.${sym.name}" }
-          moduleObject(objName)
-        }*/
-        moduleObject(x.symbol.fullName, x.symbol.isPackage)
+        
+      case q"${Ident(name: TermName)}" if x.symbol != null && x.symbol.isModule =>
+        if (x.tpe.typeSymbol.isStatic) liftModule(x.symbol.asModule.moduleClass.asType.toType)
+        else throw EmbeddingException.Unsupported("Non-qualified, non-static module reference")
         
         
       /** --- --- --- METHOD APPLICATIONS --- --- --- */
@@ -246,37 +258,18 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
             
             /** Note that in Scala, vararg parameters cannot be by-name, so we don't check for it */
             def processArgs(acc: List[Rep])(args_params: (List[Tree], Stream[Type])): ArgList = args_params match {
+                
               case ((a @ q"$t : _*") :: Nil, Stream(VarargParam(pt))) =>
                 //debug(s"vararg splice [$pt]", t)
-                t match {
-                  //case q"$base.spliceVararg[$t,$scp]($idts)" => //if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
-                    /*
-                    val splicedX = recNoType(q"$Base.unquote[$t,$scp]($$x$$)")
-                    //q"${mkArgs(acc)}($idts map (($$x$$:$Base.Q[$t,$scp]) => $splicedX): _*)" // ArgsVarargs creation using Args.apply
-                    mkArgs(acc)(idts map (($$x$$:$Base.Q[$t,$scp]) => $splicedX): _*)" // ArgsVarargs creation using Args.apply
-                    */
-                    //???
-                  case _ =>
-                    val sym = symbolOf[scala.collection.Seq[_]]
-                    //q"${mkArgs(acc)} splice ${rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))}" // ArgsVarargSpliced
-                    mkArgs(acc) splice rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil)))
-                }
+                val sym = symbolOf[scala.collection.Seq[_]]
+                mkArgs(acc) splice rec(t, Some(internal.typeRef(internal.thisType(sym.owner), sym, pt :: Nil))) // ArgsVarargSpliced
                 
-              //case ((t @ Ident(name: TermName)) :: Nil, Stream(VarargParam(pt))) if splicedHoles(name) =>
-                /*
-                //debug(s"hole vararg [$pt]", t)
-                termHoleInfo(name) = ctx.keys.toList -> pt
-                // Note: contrary to normal holes, here we do not emit a warning if its inferred type is Nothing
-                // The warning would be annoying because hard to remove anyway (cf: cannot ascribe a type to a vararg splice)
-                
-                //q"${mkArgs(acc)} splice $Base.splicedHole[$pt](${name.toString})"
-                mkArgs(acc) splice splicedHole[$pt](${name.toString})"
-                */
-                //???
+              case ((a @ q"$t : _*") :: Nil, pts) =>
+                throw EmbeddingException(s"Vararg splice unexpected in that position: ${showCode(a)}")
                 
               case (as, Stream(VarargParam(pt))) =>
                 //debug(s"vararg [$pt]", as)
-                ArgsVarargs(mkArgs(acc), processArgs(Nil)(as, Stream continually pt).asInstanceOf[Args])
+                ArgsVarargs(mkArgs(acc), Args(as map { a => liftTerm(a, parent, Some(pt), inVarargsPos = true) }: _*))
                 
               case (a :: as, pt #:: pts) =>
                 pt match {
@@ -286,6 +279,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
                 }
               case (Nil, Stream.Empty) => mkArgs(acc)
               case (Nil, pts) if !pts.hasDefiniteSize => mkArgs(acc)
+                
               //case _ => // TODO B/E
             }
             
@@ -319,7 +313,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
           tl = tl.tail
         }
         
-        val effects = Args()(hs map (t => rec(t, Some(Any))): _*)
+        val effects = Args()(hs.reverse map (t => rec(t, Some(Any))): _*)
         
         val body = rec(internal.setType( q"..$tl; $r",x.tpe ), // doing this kind of de/re-structuring loses the type
           expectedType)
@@ -335,14 +329,15 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       /** --- --- --- IF THEN ELSE --- --- --- */
       case q"if ($cond) $thn else $els" =>
         
-        val tp = lub(thn.tpe :: els.tpe :: Nil) // x.tpe will have the type of whatever was expected in place of the ITE (eg: Unit, even if the branches are Int)
-        val retTyp = liftType(tp)
+        val branchTp = lub(thn.tpe :: els.tpe :: Nil) // x.tpe will have the type of whatever was expected in place of the ITE (eg: Unit, even if the branches are Int)
+        val tp = typeIfNotNothing(branchTp) orElse expectedType
+        val retTyp = liftType(tp getOrElse branchTp)
         
         val mtd = getMtd(scpLibTyp, "IfThenElse")
         methodApp(scpLib, mtd, retTyp::Nil, Args(
           rec(cond, Some(Boolean)),
-          byName(rec(thn, Some(tp))),
-          byName(rec(els, Some(tp)))
+          byName(rec(thn, tp)),
+          byName(rec(els, tp))
         ) :: Nil, retTyp)
         
       /** --- --- --- WHILE LOOPS --- --- --- */
@@ -351,7 +346,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val retTyp = liftType(Unit)
         methodApp(scpLib, mtd, Nil, Args(
           byName(rec(cond, Some(Boolean))),
-          byName(rec(loop, Some(loop.tpe)))
+          byName(rec(loop, typeIfNotNothing(loop.tpe) orElse expectedType))
         ) :: Nil, retTyp)
         
       /** --- --- --- TYPE ASCRIPTIONS --- --- --- */
@@ -359,8 +354,10 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val tree = liftTerm(t, x, Some(typ.tpe)) // Executed before `traverseTypeTree(typ)` to keep syntactic order!
         traverseTypeTree(typ)
         ascribe(tree, liftType(typ.tpe))
+      
         
-        
+      /** --- --- --- STUPID BLOCK --- --- --- */
+      case Block(Nil, t) => liftTerm(t, x, expectedType)  // Note: used to be q"{ $t }", but that turned out to also match things not in a block!
         
         
       /** --- --- --- ERRORS --- --- --- */
@@ -377,21 +374,47 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   }
   
   
+  /** wide/deal represent whether we have already tried to widened/dealias this type */
+  final def liftType(tp: Type, wide: Boolean = false, deal: Boolean = false): TypeRep = {
+    val dtp = tp//.dealias
+    typeCache.getOrElseUpdate(dtp, liftTypeUncached(dtp, wide, deal))
+  }
+  
   /** Note: we currently use `moduleType` for types that reside in packages and for objects used as modules...
-    * Note: widening may change Int(0) to Int (wanted) but also make 'scala' in 'scala.Int' TypeRef-matchable !! */
-  def liftType(tp: Type, rec: Boolean = false): TypeRep = typeCache.getOrElseUpdate(tp, tp match {
+    * Note: widening may change Int(0) to Int (wanted) but also make 'scala' (as in 'scala.Int') TypeRef-matchable !! */
+  def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, (debug(s"Mathing type $tp")) before tp match {
     //case _ if tp =:= Any =>
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
     //  liftType(AnyRef)
+  
+    case _ if tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous => // `isErroneous` seems to return true if any sub-component has `isError`
+      throw EmbeddingException(s"Internal error: type `$tp` contains an error...")
+      
+    case ExistentialType(syms, typ) =>
+      // TODO still allow implicit search (only prevent making a type tag of it)
+      throw EmbeddingException.Unsupported(s"Existential type '$tp'")
+      /*
+      // TODO at least warn properly...
+      val symSet = syms.toSet
+      val etp = typ.map{case TypeRef(_,s,Nil) if symSet contains s => Any case t => t}
+      System.err.println(s"Warning: Erased existential `$tp` to `$etp`")
+      liftType(etp)
+      */
+
+    case SingleType(pre, sym) if sym.isStatic && sym.isModule => // TODO understand diffce with ThisType 
+      staticModuleType(sym.fullName)
       
     case tpe @ RefinedType(tp :: Nil, scp) if scp.isEmpty =>
       liftType(tp)
       
-    case tpe @ RefinedType(tpes, scp) =>
+    case tpe @ RefinedType(tpes, scp) if !(tpe <:< typeOf[QuasiBase.`<extruded type>`]) =>
+      debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< typeOf[QuasiBase.`<extruded type>`]) =>
+      //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
+      dbg(s"TypeRef($prefix, $sym, $targs)")
       
       try {
         val tsym = getTyp(tp.typeSymbol.asType) // may throw ClassNotFoundException
@@ -404,43 +427,66 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       } catch {
         case e: ClassNotFoundException =>
           // Types like `scala.Any` do not have an associated class (though Any is currently already handled in the case above)
-          uninterpretedType(mkTag(tp))
+          unknownTypefallBack(tp)
       }
+
+    case ConstantType(Constant(v)) => constType(v, liftType(tp.widen))
+      
+    //case _ if tp.typeSymbol.isModuleClass =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isModuleClass =>
+      assert(false)
+      ???
+      //typeApp(liftModule(tp.typeSymbol.owner.asType.toType), getTyp(tp.typeSymbol), Nil)
       
     case _ => // TODO verify no holes in 'tp'! If holes, try widening first
-      val s = tp.typeSymbol
-      if (s.isModule || s.isPackage || s.isModuleClass) {
-        dbg("Yet unhandled case!", s) // FIXME
-        ??? // TODO B/E
+      
+      (wide, deal) match { // Note: could also compare if the widened/dealiased is == (could be more efficient, cf less needless recursive calls)
+        case (false, _) => liftType(tp.widen, true, deal)
+        case (true, false) => liftType(tp.widen, true, true)
+        case (true, true) =>
+          debug(s"Unknown type, falling back: $tp")
+          unknownTypefallBack(tp)
       }
-      else if (tp <:< typeOf[AnyRef]) {
-        val tag = mkTag(tp)
-        uninterpretedType(tag)
-      }
-      else {
-        assert(!rec) // TODO B/E
-        liftType(tp.widen, true)
-      }
+      
   })
   
-  def liftModule(tp: Type): Rep = tp match {
+  def liftModule(tp: Type): Rep = tp.dealias match {
     case ThisType(sym) =>
-      // FIXME handle non-stable `this` types with holes!!
+      // FIXME handle non-stable `this` types, by making a hole!
       assert(sym.isStatic) // TODO BE
       moduleObject(sym.fullName, sym.isPackage)
     case SingleType(pre,sym) =>
+      //dbg(tp,tp.dealias,tp.widen,pre,sym)
+      /*
       assert(sym.isStatic, s"Symbol $sym is not static.") // TODO BE
       //assert(sym.isPackage && sym.isPackageClass && sym.isModule) // fails
       moduleObject(sym.fullName, sym.isPackage)
+      */
+      if (sym.isStatic)
+        moduleObject(sym.fullName, sym.isPackage)
+      else liftModule(tp.widen) // TODO prevent infloop
+
+
+    case TypeRef(pre,sym,targs) =>
+      //dbg(pre,sym,targs)
+      //dbg(">>>>>>>",sym,sym.isStatic)
+      assert(sym.isStatic, s"Symbol $sym is not static.") // TODO BE
+      moduleObject(sym.fullName, sym.isPackage)
+      
+  }
+  
+  def unknownTypefallBack(tpe: Type) = {
+    val tag = mkTag(tpe)
+    uninterpretedType(tag)
   }
   
   
   def traverseTypeTree(tpt: Tree) = ()
   
   
-  def apply(code: Tree) = {
+  def apply(code: Tree, expectedType: Option[Type] = None) = {
     
-    liftTerm(code, code, Some(code.tpe))(Map())
+    liftTerm(code, code, expectedType  orElse Some(code.tpe))(Map())
     
   }
   

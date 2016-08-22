@@ -42,7 +42,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
     
-    val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.lang.Base.HoleType" }
+    val traits = typeHoles map { typ => q"trait $typ extends _root_.scp.quasi2.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
     
     debug("Tree:", tree)
@@ -56,7 +56,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
             if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
-              val tname = TypeName("[Unknown Context]")
+              val tname = TypeName("<unknown context>")
               c.typecheck(q"class $tname; new $tname").tpe
             } else ctx
             debug("New context:",newCtx)
@@ -119,7 +119,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           }
           |  seems incompatible with or is more specific than pattern type: IR[${typed.tpe}, _]${
             if (typeHoles.isEmpty) ""
-            else s"\n|  perhaps one of the type holes is unnecessary: " + typeHoles.mkString(", ")
+            else s"\n|  perhaps one of the type holes (${typeHoles mkString ", "}) is unnecessary."
           }
           |Ascribe the scrutinee with ': IR[_,_]' or call '.erase' on it to remove this warning.""".stripMargin)
           // ^ TODO
@@ -150,7 +150,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     apply(Base, finalTree, termScope, config, unapply, 
-      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, stmts)
+      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts)
     
   }
   
@@ -163,24 +163,25 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   
   
-  def apply(baseTree: Tree, tree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
+  def apply(baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
             typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
             holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
-            termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, stmts: List[Tree]): c.Tree = {
+            termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree]): c.Tree = {
     
     
     val shortBaseName = TermName("__b__")
     val Base = q"$shortBaseName"
     
     
-    val retType = tree.tpe.widen // Widen to avoid too-specific types like Double(1.0), and be more in-line with Scala's normal behavior
+    val retType = rawTree.tpe.widen // Widen to avoid too-specific types like Double(1.0), and be more in-line with Scala's normal behavior
     
     var termScope = termScopeParam // will contain the scope bases of all unquoted stuff + in xtion, possibly the scrutinee's scope
     // Note: in 'unapply' mode, termScope's last element should be the scrutinee's context
     
     var importedFreeVars = mutable.Map[String, Type]() // will contain the free vars imported by inserted IR's
     
-    type Context = List[TermSymbol]
+    //type Context = List[TermSymbol]
+    type Context = Map[TermName, Type]
     val termHoleInfo = mutable.Map[TermName, (Context, Type)]()
     
     
@@ -188,30 +189,34 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     var freeVariableInstances = List.empty[(String, Type)]
     //var insertions = List.empty[(String, Tree)]
     // TODO
-    tree analyse {
-      case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree
-        
-    }
+    //rawTree analyse {
+    //  case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree
+    //}
     // TODO see if we found the same holes as in `holes` !
     
+    //val tree = rawTree transform { case q"$b.$$[$t,$c]($args: _*): _*" => q"$b.$$[$t,$c]($args: _*)" }
+    val tree = rawTree
     
     val codeTree = config.embed(c)(Base, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
         
-        lazy val quasiBase = b match {
-          case base: QuasiBase => base
-          case _ =>
-            //throw QuasiException(s"Cannot use base of type ${srum.classSymbol(b.getClass)} as it needs to extend QuasiBase.") // Error:(42, 16) exception during macro expansion: scala.reflect.internal.FatalError: EmptyScope.enter
-            throw QuasiException(s"Cannot use base of class ${b.getClass} as it needs to extend QuasiBase.")
+        val myBaseTree = baseTree
+        object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
+          val helper = QuasiEmbedder.this.Helpers
+          //val baseTree: c.Tree = Base  // throws: scala.reflect.macros.TypecheckException: not found: value __b__
+          val baseTree: c.Tree = myBaseTree
         }
-        object ME extends ModularEmbedding[macroContext.universe.type, b.type](macroContext.universe, b, str => debug(str)) {
-          def className(cls: ClassSymbol): String =
-            //srum.runtimeClass(cls.asClass.asInstanceOf[sru.ClassSymbol]) // returns null
-            srum.runtimeClass(imp.importSymbol(cls).asClass).getName
+        object ME extends QTE.Impl {
           
-          override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type])(implicit ctx: Map[TermSymbol, b.BoundVal]): b.Rep = x match {
-              
-              
+          def holeName(nameTree: Tree, in: Tree) = nameTree match {
+            case q"scala.Symbol.apply(${Literal(Constant(str: String))})" => str
+            case _ => throw QuasiException("Free variable must have a static name, and be of the form: $$[Type]('name) or $$('name)\n\tin: "+showCode(in))
+          }
+          
+          override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean)(implicit ctx: Map[TermSymbol, b.BoundVal]): b.Rep = {
+          object HoleName { def unapply(tr: Tree) = Some(holeName(tr,x)) }
+          x match {
+            
             /** This is to find repeated holes: $-less references to holes that were introduced somewhere else.
               * We convert them to proper hole calls and recurse. */
             case _ if holeSymbols(x.symbol) =>
@@ -222,7 +227,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
             /** Replaces insertion unquotes with whatever `insert` feels like inserting.
               * In the default quasi config case, this will be the trees representing the inserted elements. */
-            case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree
+            case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree:  //if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
               //debug("UNQUOTE",idts)
               
               val (bases, vars) = bases_variables(scp.tpe)
@@ -242,40 +247,45 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               termScope ++= bases
               importedFreeVars ++= free.iterator map { case (n,t) => n.toString -> t }
               
-              def susb(ir: Tree) =
+              def subs(ir: Tree) =
                 insert(ir, captured.iterator map {case(n,bv) => n.toString->bv} toMap) // TODO also pass liftType(tpt.tpe)
               
               debug("Unquoting",s"$idts: IR[$tpt,$scp]", ";  env",varsInScope,";  capt",captured,";  free",free)
               
-              // TODO: properly fix this: introduce a `splice` method in Base, get rid of SplicedHole, and make ArgsVararg smartly transform into ArgsVarargs when it sees a splice
-              // TODO: or even simplify arg lists?
-              def nope = throw QuasiException("Embedding of varargs into intermediate bases is not yet supported.")
+              // TODOmaybe: introduce a `splice` method in Base, get rid of SplicedHole, and make ArgsVararg smartly transform into ArgsVarargs when it sees a splice
               
+              def assertVararg(t: Tree) = if (!inVarargsPos) throw QuasiException(s"Vararg splice unexpected in that position: ${showCode(t)}")
               idts match {
-                //case Nil => ???
-                case q"$idts: _*" :: Nil =>
-                  q"$idts map (__$$ir => ${
-                    susb(q"__$$ir") match {
-                      case s: Tree => s
-                      case _ => nope
-                    }
-                  }): _*".asInstanceOf[b.Rep]
-                case idt :: Nil =>
-                  susb(idt)
+                case (idt @ q"$idts: _*") :: Nil =>
+                  assertVararg(idt)
+                  subs(idt)
+                case idt :: Nil => subs(idt)
                 case _ =>
-                  try q"${idts map (t => susb(t).asInstanceOf[Tree])}: _*".asInstanceOf[b.Rep] catch {
-                    case _: ClassCastException => nope
-                  }
+                  assertVararg(q"$$(..$idts)")
+                  subs(q"_root_.scala.Seq(..${idts}): _*")
               }
               
+              
+            // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`
+            case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => oh wait "Scala type checking problem."
+              
+            case q"$baseTree.$$$$_*[$tp]($nameTree)" => // TODO check baseTree
+              val name = holeName(nameTree, nameTree)
+              val notSeqNothingExpectedType = expectedType map { et =>
+                (et baseType typeOf[Seq[Any]].typeSymbol) match {
+                  case TypeRef(_, _, tp :: Nil) =>
+                    if (splicedHoles(TermName(name))) tp else { // no need to warn here as the warning will happen in case below (other handling of $$)
+                      if (tp <:< Nothing) c.warning(c.enclosingPosition, s"Type inferred for vararg hole '$name' was Nothing. This is unlikely to be what you want.")
+                      et
+                    }
+                  case NoType => throw QuasiException(s"The expected type of vararg hole '$name' should extend Seq[_], found `${et}`")
+                }}
+              liftTerm(q"$baseTree.$$$$[${TypeTree(Nothing)}]($nameTree)", parent, notSeqNothingExpectedType) // No need to pass `tp` as the type argument; it ensures there will be a warning if hole has no type
               
             /** Replaces calls to $$(name) with actual holes */
             case q"$baseTree.$$$$[$tpt]($nameTree)" => // TODO check baseTree
               
-              val name = nameTree match {
-                case q"scala.Symbol.apply(${Literal(Constant(str: String))})" => str
-                case _ => throw QuasiException("Free variable must have a static name, and be of the form: $$[Type]('name) or $$('name)\n\tin: "+showCode(x))
-              }
+              val name = holeName(nameTree, x)
               
               val holeType = expectedType match {
                 case None if tpt.tpe <:< Nothing => throw EmbeddingException(s"No type info for hole '$name'" + (
@@ -286,37 +296,53 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   if (tp <:< Nothing) parent match {
                     case q"$_: $_" => // this hole is ascribed explicitly; the Nothing type must be desired
                     case _ => macroContext.warning(macroContext.enclosingPosition,
-                      s"Type inferred for hole '$name' was Nothing. Ascribe the hole explicitly to remove this warning.") // FIXME show real hole in its original form
+                      s"Type inferred for hole '$name' was Nothing. Ascribe the hole explicitly to remove this warning.") // TODO show real hole in its original form
                   }
                   
                   val mergedTp = if (tp <:< tpt.tpe || tpt.tpe <:< Nothing) tp else tpt.tpe
-                  debug("Expected",tp," required",tpt.tpe," merged",mergedTp)
+                  debug(s"[Hole '$name'] Expected",tp," required",tpt.tpe," merged",mergedTp)
                   
                   mergedTp
               }
               
               
-              if (splicedHoles(TermName(name))) throw EmbeddingException(s"Misplaced spliced hole: '$x'") // used to be: q"$Base.splicedHole[${_expectedType}](${name.toString})"
+              //if (splicedHoles(TermName(name))) throw EmbeddingException(s"Misplaced spliced hole: '$name'") // used to be: q"$Base.splicedHole[${_expectedType}](${name.toString})"
+              
               
               if (unapply isEmpty) {
                 debug(s"Free variable: $name: $tpt")
                 freeVariableInstances ::= name -> holeType
                 // TODO maybe aggregate glb type beforehand so we can pass the precise type here... could even pass the _same_ hole!
               } else {
-                val scp = ctx.keys.toList
-                termHoleInfo(TermName(name)) = scp -> holeType  // TODO what happens in varargs? (cf Embedding)
+                val termName = TermName(name)
+                val scp = ctx.keys map (k => k.name -> k.typeSignature) toMap;
+                termHoleInfo get termName map { case (scp0, holeType0) =>
+                  val newScp = scp0 ++ scp.map { case (n,t) => lub(t :: scp0.getOrElse(n, Any) :: Nil) }
+                  newScp -> lub(holeType :: holeType0 :: Nil)
+                } getOrElse {
+                  termHoleInfo(termName) = scp -> holeType
+                }
               }
               
-              quasiBase.hole(name, liftType(holeType).asInstanceOf[quasiBase.TypeRep]).asInstanceOf[b.Rep]
+              if (splicedHoles(TermName(name)))
+                   b.splicedHole(name, liftType(holeType))
+              else b.hole(name, liftType(holeType))
               
               
             case _ => 
               //debug("NOPE",x)
               super.liftTerm(x, parent, expectedType)
+          }}
+          
+          override def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): b.TypeRep = {
+            val tname = tp.typeSymbol.name
+            typeSymbols get tname.toTypeName filter (_ === tp.typeSymbol) map { sym =>
+              b.typeHole(tname.toString)
+            } getOrElse super.liftTypeUncached(tp, wide, deal)
           }
-  
+          
         }
-        ME(tree)
+        ME(tree, Some(typedTreeType))
       }
     })
     
@@ -326,6 +352,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
       case (name, typs) => name -> glb(typs)
     }
     if (freeVariables nonEmpty) debug("Free variables: "+freeVariables)
+    
+    if (termHoleInfo nonEmpty) debug("Term holes: "+termHoleInfo)
+    
     
     //val expectedType = typeIfNotNothing(typedTreeType)
     //val res = c.untypecheck(lift(finalTree, finalTree, expectedType)(Map()))
@@ -370,7 +399,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val noSefl = q"class A {}" match { case q"class A { $self => }" => self }
         val termHoleInfoProcessed = termHoleInfo mapValues {
           case (scp, tp) =>
-            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSefl, scp map { sym => q"val ${sym.name}: ${sym.typeSignature}" }))
+            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSefl, scp map { case(n,t) => q"val $n: $t" } toList))
             (scpTyp, tp)
         }
         val termTypesToExtract = termHoleInfoProcessed map {
@@ -378,7 +407,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             if (splicedHoles(name)) tq"Seq[$baseTree.IR[$tp,$scpTyp]]"
             else tq"$baseTree.IR[$tp,$scpTyp]"
           )}
-        val typeTypesToExtract = typeSymbols mapValues { sym => tq"$baseTree.QuotedType[$sym]" }
+        val typeTypesToExtract = typeSymbols mapValues { sym => tq"$baseTree.IRType[$sym]" }
         
         val extrTyps = holes.map {
           case Left(vname) => termTypesToExtract(vname)
@@ -407,10 +436,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val splicedValKeys = splicedHoles.map(_.toString)
         
         
-        val defs = typeHoles map { typName =>
+        val defs = typeHoles map { typName => // TODO rm
           val typ = typeSymbols(typName)
           val holeName = TermName(s"$$$typName$$hole")
-          q"implicit val $holeName : TypeEv[$typ] = TypeEv(typeHole[${typ}](${typName.toString}))"
+          q"implicit val $holeName : $Base.IRType[$typ] = $Base.`internal IRType`[${typ}]($Base.typeHole(${typName.toString}))"
         }
         
         //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
@@ -445,10 +474,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         } else {
           // FIXME hygiene (Rep types...)
           
-          /* Scala seems to be fine with referring to traits which declarations do not appear in the final source code,
+          /* Scala seems to be fine with referring to traits which declarations do not appear in the final source code (they were typechecked with context `c`),
           but it seems to creates confusion in tools like IntelliJ IDEA (although it's not fatal).
           To avoid it, the typed trait definitions are spliced here */
-          val typedTraits = stmts collect { case t @ q"abstract trait $_ extends ..$_" => t }
+          val typedTraits = stmts collect { case t @ q"abstract trait $_ extends ..$_" => t } //filter (_ => false)
           
           q"""{
           val $shortBaseName = $baseTree

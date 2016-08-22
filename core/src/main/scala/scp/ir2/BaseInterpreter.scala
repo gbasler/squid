@@ -15,18 +15,20 @@ import scala.reflect.runtime.ScalaReflectSurgeon
 class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   import BaseInterpreter._
   
+  type TypSymbol = ScalaTypeSymbol
+  
   type Rep = Any
   class BoundVal(var value: Any = null)
   type TypeRep = Unit
   
   
   def repEq(a: Rep, b: Rep): Boolean = a == b
-  def typEq(a: TypeRep, b: TypeRep): Boolean = true
+  def typLeq(a: TypeRep, b: TypeRep): Boolean = true
   
   
   def bindVal(name: String, typ: TypeRep): BoundVal = new BoundVal()
   def readVal(v: BoundVal): Rep = v.value
-  def const[A: sru.TypeTag](value: A): Rep = value
+  def const(value: Any): Rep = value
   
   /* Note: HOAS may be nicer to have here, but we can't abstract over arity with HOAS so the rest of the code would suffer anyway */
   def lambda(params: List[BoundVal], body: => Rep): Rep = BaseInterpreterMacros.genLambdaBody
@@ -57,6 +59,8 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
     
     mm.instance
   }
+  def staticModule(fullName: String): Rep = moduleObject(fullName, false)
+  def module(prefix: Rep, name: String, typ: TypeRep): Rep = prefix.getClass.getMethod(name).invoke(prefix)
   
   /** These pesky primitive types have a tendency to change class symbol and break everything!
     * eg: Int -> scala.Int instead of Int -> int */
@@ -167,9 +171,17 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def uninterpretedType[A: sru.TypeTag]: TypeRep = ()
   def moduleType(fullName: String): TypeRep = ()
   def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = ()
-  def recordType(fields: List[(String, TypeRep)]): TypeRep = ???
+  def recordType(fields: List[(String, TypeRep)]): TypeRep = ()
+  def constType(value: Any, underlying: TypeRep): TypeRep = ???
+  def staticModuleType(fullName: String): TypeRep = ???
    
-  
+  object Const extends ConstAPI {
+    def unapply[T: sru.TypeTag](ir: IR[T, _]): Option[T] = ???
+  }
+  def hole(name: String, typ: TypeRep): Any = ???
+  def splicedHole(name: String, typ: TypeRep): Any = ???
+  def substitute(r: Any,defs: scala.collection.immutable.Map[String,Any]): Any = ???
+  def typeHole(name: String): Unit = ???
   
   
 }

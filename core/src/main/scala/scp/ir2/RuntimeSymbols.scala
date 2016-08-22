@@ -2,18 +2,17 @@ package scp
 package ir2
 
 import utils._
+import meta.RuntimeUniverseHelpers._
 
 import collection.mutable
 
 object RuntimeSymbols extends RuntimeSymbols /*with TraceDebug*/ { // TODO move this to general helpers
   
-  private val typSymbolCache = mutable.HashMap[String, TypSymbol]()
+  private val typSymbolCache = mutable.HashMap[String, ScalaTypeSymbol]()
   
 }
 trait RuntimeSymbols extends TraceDebug {
   import RuntimeSymbols._
-  import meta.RuntimeUniverseHelpers._
-  import reflect.runtime.ScalaReflectSurgeon
   
   /*
   // TODO migrate to use these instead
@@ -24,17 +23,19 @@ trait RuntimeSymbols extends TraceDebug {
   }
   */
   
-  protected def ensureDefined(name: String, sym: sru.Symbol) = sym match {
+  /*protected*/ def ensureDefined(name: String, sym: sru.Symbol) = sym match {
     case sru.NoSymbol => 
       throw new Exception(s"Could not find $name")
     case _ => sym
   }
   
-  type TypSymbol = sru.TypeSymbol
   //type TypSymbol = sru.ClassSymbol
+  //type TypSymbol = sru.TypeSymbol
+  type ScalaTypeSymbol = sru.TypeSymbol
+  //private[this] type TypSymbol = sru.TypeSymbol
   type MtdSymbol = sru.MethodSymbol
   
-  def loadTypSymbol(fullName: String): TypSymbol = typSymbolCache.synchronized { typSymbolCache.getOrElseUpdate(fullName, {
+  def loadTypSymbol(fullName: String): ScalaTypeSymbol = typSymbolCache.synchronized { typSymbolCache.getOrElseUpdate(fullName, {
     val className = fullName match {
       case "boolean" => "scala.Boolean"
       case "byte" => "scala.Byte"
@@ -51,7 +52,7 @@ trait RuntimeSymbols extends TraceDebug {
     srum.classSymbol(Class.forName(className)) and (x => debug(s"Loaded: $x"))
   })}
   
-  def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
+  def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = { // TODO cache!!
     debug(s"Loading method $symName from $typ"+(if (static) " (static)" else ""))
     
     /** Because of a 2-ways caching problem in the impl of JavaMirror,
