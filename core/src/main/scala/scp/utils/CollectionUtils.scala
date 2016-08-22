@@ -45,7 +45,24 @@ object CollectionUtils {
       left.result -> right.result
     }
     
+    
+    def zipAnd[B,C,NewRepr](other: TraversableOnce[B])(f: (A,B) => C)
+    (implicit bf: CanBuildFrom[Repr, C, NewRepr]): NewRepr = {
+      val res = bf(repr)
+      val it0 = repr.toIterator
+      val it1 = other.toIterator
+      while (it0.hasNext && it1.hasNext) {
+        val next = f(it0.next, it1.next)
+        res += next
+      }
+      res.result
+    }
+    
   }
+  
+  
+  
+  
   
   
 }

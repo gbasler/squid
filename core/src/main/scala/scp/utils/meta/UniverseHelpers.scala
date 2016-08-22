@@ -91,6 +91,13 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     })
   }
   
+  object PossibleRefinement {
+    def unapply(t: Type): Option[(List[Type], Scope)] = t match {
+      case RefinedType(bases, scp) => Some(bases -> scp)
+      case tp => Some((tp :: Nil) -> internal.newScopeWith())
+    }
+  }
+  
   
   implicit class TreeOps(private val self: Tree) {
     def analyse(pf: PartialFunction[Tree, Unit]) =  {

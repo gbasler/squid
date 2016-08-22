@@ -10,7 +10,7 @@ package object utils {
   
   /** Tag type to be interpreted by quasiquotes as an existential named [Unknown Context],
     * useful to ensure rewrite rules are fully parametric in the context of the terms they match */
-  final class UnknownContext private()
+  final class UnknownContext private() // TODO extend <extruded type>
   
   
   implicit class Andable[T](val self: T) extends AnyVal {
@@ -20,6 +20,8 @@ package object utils {
     def oh_and(f: => Unit) = { f; self }
     
     def but_before(f: => Unit) = { f; self }
+    
+    def before[A](x: A) = x
     
   }
   
@@ -40,6 +42,8 @@ package object utils {
     def <|: [B] (lhs: A => B): B = lhs(__self)
     
     def withTypeOf[T >: A](x: T) = __self: T
+    
+    def If (cond: Boolean) = if (cond) Some(__self) else None
     
   }
   implicit class FunHelper[A,B](val __self: A => B) extends AnyVal {
@@ -67,7 +71,18 @@ package object utils {
     }
   }
   
+  object -> {
+    def unapply[A,B](ab: (A,B)) = Some(ab)
+  }
+  
+  
+  def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
+  
   
   
 }
+
+
+
+
 

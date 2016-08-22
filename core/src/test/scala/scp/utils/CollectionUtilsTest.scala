@@ -68,5 +68,13 @@ class CollectionUtilsTest extends FunSuite {
   }
   
   
+  test("Zip and") {
+    
+    assert( (List(1,2,3) zipAnd List(0,1,2))(_ + _) == List(1,3,5) )
+    
+  }
+  
   
 }
+
+
