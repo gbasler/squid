@@ -12,7 +12,10 @@ import Tuple2List.asList
 
 case class IRException(msg: String) extends Exception(msg)
 
-
+/** 
+  * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
+  * 
+  **/
 trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: IntermediateBase =>
   
   
@@ -95,7 +98,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
         MethodApp(tr(self), mtd, targs, argss map {
           case as: Args => trans(as)
           case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
-          case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), va)
+          case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), tr(va))
         }, tp)
       case v: BoundVal => v
       case Constant(_) => d
@@ -106,7 +109,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     rep(ret)
   })
   
-  def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
+  //def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
   
   

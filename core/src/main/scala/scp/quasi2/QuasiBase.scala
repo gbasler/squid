@@ -44,6 +44,12 @@ self: Base =>
     def cast[S >: T]: IR[S, C] = this
     def erase: IR[Any, C] = this
     
+    /** Useful when we have non-denotable types (e.g., extracted types) */
+    def withTypeOf[Typ >: T](x: IR[Typ, Nothing]) = this: IR[Typ,C]
+    
+    /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
+    def withContextOf[Ctx <: C](x: IR[Any, Ctx]) = this: IR[T,Ctx]
+    
     override def toString: String = s"""ir"$rep""""
   }
   def `internal IR`[Typ,Ctx](rep: Rep) = IR[Typ,Ctx](rep) // mainly for macros

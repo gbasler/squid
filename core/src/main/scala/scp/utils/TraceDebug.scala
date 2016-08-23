@@ -21,3 +21,9 @@ trait TraceDebug {
   protected def dbg(xs: List[Any]) = debug(xs mkString " ")
   
 }
+trait PublicTraceDebug extends TraceDebug {
+  
+  override def debug(x: => Any) = super.debug(x)
+  //def debug(x: => Any)
+  
+}
