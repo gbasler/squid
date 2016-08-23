@@ -21,6 +21,7 @@ trait MetaBases {
     * are stored in the `symbols` mutable buffer.
     * Note: these are let-bound but not cached – caching is assumed to be performed by the caller (eg: ModularEmbedding). */
   class MirrorBase(Base: Tree) extends Base {
+    /* TODO: more clever let-binding so defs used once won't be bound? -- that would require changing `type Rep = Tree` to something like `type Rep = () => Tree` */
     import scala.collection.mutable
     
     /** For legibility of the gen'd code, calls `mapp` instead of `methodApp`.
@@ -72,8 +73,10 @@ trait MetaBases {
       $Base.lambda(${mkNeatList(params map (_._2) map Ident.apply)}, $body)
     """
     
-    // TODO
-    // override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = 
+    override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
+      val ${bound._2} = $Base.bindVal(${bound._1}, ${bound._3})
+      $Base.letin(${bound._2}, $value, $body, $bodyType)
+    """
     
     
     def newObject(tp: TypeRep): Rep = q"$Base.newObject($tp)"

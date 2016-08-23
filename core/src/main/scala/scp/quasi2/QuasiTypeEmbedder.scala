@@ -5,6 +5,7 @@ import utils._
 import lang2._
 import scp.quasi.EmbeddingException
 
+/* TODO: make it work with intermediate bases (eg: `ViaASTQuasiConfig`) */
 abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <: Base](val c: C, val base: B, debug: String => Unit) {
   import c.universe._
   
@@ -40,9 +41,12 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       
       
       val irType = c.typecheck(tq"$baseTree.IRType[$tp]", c.TYPEmode) // TODO use internal.typeRef
+      debug(s"Searching for an `$irType` implicit")
       c.inferImplicitValue(irType.tpe, withMacrosDisabled = true) match {
         case EmptyTree =>
-        case impt => return q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
+        case impt =>
+          debug(s"Found: "+showCode(impt))
+          return q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
       }
       
       val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
@@ -72,19 +76,25 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
         throw EmbeddingException(s"Could not find type evidence associated with extracted type `$tp`.")
         
       } else {
+        
         val tagType = c.typecheck(tq"_root_.scala.reflect.runtime.universe.TypeTag[$tp]", c.TYPEmode)
+        
         c.inferImplicitValue(tagType.tpe) match {
           case EmptyTree =>
-            
+
             if (tp.typeSymbol == symbolOf[Array[_]]) {
               // Note: srum.runtimeClass(sru.typeOf[Array[Int]]).toString == [I
               throw EmbeddingException.Unsupported("Arrays of unresolved type.")
             }
-            
+
             throw EmbeddingException(s"Unknown type `$tp` does not have a TypeTag to embed it as uninterpreted.")
+            
           case impt =>
-            super.unknownTypefallBack(tp)
+            //super.unknownTypefallBack(tp) // unnecessary, as it just generates a call to uninterpretedType without the implicit resolved
+            return q"$baseTree.uninterpretedType[$tp]($impt)".asInstanceOf[base.TypeRep]
+            
         }
+        
       }
       
       

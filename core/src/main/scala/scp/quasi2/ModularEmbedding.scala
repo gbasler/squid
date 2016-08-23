@@ -382,7 +382,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   
   /** Note: we currently use `moduleType` for types that reside in packages and for objects used as modules...
     * Note: widening may change Int(0) to Int (wanted) but also make 'scala' (as in 'scala.Int') TypeRef-matchable !! */
-  def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, (debug(s"Mathing type $tp")) before tp match {
+  def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, (debug(s"Matching type $tp")) before tp match {
     //case _ if tp =:= Any =>
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
@@ -444,7 +444,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       
       (wide, deal) match { // Note: could also compare if the widened/dealiased is == (could be more efficient, cf less needless recursive calls)
         case (false, _) => liftType(tp.widen, true, deal)
-        case (true, false) => liftType(tp.widen, true, true)
+        case (true, false) => liftType(tp.dealias, true, true)
         case (true, true) =>
           debug(s"Unknown type, falling back: $tp")
           unknownTypefallBack(tp)

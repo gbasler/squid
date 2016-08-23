@@ -88,6 +88,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
       case Ascribe(r,t) => Ascribe(tr(r),t)
       case Hole(_) | SplicedHole(_) | NewObject(_) => d
       case mo @ ModuleObject(fullName, tp) => mo
+      case Module(pre, name, typ) => Module(tr(pre), name, typ)
       case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)
@@ -274,8 +275,11 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
         case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
           Some(EmptyExtract) // Note: not necessary to test the types: object with identical paths should be identical
 
-        case Module(pref0, name0, tp0) -> Module(pref1, name1, tp1) if name0 == name1 => // Note: if prefixes are matchable, module types should be fine
-          pref0 extract pref1
+        case Module(pref0, name0, tp0) -> Module(pref1, name1, tp1) =>
+          // Note: if prefixes are matchable, module types should be fine
+          // If prefixes are different _but_ type is the same, then it should be the same module!
+          // TODO also cross-test with ModuleObject, and ideally later MethodApp... 
+          pref0 extract pref1 flatMap If(name0 == name1) orElse extractType(tp0,tp1,Invariant)
           
         case (NewObject(tp1), NewObject(tp2)) => tp1 extract (tp2, Covariant)
           

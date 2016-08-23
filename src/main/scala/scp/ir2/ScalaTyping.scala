@@ -73,7 +73,12 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
   def staticModuleType(fullName: String) = {
     val modSym = srum.staticModule(fullName)
     RuntimeSymbols.ensureDefined(s"module $fullName", modSym)
+    //assert(modSym.moduleClass.asType.toType =:= modSym.typeSignature)  // seems to always return true
+    
+    /* In the future we may want to return a type attesting that this is a singleton type,
+    so we can equate method calls like DSL.Quasicodes.qcbase and DSL.Predef.base that return equivalent singleton types */
     //new TypeRep(sru.internal.thisType(modSym.moduleClass))
+    
     new TypeRep(modSym.typeSignature)
   }
   
