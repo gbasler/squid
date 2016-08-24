@@ -498,7 +498,9 @@ object Base {
     val quoted = c.macroApplication match {
       case q"$q.subs[$_,$_]($_)" => q
     }
-    println(quoted)
+    
+    //println(quoted)
+    
     val (name, term) = s match {
       case q"scala.this.Predef.ArrowAssoc[$_]($name).->[$_]($term)" =>
         (name match {
@@ -506,7 +508,9 @@ object Base {
           case _ => c.abort(c.enclosingPosition, "Nope name") // TODO BE
         }) -> term
     }
-    println(name, term)
+    
+    //println(name, term)
+    
     //q"""transform($quoted.rep){
     //  case 
     //  case r => r

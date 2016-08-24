@@ -235,6 +235,7 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
   
   import sru._
   def reinterpretType(tr: TypeRep, newBase: Base): newBase.TypeRep = tr.tpe match {
+      
     case TypeHoleRep(name) => 
       newBase match {
         case newBase: newBase.type with quasi2.QuasiBase =>
@@ -242,10 +243,24 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
         case _ => throw new IRException(
           s"Base $newBase does not inherit from QuasiBase and cannot handle hole type '$name'")
       }
-    case /*sru.*/TypeRef(pre, sym, targs) => newBase.typeApp( // FIXME
-      null.asInstanceOf[newBase.Rep], //reinterpretType(pre, newBase), 
-      null.asInstanceOf[newBase.TypSymbol], 
+      
+    case TypeRef(pre, sym, targs) => newBase.typeApp( // FIXME
+      { //reinterpretType(pre, newBase), 
+        
+        //val mo = pre.asInstanceOf[AST#ModuleObject]
+        //newBase.moduleObject(mo.fullName, mo.isPackage)
+        
+        try newBase.moduleObject(pre.typeSymbol.fullName, pre.typeSymbol.isPackage) // FIXME class loading
+        catch { case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.Rep] }
+      },
+      {
+        try newBase.loadTypSymbol(sym.fullName) // FIXME class loading
+        catch {
+          case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.TypSymbol]
+        }
+      },
       targs map (t => reinterpretType(t, newBase)))
+      
     //case sru.RefinedType(ps0, scp0) => ??? // TODO -- eg record type
     case sru.RefinedType(Nil, scp0) => newBase.recordType(scp0 map (s => s.name.toString -> reinterpretType(s.typeSignature, newBase)) toList)
     case sru.RefinedType(ps0, scp0) => ??? // TODO B/E

@@ -55,7 +55,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   def moduleObject(fullName: String, isPackage: Boolean): Rep =
     moduleCache.getOrElseUpdate(fullName, base.moduleObject(fullName, isPackage))
   
-  private val typeCache = mutable.HashMap[Type, TypeRep]()
+  protected val typeCache = mutable.HashMap[Type, TypeRep]()
   
   
   def getTyp(tsym: TypeSymbol): TypSymbol = {
@@ -368,10 +368,13 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       case _: DefDef =>
         throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
         
-      case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
+      case _ => unknownFeatureFallback(x, parent)
         
     }
   }
+  
+  def unknownFeatureFallback(x: Tree, parent: Tree): Rep =
+    throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
   
   
   /** wide/deal represent whether we have already tried to widened/dealias this type */

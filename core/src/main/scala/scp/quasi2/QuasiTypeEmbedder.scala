@@ -90,8 +90,13 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
             throw EmbeddingException(s"Unknown type `$tp` does not have a TypeTag to embed it as uninterpreted.")
             
           case impt =>
-            //super.unknownTypefallBack(tp) // unnecessary, as it just generates a call to uninterpretedType without the implicit resolved
-            return q"$baseTree.uninterpretedType[$tp]($impt)".asInstanceOf[base.TypeRep]
+            
+            super.unknownTypefallBack(tp) // unnecessary, as it just generates a call to uninterpretedType without the implicit resolved
+            // ^ actually useful to cache the tag!
+            
+            /* Does not help, as it bypasses the underlying base:
+             * although the tree creation is cached, it will NOT get let-bound, and will be duplicated all over the place */
+            //return typeCache.getOrElseUpdate(tp, q"$baseTree.uninterpretedType[$tp]($impt)".asInstanceOf[base.TypeRep])
             
         }
         

@@ -22,7 +22,7 @@ class QuasiMacros(val c: whitebox.Context) {
   //val debug = { val mc = MacroDebugger(c); mc[NoDebug] } // always debug
   val debug = { val mc = MacroDebugger(c); mc[MacroDebug] } // will cut dbg unless MacroUtils.DebugLevel <: MacroDebug or the macro application symbol has @MacroSetting(debug = true)
   
-  object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
+  object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type] with ScopeAnalyser[c.universe.type]
   import Helpers._
   
   def mkConfig(Config: Type): QuasiConfig = {
@@ -307,6 +307,7 @@ class QuasiMacros(val c: whitebox.Context) {
         object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
           val helper = QuasiMacros.this.Helpers
           val baseTree = myBaseTree
+          //def freshName(hint: String): TermName = TermName(c.freshName(hint))
         }
         object ME extends QTE.Impl
         ME.liftType(T).asInstanceOf[b.Rep] // TODO proper way to do that!
@@ -321,6 +322,40 @@ class QuasiMacros(val c: whitebox.Context) {
     //codeTree: c.Tree
     res
   }
+  
+  
+  def subsImpl[T: c.WeakTypeTag, C: c.WeakTypeTag](s: c.Tree) = {
+    import c.universe._
+    
+    //val T = weakTypeOf[T]
+    val C = weakTypeOf[C]
+    
+    val (base -> quoted, typ -> ctx) = c.macroApplication match {
+      case q"$b.IntermediateIROps[$t,$c]($q).subs[$_,$_]($_)" => (b -> q, t.tpe -> c.tpe)
+    }
+    
+    val name -> term = s match {
+      case q"scala.this.Predef.ArrowAssoc[$_](scala.Symbol.apply(${Literal(Constant(name: String))})).->[$_]($term)" =>
+        name -> term
+      case _ => c.abort(s.pos, "Illegal syntax for `subs`; Expected: `term0.subs 'name -> term1`")
+    }
+    
+    debug(name, term)
+    
+    val (bases, vars) = bases_variables(ctx)
+    
+    val outputCtx = tq"($C with ${glb(bases)}){ ..${ vars filter (_._1.toString =/= name) map { case(na,tp) => q"val $na: $tp" } } }"
+    
+    debug(s"Output context: $outputCtx")
+    
+    // These created crazy type and compiler errors...:
+    //q"val q = $quoted; q.base.`internal IR`[$typ,$outputCtx](base.substitute(q.rep, $name -> $term.rep))"
+    //q"val q = ${c.untypecheck(quoted)}; q.base.`internal IR`[$typ,$outputCtx](base.substitute(q.rep, $name -> $term.rep))"
+    
+    q"$base.`internal IR`[$typ,$outputCtx](base.substitute($quoted.rep, $name -> $term.rep))"
+    
+  }
+  
   
   
   

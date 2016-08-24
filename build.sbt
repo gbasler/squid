@@ -9,11 +9,15 @@ lazy val commonSettings = Seq(
   ),
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
-  //addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
+  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   libraryDependencies ++= Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
-  )
+  ),
+  libraryDependencies ++= (
+      if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
+      else Nil
+    )
 )
 lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 lazy val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % scalaVersion.value }
@@ -37,11 +41,7 @@ lazy val core = (project in file("core")).
     //libraryDependencies += "ch.epfl.lamp" % "scala-yinyang_2.11" % "0.2.0-SNAPSHOT",
     libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _),
     libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _),
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _),
-    libraryDependencies ++= (
-        if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
-        else Nil
-      )
+    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _)
   )
 
 lazy val core_macros = (project in file("core_macros")).

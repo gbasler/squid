@@ -287,8 +287,8 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
         case (NewObject(tp1), NewObject(tp2)) => tp1 extract (tp2, Covariant)
           
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
-          if mtd1 == mtd2
-          //if {println(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
+          //if mtd1 == mtd2
+          if {debug(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
         =>
           assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
           assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")

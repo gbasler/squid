@@ -108,7 +108,14 @@ trait MetaBases {
     
     def byName(arg: => Rep) = q"$Base.byName($arg)"
     
-    def uninterpretedType[A: sru.TypeTag]: TypeRep = q"$Base.uninterpretedType[${typeOf[A]}]"
+    
+    //def uninterpretedType[A: sru.TypeTag]: TypeRep = q"$Base.uninterpretedType[${typeOf[A]}]"
+    def uninterpretedType[A: sru.TypeTag]: TypeRep = { // Type tags can be very hairy, so we let-bind them
+      val n = curatedFreshName(typeOf[A].typeSymbol.name.toString)
+      symbols += n -> q"$Base.uninterpretedType[${typeOf[A]}]"
+      q"$n"
+    }
+    
     
     def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val n = curatedFreshName(typ._1)
@@ -236,7 +243,8 @@ trait MetaBases {
     def splicedHole(name: String, typ: TypeRep): Rep = q"${TermName(name)}: _*"
     
     def substitute(r: Rep, defs: Map[String, Rep]): Rep = r transform {
-      case h @ q"${TermName(name)}" =>
+      //case h @ q"${TermName(name)}" =>  // Weird! this does not seem to match...
+      case h @ Ident(TermName(name)) =>
         defs.getOrElse(name, h)
     }
     
@@ -266,6 +274,8 @@ object MetaBases {
     val u: sru.type = sru
     
     def freshName(hint: String) = sru.TermName(hint+"$__")
+    
+    object ScalaReflectionBase extends Runtime.ScalaReflectionBase
     
   }
   

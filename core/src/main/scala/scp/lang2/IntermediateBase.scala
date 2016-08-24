@@ -1,6 +1,8 @@
 package scp
 package lang2
 
+import scp.utils.meta.RuntimeUniverseHelpers.sru
+
 trait IntermediateBase extends Base {
   
   // TODO IR and IRType, irTypeOf, typeRepOf, repType, etc.
@@ -20,9 +22,16 @@ trait IntermediateBase extends Base {
     def typ: IRType[_ <: Typ] = `internal IRType`(trep)
     def trep = repType(self.rep)
     
+    import scala.language.experimental.macros
+    def subs[T1,C1](s: (Symbol, IR[T1,C1])): Any = macro quasi2.QuasiMacros.subsImpl[T1,C1]
+    
     def run(implicit ev: {} <:< Ctx): Typ = {
       val Inter = new ir2.BaseInterpreter
       reinterpret(self.rep, Inter).asInstanceOf[Typ]
+    }
+    
+    def showScala: String = {
+      sru.showCode( reinterpret(self.rep, quasi2.MetaBases.Runtime.ScalaReflectionBase) )
     }
     
   }

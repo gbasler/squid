@@ -73,9 +73,14 @@ class Varargs extends MyFunSuite2 {
     
     val args2 = Seq(ir"1", ir"2 + ($$x:Int)")
     val d = ir"List($args2*)"
+    eqt(d, ir"List(1, 2 + ($$x:Int))")
+    
     val d2: Q[List[Int], {val x: Int}] = d
     assertDoesNotCompile(""" d: Q[List[Int], {}] """) // Error:(73, 5) type mismatch; found: scp.TestDSL.Quoted[List[Int],Any{val x: Int}]; required: scp.TestDSL.Q[List[Int],AnyRef]
     
+    // FIXME
+    //val d3 = ir"List(${args2 map (r => ir"$r.toDouble")}*)"
+    //eqt(d, ir"List(1 toDouble, 2 + ($$x:Int) toDouble)")
     
     val e = ir"val x = 0; List($args2*)" : Q[List[Int], {}]
     eqt(e, ir"val x = 0; List(1, 2 + x)")

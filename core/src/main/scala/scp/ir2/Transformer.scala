@@ -122,7 +122,7 @@ class TransformerMacros(val c: whitebox.Context) {
         expr.tpe.baseType(symbolOf[lang2.Base#IR[_, _]]) match {
           case tpe@TypeRef(tpbase, _, constructedType :: constructedCtx :: Nil) if tpbase =:= base.tpe =>
             
-            if (extractedType =:= constructedType) {
+            if (constructedType <:< extractedType) {
               //debug("Rewriting " + extractedType)
             } else {
               c.abort(constructedPos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType")
