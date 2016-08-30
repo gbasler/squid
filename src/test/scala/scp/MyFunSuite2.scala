@@ -3,6 +3,7 @@ package scp
 import org.scalatest.FunSuite
 import scp.lang.Base
 import scp.ir2.AST
+import utils.meta.RuntimeUniverseHelpers.sru
 
 /** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure... */
 class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =>
@@ -10,6 +11,14 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
   
   def hopefully(condition: Boolean) = assert(condition)
   def hopefullyNot(condition: Boolean) = assert(!condition)
+  
+  def sameScalaType[A: sru.TypeTag, B: sru.TypeTag] =
+    if (!(sru.typeOf[A] =:= sru.typeOf[B])) fail(s"${sru.typeOf[A]} =/= ${sru.typeOf[B]}")
+  def ofExactType[A: sru.TypeTag, B: sru.TypeTag](a: A) = sameScalaType[A,B]
+  
+  implicit class TypeHelper[A: sru.TypeTag](self: A) {
+    def apply [B: sru.TypeTag] = { sameScalaType[A,B]; self }
+  }
   
   def same[T](a: T, b: T) = assert(a == b)
   def eqtWith[T](a: T, b: T)(r: (T,T) => Boolean) =

@@ -46,8 +46,11 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   implicit class RepOps(private val self: Rep) {
     def =~= (that: Rep) = repEq(self, that)
+    def show = showRep(self)
   }
   
+  
+  def showRep(r: Rep) = r.toString
   
   
   

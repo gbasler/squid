@@ -327,11 +327,12 @@ class QuasiMacros(val c: whitebox.Context) {
   def subsImpl[T: c.WeakTypeTag, C: c.WeakTypeTag](s: c.Tree) = {
     import c.universe._
     
-    //val T = weakTypeOf[T]
+    val T = weakTypeOf[T]
     val C = weakTypeOf[C]
     
     val (base -> quoted, typ -> ctx) = c.macroApplication match {
       case q"$b.IntermediateIROps[$t,$c]($q).subs[$_,$_]($_)" => (b -> q, t.tpe -> c.tpe)
+      case q"$b.IntermediateIROps[$t,$c]($q).dbg_subs[$_,$_]($_)" => (b -> q, t.tpe -> c.tpe)
     }
     
     val name -> term = s match {
@@ -340,20 +341,29 @@ class QuasiMacros(val c: whitebox.Context) {
       case _ => c.abort(s.pos, "Illegal syntax for `subs`; Expected: `term0.subs 'name -> term1`")
     }
     
-    debug(name, term)
+    //debug(name, term)
     
     val (bases, vars) = bases_variables(ctx)
     
-    val outputCtx = tq"($C with ${glb(bases)}){ ..${ vars filter (_._1.toString =/= name) map { case(na,tp) => q"val $na: $tp" } } }"
+    val replacedVarTyp = vars find (_._1.toString === name) getOrElse
+      c.abort(c.enclosingPosition, s"This term does not have a free variable named '$name' to substitute.") _2;
+    
+    if (!(T <:< replacedVarTyp)) c.abort(term.pos, s"Cannot substitute free variable `$name: $replacedVarTyp` with term of type `$T`")
+    
+    val outputCtx = {
+      val (cbases, cvars) = bases_variables(C)
+      mkContext(cbases ::: bases, (vars filter (_._1.toString =/= name)) ::: cvars)
+    }
     
     debug(s"Output context: $outputCtx")
     
-    // These created crazy type and compiler errors...:
-    //q"val q = $quoted; q.base.`internal IR`[$typ,$outputCtx](base.substitute(q.rep, $name -> $term.rep))"
-    //q"val q = ${c.untypecheck(quoted)}; q.base.`internal IR`[$typ,$outputCtx](base.substitute(q.rep, $name -> $term.rep))"
+    val sanitizedTerm = if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
+    //val sanitizedTerm = term
+    val res = q"$base.`internal IR`[$typ,$outputCtx]($base.substituteLazy($quoted.rep, Map($name -> (() => $sanitizedTerm.rep))))"
     
-    q"$base.`internal IR`[$typ,$outputCtx](base.substitute($quoted.rep, $name -> $term.rep))"
+    debug("Generated: "+showCode(res))
     
+    res
   }
   
   

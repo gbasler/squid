@@ -14,7 +14,11 @@ self: Base =>
   // TODO move these to IntermediateBase
   
   /** Should substitute holes for the given definitions */
+  // TODO impl correctly
+  //def substitute(r: Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs map (kv => kv._1 -> (() => kv._2)))
+  //def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep
   def substitute(r: Rep, defs: Map[String, Rep]): Rep
+  def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = substitute(r, defs map (kv => kv._1 -> kv._2()))
   
   def hole(name: String, typ: TypeRep): Rep
   def splicedHole(name: String, typ: TypeRep): Rep
@@ -50,7 +54,7 @@ self: Base =>
     /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
     def withContextOf[Ctx <: C](x: IR[Any, Ctx]) = this: IR[T,Ctx]
     
-    override def toString: String = s"""ir"$rep""""
+    override def toString: String = s"""ir"${showRep(rep)}""""
   }
   def `internal IR`[Typ,Ctx](rep: Rep) = IR[Typ,Ctx](rep) // mainly for macros
   type SomeIR = IR[_, _] // shortcut; avoids showing messy existentials
@@ -133,7 +137,7 @@ self: Base =>
   
   
   
-  def wrapConstruct(r: => Rep) = r
+  def wrapConstruct(r: => Rep) = r // TODO remove by-name param, which creates owner corruption in macros
   def wrapExtract(r: => Rep) = r
   
   type __* = Seq[IR[_,_]] // used in insertion holes, as in:  ${xs: __*}

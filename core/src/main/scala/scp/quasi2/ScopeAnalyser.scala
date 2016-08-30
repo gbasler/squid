@@ -39,5 +39,17 @@ trait ScopeAnalyser[U <: scala.reflect.api.Universe] extends UniverseHelpers[U] 
     }
   }
   
+  val glb2: (Type, Type) => Type = (a,b) => glb(a :: b :: Nil)
+  
+  def mergeVars(vars: List[(TermName, Type)]) = {
+    vars.groupBy(_._1) map {
+      case (n, homonyms) => n -> homonyms.map(_._2).reduce(glb2)
+    } toList
+  }
+  
+  def mkContext(bases: List[Type], vars: List[(TermName, Type)]): Tree = {
+    tq"(${glb(bases)}){ ..${ mergeVars(vars) map { case(na,tp) => q"val $na: $tp" } } }"
+  }
+  
   
 }

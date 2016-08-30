@@ -123,6 +123,12 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   }
   
   
+  def untypeTreeShape(t: Tree) = {
+    // TODO
+    t
+  }
+  
+  
 }
 
 abstract class UniverseHelpersClass[U <: scala.reflect.api.Universe](val uni: U) extends UniverseHelpers[U]

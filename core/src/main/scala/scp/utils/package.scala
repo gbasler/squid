@@ -71,6 +71,7 @@ package object utils {
     }
   }
   
+  type -> [+A,+B] = (A,B)
   object -> {
     def unapply[A,B](ab: (A,B)) = Some(ab)
   }
