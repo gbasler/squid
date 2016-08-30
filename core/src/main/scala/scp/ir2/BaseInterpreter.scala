@@ -26,7 +26,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def typLeq(a: TypeRep, b: TypeRep): Boolean = true
   
   
-  def bindVal(name: String, typ: TypeRep): BoundVal = new BoundVal()
+  def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = new BoundVal()
   def readVal(v: BoundVal): Rep = v.value
   def const(value: Any): Rep = value
   

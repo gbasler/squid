@@ -7,10 +7,17 @@ class Matching extends MyFunSuite2 {
   import TestDSL2.Predef._
   
   test("Holes") {
-    ir"0 -> 'ok" match {
+    val q = ir"0 -> 'ok"
+    q match {
       //case ir"0 -> $b" => fail // Warning:(11, 12) Type inferred for hole 'b' was Nothing. Ascribe the hole explicitly to remove this warning.
       case ir"0 -> ($b: Symbol)" => eqt(b, ir"'ok")
     }
+    
+    ir"$q -> $q "
+    assertDoesNotCompile(""" ir"$q // $q " """) // Error:(15, 5) Quasiquote Error: Illegal hole position for: $q
+    assertDoesNotCompile(""" ir"0 -> 'ok // $q " """) // Error:(15, 5) Quasiquote Error: Illegal hole position for: $q
+    assertDoesNotCompile(""" ir"0 -> 'ok // ${Const(42)} " """) // Error:(15, 5) Quasiquote Error: Illegal hole position for: ${TestDSL2.Predef.Const.apply[Int](42)(...)}
+    assertDoesNotCompile(""" q match { case ir"0 -> 'ok // $x " => } """) // Error:(15, 20) Quasiquote Error: Illegal hole position for: $x
   }
   
   test("Shadowing") {
@@ -86,6 +93,59 @@ class Matching extends MyFunSuite2 {
     */
   }
   
+  test("Extracted Binders") {
+    
+    ir"val x = 42; x + 1" match {
+      case ir"val $y: Int = $v; $b" =>
+        
+        // (???) Note:
+        //y [ Int IR Any{val y: Int} ] // Error:(95, 19) No TypeTag available for scp.TestDSL2.IR[Int,Any{val y: Int}]
+        
+        var yt : Int IR Any{val y: Int} = null
+        yt = y // 'y' has ^ this exact type
+        
+        eqt(y, ir"$$y: Int", false) // 'y' is not a mere hole/FV, it's a term that will only extract exactly the corresponding original binder
+        eqt(b, ir"$y + 1", false) // 'b' really has a FV instead of a bound reference to 'y'
+        eqt(b, ir"($$y:Int) + 1")
+        b match { case ir"$$y + 1" => } // but the FV in 'b' remebers its original binder 
+        b match { case ir"$$y + ($c: Int)" => eqt(c, ir"1") }
+        ir"readInt + 1" match { case ir"$$y + 1" => fail  case ir"($y:Int) + 1" => eqt(y, ir"readInt") }
+        
+        val newB = ir"$y + 2"
+        newB match { case ir"$$y + 2" => }
+        
+    }
+    
+    ir"(x: Int) => x + 1" match {
+      case ir"($y: Int) => $b" =>
+        b match { case ir"$$y + 1" => }
+    }
+    
+  }
+  
+  test("Advanced Extracted Binders") {
+    import base._
+    
+    val q = ir"val x = 42; x + 1"
+    
+    q match {
+      case ir"val ${y @ IR(RepDef(bv @ BoundVal(name)))}: $t = $v; $b" =>
+        same(name, "x")
+        eqt(bv.typ, constType(42))
+    }
+    
+    //assertDoesNotCompile(""" q match { case ir"val ${IR(t)}: Int = $v; $b" => } """) // Error:(132, 20) Quasiquote Error: All extracted bindings must be named. In: ${IR((t @ _))}
+    
+  }
+  
+  /*test("Extracted Binders for Multi-Parameter Lambdas") { // TODO
+    
+    ir"(a: Int, b: Int) => a+b" match {
+      case ir"($x: Int, $y: Int) => $b" =>
+        show(x,y)
+    }
+    
+  }*/
   
 }
 

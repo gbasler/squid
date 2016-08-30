@@ -156,9 +156,11 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val builder = new quasi.PgrmBuilder[c.type](c)(isUnapply)
     
-    var holes: List[Either[TermName,TypeName]] = Nil // Left: value hole; Right: type hole
+    var holes: List[(Either[TermName,TypeName], Tree)] = Nil // (Left: value hole; Right: type hole, original hole tree)
     val splicedHoles = mutable.Set[TermName]()
     
+    // Keeps track of which holes still have not been found in the source code
+    val remainingHoles = mutable.Set[TermName](builder.holes.keysIterator.toSeq: _*)
     
     var unquotedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
     
@@ -172,13 +174,14 @@ class QuasiMacros(val c: whitebox.Context) {
     
     def mkTermHole(name: TermName, followedBySplice: Boolean) = {
       val h = builder.holes(name)
+      remainingHoles -= name
       
       //debug("HOLE: "+h)
       
       if (isUnapply) {
         
         val n = h.name filter (_.toString != "_") getOrElse c.freshName(TermName("ANON_HOLE")) toTermName;
-        holes ::= Left(n)
+        holes ::= Left(n) -> h.tree
         
         if (followedBySplice) {
           // This is to help Scala typecheck the spliced hole; 
@@ -208,11 +211,23 @@ class QuasiMacros(val c: whitebox.Context) {
       }
     }
     
-    val code = (builder.tree: Tree) transform {
+    val code = (builder.tree: Tree) transformRec( rec => {
       
-      // FIXME: these does not seem to work:
+      // FIXME: these do not work because methods with _ params are expanded with actual $-full param names (x$n)
       //case q"(_ : $_) => $_" if isUnapply => 
       case ValDef(_, TermName("_"), _, _) if isUnapply => throw QuasiException("All extracted bindings should be named.")
+        
+      /** Extracted binder: adds corresponding hole and an annotation to tell the IR and QuasiEmbedded to extract this binder */
+      case ValDef(mods, name, tpt, rhs) if isUnapply && builder.holes.contains(name) =>
+        val hole = builder.holes(name)
+        mkTermHole(name, false)
+        val n = hole.tree match {
+          case Bind(n, _) => n
+          case _ => throw QuasiException(s"All extracted bindings must be named. In: $${${hole.tree}}")
+        }
+        val newMods = Modifiers(mods.flags, mods.privateWithin, q"new _root_.scp.lib.ExtractedBinder" :: mods.annotations)
+        val r = ValDef(newMods, TermName(n.toString), rec(tpt), rec(rhs))
+        r
         
       // This is to help Scala typecheck the spliced hole; if we don't and call $$ instead of $$_*, typechecking usually silently fails and makes <error> types, for some reason...
       case q"${Ident(name: TermName)}: _*" if isUnapply && builder.holes.contains(name) =>
@@ -223,12 +238,13 @@ class QuasiMacros(val c: whitebox.Context) {
         
       case Ident(name: TypeName) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
         val hole = builder.holes(name.toTermName)
+        remainingHoles -= name.toTermName
         if (hole.vararg) throw EmbeddingException(s"Varargs are not supported in type position.${showPosition(hole.tree.pos)}") // (for hole '${hole.tree}').")
         
         if (isUnapply) {
           val n = hole.name.filter(_.toString != "_")
             .getOrElse(throw QuasiException("All extracted types should be named.")).toTypeName // TODO B/E // TODO relax?
-          holes ::= Right(n)
+          holes ::= Right(n) -> hole.tree
           tq"$n"
         }
         else { // !isUnapply
@@ -249,7 +265,8 @@ class QuasiMacros(val c: whitebox.Context) {
           q"$base.$$(${TermName(bareName)})" // escaped unquote in unapply mode does a normal unquote
         }
         else { // !isUnapply
-          holes ::= Left(TermName(bareName)) // holes in apply mode are interpreted as free variables
+          val tn = TermName(bareName)
+          holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
           q"$base.$$$$(${Symbol(bareName)})"
         }
         
@@ -265,17 +282,16 @@ class QuasiMacros(val c: whitebox.Context) {
           throw EmbeddingException(s"Free type variables are not supported: '$$$t'")
         }
         
-    }
-    
-    
-    if (isUnapply && holes.size != builder.holes.size) {
-      //println(builder.holes, holes.map(_.fold(identity, _ |> hol))) // TODO
-      val missing = builder.holes -- holes.map(_.fold(identity, _.toTermName)) map (h => h._2.name map ("$"+_) getOrElse s"$${${showCode(h._2.tree)}}")
+    })
+    if (remainingHoles nonEmpty) {
+      val missing = remainingHoles map builder.holes map (h => h.name map ("$"+_) getOrElse s"$${${showCode(h.tree)}}")
+      // ^ Not displaying the tree when possible, because in apply mode, typechecked trees can be pretty ugly...
+      
       throw QuasiException(s"Illegal hole position${if (missing.size > 1) "s" else ""} for: "+missing.mkString(", "))
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = Embedder.applyQQ(base, code, holes.reverse, splicedHoles, unquotedTypes, scrutinee, config)
+    val res = Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, unquotedTypes, scrutinee, config)
     
     debug("Generated:\n"+showCode(res))
     

@@ -7,10 +7,7 @@ import quasi2._
 import utils.meta.RuntimeUniverseHelpers
 import RuntimeUniverseHelpers.sru
 import utils._
-import Tuple2List.asList
 
-
-case class IRException(msg: String) extends Exception(msg)
 
 /** 
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
@@ -35,8 +32,8 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   def splicedHole(name: String, typ: TypeRep): Rep = rep(SplicedHole(name)(typ))
   
   def const(value: Any): Rep = rep(Constant(value))
-  def bindVal(name: String, typ: TypeRep) = new BoundVal(name)(typ)
-  def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ) oh_and (varCount += 1)
+  def bindVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) = new BoundVal(name)(typ, annots)
+  def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ, Nil) oh_and (varCount += 1)
   private var varCount = 0
   
   // TODO: more efficient and safe: add record info to BoundVal and wrap in ReadVal that contains which field is accessed
@@ -66,7 +63,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     rep(MethodApp(self, mtd, targs, argss, tp))
   
   def byName(arg: => Rep): Rep =
-    lambda(bindVal("$BYNAME$", uninterpretedType[Unit]) :: Nil, arg) // FIXME proper impl
+    lambda(bindVal("$BYNAME$", uninterpretedType[Unit], Nil) :: Nil, arg) // FIXME proper impl  TODO use annot
   // TODO
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
   //def byName(arg: => Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
@@ -173,8 +170,16 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   /* --- --- --- Node Definitions --- --- --- */
   
   
-  case class BoundVal(name: String)(val typ: TypeRep) extends Def {
-    def toHole(newName: String) = Hole(newName)(typ, Some(this))
+  lazy val ExtractedBinderSym = loadTypSymbol(classOf[scp.lib.ExtractedBinder].getName)
+  
+  case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
+    def toHole(model: BoundVal): Extract -> Hole = {
+      val newName = model.name
+      val extr: Extract =
+        if (model.annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)) (Map(newName -> rep(this)),Map(),Map())
+        else EmptyExtract
+      extr -> Hole(newName)(typ, Some(this))
+    }
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
     override def toString = s"[$name:$typ]"
@@ -201,6 +206,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     def ptyp = param.typ
     val typ = funType(ptyp, repType(body))
     
+    // FIXME handle multi-param Abs...
     def inline(arg: Rep) = bottomUpPartial(body) { //body withSymbol (param -> arg)
       case rep if dfn(rep) === `param` => arg
     }
@@ -239,7 +245,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
-      dbg(s"${this} << ${r}")
+      dbgs(s"${this} << ${r}")
       
       val d = dfn(r)
       val ret: Option[Extract] = nestDbg { (this, d) match {
@@ -256,22 +262,34 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
           Some(EmptyExtract)
           //typ.extract(t.typ, Covariant) // I think the types cannot be wrong here (case for Abs checks parameter types)
           
+        case (bv: BoundVal, h: Hole) if h.originalSymbol exists (_ === bv) => // This is needed when we match an extracted binder with a hole that comes from that binder
+          Some(EmptyExtract)
+          
         case (_, Hole(_)) => None
           
         case (v1: BoundVal, v2: BoundVal) =>
           // Bound variables are never supposed to be matched;
           // if we match a binder, we'll replace the bound variable with a free variable first
-          throw new AssertionError("Bound variables are not supposed to be matched.")
+          //throw new AssertionError("Bound variables are not supposed to be matched.")
+          
+          // actually now with extracted bindings they may be...
+          if (v1 == v2) Some(EmptyExtract) else None // check same type?
+          
           //if (v1.name == v2.name) Some(EmptyExtract) else None // check same type?
           
         case (Constant(v1), Constant(v2)) => if (v1 == v2) Some(EmptyExtract) else None
+        // TODO:
+        //case (Constant(v1), Constant(v2)) =>
+        //  mergeOpt(extractType(typ, d.typ, Covariant), if (v1 == v2) Some(EmptyExtract) else None)
           
         case (a1: Abs, a2: Abs) =>
           // The body of the matched function is recreated with a *free variable* in place of the parameter, and then matched with the
           // body of the matcher, so what the matcher extracts contains potentially (safely) extruded variables.
           for {
             pt <- a1.ptyp extract (a2.ptyp, Contravariant)
-            b <- a1.body.extract(a2.inline(rep(a2.param.toHole(a1.param.name)))) // 'a2.param.toHole' is a free variable that 'retains' the memory that it was bound to 'a2.param'
+            //b <- a1.body.extract(a2.inline(rep(a2.param.toHole(a1.param.name))))
+            (hExtr,h) = a2.param.toHole(a1.param)
+            b <- a1.body.extract(a2.inline(rep(h))) flatMap (merge(hExtr, _)) // 'a2.param.toHole' is a free variable that 'retains' the memory that it was bound to 'a2.param'
             m <- merge(pt, b)
           } yield m
           
@@ -321,7 +339,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
       } // closing nestDbg
       
       //println(s">> ${r map {case(mv,mt,msv) => (mv mapValues (_ show), mt, msv mapValues (_ map (_ show)))}}")
-      dbg(s">> $ret")
+      dbgs(s">> $ret")
       ret
     }
     

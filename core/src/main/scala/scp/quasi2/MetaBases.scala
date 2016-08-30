@@ -7,6 +7,7 @@ import lang2._
 import scala.reflect.runtime.{universe => sru}
 
 trait MetaBases {
+  type U = u.type
   val u: scala.reflect.api.Universe
   import u._
   
@@ -35,7 +36,7 @@ trait MetaBases {
     
     type Rep = Tree
     /** (originalName, valName[in gen'd code], type) */
-    type BoundVal = (String, TermName, TypeRep)
+    type BoundVal = (String, TermName, TypeRep, List[Annot])
     type TypeRep = Tree
     
     type MtdSymbol = Tree
@@ -61,20 +62,22 @@ trait MetaBases {
       q"$n"
     }
     
-    def bindVal(name: String, typ: TypeRep): BoundVal =
+    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ // We assume it's find without a fresh name, since the binding structure should reflect that of the encoded program
-      (name, TermName("_$"+name), typ) // Assumption: nobody else uses names of this form... (?)
+      (name, TermName("_$"+name), typ, annots) // Assumption: nobody else uses names of this form... (?)
     def readVal(v: BoundVal): Rep = q"$Base.readVal(${v._2})"
     
     def const(value: Any): Rep = q"$Base.const(${Constant(value)})"
     
+    def annot(a: Annot) = q"${a._1} -> ${mkNeatList(a._2 map argList)}"
+    
     def lambda(params: List[BoundVal], body: => Rep): Rep = q"""
-      ..${params map { case (on, vn, vt) => q"val $vn = $Base.bindVal($on, $vt)" }}
+      ..${params map { case (on, vn, vt, anns) => q"val $vn = $Base.bindVal($on, $vt, ${mkNeatList(anns map annot)})" }}
       $Base.lambda(${mkNeatList(params map (_._2) map Ident.apply)}, $body)
     """
     
     override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
-      val ${bound._2} = $Base.bindVal(${bound._1}, ${bound._3})
+      val ${bound._2} = $Base.bindVal(${bound._1}, ${bound._3}, ${mkNeatList(bound._4 map annot)})
       $Base.letin(${bound._2}, $value, $body, $bodyType)
     """
     
@@ -93,15 +96,15 @@ trait MetaBases {
     }
     def module(prefix: Rep, name: String, typ: TypeRep): Rep = q"$Base.module($prefix, $name, $typ)"
     
+    
+    def argList(argl: ArgList): Tree = argl match {
+      case Args(reps @ _*) => q"$Base.Args(..$reps)"
+      case ArgsVarargs(args, varargs) => q"$Base.ArgsVarargs(${argList(args)}, ${argList(varargs)})"
+      case ArgsVarargSpliced(args, vararg) => q"$Base.ArgsVarargSpliced(${argList(args)}, $vararg)"
+    }
+    
     def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
-      val as = {
-        def quote(argl: ArgList): Tree = argl match {
-          case Args(reps @ _*) => q"$Base.Args(..$reps)"
-          case ArgsVarargs(args, varargs) => q"$Base.ArgsVarargs(${quote(args)}, ${quote(varargs)})"
-          case ArgsVarargSpliced(args, vararg) => q"$Base.ArgsVarargSpliced(${quote(args)}, $vararg)"
-        }
-        argss map quote
-      }
+      val as = argss map argList
       if (shortAppSyntax) q"$Base.mapp($self, $mtd, $tp)(..$targs)(..$as)"
       else q"$Base.methodApp($self, $mtd, ${mkNeatList(targs)}, ${mkNeatList(as)}, $tp)"
     }
@@ -199,13 +202,18 @@ trait MetaBases {
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
     
-    def bindVal(name: String, typ: TypeRep): BoundVal = TermName(name) -> typ  // Assumption: it will be fine to use the unaltered name here
+    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = TermName(name) -> typ  // Assumption: it will be fine to use the unaltered name here
     //def bindVal(name: String, typ: TypeRep): BoundVal = TermName("_$"+name) -> typ
     
     def readVal(v: BoundVal): Rep = q"${v._1}"
     def const(value: Any): Rep = Literal(Constant(value))
     def lambda(params: List[BoundVal], body: => Rep): Rep = q"""
       (..${params map { case (vn, vt) => q"val $vn: $vt" }}) => $body
+    """
+    
+    override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
+      val ${bound._1}: ${bound._2} = $value
+      ..$body
     """
     
     def newObject(tp: TypeRep): Rep = q"new $tp"

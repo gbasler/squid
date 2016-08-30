@@ -225,6 +225,34 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               liftTerm(tree, parent, expectedType)
               
               
+            /** Processes extracted binders in lambda parameters */
+            case q"(..$params) => $body" =>
+              val xtr = params filter (_.symbol.annotations exists (_.tree.tpe.typeSymbol == symbolOf[scp.lib.ExtractedBinder]))
+              xtr foreach { vd =>
+                val nam = vd.name
+                val typ = vd.symbol.typeSignature
+                debug("PARAM-BOUND HOLE:",nam,typ)
+                termHoleInfo += nam -> (Map(nam -> typ) -> typ)
+              }
+              super.liftTerm(x, parent, expectedType, inVarargsPos)
+              
+            /** Processes extracted binders in val bindings */
+            case q"${vd @ ValDef(mods, TermName(name), tpt, rhs)}; $body" if vd.symbol.annotations exists (_.tree.tpe.typeSymbol == symbolOf[scp.lib.ExtractedBinder]) =>
+              val nam = TermName(name)
+              
+              val sign = vd.symbol.typeSignature
+              val typ = if (mods.hasFlag(Flag.MUTABLE)) {
+                val sym = typeOf[scp.lib.Var[Any]].typeSymbol
+                internal.typeRef(typeOf[scp.lib.`package`.type], sym, sign :: Nil)
+              }
+              else sign
+              
+              debug("VAL-BOUND HOLE:",nam,typ)
+              termHoleInfo += nam -> (Map(nam -> typ) -> typ)
+              
+              super.liftTerm(x, parent, expectedType, inVarargsPos)
+              
+              
             /** Replaces insertion unquotes with whatever `insert` feels like inserting.
               * In the default quasi config case, this will be the trees representing the inserted elements. */
             case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree:  //if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic

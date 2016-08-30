@@ -129,7 +129,13 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     loadMtdSymbol(typ, name.toString, index, isJavaStatic)
   }
   
-   
+  
+  def liftAnnot(a: Annotation, parent: Tree)(implicit ctx: Map[TermSymbol, BoundVal]): Annot = a.tree match {
+    case Apply(Select(New(tp), TermName("<init>")), as) =>
+      (liftType(tp.tpe), Args(as map (arg => liftTerm(arg, a.tree, None)): _*) :: Nil) // FIXME varargs will be misinterpreted
+    case _ => throw EmbeddingException.Unsupported(s"Unrecognized annotation shape: `@$a`")
+  }
+  
   // TODO pull in all remaining cases from Embedding
   /** @throws EmbeddingException */
     def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
@@ -199,7 +205,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
           else value -> liftType(typeIfNotNothing(rhs.tpe) getOrElse tpt.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
         }
         
-        val bound = bindVal(name.toString, valType)
+        val bound = bindVal(name.toString, valType, vdef.symbol.annotations map (a => liftAnnot(a, x)))
         
         val body = rec(
           internal.setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
@@ -296,7 +302,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val (params, bindings) = ps map {
           case p @ ValDef(mods, name, tpt, _) =>
             traverseTypeTree(tpt)
-            val bv = bindVal(name.toString, liftType(p.symbol.typeSignature))
+            val bv = bindVal(name.toString, liftType(p.symbol.typeSignature), p.symbol.annotations map (a => liftAnnot(a, x)))
             bv -> (p.symbol.asTerm -> bv)
         } unzip;
         

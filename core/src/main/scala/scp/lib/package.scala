@@ -25,4 +25,7 @@ package object lib {
   
   final class DummyRecord
   
+  import scala.annotation.{StaticAnnotation, compileTimeOnly}
+  class ExtractedBinder extends StaticAnnotation
+  
 }
