@@ -129,6 +129,14 @@ class BasicEmbedding extends MyFunSuite2 {
         assert(ev =~= ir"scala.reflect.ClassTag[String](${ Const(classOf[String]) })")
         assert(ev.run === scala.reflect.classTag[String]) // works!
         
+        import scala.reflect.ClassTag /* Note: weirdly, when acribing the pattern with the scrutinee type,
+          Scala does _not_ prefix ClassTag, which leads to an incompatible scrutinee type warning if this import is not made... */
+        ev match {
+          case ir"scala.reflect.ClassTag($cls:Class[String])" => // Note: ClassTag[String] not necessary...
+            eqt(cls.typ, irTypeOf[Class[String]])
+            same(cls.run, classOf[String])
+        }
+        
       //case ir"Array.fill[$t]($_)($_)($ev)" =>
       // ^ Note: used to throw: Error:(131, 12) Embedding Error: Unknown type `Array[t]` does not have a TypeTag to embed it as uninterpreted.
       //   Made it:             Error:(132, 12) Embedding Error: Unsupported feature: Arrays of unresolved type.

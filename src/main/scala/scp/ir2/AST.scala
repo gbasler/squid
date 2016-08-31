@@ -199,6 +199,9 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
       case () => TypeRep(RuntimeUniverseHelpers.Unit)
+      case cls: Class[_] => // Runtime classes are considered like constants, for some reason
+        val tp = RuntimeUniverseHelpers.srum.classSymbol(cls).toType
+        typeApp(rep(ModuleObject("java.lang", true)), loadTypSymbol(cls.getClass.getName), tp::Nil)
       case _ => constType(value)
     }
   }
