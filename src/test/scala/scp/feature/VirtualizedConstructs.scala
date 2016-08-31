@@ -40,6 +40,22 @@ class VirtualizedConstructs extends MyFunSuite2 {
         loop eqt ir"println('ok)"
     }
     
+    import lib.While
+    eqt(ir"while(true) ()",
+        ir"While(true, ())")
+    eqt(ir"while(true) readInt",
+        ir"While(true, readInt)")
+    eqt(ir"(while(true) readInt): Unit",
+        ir"While(true,  readInt): Unit")
+    eqt(ir"(while(true) (readInt: Unit)): Unit",
+        ir"While(true,   readInt: Unit):  Unit")
+    
+    ir"while (true) readInt" match {
+      case ir"while (true) $x" =>
+        x eqt ir"readInt; ()"
+        x eqt ir"readInt: Unit"
+    }
+    
   }
   
   test("Imperative") {
@@ -76,6 +92,8 @@ class VirtualizedConstructs extends MyFunSuite2 {
     // Just checking virtualization also works here:
     eqt( ir"val x = {println; 42}; x",  ir"val x = lib.Imperative(println)(42); x" )
     
+    val q = ir"readInt; readInt"
+    q match { case ir"$eff; readInt" => eff eqt ir"readInt" }
     
   }
   

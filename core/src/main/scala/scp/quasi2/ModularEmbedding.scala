@@ -144,7 +144,15 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     //debug(List(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?") mkString " ")
     //dbg(s"TRAVERSING",showCode(x),s"[${x.tpe}]  <:",expectedType getOrElse "?")
     
-    x match {
+    /** In some cases (like the loop of a while), the virtualized version expects Unit but Scala is okay with Any;
+      * so we have to make the types right by introducing a () return. */
+    if ((expectedType exists (_ =:= Unit)) && !(x.tpe <:< Unit)) {
+      //dbg("Coerced Unit:", expectedType, x.tpe)
+      val imp = getMtd(scpLibTyp, "Imperative")
+      val retTyp = liftType(Unit)
+      methodApp(scpLib, imp, retTyp::Nil, Args()(rec(x, Some(Any)))::Args(const( () ))::Nil, retTyp)
+    }
+    else x match {
       
       case q"" => throw EmbeddingException("Empty program fragment")
         
@@ -178,7 +186,8 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val varTyp = vari.symbol.typeSignature
         val mtd = loadMtdSymbol(varTypSym, "$colon$eq", None)
         
-        methodApp(ref, mtd, Nil, Args(rec(valu, Some(vari.symbol.typeSignature)))::Nil, liftType(Unit))
+        val retTp = liftType(Unit)
+        methodApp(ref, mtd, Nil, Args(rec(valu, Some(vari.symbol.typeSignature)))::Nil, retTp)
         
       /** --- --- --- VAL/VAR BINDINGS --- --- --- */
       case q"${vdef @ ValDef(mods, name, tpt, rhs)}; ..$b" =>
@@ -352,7 +361,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val retTyp = liftType(Unit)
         methodApp(scpLib, mtd, Nil, Args(
           byName(rec(cond, Some(Boolean))),
-          byName(rec(loop, typeIfNotNothing(loop.tpe) orElse expectedType))
+          byName(rec(loop, Some(Unit)))
         ) :: Nil, retTyp)
         
       /** --- --- --- TYPE ASCRIPTIONS --- --- --- */
@@ -396,9 +405,11 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
     //  liftType(AnyRef)
-  
+      
     case _ if tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous => // `isErroneous` seems to return true if any sub-component has `isError`
       throw EmbeddingException(s"Internal error: type `$tp` contains an error...")
+      
+    case _ if tp =:= Any => uninterpretedType[Any]
       
     case ExistentialType(syms, typ) =>
       // TODO still allow implicit search (only prevent making a type tag of it)

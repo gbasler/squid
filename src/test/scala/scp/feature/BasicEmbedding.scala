@@ -42,8 +42,8 @@ class BasicEmbedding extends MyFunSuite2 {
     }
     pow23 match {
       case ir"java.lang.Math.pow($m, $n)" =>
-        eqt(m,ir"2")
-        eqt(n,ir"3")
+        eqt(m,ir"2.0")
+        eqt(n,ir"3.0")
     }
     
     ir"String valueOf true" matches {

@@ -249,10 +249,14 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
       
       val d = dfn(r)
       val ret: Option[Extract] = nestDbg { (this, d) match {
+          
         case (_, Ascribe(v,tp)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
-          mergeAll(typ extract (tp, Covariant), extractImpl(v))
+          //mergeOpt(typ extract (tp, Covariant), extractImpl(v))
+          /** ^ It should not matter what the matchee is ascribed to. We'd like `42` and `42:Any` to be equi-matchable */
+          extractImpl(v)
+          
         case (Ascribe(v,tp), _) =>
-          mergeAll(tp extract (d.typ, Covariant), v.extract(r))
+          mergeOpt(tp extract (d.typ, Covariant), v.extract(r))
           
         case (Hole(name), _) => // Note: will also extract holes... which is important to asses open term equivalence
           // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)
@@ -277,10 +281,11 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
           
           //if (v1.name == v2.name) Some(EmptyExtract) else None // check same type?
           
-        case (Constant(v1), Constant(v2)) => if (v1 == v2) Some(EmptyExtract) else None
-        // TODO:
-        //case (Constant(v1), Constant(v2)) =>
-        //  mergeOpt(extractType(typ, d.typ, Covariant), if (v1 == v2) Some(EmptyExtract) else None)
+        /** It may be okay to consider constants `1` (Int) and `1.0` (Double) equivalent;
+          * however, it's probably a good idea to ensure transitivity of the match-relation, so that (a <~ b and b <~ c) => a <~ c
+          * but we'd have 1 <~ 1.0 and 1.0 <~ ($x:Double) but not 1 <~ ($x:Double) */
+        //case (Constant(v1), Constant(v2)) => if (v1 == v2) Some(EmptyExtract) else None
+        case (Constant(v1), Constant(v2)) => mergeOpt(extractType(typ, d.typ, Covariant), if (v1 == v2) Some(EmptyExtract) else None)
           
         case (a1: Abs, a2: Abs) =>
           // The body of the matched function is recreated with a *free variable* in place of the parameter, and then matched with the
@@ -306,7 +311,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
           
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
           //if mtd1 == mtd2
-          if {debug(s"Comparing ${mtd1.fullName} == ${mtd2.fullName}, ${mtd1 == mtd2}"); mtd1 == mtd2}
+          if {val r = mtd1 == mtd2; debug(s"Symbol: ${mtd1.fullName} ${if (r) "===" else "=/="} ${mtd2.fullName}"); r}
         =>
           assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
           assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")
@@ -324,7 +329,13 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
               mergeAll( (targs1 zip targs2) map { case (a,b) => a extract (b, Covariant) } )
             }
             a <- mergeAll( (args1 zip args2) map { case (as,bs) => extractArgList(as, bs) } )  //oh_and print("[Args:] ") and println
-            rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
+          
+            /** It should not be necessary to match return types, knowing that we already match all term and type arguments.
+              * On the other hand, it might break legitimate things like (()=>42).apply():Any =~= (()=>42:Any).apply(),
+              * in which case the return type of .apply is Int inthe former and Any in the latter, but everything else is equivalent */
+            //rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
+            rt = EmptyExtract
+          
             m0 <- merge(s, t)
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
