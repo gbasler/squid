@@ -1,12 +1,9 @@
 package scp
 package ir2
 
-import lang2._
 import utils._
 
-
-
-class SimpleAST extends AST {
+class SimpleAST extends AST { ast =>
   
   case class Rep(dfn: Def) {
     override def toString = s"$dfn"
@@ -15,10 +12,6 @@ class SimpleAST extends AST {
   def dfn(r: Rep): Def = r.dfn
   
   def repType(r: Rep): TypeRep = r.dfn.typ
-  
-  def reinterpret(r: Rep, newBase: Base): newBase.Rep =
-    Reinterpreter(newBase){(r, f) => f(r.dfn)}(r)
-  
   
   object Const extends ConstAPI {
     import meta.RuntimeUniverseHelpers.sru

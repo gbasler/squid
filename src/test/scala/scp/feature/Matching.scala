@@ -46,6 +46,9 @@ class Matching extends MyFunSuite2 {
     
     assert(ir"(x: Int) => x + $n" =~= ir"(x: Int) => x + $m")
     
+    ir"42" eqt ir"42: Int"
+    ir"42" eqt ir"42: Any"
+    
   }
   
   test("Methods") {
@@ -65,6 +68,8 @@ class Matching extends MyFunSuite2 {
     }
     
     ir" ??? " match { case ir" ??? " => }
+    
+    ir"((x: Int) => println(x): Any)(0)" eqt ir"((x: Int) => println(x): Any)(0)"
     
   }
   

@@ -1,11 +1,8 @@
 package scp
 package ir2
 
-import scala.collection.mutable
 import lang2._
-import quasi2._
 import utils.meta.RuntimeUniverseHelpers
-import RuntimeUniverseHelpers.sru
 import utils._
 
 
@@ -13,7 +10,7 @@ import utils._
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
   * 
   **/
-trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: IntermediateBase =>
+trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols { self: IntermediateBase =>
   
   
   /* --- --- --- Required defs --- --- --- */
@@ -32,20 +29,22 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   def splicedHole(name: String, typ: TypeRep): Rep = rep(SplicedHole(name)(typ))
   
   def const(value: Any): Rep = rep(Constant(value))
-  def bindVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) = new BoundVal(name)(typ, annots)
+  def bindVal(name: String, typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
   def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ, Nil) oh_and (varCount += 1)
   private var varCount = 0
   
   // TODO: more efficient and safe: add record info to BoundVal and wrap in ReadVal that contains which field is accessed
-  def lambda(params: List[BoundVal], body: => Rep): Rep = rep({
-    if (params.size == 1) Abs(params.head, body)
+  def lambda(params: List[BoundVal], bodyThunk: => Rep): Rep = rep({
+    val body = bodyThunk
+    val typ = lambdaType(params map (_.typ), body.typ)
+    if (params.size == 1) Abs(params.head, body)(typ)
     else {
       val ps = params.toSet
       val p = freshBoundVal(recordType(params map(v => v.name -> v.typ))) // would be nice to give the freshVar a name hint "params"
       val tbody = bottomUpPartial(body) {
         case RepDef(v @ BoundVal(name)) if ps(v) => rep(recordGet(rep(p), name, v.typ))
       }
-      Abs(p, tbody)
+      Abs(p, tbody)(typ)
     }
   })
   
@@ -72,23 +71,28 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   def recordGet(self: Rep, name: String, typ: TypeRep) = RecordGet(self, name, typ)
   
   
-  def substitute(r: Rep, defs: Map[String, Rep]): Rep = bottomUp(r) { r => dfn(r) match {
+  override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = bottomUp(r) { r => dfn(r) match {
+    case h @ Hole(n) => defs get n map (_()) getOrElse r
+    case h @ SplicedHole(n) => defs get n map (_()) getOrElse r
+    case _ => r
+  }}
+  override def substitute(r: Rep, defs: Map[String, Rep]): Rep = bottomUp(r) { r => dfn(r) match {
     case h @ Hole(n) => defs getOrElse (n, r)
     case h @ SplicedHole(n) => defs getOrElse (n, r)
     case _ => r
   }}
   
-  def bottomUp(r: Rep)(f: Rep => Rep): Rep = f({
-    val d = dfn(r)
+  def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = post({
+    val d = dfn(pre(r))
     //println(s"Traversing $r")
-    val tr = (r: Rep) => bottomUp(r)(f)
+    val tr = (r: Rep) => transformRep(r)(pre, post)
     val ret = d match {
-      case Abs(p, b) =>
-        Abs(p, tr(b)) // Note: we do not transform the parameter; could lead to surprising behaviors? (esp. in case of erroneous transform)
+      case a @ Abs(p, b) =>
+        Abs(p, tr(b))(a.typ) // Note: we do not transform the parameter; could lead to surprising behaviors? (esp. in case of erroneous transform)
       case Ascribe(r,t) => Ascribe(tr(r),t)
       case Hole(_) | SplicedHole(_) | NewObject(_) => d
       case mo @ ModuleObject(fullName, tp) => mo
-      case Module(pre, name, typ) => Module(tr(pre), name, typ)
+      case Module(pref, name, typ) => Module(tr(pref), name, typ)
       case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
       case MethodApp(self, mtd, targs, argss, tp) =>
         def trans(args: Args) = Args(args.reps map tr: _*)
@@ -105,6 +109,9 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     //println(s"=> $ret")
     rep(ret)
   })
+  
+  def bottomUp(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(identity, f)
+  def topDown(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(f)
   
   //def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
@@ -166,7 +173,6 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   
   
   
-  
   /* --- --- --- Node Definitions --- --- --- */
   
   
@@ -205,9 +211,9 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
       case _ => constType(value)
     }
   }
-  case class Abs(param: BoundVal, body: Rep) extends Def {
+  case class Abs(param: BoundVal, body: Rep)(val typ: TypeRep) extends Def {
     def ptyp = param.typ
-    val typ = funType(ptyp, repType(body))
+    //val typ = funType(ptyp, repType(body))
     
     // FIXME handle multi-param Abs...
     def inline(arg: Rep) = bottomUpPartial(body) { //body withSymbol (param -> arg)
@@ -224,7 +230,7 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   
   case class ModuleObject(fullName: String, isPackage: Boolean) extends Def {
     //assert(!isPackage) // TODO; we shouldn't use this anymore
-    val typ =
+    lazy val typ =
     if (isPackage) uninterpretedType(RuntimeUniverseHelpers mkTag RuntimeUniverseHelpers.srum.staticPackage(fullName).typeSignature)
     else staticModuleType(fullName)
   }
@@ -248,7 +254,9 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
     
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
-      dbgs(s"${this} << ${r}")
+      //dbgs(s"${this} << ${r}")
+      dbgs("   "+this);dbgs("<< "+r)
+      //dbgs(s"${showRep(rep(this))} << ${showRep(r)}")  // may create mayhem, as showRep may use scalaTree, which uses a Reinterpreter that has quasiquote patterns!
       
       val d = dfn(r)
       val ret: Option[Extract] = nestDbg { (this, d) match {
@@ -365,81 +373,11 @@ trait AST extends InspectableBase with ScalaTyping with RuntimeSymbols { self: I
   
   
   
-  /* --- --- --- Node Reinterpretation --- --- --- */
   
   
-  def getClassName(cls: sru.ClassSymbol) = RuntimeUniverseHelpers.srum.runtimeClass(cls).getName
-  
-  /** FIXME handle encoding of multi-param lambdas
-    * TODO cache symbols (use forwarder?) */
-  trait Reinterpreter {
-    val newBase: Base
-    def apply(r: Rep): newBase.Rep
-    
-    protected val bound = mutable.Map[BoundVal, newBase.BoundVal]()
-    
-    protected def apply(d: Def): newBase.Rep = d match {
-      case cnst @ Constant(v) => newBase.const(v)
-      case Abs(bv, body) if bv.name == "$BYNAME$" => newBase.byName(apply(body))
-      case Abs(bv, body) =>
-        bv.typ.tpe match {
-          case RecordType(fields) =>
-            val params = fields map {case(n,t) => n -> bindVal(n, t)} toMap;
-            val adaptedBody = bottomUpPartial(body) {
-              case RepDef(RecordGet(RepDef(`bv`), name, _)) => readVal(params(name))
-            }
-            newBase.lambda(params.valuesIterator map recv toList, apply(adaptedBody))
-          case _ =>
-            newBase.lambda({ recv(bv)::Nil }, apply(body))
-        }
-      case MethodApp(self, mtd, targs, argss, tp) =>
-        val typ = newBase.loadTypSymbol(getClassName(mtd.owner.asClass))
-        val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
-        val newMtd = newBase.loadMtdSymbol(typ, mtd.name.toString, if (alts.isEmpty) None else Some(alts.indexOf(mtd)), mtd.isStatic)
-        newBase.methodApp(
-          apply(self),
-          newMtd,
-          targs map (t => rect(t)),
-          argss map (_.map(newBase)(a => apply(a))),
-          rect(tp))
-      case ModuleObject(fullName, isPackage) => newBase.moduleObject(fullName, isPackage)
-      case Module(pre, name, typ) => newBase.module(apply(pre), name, rect(typ))
-      case bv @ BoundVal(name) => newBase.readVal(bound(bv))
-      case Ascribe(r,t) => newBase.ascribe(apply(r), rect(t))
-      case h @ Hole(n) =>
-        //newBase.hole(apply(r), rect(t))
-        newBase match {
-          case newQuasiBase: QuasiBase => newQuasiBase.hole(n, rect(h.typ).asInstanceOf[newQuasiBase.TypeRep]).asInstanceOf[newBase.Rep] // TODO find better syntax for this crap
-          case _ => newBase.asInstanceOf[QuasiBase]; ??? // TODO B/E
-        }
-    }
-    protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ)) and (bound += bv -> _)
-    def rect(r: TypeRep): newBase.TypeRep = reinterpretType(r, newBase)
-    
-  }
-  object Reinterpreter {
-    def apply(NewBase: Base)(app: (Rep, Def => NewBase.Rep) => NewBase.Rep) =
-      new Reinterpreter { val newBase: NewBase.type = NewBase; def apply(r: Rep) = app(r, apply) }
-  }
-  
-  
-  
-  
+  object Typed { def unapply(r: Def): Some[(Def, TypeRep)] = Some(r,r.typ) }
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

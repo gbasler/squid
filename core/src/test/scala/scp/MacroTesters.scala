@@ -82,7 +82,7 @@ object MacroTesters {
     val EB = new BaseInterpreter
     
     val res = //EB.debugFor
-      { AST.reinterpret(newCode, EB) }
+      { AST.reinterpret(newCode, EB)() }
     debug("EXEC", res)
     
     Literal(Constant(res))

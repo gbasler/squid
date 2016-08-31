@@ -10,7 +10,7 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   type Annot = (TypeRep, List[ArgList])
   
-  def bindVal(name: String, typ: TypeRep, annots: List[Annot]=Nil): BoundVal
+  def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal
   
   def readVal(v: BoundVal): Rep
   def const(value: Any): Rep // Note: not taking a sru.Constant as argument, because `const` also receives things like () -- Unit "literal"

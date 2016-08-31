@@ -77,11 +77,15 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     }
   }
   
-  object FunctionType {
-    val Fun0Sym = symbolOf[() => _]
-    val FunSym = symbolOf[_ => _]
-    val Fun2Sym = symbolOf[(_, _) => _]
-    val Fun3Sym = symbolOf[(_, _, _) => _]
+  object FunctionType { // TODO complete with all functions types!
+    
+    val Fun0Sym = typeOf[() => Any].typeSymbol
+    val FunSym = typeOf[Any => Any].typeSymbol
+    val Fun2Sym = typeOf[(Any, Any) => Any].typeSymbol
+    val Fun3Sym = typeOf[(Any, Any, Any) => Any].typeSymbol
+    
+    val scalaPackage = FunSym.owner.asType.toType
+    
     def unapply(t: Type): Option[Type] = Option(t match {
       case TypeRef(_, Fun0Sym, ret::Nil) => ret
       case TypeRef(_, FunSym, _::ret::Nil) => ret
@@ -89,6 +93,14 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case TypeRef(_, Fun3Sym, _::_::_::ret::Nil) => ret
       case _ => null
     })
+    def apply(params: Type*)(ret: Type) = params.size match {
+      case 0 => internal.typeRef(scalaPackage, Fun0Sym, params :+ ret toList)
+      case 1 => internal.typeRef(scalaPackage, FunSym, params :+ ret toList)
+      case 2 => internal.typeRef(scalaPackage, Fun2Sym, params :+ ret toList)
+      case 3 => internal.typeRef(scalaPackage, Fun3Sym, params :+ ret toList)
+      case _ => ???
+    }
+    
   }
   
   object PossibleRefinement {

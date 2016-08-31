@@ -46,8 +46,10 @@ class OnlineTransfo extends MyFunSuite2(OnlineTransfo.DSL) {
 }
 object OnlineTransfo {
   
-  object DSL extends SimpleAST with OnlineTransformer {
+  object DSL extends SimpleAST with OnlineOptimizer with SimpleRuleBasedTransformer {
     import Predef._
+    
+    override val transformExtractors = true
     
     rewrite { // Naive Addition/Multiplication Partial Evaluation
       

@@ -5,7 +5,7 @@ import Debug.show
 import ir2._
 
 /** DSL Base that optimizes some List and Function1 operations like map and andThen. */
-class OptimTestDSL extends SimpleAST with OnlineTransformer {
+class OptimTestDSL extends SimpleAST with OnlineOptimizer with SimpleRuleBasedTransformer {
   import Predef._
   
   rewrite {
@@ -31,7 +31,7 @@ class OptimTestDSL extends SimpleAST with OnlineTransformer {
       
     /** lambda apply -> . */
     case ir"((p: $t0) => $body: $t1)($arg)" => body subs ('p -> arg)
-    // Version with intermediate binding (against code dup):
+    // Version with intermediate binding (against code dup): -- may loop if val bindings are represented as redexes!!
     //case ir"((param: $t0) => $body: $t1)($arg)" => ir"val param = $arg; $body"
       
       

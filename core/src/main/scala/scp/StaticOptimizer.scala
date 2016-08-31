@@ -3,64 +3,75 @@ package scp
 import utils._
 import utils.meta.RuntimeUniverseHelpers.{sru, srum}
 import utils.MacroUtils.{MacroDebug, MacroDebugger, MacroSetting}
-import ir2._
+import lang2._
 import quasi2._
-import lang2.InspectableBase
 
 import scala.language.experimental.macros
-
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
-class Squid[Trans <: Transformer{val base: InspectableBase}] {
+class StaticOptimizer[Optim <: Optimizer] {
   
-  def optimize[A](code: A): A = macro SquidMacros.optimizeImpl[Trans]
-  @MacroSetting(debug = true) def dbg_optimize[A](code: A): A = macro SquidMacros.optimizeImpl[Trans]
+  def optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
+  @MacroSetting(debug = true) def dbg_optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
   
 }
 
 /** TODO generate a macro that lifts passed arguments and compiles the body (caching/or inlining) -- like a static staging */
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class template(squid: Squid[_]) extends StaticAnnotation {
+class template(squid: StaticOptimizer[_]) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro ???
 }
 
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class optimize(squid: Squid[_]) extends StaticAnnotation {
+class optimize(squid: StaticOptimizer[_]) extends StaticAnnotation {
 //class optimize(implicit squid: Squid[_]) extends StaticAnnotation { // Cannot get it to work properly
-  //def macroTransform(annottees: Any*): Any = macro SquidMacros.optimizeAnnotImpl[Trans] // implementation restriction: macro annotation impls cannot have typetag context bounds (consider taking apart c.macroApplication and manually calling c.typecheck on the type arguments)
-  def macroTransform(annottees: Any*): Any = macro SquidMacros.optimizeAnnotImpl
+  //def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizeAnnotImpl[Trans] // implementation restriction: macro annotation impls cannot have typetag context bounds (consider taking apart c.macroApplication and manually calling c.typecheck on the type arguments)
+  def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizeAnnotImpl
 }
 
 import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
-class SquidMacros(val c: blackbox.Context) {
+class StaticOptimizerMacros(val c: blackbox.Context) {
   import c.universe._
   
-  //def optimizeAnnotImpl[Trans: WeakTypeTag](annottees: Tree*) = {
+  
   def optimizeAnnotImpl(annottees: Tree*) = {
     
-    val squid = c.macroApplication match {
-      case q"new optimize($squid).macroTransform(..$_)" => squid
+    val stopt = c.macroApplication match {
+      case q"new optimize($stopt).macroTransform(..$_)" => stopt
       //case q"new optimize().macroTransform(..$_)" =>
-      //  q"_root_.scala.Predef.implicitly[Squid[_]]"
+      //  q"_root_.scala.Predef.implicitly[StaticOptimizer[_]]"
       //  //val impt = c.inferImplicitValue(typeOf[Squid[_]]) // <empty>
     }
     
     annottees match {
       case DefDef(mods, name, tparams, vparamss, tpt, rhs) :: Nil =>
-        DefDef(mods, name, tparams, vparamss, tpt, q"$squid.optimize { $rhs }")
+        DefDef(mods, name, tparams, vparamss, tpt, q"$stopt.optimize { $rhs }")
     }
   }
   
-  def optimizeImpl[Trans: WeakTypeTag](code: Tree) = {
+  
+  def optimizeImpl[Comp: WeakTypeTag](code: Tree) = {
     
     val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
     
     val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
     
-    val Trans = Class.forName(weakTypeOf[Trans].typeSymbol.asClass.fullName).newInstance().asInstanceOf[ir2.Transformer{val base: InspectableBase}]
-    val Base: Trans.base.type = Trans.base
+    val Optim = {
+      val Comp = weakTypeOf[Comp]
+      val inst = try Class.forName(Comp.typeSymbol.asClass.fullName).newInstance()
+      catch {
+        case e: Throwable =>
+          c.error (c.enclosingPosition, s"The type parameter `$Comp` you passed to Squid could be instantiated without parameters: "+e.getMessage)
+          throw e
+      }
+      try inst.asInstanceOf[Optimizer]
+      catch {
+        case e: ClassCastException => c.abort(c.enclosingPosition, "The type parameter you passed to Squid does not conform: "+e.getMessage)
+      }
+    }
+    val Base: Optim.base.type = Optim.base
     
     val varRefs = collection.mutable.Buffer[(String, Tree)]()
     
@@ -80,10 +91,14 @@ class SquidMacros(val c: blackbox.Context) {
       
     }
     
-    val newCode = //Trans.TranformerDebug.debugFor
+    var newCode = //Optim.TranformerDebug.debugFor
       ME(code)
     
-    debug("AST: "+newCode)
+    debug("Code: "+Base.showRep(newCode))
+    
+    newCode = Optim.optimizeRep(newCode)
+    
+    debug("Optimized Code: "+Base.showRep(newCode))
     
     object MBM extends MetaBases {
       val u: c.universe.type = c.universe
@@ -91,10 +106,8 @@ class SquidMacros(val c: blackbox.Context) {
     }
     val MB = new MBM.ScalaReflectionBase
     
-    val res = //EB.debugFor
-      { Trans.base.reinterpret(newCode, MB) }
-    
-    //debug("Optimized: ", showCode(res))
+    //val res = Optim.base.scalaTreeIn(MBM)(MB, newCode)
+    val res = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
     
     // This works but is unnecessary, as currently holes in ScalaReflectionBase are just converted to identifiers
     //res = MB.substitute(res, varRefs.toMap)

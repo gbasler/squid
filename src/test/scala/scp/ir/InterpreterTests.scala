@@ -12,7 +12,7 @@ class InterpreterTests extends FunSuite {
   
   def same[A](xy: (A, A)) = assert(xy._1 == xy._2)
   def runSame[A](xy: (b.Rep, A)) = {
-    same(b.reinterpret(xy._1, Inter), xy._2)
+    same(b.reinterpret(xy._1, Inter)(), xy._2)
   }
   
   test("Constants") ({

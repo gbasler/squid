@@ -228,7 +228,8 @@ class TypeMatching extends MyFunSuite2 {
     } and {
       case ir"(_: $t) => $b: t" =>
         
-        show(b) // FIXME '_' binding xtion
+        //show(b) // FIXME '_' binding xtion
+        // ^ Note: show crashes when trying to convert to Scala tree, cf: class loading of Any
         
         eqt(t, irTypeOf[List[Int]])
     } and {

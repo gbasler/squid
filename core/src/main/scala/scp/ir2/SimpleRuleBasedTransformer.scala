@@ -6,7 +6,7 @@ import lang2._
 
 import collection.mutable
 
-trait SimpleTransformer extends Transformer {
+trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
   val base: InspectableBase
   import base._
   import TranformerDebug.debug
@@ -20,8 +20,13 @@ trait SimpleTransformer extends Transformer {
     
     rules foreach { case (xtor, code) =>
       extract(xtor, currentRep) foreach { ex =>
-        code(ex) foreach { res =>
+        try code(ex) foreach { res =>
           currentRep = res
+        }
+        catch {
+          case RewriteAbort(msg) =>
+            //debug(s"Rewrite aborted. Message: $msg")
+            debug(s"Rewrite aborted. " + (if (msg isEmpty) "" else s"Message: $msg"))
         }
       }
     }
@@ -29,7 +34,6 @@ trait SimpleTransformer extends Transformer {
     currentRep
   }
   
-  def transformBottomUp(rep: Rep): Rep = (base bottomUp rep)(transform)
   
 }
 

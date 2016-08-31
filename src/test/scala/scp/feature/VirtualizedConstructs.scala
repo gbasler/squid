@@ -95,6 +95,8 @@ class VirtualizedConstructs extends MyFunSuite2 {
     val q = ir"readInt; readInt"
     q match { case ir"$eff; readInt" => eff eqt ir"readInt" }
     
+    ir"{ val x = 0; println }; 0" eqt ir"${ ir"val x = 0; println" }; 0"
+    
   }
   
   test("Variables") {

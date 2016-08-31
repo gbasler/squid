@@ -10,6 +10,8 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   def bottomUp(r: Rep)(f: Rep => Rep): Rep
   def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
+  def topDown(r: Rep)(f: Rep => Rep): Rep
+  
   def extract(xtor: Rep, xtee: Rep): Option[Extract]
   def spliceExtract(xtor: Rep, t: Args): Option[Extract]
   
@@ -41,8 +43,10 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   implicit class InspectableIROps[T,C](private val self: IR[T,C]) {
     import scala.language.experimental.macros
     import scp.utils.MacroUtils.MacroSetting
-    def rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,C] = macro ir2.TransformerMacros.termRewrite
-    @MacroSetting(debug = true) def dbg_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,C] = macro ir2.TransformerMacros.termRewrite
+    
+    // TODO take the Transformer as an implicit (w/ default arg?) -- currently it arbitrarily uses a new SimpleRuleBasedTransformer with TopDownTransformer
+    def rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir2.RuleBasedTransformerMacros.termRewrite
+    @MacroSetting(debug = true) def dbg_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir2.RuleBasedTransformerMacros.termRewrite
   }
   implicit class InspectableRepOps(private val self: Rep) {
     def extract (that: Rep) = baseSelf.extract(self, that)

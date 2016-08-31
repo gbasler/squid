@@ -27,6 +27,7 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
     override def equals(that: Any) = that.isInstanceOf[TypeRep] && that.asInstanceOf[TypeRep].tpe =:= tpe
     override def hashCode: Int = tpe.hashCode
   }
+  object TypeRep { def unapply(t: TypeRep) = Some(t.tpe) }
   implicit def toScala(tr: TypeRep): ScalaType = tr.tpe // TODO rm
   case class ExtractedType(val vari: Variance, override val tpe: ScalaType) extends TypeRep(tpe) {
     override def toString = s"${vari symbol}$tpe"
@@ -44,7 +45,16 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
   
   def uninterpretedType[A: TypeTag]: TypeRep = sru.typeTag[A].tpe
   
-  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
+  
+  //def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
+  val FunSym2 = loadTypSymbol("scala.Function1") // TODO unify
+  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    (typ, targs map (_ tpe)) match {
+      //case (`funSym`, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
+      case (FunSym2, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
+      case _ => sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
+    }
+  }
   
   def recordType(fields: List[(String, TypeRep)]): TypeRep = {
     // TODO cache stuff
@@ -63,9 +73,13 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
     reftp
   }
   object RecordType {
-    def unapply(tpe: ScalaType) = tpe match {
-      case sru.RefinedType(Nil, scp) =>
-        Some(scp map (s => s.name.toString -> s.typeSignature))
+    import sru._
+    def unapplySeq(tpe: ScalaType): Option[List[(String,Type)]] = tpe match {
+      case RefinedType(Nil, scp) =>
+        Some(scp map { s =>
+          val tp = s.typeSignature match { case NullaryMethodType(tp) => tp }
+          s.name.toString -> tp
+        } toList)
       case _ => None
     } 
   }
@@ -99,15 +113,19 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
     (sym.owner.asType.toType, sym)
   }
   */
+  // TODO make `funType` accept mutli params and call it `lambdaType`
   lazy val funSym = sru.symbolOf[Any => Any]
   lazy val funOwnerType = funSym.owner.asType.toType
-  def funType(paramt: TypeRep, bodyt: TypeRep): TypeRep = srui.typeRef(funOwnerType, funSym, paramt.tpe :: bodyt.tpe :: Nil)
+  //def funType(paramt: TypeRep, bodyt: TypeRep): TypeRep = srui.typeRef(funOwnerType, funSym, paramt.tpe :: bodyt.tpe :: Nil)
+  //def funType(paramt: TypeRep, bodyt: TypeRep): TypeRep = typeApp(hole("LOLOL", funOwnerType), funSym, paramt :: bodyt :: Nil)
+  def lambdaType(paramTyps: List[TypeRep], ret: TypeRep): TypeRep =
+    ruh.FunctionType(paramTyps map (_ tpe): _*)(ret)
   
   
   object TypeHoleRep {
     import sru._
     def apply(name: String) =
-      srui.typeRef(typeOf[ScalaTyping], symbolOf[TypeHole[_]], srui.constantType(Constant(name)) :: Nil)
+      srui.typeRef(typeOf[ScalaTyping.type], symbolOf[TypeHole[_]], srui.constantType(Constant(name)) :: Nil)
     //def unapply(tp: TypeRep) = tp.tpe match {
     def unapply(tp: Type) = tp match {
       case ht @ TypeRef(_, sym, arg :: Nil) if sym == symbolOf[TypeHole[_]] =>
@@ -254,7 +272,11 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
         catch { case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.Rep] }
       },
       {
-        try newBase.loadTypSymbol(sym.fullName) // FIXME class loading
+        //try newBase.loadTypSymbol(sym.fullName) // FIXME class loading
+        try try newBase.loadTypSymbol(srum.runtimeClass(sym.asClass).getName) // FIXME class loading
+        catch {
+          case (_: ScalaReflectionException) | (_:java.lang.reflect.InvocationTargetException) => newBase.loadTypSymbol(sym.fullName)
+        }
         catch {
           case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.TypSymbol]
         }

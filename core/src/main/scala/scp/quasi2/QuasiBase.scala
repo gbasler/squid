@@ -48,6 +48,8 @@ self: Base =>
     def cast[S >: T]: IR[S, C] = this
     def erase: IR[Any, C] = this
     
+    def transformWith(trans: ir2.Transformer{val base: self.type}) = IR[T,C](trans.transform(rep))
+    
     /** Useful when we have non-denotable types (e.g., extracted types) */
     def withTypeOf[Typ >: T](x: IR[Typ, Nothing]) = this: IR[Typ,C]
     

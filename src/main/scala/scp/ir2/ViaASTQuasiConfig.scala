@@ -36,6 +36,7 @@ class ViaASTQuasiConfig extends QuasiConfig {
     
     val insertionsMap = insertions.toMap
     
+    /** Note: we do not override `extrudedHandle` */
     object R extends AST.Reinterpreter {
       val newBase: base.type = base
       def apply(r: AST.Rep) = r.dfn match {

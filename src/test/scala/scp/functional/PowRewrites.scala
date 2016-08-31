@@ -18,7 +18,7 @@ class PowRewrites extends MyFunSuite2 {
   
   test("Pow 2") {
     
-    object Trans extends ir2.FixPointTransformer {
+    object Trans extends ir2.SimpleRuleBasedTransformer with ir2.TopDownTransformer {
       val base: TestDSL2.type = TestDSL2
       
       rewrite {
@@ -40,7 +40,7 @@ class PowRewrites extends MyFunSuite2 {
   
   test("Pow n") {
     
-    object Trans extends ir2.FixPointTransformer { val base: TestDSL2.type = TestDSL2; rewrite {
+    object Trans extends ir2.SimpleRuleBasedTransformer with ir2.TopDownTransformer { val base: TestDSL2.type = TestDSL2; rewrite {
       
       // Maybe we could make this work with a special-case in the rewrite rule macro
       /*

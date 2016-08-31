@@ -4,7 +4,7 @@ package ir2
 class TransformerTest extends MyFunSuite2/*(new SimpleAST)*/ {
   import DSL.Predef._
   
-  object T extends SimpleTransformer {
+  object T extends SimpleRuleBasedTransformer with TopDownTransformer {
     val base: DSL.type = DSL
   }
   

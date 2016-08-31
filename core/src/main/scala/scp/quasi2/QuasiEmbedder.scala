@@ -56,8 +56,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
             if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
-              val tname = TypeName("<unknown context>")
+              // ^ UnknownContext is used as the dummy context parameter of terms rewritten in rewrite rules
+              // It gets replaced by a brand new type to avoid wrongful sharing, as below:
+              
+              // Creates a brand new type for this particular context, so that it cannot be expressed outside of the rewrite rule (and thus one can't mix up rewriting contexts)
+              val tname = TypeName(s"<context @ ${t.pos.line}:${t.pos.column}>")
               c.typecheck(q"class $tname; new $tname").tpe
+              
             } else ctx
             debug("New context:",newCtx)
             termScope ::= newCtx
@@ -197,8 +202,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     //val tree = rawTree transform { case q"$b.$$[$t,$c]($args: _*): _*" => q"$b.$$[$t,$c]($args: _*)" }
     val tree = rawTree
     
+    
+    /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
+      * program go through an arbitrary base before ending up as Scala mirror code! */
     val codeTree = config.embed(c)(Base, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
+        
         
         val myBaseTree = baseTree
         object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
@@ -206,6 +215,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           //val baseTree: c.Tree = Base  // throws: scala.reflect.macros.TypecheckException: not found: value __b__
           val baseTree: c.Tree = myBaseTree
         }
+        
+        /** Special-cases the default modular embedding with quasiquote-specific details */
         object ME extends QTE.Impl {
           
           def holeName(nameTree: Tree, in: Tree) = nameTree match {
@@ -272,7 +283,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                 }
               } // TODO check correct free var types
               
-              termScope ++= bases
+              termScope :::= bases
               importedFreeVars ++= free.iterator map { case (n,t) => n.toString -> t }
               
               def subs(ir: Tree) =
@@ -417,8 +428,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         val context = tq"$ctxBase { ..${ fv map { case (n,t) => q"val ${TermName(n)}: $t" } } }"
         
-        
-        q"val $shortBaseName = $baseTree; $baseTree.`internal IR`[$retType, $context]($Base.wrapConstruct($res))"
+        q"val $shortBaseName: $baseTree.type = $baseTree; $baseTree.`internal IR`[$retType, $context]($Base.wrapConstruct($res))"
         //                                ^ not using $Base shortcut here or it will show in the type of the generated term
         
         
@@ -475,13 +485,14 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         val typeInfo = q"type $$ExtractedType$$ = ${typedTree.tpe}" // Note: typedTreeType can be shadowed by a scrutinee type
         val contextInfo = q"type $$ExtractedContext$$ = ${termScope.last}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
+        //val contextInfo = q"type $$ExtractedContext$$ = ${glb(termScope)}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
         
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
           
           assert(defs.isEmpty)
           
           q"""{
-          val $shortBaseName = $baseTree
+          val $shortBaseName: $baseTree.type = $baseTree
           new {
             $typeInfo
             $contextInfo
@@ -489,7 +500,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               ..$defs
               //..dslDefs
               //..dslTypes
-              val $shortBaseName = $baseTree
+              //val $$shortBaseName = $$baseTree
               val _term_ = $Base.wrapExtract($res)
               $Base.extract(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
@@ -508,7 +519,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           val typedTraits = stmts collect { case t @ q"abstract trait $_ extends ..$_" => t } //filter (_ => false)
           
           q"""{
-          val $shortBaseName = $baseTree
+          val $shortBaseName: $baseTree.type = $baseTree
           ..$typedTraits
           new {
             $typeInfo

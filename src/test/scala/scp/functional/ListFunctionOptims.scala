@@ -1,10 +1,22 @@
 package scp
 package functional
 
+import utils._
+
 object OptimTestDSL extends OptimTestDSL
 
 class ListFunctionOptims extends MyFunSuite2(OptimTestDSL) {
   import OptimTestDSL.Predef._
+  
+  test ("Basics") {
+    
+    eqt(ir"42".rep, base.const(42))
+    eqt(ir" 'unoptimized ", ir" 'optimized ")
+    
+    // Note: the naive inliner in OptimTestDSL will mess up things like:
+    //println(ir"var x = 0; x")
+    
+  }
   
   test ("Collapsing map & andThen chains") {
     
@@ -25,29 +37,29 @@ class ListFunctionOptims extends MyFunSuite2(OptimTestDSL) {
   }
   
   
-  
-  object Squid extends Squid[OptimTestDSL]
-  import Squid.optimize
+  object Stopt extends StaticOptimizer[OptimTestDSL]
+  import Stopt.optimize
   
   test ("Static optimization") {
     
-    assert(optimize { 'unoptimized } === 'optimized)
+    assert(optimize { 'unoptimized } == 'optimized)
     
-    assert(optimize { List(1,2,3) map (_ + 1) map (_ toDouble) } === List(2.0, 3.0, 4.0) )
+    assert(optimize { List(1,2,3) map (_ + 1) map (_ toDouble) } == List(2.0, 3.0, 4.0) )
     
     def foo(ls: List[Int], f: Int => Int) = optimize { ls map f map (_ + 1) map f }
-    assert(foo(1 :: 2 :: 3 :: Nil, (- _)) === List(0, 1, 2))
+    assert(foo(1 :: 2 :: 3 :: Nil, (- _)) == List(0, 1, 2))
     
   }
   
   test ("Static optimization with a macro annotation") {
     
-    @optimize(Squid)
+    @optimize(Stopt)
     def foo(n: Int) = (for(_ <- 0 until n) yield 'unoptimized.toString) mkString raw" \o/ "
     
     assert(foo(3) == raw"'optimized \o/ 'optimized \o/ 'optimized")
     
   }
   
-  
 }
+
+
