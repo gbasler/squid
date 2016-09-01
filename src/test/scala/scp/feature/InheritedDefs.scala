@@ -36,7 +36,7 @@ class InheritedDefs extends MyFunSuite2 {
     same(ir"Derived.foo".run, 42)
     same(ir"$d.foo".run, 42)
     
-    //same(ir"(new Derived()).foo".run, 0.5) // FIXME new
+    same(ir"(new Derived()).foo".run, 0.5)
     same(ir"(Derived()).foo".run, 0.5)
     
     //same(TestDSL2.loadMtdSymbol(TestDSL2.loadTypSymbol("scp.feature.Derived"), "foo", None), sru.typeOf[Derived.type].member(sru.TermName("foo"))) // FIXME class loading
@@ -45,11 +45,10 @@ class InheritedDefs extends MyFunSuite2 {
   
   test("Inherited Classes") {
     
-     // FIXME new
-    //val ndti = ir"new Derived.Test[Int]"
-    //val ndtd = ir"new Derived.TestDerived"
-    val ndti = ir"Derived.Test[Int]"
-    val ndtd = ir"Derived.TestDerived()"
+    val ndti = ir"new Derived.Test[Int]"
+    val ndtd = ir"new Derived.TestDerived"
+    eqt(ndti.trep, ir"Derived.Test[Int]".trep)
+    eqt(ndtd.trep, ir"Derived.TestDerived()".trep)
     
     eqt(ndti.trep, new base.TypeRep(sru.typeOf[Derived.Test[Int]]))
     assert(ndti.trep =:= new base.TypeRep(sru.typeOf[Derived.Test[Int]]))
@@ -65,7 +64,7 @@ class InheritedDefs extends MyFunSuite2 {
       methodApp(newObject(dtp),
         loadMtdSymbol(loadTypSymbol(srum.runtimeClass(sru.typeOf[scp.Dummies.InheritedDefs.Derived.TestDerived]).getName), "<init>", None), Nil, Args()::Nil, dtp)
     }
-    //eqt(ndtd.rep, manual_ndtd) // TODO new
+    eqt(ndtd.rep, manual_ndtd)
     
   }
   

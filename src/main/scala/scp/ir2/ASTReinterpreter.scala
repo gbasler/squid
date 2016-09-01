@@ -57,6 +57,7 @@ trait ASTReinterpreter { ast: AST =>
           rect(tp))
       case ModuleObject(fullName, isPackage) => newBase.moduleObject(fullName, isPackage)
       case Module(pre, name, typ) => newBase.module(apply(pre), name, rect(typ))
+      case NewObject(tp) => newBase.newObject(rect(tp))
       case bv @ BoundVal(name) => bound andThen newBase.readVal applyOrElse (bv, extrudedHandle)
       case Ascribe(r,t) => newBase.ascribe(apply(r), rect(t))
       case h @ Hole(n) =>

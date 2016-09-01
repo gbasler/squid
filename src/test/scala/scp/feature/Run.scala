@@ -5,12 +5,11 @@ class Run extends MyFunSuite2 {
   
   import TestDSL2.Predef._
   
-  // TODO new
-  //test("New") {
-  //  import BasicEmbedding._
-  //  val mc = ir"new MC(42)('ok, 'ko)"
-  //  assert(mc.run == new MC(42)('ok, 'ko))
-  //}
+  test("New") {
+    import BasicEmbedding._
+    val mc = ir"new MC(42)('ok, 'ko)"
+    assert(mc.run == new MC(42)('ok, 'ko))
+  }
   
   test("Modules") {
     same(ir"List".run, List)

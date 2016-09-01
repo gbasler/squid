@@ -306,6 +306,11 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
             
         }
         
+        
+      /** --- --- --- NEW --- --- --- */
+      case New(tp) => newObject(liftType(tp.tpe))
+        
+        
       /** --- --- --- LAMBDAS --- --- --- */
       case q"(..$ps) => $bo" =>
         val (params, bindings) = ps map {

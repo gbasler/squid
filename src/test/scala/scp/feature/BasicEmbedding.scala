@@ -52,38 +52,38 @@ class BasicEmbedding extends MyFunSuite2 {
     
   }
   
-  //test("New") { // FIXME new
-  //  
-  //  
-  //  ir"new MC[Nothing](42)(???)" match {
-  //    //case ir"new MC(42)()" => // warns
-  //    case ir"new MC[Nothing](42)()" => fail
-  //    //case ir"new MC[Nothing](42)($x)" => // warns
-  //    //case ir"new MC(42)($x:Nothing)" => // warns
-  //    case ir"new MC[Nothing](42)($x:Nothing)" => // ok
-  //  }
-  //  
-  //  //dbgir"new MC(42)('ok, 'ko)" // TODO look at gen'd code and reduce
-  //  val mc = ir"new MC(42)('ok, 'ko)"
-  //  
-  //  mc matches {
-  //    case ir"new MC(42)('ok, 'ko)" =>
-  //  } and {
-  //    case ir"new MC($n)('ok, Symbol($str))" =>
-  //      eqt(n, ir"42")
-  //      eqt(str, ir"${"ko"}")
-  //  } and {
-  //    //case ir"new MC($n)($a, $b)" => fail // should generate a warning
-  //    case ir"new MC[$t]($n)($a, $b)" =>
-  //  } and {
-  //    case ir"$mc: MC[$t]" =>
-  //      eqt(t.rep, typeRepOf[Symbol])
-  //      eqt(mc.trep, typeRepOf[MC[Symbol]])
-  //  }
-  //  
-  //  assertTypeError(""" mc match { case ir"new $ab" => } """) // Embedding Error: trait ab is abstract; cannot be instantiated
-  //  
-  //}
+  test("New") {
+    
+    
+    ir"new MC[Nothing](42)(???)" match {
+      case ir"new MC(42)()" => fail // warns NO MORE (TODO)
+      case ir"new MC[Nothing](42)()" => fail
+      //case ir"new MC[Nothing](42)($x)" => // warns
+      case ir"new MC(42)($x:Nothing)" => // warns NO MORE (TODO)
+      case ir"new MC[Nothing](42)($x:Nothing)" => // ok
+    }
+    
+    //dbg_ir"new MC(42)('ok, 'ko)" // TODO look at gen'd code and reduce
+    val mc = ir"new MC(42)('ok, 'ko)"
+    
+    mc matches {
+      case ir"new MC(42)('ok, 'ko)" =>
+    } and {
+      case ir"new MC($n)('ok, Symbol($str))" =>
+        eqt(n, ir"42")
+        eqt(str, ir"${Const("ko")}")
+    } and {
+      //case ir"new MC($n)($a, $b)" => fail // should generate a warning
+      case ir"new MC[$t]($n)($a, $b)" =>
+    } and {
+      case ir"$mc: MC[$t]" =>
+        eqt(t.rep, typeRepOf[Symbol])
+        eqt(mc.trep, typeRepOf[MC[Symbol]])
+    }
+    
+    assertTypeError(""" mc match { case ir"new $ab" => } """) // Embedding Error: trait ab is abstract; cannot be instantiated
+    
+  }
   
   test("Methods") {
     import collection.mutable.Stack

@@ -77,17 +77,17 @@ class AutomaticTypeUnquoting extends MyFunSuite2 {
     
   }
   
-  test("Manual Type") { // Note: users are not supposed to do that sorta things
+  // This hack does not work anymore:
+  /*test("Manual Type") { // Note: users are not supposed to do that sorta things
     class X
     implicit val xev: TypeEv[X] = base.`internal IRType`(base.typeHole("Test"))
     
-    // TODO new
-    ////val x = Quoted[X,{}](const(new X)(xev))
-    //val x = ir"${new X}" // constant
-    //
-    //val p = ir"HPair($x, $x)"
-    //eqt(p.trep, typeRepOf[HPair[X]])
-  }
+    //val x = Quoted[X,{}](const(new X)(xev))
+    val x = ir"${Const(new X)}" // constant  // Problem: type tag
+    
+    val p = ir"HPair($x, $x)"
+    eqt(p.trep, typeRepOf[HPair[X]])
+  }*/
   
   test("Redundant Manual Type") {
     val int = base.`internal IRType`[Int](typeRepOf[Int])

@@ -19,7 +19,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   
   type Rep = Any
   class BoundVal(var value: Any = null)
-  type TypeRep = Unit
+  type TypeRep = () => TypSymbol
   
   
   def repEq(a: Rep, b: Rep): Boolean = a == b
@@ -44,7 +44,8 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def byName(arg: => Rep): Rep = () => arg
   
   
-  def newObject(tp: TypeRep): Rep = ??? // TODO
+  def newObject(tp: TypeRep): Rep = New(tp().asClass)
+  case class New(cls: ClassSymbol)
   
   def moduleObject(fullName: String, isPackage: Boolean): Rep = {
     if (isPackage) return null // TODO improve
@@ -82,6 +83,18 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
     watchPrimitives()
     
     debug(s"\nSelf: '$self' ${self.getClass}\nMtd: "+_mtd.fullName+" "+_mtd.isJava)
+    
+    lazy val args = argss flatMap {
+      case Args(reps @ _*) => reps
+      case ArgsVarargs(Args(reps @ _*), Args(vreps @ _*)) => reps :+ vreps
+      case ArgsVarargSpliced(Args(reps @ _*), vrep) => reps :+ vrep
+    }
+    
+    self match {
+      case New(cls) =>
+        return srum.reflectClass(cls).reflectConstructor(_mtd).apply(args:_*)
+      case _ =>
+    }
     
     val cls = srum.classSymbol(self.getClass)
     if (cls.isJava && cls.isModuleClass) {
@@ -147,11 +160,6 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
         
         val im = srum.reflect(self)(tag)
         val mm = im.reflectMethod(mtd)
-        val args = argss flatMap {
-          case Args(reps @ _*) => reps
-          case ArgsVarargs(Args(reps @ _*), Args(vreps @ _*)) => reps :+ vreps
-          case ArgsVarargSpliced(Args(reps @ _*), vrep) => reps :+ vrep
-        }
         //println(args)
         
         mm(args: _*)  // oh_and debug("Final Sign: "+mtd.typeSignature)
@@ -168,10 +176,10 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   
   
   
-  def uninterpretedType[A: sru.TypeTag]: TypeRep = ()
-  def moduleType(fullName: String): TypeRep = ()
-  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = ()
-  def recordType(fields: List[(String, TypeRep)]): TypeRep = ()
+  def uninterpretedType[A: sru.TypeTag]: TypeRep = () => sru.typeOf[A].typeSymbol.asType
+  def moduleType(fullName: String): TypeRep = () => ???
+  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
+  def recordType(fields: List[(String, TypeRep)]): TypeRep = () => ???
   def constType(value: Any, underlying: TypeRep): TypeRep = ???
   def staticModuleType(fullName: String): TypeRep = ???
    
@@ -181,7 +189,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def hole(name: String, typ: TypeRep): Any = ???
   def splicedHole(name: String, typ: TypeRep): Any = ???
   def substitute(r: Any,defs: scala.collection.immutable.Map[String,Any]): Any = ???
-  def typeHole(name: String): Unit = ???
+  def typeHole(name: String): TypeRep = ???
   
   
 }
