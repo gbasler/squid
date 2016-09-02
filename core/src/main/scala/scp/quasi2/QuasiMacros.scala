@@ -213,9 +213,10 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val code = (builder.tree: Tree) transformRec( rec => {
       
-      // FIXME: these do not work because methods with _ params are expanded with actual $-full param names (x$n)
-      //case q"(_ : $_) => $_" if isUnapply => 
-      case ValDef(_, TermName("_"), _, _) if isUnapply => throw QuasiException("All extracted bindings should be named.")
+      /** Note: value/parameters may be named "_", while anonymous function parameters are desugared to names of the form x$n
+        * Anonymous function parameters are not a threat to soundness, so we do allow using them. */
+      case ValDef(_, TermName(name), _, _) if isUnapply && (name == "_" /*|| (name startsWith "x$")*/) =>
+        throw QuasiException("All extracted bindings should be named.")
         
       /** Extracted binder: adds corresponding hole and an annotation to tell the IR and QuasiEmbedded to extract this binder */
       case ValDef(mods, name, tpt, rhs) if isUnapply && builder.holes.contains(name) =>

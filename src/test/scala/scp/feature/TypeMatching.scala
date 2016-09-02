@@ -226,9 +226,6 @@ class TypeMatching extends MyFunSuite2 {
         eqt(t, irTypeOf[List[Int]])
     } and {
       case ir"(_: $t) => $b: t" =>
-        
-        //show(b) // FIXME '_' binding xtion
-        
         eqt(t, irTypeOf[List[Int]])
     } and {
       case ir"$g: ($t0 => $t1)" =>

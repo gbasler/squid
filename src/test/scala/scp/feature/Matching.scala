@@ -126,6 +126,9 @@ class Matching extends MyFunSuite2 {
         b match { case ir"$$y + 1" => }
     }
     
+    assertDoesNotCompile(""" (??? : IR[Int,{}]) match { case ir"val _ = $v: Int; $b" => } """) // Error:(129, 38) Quasiquote Error: All extracted bindings should be named.
+    //assertDoesNotCompile(""" (??? : IR[Int=>Int,{}]) match { case ir"(_: Int) => $b: Int" => } """) // Error:(129, 42) Quasiquote Error: All extracted bindings should be named.
+    
   }
   
   test("Advanced Extracted Binders") {
