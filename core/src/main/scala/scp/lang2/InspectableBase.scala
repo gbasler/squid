@@ -20,8 +20,8 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
     //def keySets = s"{ ${valKeys.toSet}; ${typKeys.toSet}; ${flatValKeys.toSet} }" // Scala bug java.lang.VerifyError: Bad type on operand stack
     val keySets = () => s"( ${prnt(valKeys)}; ${prnt(typKeys)}; ${prnt(splicedValKeys)} )"
     
-    assert(maps._1.keySet == valKeys.toSet, "Extracted value keys "+prnt(maps._1.keySet)+" do not correspond to specified keys "+keySets())//+valKeys.toSet)
-    assert(maps._3.keySet == splicedValKeys.toSet, "Extracted spliced value keys "+prnt(maps._3.keySet)+" do not correspond to specified keys "+keySets())//+flatValKeys.toSet)
+    assert(maps._1.keySet == valKeys.toSet, "Extracted term keys "+prnt(maps._1.keySet)+" do not correspond to specified keys "+keySets())//+valKeys.toSet)
+    assert(maps._3.keySet == splicedValKeys.toSet, "Extracted spliced term keys "+prnt(maps._3.keySet)+" do not correspond to specified keys "+keySets())//+flatValKeys.toSet)
     //assert(maps._2.keySet == typKeys.toSet, "Extracted type keys "+maps._2.keySet+" do not correspond to specified keys "+typKeys)
     val xkeys = maps._2.keySet
     val keys = typKeys.toSet

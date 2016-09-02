@@ -178,11 +178,11 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   
   def uninterpretedType[A: sru.TypeTag]: TypeRep = () => sru.typeOf[A].typeSymbol.asType
   def moduleType(fullName: String): TypeRep = () => ???
-  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
+  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
+  def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
   def recordType(fields: List[(String, TypeRep)]): TypeRep = () => ???
   def constType(value: Any, underlying: TypeRep): TypeRep = ???
-  def staticModuleType(fullName: String): TypeRep = ???
-   
+  
   object Const extends ConstAPI {
     def unapply[T: sru.TypeTag](ir: IR[T, _]): Option[T] = ???
   }

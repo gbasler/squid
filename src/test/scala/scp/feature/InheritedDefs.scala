@@ -3,27 +3,29 @@ package feature
 
 import utils.Debug._
 
-import scala.reflect.runtime.{universe => sru}
-import scp.utils.meta.RuntimeUniverseHelpers.srum
+import scp.utils.meta.{RuntimeUniverseHelpers => ruh}
+import ruh.{sru, srum}
 
-//class Base {
-//  def foo = 42
-//  class Test[A] {
-//    def bar = 666
-//  }
-//  class TestObject
-//  object TestObject
-//}
-//object Derived extends Base {
-//  class TestDerived extends Test[Int]
-//}
-//class Derived {
-//  def foo = 0.5
-//}
+class Base {
+  def foo = 42
+  class Test[A] {
+    def bar = 666
+  }
+  object Test { def apply[T] = new Test[T] }
+  class TestObject
+  object TestObject
+}
+object Derived extends Base {
+  class TestDerived extends Test[Int]
+  object TestDerived { def apply() = new TestDerived() }
+  def apply() = new Derived
+}
+class Derived {
+  def foo = 0.5
+}
 
 class InheritedDefs extends MyFunSuite2 {
   import TestDSL2.Predef._
-  import Dummies.InheritedDefs._ // FIXME class loading
   
   test("Inherited Methods") {
     
@@ -39,8 +41,7 @@ class InheritedDefs extends MyFunSuite2 {
     same(ir"(new Derived()).foo".run, 0.5)
     same(ir"(Derived()).foo".run, 0.5)
     
-    //same(TestDSL2.loadMtdSymbol(TestDSL2.loadTypSymbol("scp.feature.Derived"), "foo", None), sru.typeOf[Derived.type].member(sru.TermName("foo"))) // FIXME class loading
-    //same(TestDSL.loadSymbol(false, "scp.feature.Derived", "foo"), sru.symbolOf[Derived].typeSignature.member(sru.TermName("foo"))) // TODO
+    same(TestDSL2.loadMtdSymbol(TestDSL2.loadTypSymbol("scp.feature.Derived"), "foo", None), sru.typeOf[Derived].member(sru.TermName("foo")))
   }
   
   test("Inherited Classes") {
@@ -62,7 +63,7 @@ class InheritedDefs extends MyFunSuite2 {
       import TestDSL2._
       val dtp = TypeRep(sru.typeOf[Derived.TestDerived])
       methodApp(newObject(dtp),
-        loadMtdSymbol(loadTypSymbol(srum.runtimeClass(sru.typeOf[scp.Dummies.InheritedDefs.Derived.TestDerived]).getName), "<init>", None), Nil, Args()::Nil, dtp)
+        loadMtdSymbol(loadTypSymbol(ruh.encodedTypeSymbol(sru.typeOf[Derived.TestDerived].typeSymbol.asType)), "<init>", None), Nil, Args()::Nil, dtp)
     }
     eqt(ndtd.rep, manual_ndtd)
     

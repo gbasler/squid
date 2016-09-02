@@ -31,7 +31,8 @@ object Liftable {
       val mod = b.moduleObject("scala.immutable", false)
       val obj = b.moduleObject("scala.immutable.List", false)
       val argLift = implicitly[Liftable[b.type,T]]
-      b.mapp(obj, mtd, b.typeApp(mod, tsym, ???))(???)(b.Args()(x map {a => argLift.lift(b,a)}: _*))
+      //b.mapp(obj, mtd, b.typeApp(mod, tsym, ???))(???)(b.Args()(x map {a => argLift.lift(b,a)}: _*))
+      ???
     }
   }
   

@@ -56,8 +56,6 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
     
-    val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
-    
     val Optim = {
       val Comp = weakTypeOf[Comp]
       val inst = try Class.forName(Comp.typeSymbol.asClass.fullName).newInstance()
@@ -76,7 +74,6 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     val varRefs = collection.mutable.Buffer[(String, Tree)]()
     
     object ME extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
-      def className(cls: ClassSymbol): String = srum.runtimeClass(imp.importSymbol(cls).asClass).getName
       
       override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
           
@@ -114,7 +111,11 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     debug("Generated: ", showCode(res))
     
+    /** The Scala compiler used to crash with a StackOverflow at scala.tools.nsc.Global$Run.compiles(Global.scala:1402)!!
+      * unless we used c.parse & showCode. It seems this was because we were splicing symbols directly into QQs */
     res: Tree
+    //c.untypecheck(res)
+    //c.parse(showCode(res))
   }
   
   

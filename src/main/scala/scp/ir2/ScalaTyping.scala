@@ -6,6 +6,7 @@ import utils._
 import CollectionUtils.TraversableOnceHelper
 import utils.meta.{RuntimeUniverseHelpers => ruh}
 import ruh.{sru, srum}
+import scp.quasi2.ModularEmbedding
 import sru.{internal => srui}
 import sru.{Type => ScalaType}
 
@@ -48,12 +49,16 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
   
   //def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
   val FunSym2 = loadTypSymbol("scala.Function1") // TODO unify
-  def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
     (typ, targs map (_ tpe)) match {
       //case (`funSym`, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
       case (FunSym2, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
-      case _ => sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
+      case _ => sru.internal.typeRef(self, typ, targs map (_ tpe))
     }
+  }
+  def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    assert(typ.isStatic)
+    sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
   }
   
   def recordType(fields: List[(String, TypeRep)]): TypeRep = {
@@ -84,17 +89,6 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
     } 
   }
   
-  def staticModuleType(fullName: String) = {
-    val modSym = srum.staticModule(fullName)
-    RuntimeSymbols.ensureDefined(s"module $fullName", modSym)
-    //assert(modSym.moduleClass.asType.toType =:= modSym.typeSignature)  // seems to always return true
-    
-    /* In the future we may want to return a type attesting that this is a singleton type,
-    so we can equate method calls like DSL.Quasicodes.qcbase and DSL.Predef.base that return equivalent singleton types */
-    //new TypeRep(sru.internal.thisType(modSym.moduleClass))
-    
-    new TypeRep(modSym.typeSignature)
-  }
   
   def constType(value: Any, underlying: TypeRep): TypeRep = constType(value)
   def constType(value: Any): TypeRep = sru.internal.constantType(sru.Constant(value))
@@ -262,26 +256,9 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
           s"Base $newBase does not inherit from QuasiBase and cannot handle hole type '$name'")
       }
       
-    case TypeRef(pre, sym, targs) => newBase.typeApp( // FIXME
-      { //reinterpretType(pre, newBase), 
-        
-        //val mo = pre.asInstanceOf[AST#ModuleObject]
-        //newBase.moduleObject(mo.fullName, mo.isPackage)
-        
-        try newBase.moduleObject(pre.typeSymbol.fullName, pre.typeSymbol.isPackage) // FIXME class loading
-        catch { case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.Rep] }
-      },
-      {
-        //try newBase.loadTypSymbol(sym.fullName) // FIXME class loading
-        try try newBase.loadTypSymbol(srum.runtimeClass(sym.asClass).getName) // FIXME class loading
-        catch {
-          case (_: ScalaReflectionException) | (_:java.lang.reflect.InvocationTargetException) => newBase.loadTypSymbol(sym.fullName)
-        }
-        catch {
-          case (_: java.lang.ClassNotFoundException) | (_:java.lang.reflect.InvocationTargetException) => null.asInstanceOf[newBase.TypSymbol]
-        }
-      },
-      targs map (t => reinterpretType(t, newBase)))
+    case TypeRef(pre, sym, targs) =>
+      val modEmb = new ModularEmbedding[sru.type,newBase.type](sru, newBase, debug = x => debug(x))
+      modEmb.liftType(tr.tpe)
       
     //case sru.RefinedType(ps0, scp0) => ??? // TODO -- eg record type
     case sru.RefinedType(Nil, scp0) => newBase.recordType(scp0 map (s => s.name.toString -> reinterpretType(s.typeSignature, newBase)) toList)

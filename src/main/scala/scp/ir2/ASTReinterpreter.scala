@@ -26,7 +26,7 @@ trait ASTReinterpreter { ast: AST =>
     
     val extrudedHandle: BoundVal => newBase.Rep = bv => wth(s"Extruded variable: $bv")
     
-    def getClassName(cls: sru.ClassSymbol) = ruh.srum.runtimeClass(cls).getName
+    //def getClassName(cls: sru.ClassSymbol) = ruh.srum.runtimeClass(cls).getName
     
     protected val bound = mutable.Map[BoundVal, newBase.BoundVal]()
     
@@ -46,7 +46,7 @@ trait ASTReinterpreter { ast: AST =>
             newBase.lambda({ recv(bv)::Nil }, apply(body))
         }
       case MethodApp(self, mtd, targs, argss, tp) =>
-        val typ = newBase.loadTypSymbol(getClassName(mtd.owner.asClass))
+        val typ = newBase.loadTypSymbol(ruh.encodedTypeSymbol(mtd.owner.asType))
         val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
         val newMtd = newBase.loadMtdSymbol(typ, mtd.name.toString, if (alts.isEmpty) None else Some(alts.indexOf(mtd)), mtd.isStatic)
         newBase.methodApp(

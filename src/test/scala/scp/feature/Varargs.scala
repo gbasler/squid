@@ -27,8 +27,7 @@ class Varargs extends MyFunSuite2 {
     ir"Seq(1,2,3)" match {
       case ir"Seq[Int]($a,$b,$c)" => same(Seq(a,b,c), args)
     }
-    //import BasicEmbedding._ // FIXME class loading
-    import Dummies.BasicEmbedding._
+    import BasicEmbedding._
     ir"new MC(42)('ok, 'ko)" match {
       case ir"new MC(42)($a, $b)" =>
         eqt(a, ir"'ok")

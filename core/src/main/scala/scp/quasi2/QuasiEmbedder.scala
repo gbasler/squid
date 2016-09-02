@@ -224,6 +224,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             case _ => throw QuasiException("Free variable must have a static name, and be of the form: $$[Type]('name) or $$('name)\n\tin: "+showCode(in))
           }
           
+          lazy val ExtractedBinder = typeOf[scp.lib.ExtractedBinder].typeSymbol
+          
           override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean)(implicit ctx: Map[TermSymbol, b.BoundVal]): b.Rep = {
           object HoleName { def unapply(tr: Tree) = Some(holeName(tr,x)) }
           x match {
@@ -238,7 +240,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
             /** Processes extracted binders in lambda parameters */
             case q"(..$params) => $body" =>
-              val xtr = params filter (_.symbol.annotations exists (_.tree.tpe.typeSymbol == symbolOf[scp.lib.ExtractedBinder]))
+              val xtr = params filter (_.symbol.annotations exists (_.tree.tpe.typeSymbol == ExtractedBinder))
               xtr foreach { vd =>
                 val nam = vd.name
                 val typ = vd.symbol.typeSignature
@@ -248,7 +250,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               super.liftTerm(x, parent, expectedType, inVarargsPos)
               
             /** Processes extracted binders in val bindings */
-            case q"${vd @ ValDef(mods, TermName(name), tpt, rhs)}; $body" if vd.symbol.annotations exists (_.tree.tpe.typeSymbol == symbolOf[scp.lib.ExtractedBinder]) =>
+            case q"${vd @ ValDef(mods, TermName(name), tpt, rhs)}; $body" if vd.symbol.annotations exists (_.tree.tpe.typeSymbol == ExtractedBinder) =>
               val nam = TermName(name)
               
               val sign = vd.symbol.typeSignature

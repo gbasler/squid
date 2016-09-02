@@ -2,8 +2,8 @@ package scp
 package ir2
 
 import lang2._
-import utils.meta.RuntimeUniverseHelpers
 import utils._
+import utils.meta.{RuntimeUniverseHelpers => ruh}
 
 
 /** 
@@ -176,7 +176,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   /* --- --- --- Node Definitions --- --- --- */
   
   
-  lazy val ExtractedBinderSym = loadTypSymbol(classOf[scp.lib.ExtractedBinder].getName)
+  lazy val ExtractedBinderSym = loadTypSymbol(ruh.encodedTypeSymbol(ruh.sru.typeOf[scp.lib.ExtractedBinder].typeSymbol.asType))
   
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
     def toHole(model: BoundVal): Extract -> Hole = {
@@ -204,10 +204,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
-      case () => TypeRep(RuntimeUniverseHelpers.Unit)
+      case () => TypeRep(ruh.Unit)
       case cls: Class[_] => // Runtime classes are considered like constants, for some reason
-        val tp = RuntimeUniverseHelpers.srum.classSymbol(cls).toType
-        typeApp(rep(ModuleObject("java.lang", true)), loadTypSymbol(cls.getClass.getName), tp::Nil)
+        val tp = ruh.srum.classSymbol(cls).toType
+        val clsSym = ruh.srum.classSymbol(cls.getClass)
+        staticTypeApp(loadTypSymbol(ruh.encodedTypeSymbol(clsSym)), tp :: Nil)
       case _ => constType(value)
     }
   }
@@ -231,7 +232,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   case class ModuleObject(fullName: String, isPackage: Boolean) extends Def {
     //assert(!isPackage) // TODO; we shouldn't use this anymore
     lazy val typ =
-    if (isPackage) uninterpretedType(RuntimeUniverseHelpers mkTag RuntimeUniverseHelpers.srum.staticPackage(fullName).typeSignature)
+    if (isPackage) uninterpretedType(ruh mkTag ruh.srum.staticPackage(fullName).typeSignature)
     else staticModuleType(fullName)
   }
   

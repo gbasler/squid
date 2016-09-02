@@ -59,8 +59,7 @@ class VirtualizedConstructs extends MyFunSuite2 {
   }
   
   test("Imperative") {
-    //import VirtualizedConstructs._  // FIXME class loading
-    import Dummies.VirtualizedConstructs._
+    import VirtualizedConstructs._
     
     setEv(0)
     

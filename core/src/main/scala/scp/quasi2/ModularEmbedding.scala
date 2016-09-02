@@ -19,28 +19,36 @@ import collection.mutable
   * TODO check that expectedType is used whenever possible (dont blindly lift x.tpe instead...)
   * 
   */
-abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](val uni: U, val base: B, debug: String => Unit = println) extends UniverseHelpers[U] {
+class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, val base: B, debug: String => Unit = println) extends UniverseHelpers[U] {
   import uni._
   import base._
   
+  /** Note: macro universes do not (at least publicly) extend JavaUniverse, but we need a JavaUniverse to create a
+    * mirror that correctly reifies typeOf (if not, `ExtrudedType` does not find class QuasiBase and crashes) */
+  val mir = (uni match {
+    case uni: scala.reflect.api.JavaUniverse => uni.runtimeMirror(getClass.getClassLoader)
+    case _ => uni.rootMirror
+  }).asInstanceOf[uni.Mirror]
   
-  /** @throws ClassNotFoundException */
-  def className(cls: ClassSymbol): String
-  
-  
+  def setType(tr: Tree, tp: Type) = {
+    val macroUni = uni.asInstanceOf[scala.reflect.macros.Universe]
+    macroUni.internal.setType(tr.asInstanceOf[macroUni.Tree], tp.asInstanceOf[macroUni.Type])
+    tr
+  }
   
   def dbg(x: => Any, xs: Any*) = debug((x +: xs) mkString " ")
   
-  lazy val (varCls, varModCls, varTypSym) = {
-    val varCls = srum.runtimeClass(sru.typeOf[scp.lib.Var[Any]].typeSymbol.asClass).getName
-    (varCls, srum.runtimeClass(sru.typeOf[scp.lib.Var.type].typeSymbol.asClass).getName, loadTypSymbol(varCls))
+  lazy val (varModCls, varTypSym) = {
+    encodedTypeSymbol(typeOf[scp.lib.Var.type].typeSymbol.asType) ->
+      loadTypSymbol(encodedTypeSymbol(typeOf[scp.lib.Var[_]].typeSymbol.asType))
   }
   lazy val scpLibVar = moduleObject("scp.lib.Var", false)
   
   lazy val scpLib = moduleObject("scp.lib.package", false)
-  lazy val scpLibTyp =
-    //loadTypSymbol(srum.runtimeClass(sru.typeOf[scp.lib.`package`.type].typeSymbol.asClass).getName)
-    loadTypSymbol("scp.lib.package$") // ^ equivalent
+  lazy val scpLibTyp = staticModuleType("scp.lib.package")
+  lazy val scpLibTypSym = loadTypSymbol(encodedTypeSymbol(typeOf[scp.lib.`package`.type].typeSymbol.asType))
+  
+  lazy val ExtrudedType = mir.typeOf[QuasiBase.`<extruded type>`]
   
   
   private val typSymbolCache = mutable.HashMap[String, TypSymbol]()
@@ -57,19 +65,12 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
   
   protected val typeCache = mutable.HashMap[Type, TypeRep]()
   
+  def staticModuleType(fullName: String): TypeRep = staticTypeApp(loadTypSymbol(fullName+"$"), Nil)
+  
   
   def getTyp(tsym: TypeSymbol): TypSymbol = {
-    
-    // Note: doesn't work properly to inspect tsym.toType.
-    // For example, a refinement won't be matched by `case RefinedType(_, _)` but by `case TypeRef(_, _, _) =>` ...
-    
-    // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
-    // Assuming AnyRef for Any may not be perfectly safe, though... (to see)
-    val sym = if (tsym.fullName == "scala.Any") AnyRef.typeSymbol else tsym
-    
-    val cls = className(sym.asClass  /* TODO B-E */)
-    
-    //debug(s"""Getting type for symbol $tsym -- class "$cls"""")
+    val cls = encodedTypeSymbol(tsym) // Maybe cache this more somehow? (e.g. per compilation unit)
+    //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
   }
   def getMtd(typ: TypSymbol, mtd: MethodSymbol): MtdSymbol = {
@@ -80,7 +81,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       mtd.owner.asType.toType
         .member(mtd.name).alternatives
     
-    val index = if (alts isEmpty) None else {
+    val index = if (alts.size == 1) None else {
       if (mtd.isJava) {
         /** Note: sometimes useless, sometimes not...
           * Java overloading order may NOT be the same here and via runtime reflection...
@@ -89,7 +90,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
           * 
           * Note: other possible impl approach: runtimeClass(cls).getName |> Class.forName |> srum.classSymbol */
         
-        val runtimeMtd = imp.importSymbol(mtd).asMethod
+        val runtimeMtd = importer.importSymbol(mtd).asMethod
         dbg("Java method:", runtimeMtd, ":", runtimeMtd.typeSignature)
         
         val runtimeOwner = runtimeMtd.owner.asClass
@@ -148,7 +149,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       * so we have to make the types right by introducing a () return. */
     if ((expectedType exists (_ =:= Unit)) && !(x.tpe <:< Unit)) {
       //dbg("Coerced Unit:", expectedType, x.tpe)
-      val imp = getMtd(scpLibTyp, "Imperative")
+      val imp = getMtd(scpLibTypSym, "Imperative")
       val retTyp = liftType(Unit)
       methodApp(scpLib, imp, retTyp::Nil, Args()(rec(x, Some(Any)))::Args(const( () ))::Nil, retTyp)
     }
@@ -207,8 +208,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
             
             val mtd = loadMtdSymbol(loadTypSymbol(varModCls), "apply")
             
-            //val tp = typeApp(moduleObject("scp.lib.package", false), varTypSym, varType :: Nil)
-            val tp = typeApp(scpLib, varTypSym, varType :: Nil)
+            val tp = typeApp(scpLibTyp, varTypSym, varType :: Nil)
             methodApp(scpLibVar, mtd, varType :: Nil, Args(value)::Nil, tp) -> tp
           }
           else value -> liftType(typeIfNotNothing(rhs.tpe) getOrElse tpt.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
@@ -217,7 +217,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val bound = bindVal(name.toString, valType, vdef.symbol.annotations map (a => liftAnnot(a, x)))
         
         val body = rec(
-          internal.setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
+          setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
           expectedType)(ctx + (vdef.symbol.asTerm -> bound))
         
         letin(bound, value, body, liftType(expectedType getOrElse x.tpe))
@@ -335,12 +335,12 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         
         val effects = Args()(hs.reverse map (t => rec(t, Some(Any))): _*)
         
-        val body = rec(internal.setType( q"..$tl; $r",x.tpe ), // doing this kind of de/re-structuring loses the type
+        val body = rec(/*internal.*/setType( q"..$tl; $r",x.tpe ), // doing this kind of de/re-structuring loses the type
           expectedType)
         
         val argss = effects :: Args(body) :: Nil
         
-        val imp = getMtd(scpLibTyp, "Imperative")
+        val imp = getMtd(scpLibTypSym, "Imperative")
         val retTyp = liftType(x.tpe)
         
         methodApp(scpLib, imp, retTyp::Nil, argss, retTyp)
@@ -353,7 +353,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         val tp = typeIfNotNothing(branchTp) orElse expectedType
         val retTyp = liftType(tp getOrElse branchTp)
         
-        val mtd = getMtd(scpLibTyp, "IfThenElse")
+        val mtd = getMtd(scpLibTypSym, "IfThenElse")
         methodApp(scpLib, mtd, retTyp::Nil, Args(
           rec(cond, Some(Boolean)),
           byName(rec(thn, tp)),
@@ -362,7 +362,7 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
         
       /** --- --- --- WHILE LOOPS --- --- --- */
       case q"while ($cond) $loop" =>
-        val mtd = getMtd(scpLibTyp, "While")
+        val mtd = getMtd(scpLibTypSym, "While")
         val retTyp = liftType(Unit)
         methodApp(scpLib, mtd, Nil, Args(
           byName(rec(cond, Some(Boolean))),
@@ -414,8 +414,6 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
     case _ if tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous => // `isErroneous` seems to return true if any sub-component has `isError`
       throw EmbeddingException(s"Internal error: type `$tp` contains an error...")
       
-    case _ if tp =:= Any => uninterpretedType[Any]
-      
     case ExistentialType(syms, typ) =>
       // TODO still allow implicit search (only prevent making a type tag of it)
       throw EmbeddingException.Unsupported(s"Existential type '$tp'")
@@ -437,17 +435,24 @@ abstract class ModularEmbedding[U <: scala.reflect.macros.Universe, B <: Base](v
       debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< typeOf[QuasiBase.`<extruded type>`]) =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< ExtrudedType) =>
       //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
       dbg(s"TypeRef($prefix, $sym, $targs)")
       
       try {
         val tsym = getTyp(tp.typeSymbol.asType) // may throw ClassNotFoundException
         
-        val self = liftModule(prefix)
+        //val self = liftModule(prefix)
+        //val self = liftType(prefix)
+        //val self = if (sym.isStatic) null.asInstanceOf[TypeRep] else liftType(prefix)
         
-        typeApp(self, tsym, targs map (t => liftType(t)))
+        val ts = targs map (t => liftType(t))
+        
+        //typeApp(self, tsym, targs map (t => liftType(t)))
+        if (sym.isStatic) staticTypeApp(tsym, ts)
+        else typeApp(liftType(prefix), tsym, ts)
         // ^ Note: getTyp(sym.asType) did not always work...
+        
         
       } catch {
         case e: ClassNotFoundException =>

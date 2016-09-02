@@ -35,22 +35,15 @@ trait RuntimeSymbols extends TraceDebug {
   //private[this] type TypSymbol = sru.TypeSymbol
   type MtdSymbol = sru.MethodSymbol
   
-  def loadTypSymbol(fullName: String): ScalaTypeSymbol = typSymbolCache.synchronized { typSymbolCache.getOrElseUpdate(fullName, {
-    val className = fullName match {
-      case "boolean" => "scala.Boolean"
-      case "byte" => "scala.Byte"
-      case "char" => "scala.Char"
-      case "short" => "scala.Short"
-      case "int" => "scala.Int"
-      case "long" => "scala.Long"
-      case "float" => "scala.Float"
-      case "double" => "scala.Double"
-      case "void" => "scala.Unit"
-      case n => n
+  def loadTypSymbol(fullName: String): ScalaTypeSymbol = {
+    val path = fullName.splitSane('#')
+    val root = if (path.head endsWith "$") srum.staticModule(path.head.init) else srum.staticClass(path.head)
+    val res = path.tail.foldLeft(root) {
+      case (s, name) if name.endsWith("$") => s.asType.toType.member(sru.TermName(name.init))
+      case (s, name) => s.asType.toType.member(sru.TypeName(name))
     }
-    debug(s"Loading type from class name $className")
-    srum.classSymbol(Class.forName(className)) and (x => debug(s"Loaded: $x"))
-  })}
+    (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) and (x => debug(s"Loaded: $x"))
+  }
   
   def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = { // TODO cache!!
     debug(s"Loading method $symName from $typ"+(if (static) " (static)" else ""))

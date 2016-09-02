@@ -21,7 +21,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   lazy val srum = sru.runtimeMirror(getClass.getClassLoader)
   
   
-  lazy val imp = scala.reflect.runtime.universe.internal.createImporter(uni)
+  lazy val importer = scala.reflect.runtime.universe.internal.createImporter(uni)
   
   
   def mkTag[A](tpe: Type) = {
@@ -138,6 +138,16 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   def untypeTreeShape(t: Tree) = {
     // TODO
     t
+  }
+  
+  /** A symbol's fullName may be ambiguous; for example, a.X.Y can refer to a type Y in a class a.X, or in an object a.X
+    * This encodes Symbol paths using a static prefix, then #-separated names, where the name has '$' appended if it
+    * refers to a term. */
+  def encodedTypeSymbol(tsym: TypeSymbol) = {
+    def rec(sym: Symbol): String =
+      (if (sym.isStatic) sym.fullName
+      else rec(sym.owner)+"#"+sym.name)+(if (sym.isModuleClass) "$" else "")
+    rec(tsym)
   }
   
   

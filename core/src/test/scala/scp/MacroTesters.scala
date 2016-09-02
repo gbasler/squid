@@ -29,21 +29,7 @@ object MacroTesters {
     object ME extends ModularEmbedding[c.universe.type, MBM.MirrorBase](c.universe, MB,
       //str => debug(str)
       str => ()
-    ){
-      /** Only true cowboys can deal with nondeterministic shit like that */
-      def className(cls: ClassSymbol): String = {
-        //debug("CLS NAME",cls)
-        //srum.runtimeClass(imp.importSymbol(cls).asClass).getName
-        
-        def tryAgainJerryJoe(bullets: Int): String =  // TODO try simple asInstanceOf instead of importer 
-          try srum.runtimeClass(imp.importSymbol(cls).asClass).getName
-          catch { case _: java.lang.IndexOutOfBoundsException => if (bullets > 0) tryAgainJerryJoe(bullets-1) else {
-            System.err.println(s"Ay, I missed $cls again Billy Ben. Let's hope the Sherriff won't see it.")
-            cls.fullName
-          }}
-        tryAgainJerryJoe(8)
-      }
-    }
+    )
     
     val newCode = ME(code)
     
@@ -73,9 +59,8 @@ object MacroTesters {
     val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
     
     val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).newInstance().asInstanceOf[IntermediateBase]
-    object ME extends ModularEmbedding[c.universe.type, AST.type](c.universe, AST, str => debug(str)) {
-      def className(cls: ClassSymbol): String = m.runtimeClass(imp.importSymbol(cls).asClass).getName
-    }
+    object ME extends ModularEmbedding[c.universe.type, AST.type](c.universe, AST, str => debug(str))
+    
     val newCode = ME(code)
     debug("AST: "+newCode)
     

@@ -5,13 +5,13 @@ import scp.utils.meta.RuntimeUniverseHelpers
 import utils.Debug._
 
 class TypeMatching extends MyFunSuite2 {
-  //import TypeMatching._  // FIXME class loading
-  import Dummies.TypeMatching._
+  import TypeMatching._
   import TestDSL2.Predef._
   
   test("Trivial") {
     ir"42" matches {
-      //case ir"$x: Any" => eqt(x, ir"42") // FIXME Any
+      case ir"$x: Any" => eqt(x, ir"42")
+    } and {
       case ir"$x: AnyVal" => eqt(x, ir"42")
     } and {
       case ir"$x: $t" =>
@@ -72,8 +72,8 @@ class TypeMatching extends MyFunSuite2 {
     f match {
       case ir"$_: (Any => Double)" => fail
       case ir"$_: (AnyVal => Double)" => fail
-      //case ir"$_: (Int => Any)" => // FIXME Any
-      case ir"$_: (Int => AnyVal)" =>
+      case ir"$_: (Int => Any)" =>
+      case ir"$_: (Int => AnyVal)" => fail
     }
     
     ir"Some[Int=>Int](_+1)" matches {
@@ -99,8 +99,8 @@ class TypeMatching extends MyFunSuite2 {
       case ir"$y: Option[Option[$t]]" => assert(t.rep =:= typeRepOf[Nothing])
     }
     and { case ir"Option.empty[$t]" => eqt(t.rep, typeRepOf[Nothing]) }
-    //and { case ir"Option.empty[Any]" => } // cf: covariant method type argument matching // FIXME Any
-    and { case ir"Option.empty[AnyVal]" => } // cf: covariant method type argument matching
+    and { case ir"Option.empty[Any]" => } // cf: covariant method type argument matching
+    and { case ir"Option.empty[AnyVal]" => }
     and { case ir"Option.empty[Nothing]" => }
     
   )
@@ -109,8 +109,9 @@ class TypeMatching extends MyFunSuite2 {
   test("Type Params & Variance") {
     
     ir"List(42)" matches ({
-      //case ir"$x: List[Any]" => eqt(x, ir"List(42)") // FIXME Any
-      case ir"$x: List[AnyVal]" => eqt(x, ir"List(42)")
+      case ir"$x: List[Any]" => eqt(x, ir"List(42)")
+    }, {
+      case ir"$x: List[AnyVal]" =>
     }, {
       case ir"$_: List[$t]" => eqt(t.rep, typeRepOf[Int])
     })
@@ -118,7 +119,8 @@ class TypeMatching extends MyFunSuite2 {
     ir"List(List(42))" matches ({
       case ir"$_: List[List[$t]]" => eqt(t.rep, typeRepOf[Int])
     }, {
-      //case ir"$_: Seq[Seq[Any]]" => // FIXME Any
+      case ir"$_: Seq[Seq[Any]]" =>
+    }, {
       case ir"$_: Seq[Seq[AnyVal]]" =>
     })
     
@@ -127,7 +129,7 @@ class TypeMatching extends MyFunSuite2 {
   }
   
   
-  val AnyType = base.`internal IRType`[Any](base.TypeRep(RuntimeUniverseHelpers.sru.typeOf[Any])) // FIXME Any
+  val AnyType = irTypeOf[Any]
   
   
   // Note: defining 'Expr' and 'Appl' here used to work; no more since symbols are now loaded dynamically from the owner chain
@@ -143,8 +145,7 @@ class TypeMatching extends MyFunSuite2 {
       //case _ => fail
     }
     applid match {
-      //case ir"$a: Appl[Any,Any]" => // FIXME Any
-      case ir"$a: Appl[AnyVal,AnyVal]" =>
+      case ir"$a: Appl[Any,Any]" =>
         assert(a =~= applid)
       //case _ => fail
     }
@@ -166,8 +167,7 @@ class TypeMatching extends MyFunSuite2 {
       case ir"$_ : Expr[Abst[Int, String] => Expr[Int => String]]" =>
     }
     abstabst match {
-      //case ir"$_ : Expr[Abst[Any, Nothing] => Expr[Nothing => Any]]" => // FIXME Any
-      case ir"$_ : Expr[Abst[AnyVal, Nothing] => Expr[Nothing => Any]]" =>
+      case ir"$_ : Expr[Abst[Any, Nothing] => Expr[Nothing => Any]]" =>
     }
     
     ir"(x: Appl[Int,Double]) => ()".cast[_ => Unit] match {
@@ -187,8 +187,7 @@ class TypeMatching extends MyFunSuite2 {
     }
     
     ir"(x: Expr[Int]) => ()".cast[_ => _] match {
-      //case ir"$_: (Appl[String,Int] => Any)" => // FIXME Any
-      case ir"$_: (Appl[String,Int] => AnyVal)" =>
+      case ir"$_: (Appl[String,Int] => Any)" =>
     }
     
     ir"(x: Expr[Int]) => ()".cast[_ => _] match {
@@ -229,7 +228,6 @@ class TypeMatching extends MyFunSuite2 {
       case ir"(_: $t) => $b: t" =>
         
         //show(b) // FIXME '_' binding xtion
-        // ^ Note: show crashes when trying to convert to Scala tree, cf: class loading of Any
         
         eqt(t, irTypeOf[List[Int]])
     } and {
@@ -239,7 +237,6 @@ class TypeMatching extends MyFunSuite2 {
     } and {
       case ir"$_: (List[List[$t0]] => Any)" =>
         //show(t0)
-        //subt(t0, irTypeOf[Any]) // FIXME Any
         subt(t0, AnyType)
         subt(irTypeOf[Nothing], t0)
     }

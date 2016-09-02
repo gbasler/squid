@@ -14,7 +14,7 @@ class Run extends MyFunSuite2 {
   test("Modules") {
     same(ir"List".run, List)
     same(ir"Nil".run, Nil)
-    same(ir"Dummies.Run".run, Dummies.Run)
+    same(ir"Run".run, Run)
     same(ir"scp.TestDSL2.Predef".run.base, TestDSL2)
   }
   
@@ -37,8 +37,7 @@ class Run extends MyFunSuite2 {
     
     assert((f.run apply 42) == 43)
     
-    //assert(ir"Run.f(42)".run == 43)  // FIXME class loading
-    assert(ir"Dummies.Run.f(42)".run == 43)
+    assert(ir"Run.f(42)".run == 43)
     
   }
   

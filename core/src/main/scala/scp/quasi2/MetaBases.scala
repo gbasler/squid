@@ -3,8 +3,8 @@ package quasi2
 
 import utils._
 import lang2._
-
-import scala.reflect.runtime.{universe => sru}
+import scp.utils.meta.{RuntimeUniverseHelpers => ruh}
+import ruh.sru
 
 trait MetaBases {
   type U = u.type
@@ -120,9 +120,14 @@ trait MetaBases {
     }
     
     
-    def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val n = curatedFreshName(typ._1)
       symbols += n -> q"$Base.typeApp($self, ${typ._2}, ${mkNeatList(targs)})"
+      q"$n"
+    }
+    def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+      val n = curatedFreshName(typ._1)
+      symbols += n -> q"$Base.staticTypeApp(${typ._2}, ${mkNeatList(targs)})"
       q"$n"
     }
     
@@ -130,11 +135,6 @@ trait MetaBases {
     
     def constType(value: Any, underlying: TypeRep): TypeRep = q"$Base.constType(${Constant(value)}, $underlying)"
     
-    def staticModuleType(fullName: String): TypeRep = {
-      val n = curatedFreshName(fullName.drop(fullName.lastIndexOf('.')+1))
-      symbols += n -> q"$Base.staticModuleType($fullName)"
-      q"$n"
-    }
     
     
     
@@ -166,7 +166,6 @@ trait MetaBases {
     override def ascribe(self: Rep, typ: TypeRep): Rep = q"$Base.ascribe($self, $typ)"
     
     object Const extends ConstAPI {
-      import meta.RuntimeUniverseHelpers.sru
       def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T] = ir match {
         case q"$b.const[$typ](${Literal(Constant(value))})" if sru.typeOf[T] <:< typ.tpe.asInstanceOf[sru.Type] => // TODO check base?
           Some(value.asInstanceOf[T])
@@ -184,20 +183,21 @@ trait MetaBases {
     * It does not add types to the trees, although it could (to some extent). */
   class ScalaReflectionBase extends Base {
     
+    val startPathsFromRoot = false
+    
     type Rep = Tree
     type BoundVal = (TermName, TypeRep)
     type TypeRep = Tree
     
     type MtdSymbol = TermName
-    type TypSymbol = () => TypeName // to delay computation, since we won't need most of them! (only needed in typeApp)
+    type TypSymbol = () => sru.TypeSymbol // to delay computation, since we won't need most of them! (only needed in typeApp)
     
     
     def repEq(a: Rep, b: Rep): Boolean = a == b
     def typLeq(a: TypeRep, b: TypeRep): Boolean = ???
     
     
-    def loadTypSymbol(fullName: String): TypSymbol = () =>
-      TypeName(ir2.RuntimeSymbols.loadTypSymbol(fullName).name.toString)
+    def loadTypSymbol(fullName: String): TypSymbol = () => ir2.RuntimeSymbols.loadTypSymbol(fullName)
     
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
@@ -206,7 +206,10 @@ trait MetaBases {
     //def bindVal(name: String, typ: TypeRep): BoundVal = TermName("_$"+name) -> typ
     
     def readVal(v: BoundVal): Rep = q"${v._1}"
-    def const(value: Any): Rep = Literal(Constant(value))
+    def const(value: Any): Rep = value match {
+      case cls: Class[_] => q"_root_.scala.Predef.classOf[${ruh.srum.classSymbol(cls).asInstanceOf[u.Symbol]}]" // FIXME
+      case _ => Literal(Constant(value))
+    }
     def lambda(params: List[BoundVal], body: => Rep): Rep = q"""
       (..${params map { case (vn, vt) => q"val $vn: $vt" }}) => $body
     """
@@ -239,8 +242,26 @@ trait MetaBases {
     
     def uninterpretedType[A: sru.TypeTag]: TypeRep = tq"${typeOf[A]}"
     
-    def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = tq"$self.${typ()}[..$targs]"
-    
+    def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+      val tp = typ()
+      val pre = self match {
+        case tq"$t.type" => t
+        case _ => self
+      }
+      if (tp.isModuleClass) {
+        assert(targs.isEmpty, s"Non-empty targs $targs")
+        tq"$pre.${TermName(tp.name.toString)}.type"
+      }
+      else tq"$pre.${TypeName(tp.name.toString)}[..$targs]"
+    }
+    def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+      val tp = typ()
+      var nameChain = ((Iterator iterate tp.owner)(_.owner) takeWhile (s => s.name.toString != "<root>")
+        map (s => TermName(s.name.toString)) foldLeft List.empty[TermName]) (_.::(_))
+      if (startPathsFromRoot) nameChain ::= TermName("_root_")
+      val path = nameChain.tail.foldLeft(Ident(nameChain.head):Tree){ (p, n) => q"$p.$n" }
+      typeApp(path, () => tp, targs)
+    }
     
     def recordType(fields: List[(String, TypeRep)]): TypeRep = ??? // TODO
     
@@ -260,13 +281,12 @@ trait MetaBases {
     
     def constType(value: Any, underlying: TypeRep): TypeRep = tq"$underlying"
     
-    def staticModuleType(fullName: String): TypeRep = tq"${staticModule(fullName)}.type"
     
     
     override def ascribe(self: Rep, typ: TypeRep): Rep = q"$self: $typ"
     
     object Const extends ConstAPI {
-      def unapply[T: meta.RuntimeUniverseHelpers.sru.TypeTag](ir: IR[T,_]): Option[T] = ir match {
+      def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T] = ir match {
         case Literal(Constant(v)) => Some(v.asInstanceOf[T]) // TODO check type?
         case _ => None
       }

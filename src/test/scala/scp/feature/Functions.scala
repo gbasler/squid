@@ -14,8 +14,7 @@ import utils._
   */
 class Functions extends MyFunSuite2 {
   import TestDSL2.Predef._
-  //import Functions._ // FIXME class loading
-  import Dummies.Functions._
+  import Functions._
   
   test("Thunks") {
     

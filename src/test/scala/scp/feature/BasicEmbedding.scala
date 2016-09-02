@@ -9,8 +9,7 @@ object BasicEmbedding {
   
 }
 class BasicEmbedding extends MyFunSuite2 {
-  //import BasicEmbedding._ // FIXME class loading
-  import Dummies.BasicEmbedding._
+  import BasicEmbedding._
   
   import TestDSL2.Predef._
   
@@ -141,6 +140,9 @@ class BasicEmbedding extends MyFunSuite2 {
       // ^ Note: used to throw: Error:(131, 12) Embedding Error: Unknown type `Array[t]` does not have a TypeTag to embed it as uninterpreted.
       //   Made it:             Error:(132, 12) Embedding Error: Unsupported feature: Arrays of unresolved type.
     }
+    same(ir"classOf[Int]" run, classOf[Int])
+    same(ir"classOf[base.Quasiquotes[_]]" run, classOf[base.Quasiquotes[_]])
+    // ^ Note: this generates `classOf[scp.quasi2.QuasiBase$Quasiquotes]`, and funnily it seems to be valid Scala.
   }
   
   test("List, Option") {
@@ -149,7 +151,8 @@ class BasicEmbedding extends MyFunSuite2 {
       //case ir"Some($_)" => fail  // warns... twice..
       case ir"Some[Nothing]($_:Nothing)" => fail // equivalent to the one above, but does not generate a warning
       //case ir"Some[Any]($_)" => fail // method type args are seen as invariant (we maybe could do better but it'd require non-trivial analysis)
-      //case ir"Some[Any]($_)" => // now method type args are seen as covariant // FIXME Any
+      case ir"Some[Any]($_)" => // now method type args are seen as covariant
+    } and {
       case ir"Some[AnyVal]($_)" => // now method type args are seen as covariant
     } and {
       case ir"Some[Double]($_)" =>
