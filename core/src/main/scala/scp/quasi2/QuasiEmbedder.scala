@@ -476,12 +476,6 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val splicedValKeys = splicedHoles.map(_.toString)
         
         
-        val defs = typeHoles map { typName => // TODO rm
-          val typ = typeSymbols(typName)
-          val holeName = TermName(s"$$$typName$$hole")
-          q"implicit val $holeName : $Base.IRType[$typ] = $Base.`internal IRType`[${typ}]($Base.typeHole(${typName.toString}))"
-        }
-        
         //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
         val termType = tq"$Base.SomeIR" // We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case dsl"..." => }'
         
@@ -491,17 +485,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
           
-          assert(defs.isEmpty)
-          
           q"""{
           val $shortBaseName: $baseTree.type = $baseTree
           new {
             $typeInfo
             $contextInfo
             def unapply(_t_ : $termType): Boolean = {
-              ..$defs
-              //..dslDefs
-              //..dslTypes
               //val $$shortBaseName = $$baseTree
               val _term_ = $Base.wrapExtract($res)
               $Base.extract(_term_, _t_.rep) match {
@@ -512,8 +501,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             }
           }}.unapply($selector)
           """
+          
         } else {
-          // FIXME hygiene (Rep types...)
           
           /* Scala seems to be fine with referring to traits which declarations do not appear in the final source code (they were typechecked with context `c`),
           but it seems to creates confusion in tools like IntelliJ IDEA (although it's not fatal).
@@ -527,9 +516,6 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             $typeInfo
             $contextInfo
             def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
-              ..${defs}
-              //..dslDefs
-              //..dslTypes
               val _term_ = $Base.wrapExtract($res)
               $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`internal checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
