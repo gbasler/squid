@@ -16,9 +16,6 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   def const(value: Any): Rep // Note: not taking a sru.Constant as argument, because `const` also receives things like () -- Unit "literal"
   def lambda(params: List[BoundVal], body: => Rep): Rep
   
-  /** Important to support packages that are not objects because of typeApp (that may take sthg like `java.lang` for `String`)
-    * Note: for consistency, maybe we should separate into two methods package/module, where typeApp and module are based on a package... */
-  def moduleObject(fullName: String, isPackage: Boolean): Rep // TODO rm; fix typeApp
   def staticModule(fullName: String): Rep
   def module(prefix: Rep, name: String, typ: TypeRep): Rep
   def newObject(tp: TypeRep): Rep

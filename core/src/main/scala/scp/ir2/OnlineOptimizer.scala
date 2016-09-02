@@ -22,7 +22,6 @@ trait OnlineOptimizer extends Optimizer with InspectableBase {
   abstract override def const(value: Any): Rep = processOnline(super.const(value))
   abstract override def lambda(params: List[BoundVal], body: => Rep): Rep = processOnline(super.lambda(params, body))
   
-  abstract override def moduleObject(fullName: String, isPackage: Boolean): Rep = processOnline(super.moduleObject(fullName, isPackage))
   abstract override def staticModule(fullName: String): Rep = processOnline(super.staticModule(fullName))
   abstract override def module(prefix: Rep, name: String, typ: TypeRep): Rep = processOnline(super.module(prefix, name, typ))
   abstract override def newObject(tp: TypeRep): Rep = processOnline(super.newObject(tp))

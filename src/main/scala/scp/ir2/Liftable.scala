@@ -26,11 +26,11 @@ object Liftable {
   
   implicit def ListLift[B <: Base, T](implicit ev: Liftable[B,T]): Liftable[B, List[T]] = new Liftable[B, List[T]] {
     def lift(b: B, x: Typ): b.Rep = { // TODO use QQ/QC for that
-      val tsym = b.loadTypSymbol("scala.immutable.List")
-      val mtd = b.loadMtdSymbol(tsym, "apply")
-      val mod = b.moduleObject("scala.immutable", false)
-      val obj = b.moduleObject("scala.immutable.List", false)
-      val argLift = implicitly[Liftable[b.type,T]]
+      //val tsym = b.loadTypSymbol("scala.immutable.List")
+      //val mtd = b.loadMtdSymbol(tsym, "apply")
+      //val mod = b.moduleObject("scala.immutable", false)
+      //val obj = b.moduleObject("scala.immutable.List", false)
+      //val argLift = implicitly[Liftable[b.type,T]]
       //b.mapp(obj, mtd, b.typeApp(mod, tsym, ???))(???)(b.Args()(x map {a => argLift.lift(b,a)}: _*))
       ???
     }

@@ -47,9 +47,8 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def newObject(tp: TypeRep): Rep = New(tp().asClass)
   case class New(cls: ClassSymbol)
   
-  def moduleObject(fullName: String, isPackage: Boolean): Rep = {
-    if (isPackage) return null // TODO improve
-    val sym = if (isPackage) srum.staticPackage(fullName) else srum.staticModule(fullName)
+  def staticModule(fullName: String): Rep = {
+    val sym = srum.staticModule(fullName)
     if (sym.isJava) return srum.runtimeClass(sym.companion.asType.asClass)
     
     //println(s"Mod $sym: "+srum.classSymbol(self.getClass))
@@ -60,7 +59,6 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
     
     mm.instance
   }
-  def staticModule(fullName: String): Rep = moduleObject(fullName, false)
   def module(prefix: Rep, name: String, typ: TypeRep): Rep = prefix.getClass.getMethod(name).invoke(prefix)
   
   /** These pesky primitive types have a tendency to change class symbol and break everything!

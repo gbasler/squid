@@ -51,11 +51,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   override def ascribe(self: Rep, typ: TypeRep): Rep = rep(Ascribe(self, typ))
   
   def newObject(tp: TypeRep): Rep = rep(NewObject(tp))
-  def moduleObject(fullName: String, isPackage: Boolean): Rep = rep({
-    ModuleObject(fullName: String, isPackage)
-  })
   def staticModule(fullName: String): Rep = rep({
-    ModuleObject(fullName: String, false)
+    StaticModule(fullName: String)
   })
   def module(prefix: Rep, name: String, typ: TypeRep): Rep = rep(Module(prefix, name, typ))
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
@@ -91,7 +88,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         Abs(p, tr(b))(a.typ) // Note: we do not transform the parameter; could lead to surprising behaviors? (esp. in case of erroneous transform)
       case Ascribe(r,t) => Ascribe(tr(r),t)
       case Hole(_) | SplicedHole(_) | NewObject(_) => d
-      case mo @ ModuleObject(fullName, tp) => mo
+      case mo @ StaticModule(fullName) => mo
       case Module(pref, name, typ) => Module(tr(pref), name, typ)
       case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
       case MethodApp(self, mtd, targs, argss, tp) =>
@@ -132,7 +129,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       //Some(Map(name -> rep), Map(), Map())
       //Seq(12)
       val rep = methodApp(
-        moduleObject("scala.collection.Seq", false),
+        staticModule("scala.collection.Seq"),
         loadMtdSymbol(
           //loadTypSymbol("scala.collection.Seq"),
           loadTypSymbol("scala.collection.generic.GenericCompanion"),
@@ -229,11 +226,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   case class NewObject(typ: TypeRep) extends Def
   
-  case class ModuleObject(fullName: String, isPackage: Boolean) extends Def {
-    //assert(!isPackage) // TODO; we shouldn't use this anymore
-    lazy val typ =
-    if (isPackage) uninterpretedType(ruh mkTag ruh.srum.staticPackage(fullName).typeSignature)
-    else staticModuleType(fullName)
+  case class StaticModule(fullName: String) extends Def {
+    lazy val typ = staticModuleType(fullName)
   }
   
   case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Def {
@@ -310,7 +304,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
             m <- merge(pt, b)
           } yield m
           
-        case (ModuleObject(fullName1,tp1), ModuleObject(fullName2,tp2)) if fullName1 == fullName2 =>
+        case (StaticModule(fullName1), StaticModule(fullName2)) if fullName1 == fullName2 =>
           Some(EmptyExtract) // Note: not necessary to test the types: object with identical paths should be identical
 
         case Module(pref0, name0, tp0) -> Module(pref1, name1, tp1) =>

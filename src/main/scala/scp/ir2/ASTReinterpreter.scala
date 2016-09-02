@@ -55,7 +55,7 @@ trait ASTReinterpreter { ast: AST =>
           targs map (t => rect(t)),
           argss map (_.map(newBase)(a => apply(a))),
           rect(tp))
-      case ModuleObject(fullName, isPackage) => newBase.moduleObject(fullName, isPackage)
+      case StaticModule(fullName) => newBase.staticModule(fullName)
       case Module(pre, name, typ) => newBase.module(apply(pre), name, rect(typ))
       case NewObject(tp) => newBase.newObject(rect(tp))
       case bv @ BoundVal(name) => bound andThen newBase.readVal applyOrElse (bv, extrudedHandle)

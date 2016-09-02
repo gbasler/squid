@@ -42,9 +42,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     encodedTypeSymbol(typeOf[scp.lib.Var.type].typeSymbol.asType) ->
       loadTypSymbol(encodedTypeSymbol(typeOf[scp.lib.Var[_]].typeSymbol.asType))
   }
-  lazy val scpLibVar = moduleObject("scp.lib.Var", false)
+  lazy val scpLibVar = staticModule("scp.lib.Var")
   
-  lazy val scpLib = moduleObject("scp.lib.package", false)
+  lazy val scpLib = staticModule("scp.lib.package")
   lazy val scpLibTyp = staticModuleType("scp.lib.package")
   lazy val scpLibTypSym = loadTypSymbol(encodedTypeSymbol(typeOf[scp.lib.`package`.type].typeSymbol.asType))
   
@@ -60,8 +60,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     mtdSymbolCache.getOrElseUpdate((typ,symName,index getOrElse 0), base.loadMtdSymbol(typ, symName, index, static))
   
   private val moduleCache = mutable.HashMap[String, Rep]()
-  def moduleObject(fullName: String, isPackage: Boolean): Rep =
-    moduleCache.getOrElseUpdate(fullName, base.moduleObject(fullName, isPackage))
+  def staticModule(fullName: String): Rep = // TODO
+    moduleCache.getOrElseUpdate(fullName, base.staticModule(fullName))
   
   protected val typeCache = mutable.HashMap[Type, TypeRep]()
   
@@ -486,7 +486,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     case ThisType(sym) =>
       // FIXME handle non-stable `this` types, by making a hole!
       assert(sym.isStatic) // TODO BE
-      moduleObject(sym.fullName, sym.isPackage)
+      staticModule(sym.fullName)
     case SingleType(pre,sym) =>
       //dbg(tp,tp.dealias,tp.widen,pre,sym)
       /*
@@ -495,7 +495,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       moduleObject(sym.fullName, sym.isPackage)
       */
       if (sym.isStatic)
-        moduleObject(sym.fullName, sym.isPackage)
+        staticModule(sym.fullName)
       else liftModule(tp.widen) // TODO prevent infloop
 
 
@@ -503,7 +503,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       //dbg(pre,sym,targs)
       //dbg(">>>>>>>",sym,sym.isStatic)
       assert(sym.isStatic, s"Symbol $sym is not static.") // TODO BE
-      moduleObject(sym.fullName, sym.isPackage)
+      staticModule(sym.fullName)
       
   }
   
