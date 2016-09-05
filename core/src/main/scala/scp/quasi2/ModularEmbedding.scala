@@ -139,7 +139,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   // TODO pull in all remaining cases from Embedding
   /** @throws EmbeddingException */
-    def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
+  def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
     def rec(x1: Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = liftTerm(x1, x, expTpe)
     
     //debug(List(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?") mkString " ")
@@ -380,21 +380,29 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       case Block(Nil, t) => liftTerm(t, x, expectedType)  // Note: used to be q"{ $t }", but that turned out to also match things not in a block!
         
         
-      /** --- --- --- ERRORS --- --- --- */
-        
-      case q"${s: DefDef}; ..$_" =>
-        throw EmbeddingException.Unsupported(s"Definition '$s'")
-        
-      case _: DefDef =>
-        throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
-        
+      /** --- --- --- UNKNOWN FEATURES --- --- --- */
       case _ => unknownFeatureFallback(x, parent)
+        
         
     }
   }
   
-  def unknownFeatureFallback(x: Tree, parent: Tree): Rep =
-    throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
+  def unknownFeatureFallback(x: Tree, parent: Tree): Rep = x match {
+   
+    /** --- --- --- ERRORS --- --- --- */
+      
+    case Ident(name) =>
+      throw EmbeddingException.Unsupported(s"Reference to local value `$name`")
+      
+    case q"${s: DefDef}; ..$_" =>
+      throw EmbeddingException.Unsupported(s"Definition `$s`")
+      
+    case _: DefDef =>
+      throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
+       
+    case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
+      
+  }
   
   
   /** wide/deal represent whether we have already tried to widened/dealias this type */

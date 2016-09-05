@@ -7,6 +7,26 @@ object BasicEmbedding {
   
   def foo(n: Int)(s: String) = s * n
   
+  
+  class ClassA { outer =>
+    class ClassA {
+      import TestDSL2.Predef._
+      
+      def foo1 = ir"outer.bar"
+      def foo2 = ir"bar"
+      def bar = 0
+      //def runFoo = foo.run // TODO
+      
+    }
+    def bar = 1
+  }
+  
+  //val clA = new ClassA // Note: does not work (widens the type, since it is not a module...)
+  object clA extends ClassA
+  
+  object clAclA extends clA.ClassA
+  
+  
 }
 class BasicEmbedding extends MyFunSuite2 {
   import BasicEmbedding._
@@ -53,12 +73,11 @@ class BasicEmbedding extends MyFunSuite2 {
   
   test("New") {
     
-    
     ir"new MC[Nothing](42)(???)" match {
-      case ir"new MC(42)()" => fail // warns NO MORE (TODO)
+      case ir"new MC(42)()" => fail // warns NO MORE (TODO?)
       case ir"new MC[Nothing](42)()" => fail
       //case ir"new MC[Nothing](42)($x)" => // warns
-      case ir"new MC(42)($x:Nothing)" => // warns NO MORE (TODO)
+      case ir"new MC(42)($x:Nothing)" => // warns NO MORE (TODO?)
       case ir"new MC[Nothing](42)($x:Nothing)" => // ok
     }
     
@@ -81,6 +100,28 @@ class BasicEmbedding extends MyFunSuite2 {
     }
     
     assertTypeError(""" mc match { case ir"new $ab" => } """) // Embedding Error: trait ab is abstract; cannot be instantiated
+    
+  }
+  
+  test("This References") {
+    
+    val aa = new clA.ClassA
+    
+    import base.Quasicodes._
+    
+    //aa.foo1 eqt ir{$$[clA.type](Symbol("ClassA.this")).bar} // ir"`ClassA.this`.bar" and ir"`ClassA.this`.bar" are not equivalent
+    /* ^ the type for foo1's hole as seen from inside ClassA is `ClassA.this.type`;
+     * however, when used from here apparently becomes `scp.feature.BasicEmbedding.ClassA`... */
+    
+    aa.foo1 eqt ir{$$[ClassA](Symbol("ClassA.this")).bar}
+    
+    intercept[NullPointerException](aa.foo1 subs Symbol("ClassA.this") -> ir"null" run)
+    same(aa.foo1 subs Symbol("ClassA.this") -> ir"clA" run, 1)
+    
+    aa.foo2 eqt ir{$$[clA.ClassA](Symbol("ClassA.this")).bar}
+    
+    assertDoesNotCompile(""" same(aa.foo2 subs Symbol("ClassA.this") -> ir"clAclA" run, 0) """) // Error:(115, 48) Cannot substitute free variable `ClassA.this: aa.type` with term of type `scp.feature.BasicEmbedding.clAclA.type`
+    same(clAclA.foo2 subs Symbol("ClassA.this") -> ir"clAclA" run, 0)
     
   }
   

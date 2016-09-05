@@ -229,7 +229,15 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean)(implicit ctx: Map[TermSymbol, b.BoundVal]): b.Rep = {
           object HoleName { def unapply(tr: Tree) = Some(holeName(tr,x)) }
           x match {
-            
+              
+              
+            /** --- --- --- THIS REF --- --- --- */
+            case This(tp) => 
+              // Note: Passing `x.symbol.asType.toType` will still result in a path-dependent module type because of hole coercion
+              val tree = q"$baseTree.$$$$[${TypeTree(x.tpe)}](scala.Symbol.apply(${s"$tp.this"}))"
+              liftTerm(tree, parent, expectedType)
+              
+              
             /** This is to find repeated holes: $-less references to holes that were introduced somewhere else.
               * We convert them to proper hole calls and recurse. */
             case _ if holeSymbols(x.symbol) =>
