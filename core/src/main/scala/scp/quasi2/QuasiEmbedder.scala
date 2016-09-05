@@ -232,7 +232,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               
             /** --- --- --- THIS REF --- --- --- */
-            case This(tp) => 
+            case This(tp) if !x.symbol.isModuleClass =>
               // Note: Passing `x.symbol.asType.toType` will still result in a path-dependent module type because of hole coercion
               val tree = q"$baseTree.$$$$[${TypeTree(x.tpe)}](scala.Symbol.apply(${s"$tp.this"}))"
               liftTerm(tree, parent, expectedType)

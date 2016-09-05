@@ -18,16 +18,15 @@ object MyClass extends App with ir2.SquidObject {
   def foo(x: Double): Double = x + 1
   
   @phase('Sugar)
-  def recLol(x: Int): Int = if (x <= 0) 0 else MyClass.recLol(x-1)+1
+  def recLol(x: Int): Int = if (x <= 0) 0 else recLol(x-1)+1
   @phase('Sugar)
-  def recLolParam[A](x: Int)(r: A): A = if (x <= 0) r else MyClass.recLolParam(x-1)(r)
+  def recLolParam[A](x: Int)(r: A): A = if (x <= 0) r else recLolParam(x-1)(r)
   
   //@phase('Main)
   def bar(x: Int)(y: Double) = x * y
   
   @phase('Sugar)
-  //def foobar(x: Int, y: Double) = bar(foo(x))(y) // FIXME
-  def foobar(x: Int, y: Double) = MyClass.bar(MyClass.foo(x))(y)
+  def foobar(x: Int, y: Double) = bar(foo(x))(y)
   
   @phase('Sugar)
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap

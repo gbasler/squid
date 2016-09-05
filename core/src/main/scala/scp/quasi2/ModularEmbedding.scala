@@ -227,14 +227,22 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       // Note: when testing 'x.tpe.termSymbol.isModule', we sometimes ended up applying this case on some type parameters!
       case q"$pre.${name}" if x.symbol != null && x.symbol.isModule =>
         //dbg("MODULE",x,x.symbol,x.tpe,x.tpe.typeSymbol,x.tpe.typeSymbol.isModuleClass)
-        if (x.tpe.typeSymbol.isStatic) liftModule(x.symbol.asModule.moduleClass.asType.toType)
+        if (x.tpe.typeSymbol.isStatic) liftStaticModule(x.symbol.asModule.moduleClass.asType.toType)
         else module(rec(pre, Some(pre.tpe)), name.toString, liftType(x.tpe)) // TODO use expectedType?
         
         
-      case q"${Ident(name: TermName)}" if x.symbol != null && x.symbol.isModule =>
-        if (x.tpe.typeSymbol.isStatic) liftModule(x.symbol.asModule.moduleClass.asType.toType)
+      case Ident(_) if x.symbol != null && x.symbol.isModule =>
+        if (x.tpe.typeSymbol.isStatic) liftStaticModule(x.symbol.asModule.moduleClass.asType.toType)
         else throw EmbeddingException.Unsupported("Non-qualified, non-static module reference")
         
+      /** --- --- --- THIS REF --- --- --- */
+      case This(tp) if x.symbol.isModuleClass =>  // Note: it seems isModule is never true on This nodes; we will rather have isModuleClass
+        if (x.symbol.isStatic) liftStaticModule(x.symbol.asClass.toType)
+        else {
+          val o = x.symbol.owner
+          val pre = setType(q"${o.name.toTypeName}.this", o.asClass.toType)
+          module(rec(pre, Some(pre.tpe)), x.symbol.name.toString, liftType(x.tpe)) // TODO use expectedType?
+        }
         
       /** --- --- --- METHOD APPLICATIONS --- --- --- */
       case SelectMember(obj, f) =>
@@ -490,7 +498,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
   })
   
-  def liftModule(tp: Type): Rep = tp.dealias match {
+  def liftStaticModule(tp: Type): Rep = tp.dealias match {
     case ThisType(sym) =>
       // FIXME handle non-stable `this` types, by making a hole!
       assert(sym.isStatic) // TODO BE
@@ -504,7 +512,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       */
       if (sym.isStatic)
         staticModule(sym.fullName)
-      else liftModule(tp.widen) // TODO prevent infloop
+      else liftStaticModule(tp.widen) // TODO prevent infloop
 
 
     case TypeRef(pre,sym,targs) =>
