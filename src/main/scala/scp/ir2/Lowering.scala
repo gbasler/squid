@@ -12,7 +12,7 @@ trait Lowering extends Transformer {
   
   val loweredPhases: Set[Symbol]
   
-  import ClassEmbedder.Errors._
+  import ClassEmbedder.Error._
   def transform(rep: Rep): Rep = rep match {
     case RepDef(ma @ MethodApp(self, sym, targs, argss, typ)) if ma.phase exists loweredPhases =>
       methodDef(sym, targs) match {

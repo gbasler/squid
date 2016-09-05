@@ -1,7 +1,8 @@
 val paradiseVersion = "2.1.0"
+val boilerlessVersion = "0.1-SNAPSHOT"
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.11.7",
+  scalaVersion := "2.11.8",
   organization := "ch.epfl.data",
   autoCompilerPlugins := true,
   scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"
@@ -10,10 +11,12 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
+  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   libraryDependencies ++= Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
   ),
+  libraryDependencies += "com.github.lptk" %% "boilerless" % boilerlessVersion,
   libraryDependencies ++= (
       if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
       else Nil
