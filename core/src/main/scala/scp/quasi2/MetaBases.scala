@@ -197,12 +197,17 @@ trait MetaBases {
     def typLeq(a: TypeRep, b: TypeRep): Boolean = ???
     
     
+    def freshName(hint: String): TermName = MetaBases.this.freshName(hint)
+    
+    
     def loadTypSymbol(fullName: String): TypSymbol = () => ir2.RuntimeSymbols.loadTypSymbol(fullName)
     
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
     
-    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = TermName(name) -> typ  // Assumption: it will be fine to use the unaltered name here
+    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
+      //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here
+      freshName(name toString) -> typ  // We need fresh names to avoid wrong capture; eg: when introducing a new parameter name in the middle of a program
     //def bindVal(name: String, typ: TypeRep): BoundVal = TermName("_$"+name) -> typ
     
     def readVal(v: BoundVal): Rep = q"${v._1}"
@@ -301,9 +306,14 @@ object MetaBases {
   object Runtime extends MetaBases {
     val u: sru.type = sru
     
-    def freshName(hint: String) = sru.TermName(hint+"$__")
+    private var varCount = 0
+    def freshName(hint: String) = sru.TermName(hint+s"_$varCount") oh_and (varCount += 1)
     
-    object ScalaReflectionBase extends Runtime.ScalaReflectionBase
+    class ScalaReflectionBaseWithOwnNames extends Runtime.ScalaReflectionBase {
+      private var varCount = 0
+      override def freshName(hint: String): sru.TermName = sru.TermName(hint+s"_$varCount") oh_and (varCount += 1)
+    }
+    object ScalaReflectionBase extends ScalaReflectionBaseWithOwnNames
     
   }
   

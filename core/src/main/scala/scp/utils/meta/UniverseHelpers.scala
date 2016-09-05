@@ -93,13 +93,15 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case TypeRef(_, Fun3Sym, _::_::_::ret::Nil) => ret
       case _ => null
     })
-    def apply(params: Type*)(ret: Type) = params.size match {
-      case 0 => internal.typeRef(scalaPackage, Fun0Sym, params :+ ret toList)
-      case 1 => internal.typeRef(scalaPackage, FunSym, params :+ ret toList)
-      case 2 => internal.typeRef(scalaPackage, Fun2Sym, params :+ ret toList)
-      case 3 => internal.typeRef(scalaPackage, Fun3Sym, params :+ ret toList)
-      case _ => ???
-    }
+    
+    def apply(params: Type*)(ret: Type) = internal.typeRef(scalaPackage, symbol(params.size), params :+ ret toList)
+    
+    def symbol(arity: Int = 1) = (arity match {
+      case 0 => Fun0Sym
+      case 1 => FunSym
+      case 2 => Fun2Sym
+      case 3 => Fun3Sym
+    }).asType
     
   }
   

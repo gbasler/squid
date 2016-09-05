@@ -17,7 +17,7 @@ package object utils {
     
     def and(f: T => Unit) = { f(self); self }
     
-    def oh_and(f: => Unit) = { f; self }
+    def oh_and(effect: Unit) = self
     
     def but_before(f: => Unit) = { f; self }
     

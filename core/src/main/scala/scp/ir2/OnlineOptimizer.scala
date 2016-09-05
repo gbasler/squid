@@ -5,7 +5,7 @@ import utils._
 import lang2._
 
 
-trait OnlineOptimizer extends Optimizer with InspectableBase {
+trait OnlineOptimizer extends Optimizer with IntermediateBase {
   val base: this.type = this
   
   val transformExtractors = false

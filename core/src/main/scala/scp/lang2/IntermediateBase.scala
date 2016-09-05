@@ -44,7 +44,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     
   }
   
-  import quasi2.MetaBases.Runtime.ScalaReflectionBase
+  import quasi2.MetaBases.Runtime.ScalaReflectionBaseWithOwnNames
   
   def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, extrudedHandle: (BoundVal => MBM.u.Tree) = DefaultExtrudedHandler): MBM.u.Tree = {
     reinterpret(rep, SRB)(extrudedHandle)
@@ -54,7 +54,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     scalaTreeIn(MBM)(SRB.asInstanceOf[MBM.ScalaReflectionBase], rep, extrudedHandle.asInstanceOf[BoundVal => MBM.u.Tree])
   
   final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler): sru.Tree =
-    scalaTreeIn(quasi2.MetaBases.Runtime)(ScalaReflectionBase, rep, extrudedHandle)
+    scalaTreeIn(quasi2.MetaBases.Runtime)(new ScalaReflectionBaseWithOwnNames, rep, extrudedHandle)
   
   
 }

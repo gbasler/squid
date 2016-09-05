@@ -88,6 +88,10 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   }
   
   
+  trait SelfTransformer extends ir2.Transformer {
+    val base: baseSelf.type = baseSelf
+  }
+  
 }
 
 

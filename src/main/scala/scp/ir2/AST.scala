@@ -10,7 +10,7 @@ import utils.meta.{RuntimeUniverseHelpers => ruh}
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
   * 
   **/
-trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols { self: IntermediateBase =>
+trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols with ClassEmbedder { self =>
   
   
   /* --- --- --- Required defs --- --- --- */
@@ -167,6 +167,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
 
   
+  case class Lowering(phases: Symbol*) extends ir2.Lowering with SelfTransformer {
+    val loweredPhases = phases.toSet
+  }
+  
   
   
   
@@ -232,6 +236,15 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Def {
     override def isPure: Bool = false
+    
+    lazy val phase = { // TODO cache annotations for each sym
+      import ruh.sru._
+      sym.annotations.iterator map (_ tree) collectFirst {
+        case q"new $tp(scala.Symbol.apply(${Literal(ruh.sru.Constant(name:String))}))" if tp.symbol.fullName == "scp.quasi2.phase" =>
+          Symbol(name)
+      }
+    }
+    
     override def toString: String =
       //s"$self.${sym.name}<${sym.typeSignature}>[${targs mkString ","}]${argss mkString ""}"
       s"$self.${sym.name}[${targs mkString ","}]${argss mkString ""}" + s"->$typ" // + s"(->$typ)"
@@ -346,6 +359,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
           } yield m2
+
+        case RecordGet(s0,n0,t0) -> RecordGet(s1,n1,t1) if n0 == n1 =>
+          s0 extract s1
           
         //  // TODO?
         //case (or: OtherRep, r) => or extractRep r
