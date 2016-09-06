@@ -88,9 +88,11 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   object FunctionType { // TODO complete with all functions types!
     
     val Fun0Sym = typeOf[() => Any].typeSymbol
-    val FunSym = typeOf[Any => Any].typeSymbol
+    val FunSym  = typeOf[(Any) => Any].typeSymbol
     val Fun2Sym = typeOf[(Any, Any) => Any].typeSymbol
     val Fun3Sym = typeOf[(Any, Any, Any) => Any].typeSymbol
+    val Fun4Sym = typeOf[(Any, Any, Any, Any) => Any].typeSymbol
+    val Fun5Sym = typeOf[(Any, Any, Any, Any, Any) => Any].typeSymbol
     
     val scalaPackage = FunSym.owner.asType.toType
     
@@ -99,7 +101,9 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case TypeRef(_, FunSym, _::ret::Nil) => ret
       case TypeRef(_, Fun2Sym, _::_::ret::Nil) => ret
       case TypeRef(_, Fun3Sym, _::_::_::ret::Nil) => ret
-      case _ => null
+      case TypeRef(_, Fun4Sym, _::_::_::_::ret::Nil) => ret
+      case TypeRef(_, Fun5Sym, _::_::_::_::_::ret::Nil) => ret
+      case _ => null // converted to None by Option
     })
     
     def apply(params: Type*)(ret: Type) = internal.typeRef(scalaPackage, symbol(params.size), params :+ ret toList)
@@ -109,6 +113,9 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case 1 => FunSym
       case 2 => Fun2Sym
       case 3 => Fun3Sym
+      case 4 => Fun4Sym
+      case 5 => Fun5Sym
+      case _ => throw new UnsupportedOperationException(s"Function type of arity $arity > 5")
     }).asType
     
   }

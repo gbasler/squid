@@ -16,7 +16,7 @@ object ScalaReflectSurgeon {
   }
   
   private val inl = sru.asInstanceOf[reflect.internal.Internals with reflect.macros.Universe]
-  /** Open-heart plastic surgery */
+  /** Open-heart surgery */
   def changeType_omgwtfbbq(sym: sru.Symbol, tpe: sru.Type): Unit = {
     inl.internal.setInfo(sym.asInstanceOf[inl.Symbol], tpe.asInstanceOf[inl.Type])
   }

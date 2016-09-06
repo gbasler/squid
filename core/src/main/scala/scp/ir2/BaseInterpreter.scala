@@ -107,15 +107,19 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
       * to avoid some cases where the reflection API complains that {{{_mtd}}} is not a member of `cls` (it tests its base classes)
       * Note: we may not actually find the method this way, eg for bytecode-less methods like those on primitives */
     
-    //val mtd = _mtd
     val f1 = _mtd.paramLists.flatten
-    val mtdO = cls.toType.member(_mtd.name).alternatives collectFirst {
+    val mtdO = cls.toType.member(_mtd.name).alternatives collect {
       case s: MethodSymbol if {
         val f0 = s.paramLists.flatten
         f0.size == f1.size && (f0 zip f1 forall {
-          case (ps, pm) => ps.typeSignature.typeSymbol.fullName.toString == pm.typeSignature.typeSymbol.fullName.toString
-        })
+          case (ps, pm) => 
+            ps.typeSignature.typeSymbol.fullName == pm.typeSignature.typeSymbol.fullName
+        }) // && s.returnType.typeSymbol.fullName == _mtd.returnType.typeSymbol.fullName
+        /* ^ Scala methods' erasure can differ only by the return type;
+         * however, Scala runtime reflection doesn't know how to invoke them so we fail (in default case below) */
       } => s
+    } match { case m::Nil => Some(m) case Nil => None
+      case ls => throw new RuntimeException("Interpreting overloaded methods that differ only by their return type is not supported")
     }
     //if (mtdO.isDefined) println(s"Found method ${mtdO.get} in $cls") else println(s"Did not find method ${_mtd} in $cls")
     val mtd = mtdO getOrElse _mtd
@@ -179,7 +183,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
   def recordType(fields: List[(String, TypeRep)]): TypeRep = () => ???
-  def constType(value: Any, underlying: TypeRep): TypeRep = ???
+  def constType(value: Any, underlying: TypeRep): TypeRep = () => ???
   
   object Const extends ConstAPI {
     def unapply[T: sru.TypeTag](ir: IR[T, _]): Option[T] = ???

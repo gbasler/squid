@@ -33,20 +33,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ, Nil) oh_and (varCount += 1)
   private var varCount = 0
   
-  // TODO: more efficient and safe: add record info to BoundVal and wrap in ReadVal that contains which field is accessed
-  def lambda(params: List[BoundVal], bodyThunk: => Rep): Rep = rep({
-    val body = bodyThunk
-    val typ = lambdaType(params map (_.typ), body.typ)
-    if (params.size == 1) Abs(params.head, body)(typ)
-    else {
-      val ps = params.toSet
-      val p = freshBoundVal(recordType(params map(v => v.name -> v.typ))) // would be nice to give the freshVar a name hint "params"
-      val tbody = bottomUpPartial(body) {
-        case RepDef(v @ BoundVal(name)) if ps(v) => rep(recordGet(rep(p), name, v.typ))
-      }
-      Abs(p, tbody)(typ)
-    }
-  })
+  /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
+  def abs(param: BoundVal, body: Rep): Rep = rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
   
   override def ascribe(self: Rep, typ: TypeRep): Rep = rep(Ascribe(self, typ))
   

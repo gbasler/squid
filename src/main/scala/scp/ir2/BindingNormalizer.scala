@@ -13,9 +13,35 @@ import scala.collection.mutable
 trait BindingNormalizer extends SimpleRuleBasedTransformer {
   import base.Predef._
   
+  import lib._
+  
   rewrite {
-    case ir"((a: $ta) => (b: $tb) => $body : $t)($x)($y)" =>
-      ir"((a: $ta) => ((b: $tb) => $body : $t)($y))($x)"
+    
+    /** Curries function applications, useful when inlining Scala methods with multiple parameters as lambdas. */
+    case ir"uncurried0($f: $t)()"                                                        => ir"$f"
+    case ir"uncurried2($f: ($ta => $tb => $t))($x, $y)"                                  => ir"$f($x)($y)"
+    case ir"uncurried3($f: ($ta => $tb => $tc => $t))($x, $y, $z)"                       => ir"$f($x)($y)($z)"
+    case ir"uncurried4($f: ($ta => $tb => $tc => $td => $t))($x, $y, $z, $u)"            => ir"$f($x)($y)($z)($u)"
+    case ir"uncurried5($f: ($ta => $tb => $tc => $td => $te => $t))($x, $y, $z, $u, $v)" => ir"$f($x)($y)($z)($u)($v)"
+      
+    /** Commutes bindings to make them normal. */
+    case ir"((a: $ta) => $f: $tb => $tc)($x)($y)" => ir"val a = $x; $f($y)"
+    
   }
   
 }
+/*
+NOTE: Scala does some commuting of applications! cf:
+    > Shallow Tree: {
+      val $dummy$ = $qmark$qmark$qmark;
+      {
+        val a = 11;
+        ((b: Int) => b.$plus(1))
+      }(22)
+    }
+    > Typed[Int]: {
+      val a: Int = 11;
+      ((b: Int) => b.+(1)).apply(22)
+    }
+*/
+

@@ -11,6 +11,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
   
   def repType(r: Rep): TypeRep
+  def boundValType(bv: BoundVal): TypeRep
   
   val DefaultExtrudedHandler = (bv: BoundVal) => throw ir2.IRException(s"Extruded bound variable cannot be reinterpreted: $bv")
   

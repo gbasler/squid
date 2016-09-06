@@ -100,14 +100,17 @@ trait ASTReinterpreter { ast: AST =>
       
       override def apply(d: Def) = {
         
-        object ScalaVar {
-          def unapply(r: IR[lib.Var[_],_]): Option[Ident] = r match {
-            case ir"($v: scp.lib.Var[$tv])" => apply(v.rep) match {
-              case id @ Ident(_) => Some(id)
-              case v =>
-                // TODO handle gracefully? (by implementing the expected semantics?)
-                throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
-            }}}
+        object BV { def unapply(x: IR[_,_]) = x match {
+          case IR(RepDef(bv: BoundVal)) => Some(bv)
+          case _ => None }}
+        
+        object ScalaVar { def unapply(r: IR[lib.Var[_],_]): Option[Ident] = r match {
+          case ir"($v: scp.lib.Var[$tv])" => apply(v.rep) match {
+            case id @ Ident(_) => Some(id)
+            case v =>
+              // TODO handle gracefully? (by implementing the expected semantics?)
+              throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
+          }}}
         
         `internal IR`[Any,Nothing](ast.rep(d)) match {
     
@@ -136,7 +139,7 @@ trait ASTReinterpreter { ast: AST =>
             r
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
-          case ir"var ${v @ IR(RepDef(bv: BoundVal))}: $tv = $init; $body: $tb" =>
+          case ir"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>
             val varName = MBM.freshName(bv.name)
             
             //q"var $varName: ${rect(tv rep)} = ${apply(init.rep)}; ${body subs 'v -> q"$varName"}"
@@ -146,14 +149,27 @@ trait ASTReinterpreter { ast: AST =>
               boundVars += bv -> varName
               apply(body.rep)}" // Note: if subs took a partial function, we could avoid the need for a `boundVars` context
             
-          case ir"((${p @ IR(RepDef(bv: BoundVal))}: $ta) => $body: $tb)($arg)" =>
+            
+          /** Converts redexes to value bindings, nicer to the eye.
+            * Note: we don't do it for multi-parameter lambdas, assuming they are already normalized (cf: `BindingNormalizer`) */
+          case ir"((${p @ BV(bv)}: $ta) => $body: $tb)($arg)" =>
             newBase.letin(recv(bv), apply(arg rep), apply(body subs 'p -> p rep), rect(tb rep))
             
-          /** The following is not necessary, as Reinterpreter already handles multi-param lambdas... but why doesn't it match?? */
-          //case ir"((${p @ IR(RepDef(bv: BoundVal))}: $ta, q: $tb) => $body: $tr)($a, $b)" =>
-          //  newBase.letin(recv(bv), apply(a rep), apply(ir"((q: $tb) => $body)($b)" subs 'p -> p rep), rect(tb rep))
-          case ir"((p: $ta, q: $tb) => $body: $tr)($a, $b)" => ??? // FIXME this never matches!
-          case ir"((p: $ta, q: $tb) => $body: $tr)" => ??? // FIXME
+            
+          /** We explicitly convert multi-parameter lambdas, as they may be encoded (cf: `CurryEncoding`): */
+            
+          case ir"((${p @ BV(bp)}: $tp, ${q @ BV(bq)}: $tq) => $body: $tb)" =>
+            newBase.lambda(recv(bp) :: recv(bq) :: Nil, apply(body  subs 'p -> p subs 'q -> q rep))
+            
+          case ir"((${p @ BV(bp)}: $tp, ${q @ BV(bq)}: $tq, ${r @ BV(br)}: $tr) => $body: $tb)" =>
+            newBase.lambda(recv(bp) :: recv(bq) :: recv(br) :: Nil, apply(body  subs 'p -> p subs 'q -> q subs 'r -> r rep))
+            
+          case ir"((${p @ BV(bp)}: $tp, ${q @ BV(bq)}: $tq, ${r @ BV(br)}: $tr, ${s @ BV(bs)}: $ts) => $body: $tb)" =>
+            newBase.lambda(recv(bp) :: recv(bq) :: recv(br) :: recv(bs) :: Nil, apply(body  subs 'p -> p subs 'q -> q subs 'q -> q subs 's -> s rep))
+
+          case ir"((${p @ BV(bp)}: $tp, ${q @ BV(bq)}: $tq, ${r @ BV(br)}: $tr, ${s @ BV(bs)}: $ts, ${t @ BV(bt)}: $tt) => $body: $tb)" =>
+            newBase.lambda(recv(bp) :: recv(bq) :: recv(br) :: recv(bs) :: recv(bt) :: Nil, apply(body  subs 'p -> p subs 'q -> q subs 'q -> q subs 's -> s subs 't -> t rep))
+            
             
           case ir"($f: $ta => $tb)($arg)" =>
             q"${apply(f rep)}(${apply(arg rep)})"
