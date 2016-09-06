@@ -224,7 +224,7 @@ trait MetaBases {
       ..$body
     """
     
-    def newObject(tp: TypeRep): Rep = q"new $tp"
+    def newObject(tp: TypeRep): Rep = New(tp)
     def moduleObject(fullName: String, isPackage: Boolean): Rep = {
       val path = fullName.splitSane('.').toList
       path.tail.foldLeft(q"${TermName(path.head)}":Tree)((acc,n) => q"$acc.${TermName(n)}")
@@ -234,14 +234,16 @@ trait MetaBases {
       path.tail.foldLeft(q"${TermName(path.head)}":Tree)((acc,n) => q"$acc.${TermName(n)}")
     }
     def module(prefix: Rep, name: String, typ: TypeRep): Rep = q"$prefix.${TermName(name)}"
-    def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
-      q"$self.${mtd}[..$targs](...${
+    def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
+      val pref = if (mtd == termNames.CONSTRUCTOR) q"$self" else q"$self.$mtd"
+      q"$pref[..$targs](...${
         def quote(argl: ArgList): Seq[Tree] = argl match {
           case Args(reps @ _*) => reps
           case ArgsVarargs(args, varargs) => quote(args) ++ quote(varargs)
           case ArgsVarargSpliced(args, vararg) => quote(args) :+ q"$vararg: _*"
         }
         argss map quote})" // Note: could also call  internal.setType ...?
+    }
     
     def byName(arg: => Rep): Rep = arg
     
