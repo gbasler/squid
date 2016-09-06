@@ -25,7 +25,9 @@ class ClassEmbeddingTests extends MyFunSuite2 {
   
   test("Basic Lowering") {
     
-    val Desugaring = new TestDSL2.Lowering('Sugar) with TopDownTransformer
+    val Desugaring = new TestDSL2.Desugaring with TopDownTransformer
+    val BindNorm = new TestDSL2.SelfTransformer with BindingNormalizer with TopDownTransformer // or should it use `BottomUpTransformer`?
+    
     import MyClass._
     
     val Emb = MyClass.EmbeddedIn(TestDSL2)
@@ -42,21 +44,36 @@ class ClassEmbeddingTests extends MyFunSuite2 {
         ir"${Emb.Object.Defs.foobar.value}(42,.5)" transformWith Desugaring
       }, 11)('ok)"
     
-    ir"val mc = new MyClass; mc foz 42" transformWith Desugaring eqt ir"""{
+    
+    
+    val desugared = ir"val mc = new MyClass; mc foz 42" transformWith Desugaring
+    
+    desugared eqt ir"""{
       val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
       ({
         ( (__self_1: scp.classembed.MyClass) =>
             ((x_2: scala.Int) => __self_1.baz.+(x_2)) ) (mc_0)
       })(42)
     }"""
-    /* ^ Note: the printed transformed tree is of this form, but that does not compare equivalent: */
-    //ir"val mc = new MyClass; mc foz 42" transformWith Desugaring eqt ir"""{
-    //  val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
-    //  ({
-    //    val __self_1: scp.classembed.MyClass = mc_0;
-    //    ((x_2: scala.Int) => __self_1.baz.+(x_2))
-    //  })(42)
-    //}"""
+    /* ^ Note: the printed transformed tree is of the form below, but it needs binding normalization to compare equivalent: */
+    val result = ir"""{
+      val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
+      ({
+        val __self_1: scp.classembed.MyClass = mc_0;
+        ((x_2: scala.Int) => __self_1.baz.+(x_2))
+      })(42)
+    }"""
+    
+    val desugaredNormalized = desugared transformWith BindNorm
+    
+    desugaredNormalized eqt result
+    
+    desugaredNormalized eqt ir"""{
+      val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
+      val a_1: scp.classembed.MyClass = mc_0;
+      val b_2: Int = 42;
+      a_1.baz.+(b_2)
+    }"""
     
   }
   
@@ -90,6 +107,32 @@ class ClassEmbeddingTests extends MyFunSuite2 {
     ir"recLolParam(42)('ko)" match {
       case ir"((x: Int) => (r: Symbol) => if (x <= 0) $a else $b : Symbol)(42)('ko)" =>
     }
+    
+  }
+  
+  test("Online Lowering and Normalization") {
+    
+    //object DSLBase extends SimpleAST with OnlineDesugaring with BindingNormalizer { // Error:(28, 12) object DSLBase inherits conflicting members
+    object DSLBase extends SimpleAST with OnlineOptimizer { self =>
+      object BindingNormalizer extends SelfTransformer with BindingNormalizer
+      def pipeline = Desugaring.pipeline andThen BindingNormalizer.pipeline
+      embed(MyClass)
+    }
+    import DSLBase.Predef._
+    import MyClass._
+    
+    eqtBy(ir"swap(foobarCurried(42)(.5),11)('ok)", ir"""{
+      val a_0: scala.Tuple2[scala.Double, scala.Int] = scala.Tuple2.apply[scala.Double, scala.Int]({
+        val a_1: Int = 42;
+        val b_2: Double = 0.5;
+        scp.classembed.MyClass.bar({
+          val x_3: scala.Int = a_1;
+          scp.classembed.MyClass.foo(x_3.toLong).toInt
+        })(b_2)
+      }, 11);
+      val b_4: scala.Symbol = scala.Symbol.apply("ok");
+      scala.Predef.ArrowAssoc[scala.Symbol](b_4).->[scala.Tuple2[scala.AnyVal, scala.AnyVal]](a_0.swap)
+    }""")(_ =~= _)
     
   }
   

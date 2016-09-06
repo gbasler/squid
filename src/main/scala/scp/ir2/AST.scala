@@ -170,6 +170,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   case class Lowering(phases: Symbol*) extends ir2.Lowering with SelfTransformer {
     val loweredPhases = phases.toSet
   }
+  class Desugaring extends Lowering('Sugar)
+  object Desugaring extends Desugaring
   
   
   

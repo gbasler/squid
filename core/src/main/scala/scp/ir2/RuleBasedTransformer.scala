@@ -102,7 +102,10 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
       case q"$trans.rewrite($_)" => trans
       case q"$trans.dbg_rewrite($_)" => trans
     }
-    val base = c.typecheck(q"$trans.base")
+    var base = c.typecheck(q"$trans.base")
+    base = internal.setType(base, c.typecheck(tq"$trans.base.type", c.TYPEmode).tpe)
+    // ^ For some reason, when `trans` is of the form `SomeClass.this`, we get for `base.tpe` a widened type... so here we explicitly ask for the singleton type
+    debug(s"Found base `${showCode(base)}` of type `${base.tpe}`")
     
     //val res = rewriteImpl(tr, trans, base)
     val (res,ctxTrans) = rewriteImpl(tr, trans, base)
@@ -157,7 +160,8 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           case _ => expr.pos
         }
         val constructedCtx = expr.tpe.baseType(symbolOf[lang2.Base#IR[_, _]]) match {
-          case tpe@TypeRef(tpbase, _, constructedType :: constructedCtx :: Nil) if tpbase =:= base.tpe =>
+          case tpe@TypeRef(tpbase, _, constructedType :: constructedCtx :: Nil) =>
+            assert(tpbase =:= base.tpe, s"Base types `$tpbase` and `${base.tpe}` (type of ${showCode(base)}) are different.")
             
             if (constructedType <:< extractedType) {
               //debug("Rewriting " + extractedType)

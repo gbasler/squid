@@ -37,6 +37,8 @@ object MyClass extends App with ir2.SquidObject {
   
   @phase('Sugar)
   def foobar(x: Int, y: Double) = bar(foo(x))(y)
+  @phase('Sugar)
+  def foobarCurried(x: Int)(y: Double) = bar(foo(x))(y)
   
   @phase('Sugar)
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap
