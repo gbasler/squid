@@ -341,17 +341,20 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
           tl = tl.tail
         }
         
-        val effects = Args()(hs.reverse map (t => rec(t, Some(Any))): _*)
+        val effects = hs.filter(!_.isInstanceOf[ImportApi]).reverse map (t => rec(t, Some(Any)))
         
         val body = rec(/*internal.*/setType( q"..$tl; $r",x.tpe ), // doing this kind of de/re-structuring loses the type
           expectedType)
         
-        val argss = effects :: Args(body) :: Nil
-        
-        val imp = getMtd(scpLibTypSym, "Imperative")
-        val retTyp = liftType(x.tpe)
-        
-        methodApp(scpLib, imp, retTyp::Nil, argss, retTyp)
+        if (effects.isEmpty) body // 'effects' can become empty after having removed imports
+        else {
+          val argss = Args()(effects: _*) :: Args(body) :: Nil
+          
+          val imp = getMtd(scpLibTypSym, "Imperative")
+          val retTyp = liftType(x.tpe)
+          
+          methodApp(scpLib, imp, retTyp::Nil, argss, retTyp)
+        }
         
         
       /** --- --- --- IF THEN ELSE --- --- --- */
@@ -386,6 +389,11 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         
       /** --- --- --- STUPID BLOCK --- --- --- */
       case Block(Nil, t) => liftTerm(t, x, expectedType)  // Note: used to be q"{ $t }", but that turned out to also match things not in a block!
+        
+        
+      /** --- --- --- IMPORT --- --- --- */
+      case Import(_, _) => const( () )
+      case q"${Import(_, _)}; ..$body" => rec(setType( q"..$body",x.tpe ), expectedType)
         
         
       /** --- --- --- UNKNOWN FEATURES --- --- --- */

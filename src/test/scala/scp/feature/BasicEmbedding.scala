@@ -226,6 +226,21 @@ class BasicEmbedding extends MyFunSuite2 {
     }
   }
   
+  
+  test("Imports") {
+    
+    ir"import scala._; List(1,2,3)" eqt ir"List(1,2,3)"
+    
+    ir"import scala.collection.mutable; mutable.ArrayBuffer(1,2,3)" eqt
+           ir"scala.collection.mutable         .ArrayBuffer(1,2,3)"
+    
+    //ir"{import scala._}; 42" eqt ir"(); 42" // warns: Warning: a pure expression does nothing in statement position; you may be omitting necessary parentheses
+    ir"val a = {import scala._}; 42" eqt ir"42"
+    
+    assertDoesNotCompile(""" ir"import scala._" """) // Error:(234, 13) Embedding Error: Embedded tree has no type: import scala._
+    
+  }
+  
 }
 
 

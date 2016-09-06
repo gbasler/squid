@@ -177,6 +177,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     val shortBaseName = TermName("__b__")
     val Base = q"$shortBaseName"
     
+    if (rawTree.tpe == null) throw EmbeddingException("Embedded tree has no type: "+showCode(rawTree))
     
     val retType = rawTree.tpe.widen // Widen to avoid too-specific types like Double(1.0), and be more in-line with Scala's normal behavior
     
