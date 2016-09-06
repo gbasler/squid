@@ -245,33 +245,12 @@ self: lang2.IntermediateBase => // for 'repType' TODO rm
     
   }
   
-  import sru._
-  def reinterpretType(tr: TypeRep, newBase: Base): newBase.TypeRep = tr.tpe match {
-      
-    case TypeHoleRep(name) => 
-      newBase match {
-        case newBase: newBase.type with quasi2.QuasiBase =>
-          newBase.typeHole(name)
-        case _ => throw new IRException(
-          s"Base $newBase does not inherit from QuasiBase and cannot handle hole type '$name'")
-      }
-      
-    case TypeRef(pre, sym, targs) =>
-      val modEmb = new ModularEmbedding[sru.type,newBase.type](sru, newBase, debug = x => debug(x))
-      modEmb.liftType(tr.tpe)
-      
-    //case sru.RefinedType(ps0, scp0) => ??? // TODO -- eg record type
-    case sru.RefinedType(Nil, scp0) => newBase.recordType(scp0 map (s => s.name.toString -> reinterpretType(s.typeSignature, newBase)) toList)
-    case sru.RefinedType(ps0, scp0) => ??? // TODO B/E
-    case _ =>
-      tr foreach {
-        case TypeHoleRep(name) => throw new IRException(
-          s"Type $tr could not be reinterpreted and cannot be left uninterpreted as it contains hole type '$name'")
-        case _ =>
-      }
-      newBase.uninterpretedType(ruh mkTag tr)
+  /** Note: will _not_ try to special-case type holes (encoded as normal Scala types...)
+    * This is because reinterpreted types are not usually from extractor terms -- however, this assumption might turn wrong at some point */
+  def reinterpretType(tr: TypeRep, newBase: Base): newBase.TypeRep = {
+    val modEmb = new ModularEmbedding[sru.type,newBase.type](sru, newBase, debug = x => debug(x))
+    modEmb.liftType(tr.tpe)
   }
-  
   
   
 }
