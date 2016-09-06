@@ -56,7 +56,11 @@ self: Base =>
     /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
     def withContextOf[Ctx <: C](x: IR[Any, Ctx]) = this: IR[T,Ctx]
     
-    override def toString: String = s"""ir"${showRep(rep)}""""
+    override def toString: String = {
+      val repStr = showRep(rep)
+      val quote = if (repStr contains '\n') "\"" * 3 else "\""
+      s"ir$quote$repStr$quote"
+    }
   }
   def `internal IR`[Typ,Ctx](rep: Rep) = IR[Typ,Ctx](rep) // mainly for macros
   type SomeIR = IR[_, _] // shortcut; avoids showing messy existentials

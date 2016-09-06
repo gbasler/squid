@@ -30,6 +30,7 @@ object Vector {
   
   def origin(arity: Int) = new Vector(List.fill(arity)(0))
   
+  // TODO varargs
   @phase('Sugar)
   def apply(values: Num*) = new Vector(List(values: _*))
   
@@ -47,6 +48,7 @@ object Matrix {
   
   def empty(lineCount: Int, colCount: Int) = new Matrix(List.fill(lineCount) { new Vector(List.fill(colCount)(0)) })
   
+  // TODO varargs
   @phase('Sugar)
   def apply(lines: Vector*) = new Matrix(List(lines: _*))
   
@@ -56,6 +58,7 @@ object Matrix {
   //  })}
   
 }
+
 
 
 

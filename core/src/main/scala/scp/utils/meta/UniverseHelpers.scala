@@ -40,6 +40,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     if (tp <:< Nothing) None else Some(tp)
   }
   
+  
   object SelectMember {
     private def getQual(t: Tree): Option[Tree] = t match {
       case q"$a.$m" => Some(a)
@@ -74,6 +75,13 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
         Some((lhs, targs, Nil))
 
       case _ => None
+    }
+  }
+  
+  object ValOrDefDef {
+    def unapply(arg: ValOrDefDef) = arg match {
+      case ValDef(mods, name, tpt, rhs) =>                   Some(mods, name, Nil,     Nil,     tpt, rhs)
+      case DefDef(mods, name, tparams, vparams, tpt, rhs) => Some(mods, name, tparams, vparams, tpt, rhs)
     }
   }
   

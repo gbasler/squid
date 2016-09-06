@@ -21,18 +21,18 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
   }
   
   def same[T](a: T, b: T) = assert(a == b)
-  def eqtWith[T](a: T, b: T, truth: Boolean = true)(r: (T,T) => Boolean) =
+  def eqtBy[T](a: T, b: T, truth: Boolean = true)(r: (T,T) => Boolean) =
     //assert(r(a, b), s"=> $a and $b are not equivalent")
     if (r(a, b) != truth) fail(s"$a and $b are ${if (truth) "not " else ""}equivalent")
   
   
-  def subt(a: IRType[_], b: IRType[_]) = eqtWith(a,b)(_ <:< _)
-  def subt(a: TypeRep, b: TypeRep) = eqtWith(a,b)(_ <:< _)
+  def subt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ <:< _)
+  def subt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ <:< _)
   
-  def eqt(a: IRType[_], b: IRType[_]) = eqtWith(a,b)(_ =:= _)
-  def eqt(a: TypeRep, b: TypeRep) = eqtWith(a,b)(_ =:= _)
-  def eqt(a: Rep, b: Rep) = eqtWith(a,b)(_ =~= _)
-  def eqt(a: IR[_,_], b: IR[_,_], truth: Boolean = true) = eqtWith(a,b,truth)(_ =~= _)
+  def eqt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ =:= _)
+  def eqt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ =:= _)
+  def eqt(a: Rep, b: Rep) = eqtBy(a,b)(_ =~= _)
+  def eqt(a: IR[_,_], b: IR[_,_], truth: Boolean = true) = eqtBy(a,b,truth)(_ =~= _)
   
   //def matches[A](a: A)(pfs: PartialFunction[A,Unit]*) = {
   def matches(a: IR[_,_])(pfs: PartialFunction[IR[_,_],Unit]*) = {

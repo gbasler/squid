@@ -1,10 +1,11 @@
 package scp.utils
 
 /** Cheap Lazy implementation for pure computations */
-final class Lazy[+A <: AnyRef](vl: () => A) {
+final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
   private[this] var computedValue: A = null.asInstanceOf[A]
   private[this] var computing = false
   def isComputing = computing
+  def computed = computedValue != null
   def value = {
     if (computedValue == null) {
       val wasComputing = computing
@@ -14,8 +15,10 @@ final class Lazy[+A <: AnyRef](vl: () => A) {
     }
     computedValue
   }
+  override def toString = s"Lazy(${if (computed || computeWhenShow) value else "..."})"
 }
 object Lazy {
-  def apply[A <: AnyRef](vl: => A) = new Lazy(() => vl)
+  def apply[A <: AnyRef](vl: => A, computeWhenShow: Boolean = true) =
+    new Lazy(() => vl, computeWhenShow)
 }
 

@@ -7,6 +7,7 @@ import utils._
 
 class ClassEmbeddingTests extends MyFunSuite2 {
   import TestDSL2.Predef._
+  TestDSL2 embed MyClass
   
   test("Basics") {
     
@@ -16,11 +17,14 @@ class ClassEmbeddingTests extends MyFunSuite2 {
     
     Emb.Object.Defs.swap[Int] eqt ir"(arg: (Int,Int)) => (n: Symbol) => n -> arg.swap"
     
+    Emb.Class.Defs.foo.value eqt Emb.Class.Defs.foz.value
+    
+    Emb.Class.Defs.foo.value eqt ir"(mc: MyClass) => (arg: Int) => mc.baz + arg"
+    
   }
   
   test("Basic Lowering") {
     
-    TestDSL2.embed(MyClass)
     val Desugaring = new TestDSL2.Lowering('Sugar) with TopDownTransformer
     import MyClass._
     
@@ -38,10 +42,25 @@ class ClassEmbeddingTests extends MyFunSuite2 {
         ir"${Emb.Object.Defs.foobar.value}(42,.5)" transformWith Desugaring
       }, 11)('ok)"
     
+    ir"val mc = new MyClass; mc foz 42" transformWith Desugaring eqt ir"""{
+      val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
+      ({
+        ( (__self_1: scp.classembed.MyClass) =>
+            ((x_2: scala.Int) => __self_1.baz.+(x_2)) ) (mc_0)
+      })(42)
+    }"""
+    /* ^ Note: the printed transformed tree is of this form, but that does not compare equivalent: */
+    //ir"val mc = new MyClass; mc foz 42" transformWith Desugaring eqt ir"""{
+    //  val mc_0: scp.classembed.MyClass = new scp.classembed.MyClass();
+    //  ({
+    //    val __self_1: scp.classembed.MyClass = mc_0;
+    //    ((x_2: scala.Int) => __self_1.baz.+(x_2))
+    //  })(42)
+    //}"""
+    
   }
   
   test("Online Lowering") {
-    //object TestDSL2 extends SimpleAST with ClassEmbedding with OnlineOptimizer with Lowering {
     object DSLBase extends SimpleAST with OnlineDesugaring {
       override val warnRecursiveEmbedding = false
       embed(MyClass)
@@ -49,11 +68,11 @@ class ClassEmbeddingTests extends MyFunSuite2 {
     import DSLBase.Predef._
     import MyClass._
     
-    eqtWith(ir"foo(42) * 2",
+    eqtBy(ir"foo(42) * 2",
       ir"{val arg = 42; foo(arg.toLong).toInt} * 2")(_ =~= _)
     assert(ir"foo(42.toLong) * 2" =~=
       ir"foo(42.toLong) * 2")
-    eqtWith(ir"recLol(42)",
+    eqtBy(ir"recLol(42)",
       //ir"((x: Int) => if (x <= 0) 0 else recLol(x-1)+1)(42)")(_ =~= _) // does not work, as it inlines `recLol`!
       ir"((x: Int) => if (x <= 0) 0 else ${
         import base._
@@ -81,8 +100,11 @@ class ClassEmbeddingTests extends MyFunSuite2 {
     }
     import DSLBase.Predef._
     
-    println(ir"Vector.origin(3).arity") // TODO
+    eqtBy(ir"Vector.origin(3).arity", ir"val v = Vector.origin(3); v.coords.length")(_ =~= _)
     
+    // TODO (vararg)
+    //println(ir"Vector.apply(1,2,3)")
+    //val Emb = Vector.EmbeddedIn(TestDSL2); println(Emb.Object.Defs.apply.value)
     
   }
   

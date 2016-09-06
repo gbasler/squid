@@ -6,6 +6,16 @@ import quasi2.{embed, phase}
 @embed
 class MyClass {
   
+  // TODO proper error when name clash and no possibility to define outer staging object
+  //def foo(x: Int) = bar + x
+  //val bar = 666
+  
+  @phase('Sugar)
+  def foz(x: Int) = this.baz + x
+  def foo(x: Int) = baz + x
+  def fooRef(x: Int) = this.foo(x)
+  val baz = MyClass.swap(1,2)('lol)._2._2
+  
 }
 
 object MyClass extends App with ir2.SquidObject {
@@ -31,7 +41,14 @@ object MyClass extends App with ir2.SquidObject {
   @phase('Sugar)
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap
   
+  val cst = 42
+  
 }
+
+
+
+
+
 
 
 

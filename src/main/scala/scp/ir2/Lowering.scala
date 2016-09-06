@@ -15,9 +15,11 @@ trait Lowering extends Transformer {
   import ClassEmbedder.Error._
   def transform(rep: Rep): Rep = rep match {
     case RepDef(ma @ MethodApp(self, sym, targs, argss, typ)) if ma.phase exists loweredPhases =>
+      val fullArgss = if (sym.owner.isModuleClass) argss
+        else Args(self)::argss
       methodDef(sym, targs) match {
         case Right(IR(r)) =>
-          argss.foldLeft(r) {
+          fullArgss.foldLeft(r) {
             case (r, Args(reps @ _*)) =>
               val ruh = RuntimeUniverseHelpers
               base.rep(MethodApp(r, ruh.FunctionType.symbol(reps.size).toType member ruh.sru.TermName("apply") asMethod, Nil, Args(reps:_*)::Nil, Predef.implicitType[Nothing].rep)) // FIXME ret type!
