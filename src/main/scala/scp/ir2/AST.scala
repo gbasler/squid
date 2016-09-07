@@ -10,7 +10,7 @@ import utils.meta.{RuntimeUniverseHelpers => ruh}
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
   * 
   **/
-trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols with ClassEmbedder { self =>
+trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols with ClassEmbedder with ASTHelpers { self =>
   
   
   /* --- --- --- Required defs --- --- --- */
@@ -162,6 +162,13 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   object Desugaring extends Desugaring
   
   
+  object Const extends ConstAPI {
+    import meta.RuntimeUniverseHelpers.sru
+    def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T] = dfn(ir.rep) match {
+      case cst @ Constant(v) if cst.typ <:< sru.typeTag[T].tpe => Some(v.asInstanceOf[T])
+      case _ => None
+    }
+  }
   
   
   /* --- --- --- Node Definitions --- --- --- */
@@ -179,19 +186,16 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
-    override def toString = s"[$name:$typ]"
   }
+  def boundValType(bv: BoundVal) = bv.typ
   
   /**
   * In xtion, represents an extraction hole
   * In ction, represents a free variable
+  * TODO Q: should holes really be pure?
   */
-  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None) extends Def {
-    override def toString = s"$$$name<:$typ"
-  }
-  case class SplicedHole(name: String)(val typ: TypeRep) extends Def { // TODO use
-    override def toString = s"$$$name<:$typ*"
-  }
+  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None) extends Def
+  case class SplicedHole(name: String)(val typ: TypeRep) extends Def
   
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
@@ -212,20 +216,17 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       case rep if dfn(rep) === `param` => arg
     }
     
-    override def toString = s"$param => $body"
-    //override def toString = s"$param [$typ]=> $body"
   }
   
   case class Ascribe(self: Rep, typ: TypeRep) extends Def
   
-  case class NewObject(typ: TypeRep) extends Def
+  case class NewObject(typ: TypeRep) extends NonTrivialDef
   
   case class StaticModule(fullName: String) extends Def {
     lazy val typ = staticModuleType(fullName)
   }
   
-  case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends Def {
-    override def isPure: Bool = false
+  case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends NonTrivialDef {
     
     lazy val phase = { // TODO cache annotations for each sym
       import ruh.sru._
@@ -235,9 +236,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       }
     }
     
-    override def toString: String =
-      //s"$self.${sym.name}<${sym.typeSignature}>[${targs mkString ","}]${argss mkString ""}"
-      s"$self.${sym.name}[${targs mkString ","}]${argss mkString ""}" + s"->$typ" // + s"(->$typ)"
   }
   case class Module(prefix: Rep, name: String, typ: TypeRep) extends Def
   
@@ -246,9 +244,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //}
   case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Def
   
+  sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
-    def isPure = true
+    def isTrivial = true
     
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
@@ -366,6 +365,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       ret
     }
     
+    override def toString = prettyPrint(this)
   }
   
   object RepDef {

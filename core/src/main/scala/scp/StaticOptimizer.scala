@@ -18,12 +18,12 @@ class StaticOptimizer[Optim <: Optimizer] {
 
 /** TODO generate a macro that lifts passed arguments and compiles the body (caching/or inlining) -- like a static staging */
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class template(squid: StaticOptimizer[_]) extends StaticAnnotation {
+class template(stopt: StaticOptimizer[_]) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro ???
 }
 
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class optimize(squid: StaticOptimizer[_]) extends StaticAnnotation {
+class optimize(stopt: StaticOptimizer[_]) extends StaticAnnotation {
 //class optimize(implicit squid: Squid[_]) extends StaticAnnotation { // Cannot get it to work properly
   //def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizeAnnotImpl[Trans] // implementation restriction: macro annotation impls cannot have typetag context bounds (consider taking apart c.macroApplication and manually calling c.typecheck on the type arguments)
   def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizeAnnotImpl
@@ -61,12 +61,12 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       val inst = try Class.forName(Comp.typeSymbol.asClass.fullName).newInstance()
       catch {
         case e: Throwable =>
-          c.error (c.enclosingPosition, s"The type parameter `$Comp` you passed to Squid could be instantiated without parameters: "+e.getMessage)
+          c.error (c.enclosingPosition, s"The type parameter `$Comp` you passed to StaticOptimizer could not be instantiated without parameters: "+e.getMessage)
           throw e
       }
       try inst.asInstanceOf[Optimizer]
       catch {
-        case e: ClassCastException => c.abort(c.enclosingPosition, "The type parameter you passed to Squid does not conform: "+e.getMessage)
+        case e: ClassCastException => c.abort(c.enclosingPosition, "The type parameter you passed to StaticOptimizer does not conform: "+e.getMessage)
       }
     }
     val Base: Optim.base.type = Optim.base

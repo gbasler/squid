@@ -12,15 +12,6 @@ class SimpleAST extends AST with CurryEncoding { ast =>
   def dfn(r: Rep): Def = r.dfn
   
   def repType(r: Rep): TypeRep = r.dfn.typ
-  def boundValType(bv: BoundVal) = bv.typ
-  
-  object Const extends ConstAPI {
-    import meta.RuntimeUniverseHelpers.sru
-    def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T] = ir.rep.dfn match {
-      case cst @ Constant(v) if cst.typ <:< sru.typeTag[T].tpe => Some(v.asInstanceOf[T])
-      case _ => None
-    }
-  }
   
 }
 

@@ -45,6 +45,10 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   implicit class RepOps(private val self: Rep) {
     def =~= (that: Rep) = repEq(self, that)
+    
+    /** Useful for inspection with quasiquotes; the Nothing context prevents it from being used as is (which would be unsafe). */
+    def asIR = `internal IR`[Any,Nothing](self)
+    
     def show = showRep(self)
   }
   

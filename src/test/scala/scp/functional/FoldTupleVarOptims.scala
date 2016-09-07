@@ -1,10 +1,11 @@
 package scp
 package functional
 
+import scp.ir2.{BindingNormalizer, TopDownTransformer}
 import utils._
 
-class FoldTupleVarOptims extends MyFunSuite2 {
-  import TestDSL2.Predef._
+class FoldTupleVarOptims extends MyFunSuite2(NormDSL) {
+  import DSL.Predef._
   
   test("Foldleft to foreach to while") {
     
@@ -28,7 +29,7 @@ class FoldTupleVarOptims extends MyFunSuite2 {
   
   test("Tuple Variable Inlining") {
     
-    ir"var two = (1,0); while (two._1 + two._2 < 42) two = (two._1 + 1, two._2 + 2); two" transformWith FoldTupleVarOptim eqt
+    eqtBy(ir"var two = (1,0); while (two._1 + two._2 < 42) two = (two._1 + 1, two._2 + 2); two" transformWith FoldTupleVarOptim,
     ir"""
       var a = 1;
       var b = 0;
@@ -37,7 +38,7 @@ class FoldTupleVarOptims extends MyFunSuite2 {
         b += 2
       }
       (a, b)
-    """
+    """)(_ =~= _)
     
   }
   

@@ -6,12 +6,13 @@ import meta.RuntimeUniverseHelpers._
 
 import collection.mutable
 
-object RuntimeSymbols extends RuntimeSymbols /*with TraceDebug*/ { // TODO move this to general helpers
+object RuntimeSymbols extends RuntimeSymbols with PublicTraceDebug { // TODO move this to general helpers
   
-  private val typSymbolCache = mutable.HashMap[String, ScalaTypeSymbol]()
+  private val typSymbolCache = mutable.HashMap[String, ScalaTypeSymbol]() // FIXME not used???
   
 }
-trait RuntimeSymbols extends TraceDebug {
+//trait RuntimeSymbols extends TraceDebug {
+trait RuntimeSymbols {
   import RuntimeSymbols._
   
   /*

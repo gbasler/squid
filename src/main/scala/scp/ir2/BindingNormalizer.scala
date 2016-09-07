@@ -9,7 +9,8 @@ import ruh.sru
 
 import scala.collection.mutable
 
-/** Useful when representing value bindings as redexes */
+/** Useful when representing value bindings as redexes
+  * TODO find a way so the lhs of these RwR won't get normalized immediately by the IR?... */
 trait BindingNormalizer extends SimpleRuleBasedTransformer {
   import base.Predef._
   

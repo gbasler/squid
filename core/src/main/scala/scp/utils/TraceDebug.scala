@@ -9,11 +9,13 @@ trait TraceDebug {
   
   protected def debug(x: => Any) = if (debugEnabled) println("| " * indent + x)
   
-  def debugFor[T](x: => T): T = {
-    debugEnabled = true
-    try x
-    finally debugEnabled = false
+  @inline final def setDebugFor[T](enabled: Boolean)(x: => T): T = {
+    val old = debugEnabled
+    debugEnabled = enabled
+    try x finally debugEnabled = old
   }
+  def debugFor[T](x: => T): T = setDebugFor(true)(x)
+  def muteFor[T](x: => T): T = setDebugFor(false)(x)
   
   //@inline final protected def nestDbg[T](x: T) = x // to enable in release
   protected def nestDbg[T](x: => T) = (indent += 1) before (try x finally { indent -=1 })
@@ -25,6 +27,5 @@ trait TraceDebug {
 trait PublicTraceDebug extends TraceDebug {
   
   override def debug(x: => Any) = super.debug(x)
-  //def debug(x: => Any)
   
 }

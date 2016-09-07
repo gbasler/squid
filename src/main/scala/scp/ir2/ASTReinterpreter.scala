@@ -83,7 +83,7 @@ trait ASTReinterpreter { ast: AST =>
   
   /* --- --- --- Specialized Scala reinterpretation, reverting virtualized constructs --- --- --- */
   
-  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = {
+  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = muteFor {
     import MBM.u._
     
     lazy val NothingType = Predef.implicitType[Nothing]

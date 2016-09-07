@@ -7,7 +7,7 @@ import utils.Debug.show
 import scp.lib.Var
 
 class FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransformer {
-  val base: TestDSL2.type = TestDSL2
+  val base: NormDSL.type = NormDSL
   import base.Predef._
   
   rewrite {
