@@ -58,19 +58,32 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
     
     val Optim = {
-      val Comp = weakTypeOf[Comp]
-      val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe) // if that turns out to be unreliable, add requirement for a static class instead and use staticClass
-      val inst = try srum.runtimeClass(imp importSymbol Comp.typeSymbol asClass).newInstance()
+      val Comp = weakTypeOf[Comp].widen
+      def req(cond: Boolean, msg: => String, dieNow: Boolean = false) =
+        if (!cond) {
+          val str = s"Type parameter `$Comp` that was passed to StaticOptimizer could not be instantiated without parameters: "+msg
+          if (dieNow) c abort (c enclosingPosition, str) else c error (c enclosingPosition, str)
+        }
+      req(!Comp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous, "It is erroneous.", true)
+      val inst = try {
+        val cls = {
+          val sym = Comp.typeSymbol
+          req(sym.isStatic, "It is not static.")
+          req(sym.isClass && !sym.isModuleClass && (Comp match {case RefinedType(_,_) => false case TypeRef(_,_,_)=>true case _ => false}), "It is not a class.", true)
+          srum.runtimeClass(srum.staticClass(sym.fullName))
+        }
+        cls.newInstance()
+      }
       catch {
         case e: ClassNotFoundException =>
-          c.error (c.enclosingPosition, s"Could not find the class of type parameter `$Comp` you passed to StaticOptimizer. Perhaps you passed a class defined in the same project. ($e)")
+          c.error (c.enclosingPosition, s"Could not find the class of type parameter `$Comp` passed to StaticOptimizer. Perhaps you passed a class defined in the same project. ($e)")
         case e: Throwable =>
-          c.error (c.enclosingPosition, s"Type parameter `$Comp` you passed to StaticOptimizer could not be instantiated without parameters: "+e)
+          req(false, e.toString)
           throw e
       }
       try inst.asInstanceOf[Optimizer]
       catch {
-        case e: ClassCastException => c.abort(c.enclosingPosition, s"Type parameter `$Comp` you passed to StaticOptimizer does not conform: "+e)
+        case e: ClassCastException => c.abort(c.enclosingPosition, s"Type parameter `$Comp` passed to StaticOptimizer does not conform: "+e)
       }
     }
     val Base: Optim.base.type = Optim.base
