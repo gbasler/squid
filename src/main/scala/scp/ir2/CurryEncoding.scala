@@ -10,10 +10,12 @@ import ruh.sru
 trait CurryEncoding extends InspectableBase 
   with ScalaTyping /*with RuntimeSymbols*/ { // TODO rm
   
-  def abs(param: BoundVal, body: Rep): Rep
+  def abs(param: BoundVal, body: => Rep): Rep
   
   def lambda(params: List[BoundVal], bodyThunk: => Rep): Rep = {
-    val body = bodyThunk
+    
+    lazy val body = bodyThunk // Don't evaluate this too early to preserve execution order!
+    
     params match {
         
       //case Nil => import Predef._; `internal IR`(body).erase match { case ir"$body: $t" => ir"scp.lib.asFunction0($body)".rep }
@@ -23,8 +25,10 @@ trait CurryEncoding extends InspectableBase
         
       case _ =>
         
+        val curried = if (params isEmpty) byName(body)
+          else (params foldRight (() => body)){ case (p, acc) => () => abs(p, acc()) }()
+        
         val typ = lambdaType(params map boundValType, repType(body))
-        val curried = if (params isEmpty) byName(body) else (params foldRight body) { case (p, acc) => abs(p, acc) }
         
         val arity = params.size
         if (arity > 5) throw IRException(s"Unsupported lambda arity: $arity (no associated `uncurried` function)")
