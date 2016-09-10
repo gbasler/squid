@@ -13,9 +13,6 @@ trait OnlineOptimizer extends Optimizer with IntermediateBase {
   /** It is important not to try and optimize extractors, as it may result in unexpected behavior and the loss of extraction holes.
     * For example, beta reduction on a redex pattern where the body  isextracted will "eat" the argument value
     * (it won't find any occurence of the binder in the body, which is just a hole!) */
-  private var isExtracting = false
-  override def wrapConstruct(r: => Rep) = { val old = isExtracting; isExtracting = false; try super.wrapConstruct(r) finally { isExtracting = old } }
-  override def wrapExtract  (r: => Rep) = { val old = isExtracting; isExtracting = true;  try super.wrapConstruct(r) finally { isExtracting = old } }
   protected def processOnline(r: Rep) = if (isExtracting && !transformExtractors) r else optimizeRep(r)
   
   abstract override def readVal(v: BoundVal): Rep = processOnline(super.readVal(v))

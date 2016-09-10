@@ -19,15 +19,10 @@ trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
     var currentRep = rep
     
     rules foreach { case (xtor, code) =>
-      extract(xtor, currentRep) foreach { ex =>
-        try code(ex) foreach { res =>
-          currentRep = res
-        }
-        catch {
-          case RewriteAbort(msg) =>
-            //debug(s"Rewrite aborted. Message: $msg")
-            debug(s"Rewrite aborted. " + (if (msg isEmpty) "" else s"Message: $msg"))
-        }
+      try rewriteRep(xtor, currentRep, code) foreach { res => currentRep = res }
+      catch {
+        case RewriteAbort(msg) =>
+          debug(s"Rewrite aborted. " + (if (msg isEmpty) "" else s"Message: $msg"))
       }
     }
     

@@ -10,7 +10,8 @@ trait Transformer extends Optimizer { self =>
   
   object TranformerDebug extends PublicTraceDebug
   
-  def transform(rep: Rep): Rep
+  /** Use `pipeline` to correctly apply a Transformer */
+  protected def transform(rep: Rep): Rep
   final def transformTopDown(rep: Rep): Rep = (base topDown rep)(transform)
   final def transformBottomUp(rep: Rep): Rep = (base bottomUp rep)(transform)
   

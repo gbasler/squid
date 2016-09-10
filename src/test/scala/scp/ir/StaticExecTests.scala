@@ -79,7 +79,7 @@ class StaticExecTests extends FunSuite {
     same( staticExecAndSource[AST]{ var x = 0; if (true) x += 1 else x += 1; x } )
     
     // While
-    same( staticExecAndSource[AST]{ var x = 0; while (x < 10) { x += 1; println(x) }; x } )
+    same( staticExecAndSource[AST]{ var x = 0; while (x < 3) { x += 1; println(x) }; x } )
     
   }
   

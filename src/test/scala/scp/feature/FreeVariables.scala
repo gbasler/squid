@@ -9,7 +9,7 @@ class FreeVariables extends MyFunSuite2 {
     
     val x: Q[Int,{val x: Int}] = ir"$$x: Int"
     assert(x.rep match {
-      case base.RepDef(base.Ascribe(base.RepDef(base.Hole("x")), _)) => true
+      case base.RepDef(base.Hole("x")) => true  // Note: no `base.Ascribe` node because ascriptions to the same type are removed
       case _ => false
     })
     

@@ -148,7 +148,8 @@ trait MetaBases {
     def hole(name: String, typ: TypeRep): Rep = q"$Base.hole($name, $typ)"
     def splicedHole(name: String, typ: TypeRep): Rep = q"$Base.splicedHole($name, $typ)"
     
-    def substitute(r: Rep, defs: Map[String, Rep]): Rep = if (defs isEmpty) r else
+    def substitute(r: Rep, defs: Map[String, Rep]): Rep =
+    //if (defs isEmpty) r else  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
       q"$Base.substitute($r, ..${defs map {case (name, rep) => q"$name -> $rep"}})"
     /* 
     /** Note: We could implement the method above by actually doing substitution in the Scala tree as below,

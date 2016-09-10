@@ -3,6 +3,7 @@ package ir2
 
 import lang2._
 import utils._
+import utils.CollectionUtils._
 import utils.meta.{RuntimeUniverseHelpers => ruh}
 
 
@@ -36,7 +37,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
   def abs(param: BoundVal, body: Rep): Rep = rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
   
-  override def ascribe(self: Rep, typ: TypeRep): Rep = rep(Ascribe(self, typ))
+  override def ascribe(self: Rep, typ: TypeRep): Rep = if (self.typ =:= typ) self else rep(self match {
+    case RepDef(Ascribe(trueSelf, _)) => Ascribe(trueSelf, typ) // Hopefully Scala's subtyping is transitive
+    case _ => Ascribe(self, typ)
+  })
   
   def newObject(tp: TypeRep): Rep = rep(NewObject(tp))
   def staticModule(fullName: String): Rep = rep({
@@ -194,8 +198,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   * In ction, represents a free variable
   * TODO Q: should holes really be pure?
   */
-  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None) extends Def
-  case class SplicedHole(name: String)(val typ: TypeRep) extends Def
+  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None) extends NonTrivialDef
+  case class SplicedHole(name: String)(val typ: TypeRep) extends NonTrivialDef
   
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {

@@ -1,6 +1,7 @@
 package scp
 package quasi2
 
+import utils._
 import lang2._
 import utils.MacroUtils.MacroSetting
 
@@ -33,7 +34,9 @@ self: Base =>
   /* --- --- --- Provided defs --- --- --- */
   
   
-  final def substitute(r: Rep, defs: (String, Rep)*): Rep = if (defs isEmpty) r else substitute(r, defs.toMap)
+  final def substitute(r: Rep, defs: (String, Rep)*): Rep =
+  /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
+    substitute(r, defs.toMap)
   
   sealed case class IR[+T, -C] private[quasi2] (rep: Rep) extends TypeErased with ContextErased {
     type Typ <: T
@@ -48,7 +51,7 @@ self: Base =>
     def cast[S >: T]: IR[S, C] = this
     def erase: IR[Any, C] = this
     
-    def transformWith(trans: ir2.Transformer{val base: self.type}) = IR[T,C](trans.transform(rep))
+    def transformWith(trans: ir2.Transformer{val base: self.type}) = IR[T,C](trans.pipeline(rep))
     
     /** Useful when we have non-denotable types (e.g., extracted types) */
     def withTypeOf[Typ >: T](x: IR[Typ, Nothing]) = this: IR[Typ,C]
@@ -142,9 +145,13 @@ self: Base =>
     if (typEq(a,b)) Some(a) else None
   
   
-  
-  def wrapConstruct(r: => Rep) = r // TODO remove by-name param, which creates owner corruption in macros
-  def wrapExtract(r: => Rep) = r
+  private var extracting = false
+  protected def isExtracting = extracting
+  final protected def isConstructing = !isExtracting
+  def wrapConstruct(r: => Rep) = { val old = extracting; extracting = false; try r finally { extracting = old } }
+  def wrapExtract  (r: => Rep) = { val old = extracting; extracting = true;  try r finally { extracting = old } }
+  // ^ TODO find a solution cf by-name params, which creates owner corruption in macros
+
   
   type __* = Seq[IR[_,_]] // used in insertion holes, as in:  ${xs: __*}
   

@@ -80,7 +80,7 @@ class InterpreterTests extends FunSuite {
     runSame( shallowAndDeep(b){ var x = 0; if (true) x += 1 else x += 1; x } )
     
     // While
-    runSame( shallowAndDeep(b){ var x = 0; while (x < 10) { x += 1; println(x) }; x } )
+    runSame( shallowAndDeep(b){ var x = 0; while (x < 3) { x += 1; println(x) }; x } )
     
   }
   

@@ -6,11 +6,14 @@ import scp.utils.TraceDebug
 
 trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceDebug { baseSelf =>
   
+  type Rep <: AnyRef  // AnyRef bound so we can 'eq' them and optimize traversals that leave subtrees identical
   
   def bottomUp(r: Rep)(f: Rep => Rep): Rep
   def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
   def topDown(r: Rep)(f: Rep => Rep): Rep
+  
+  def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extract(xtor, xtee) flatMap code
   
   def extract(xtor: Rep, xtee: Rep): Option[Extract]
   def spliceExtract(xtor: Rep, t: Args): Option[Extract]

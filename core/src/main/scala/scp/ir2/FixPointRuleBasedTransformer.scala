@@ -25,13 +25,13 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
       matched = false
       
       rules foreach { case (xtor, code) =>
-        //debug(s"Matching xtor ${xtor.show} << ${currentRep.show}")
+        debug(s"Matching xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
+        //debug(s"Matching xtor ${Console.BOLD}${xtor}${Console.RESET} << ${currentRep}")
         
-        extract(xtor, currentRep) foreach { ex => try {
-          debug(s"Got Extract: $ex")
+        try rewriteRep(xtor, currentRep, { ex => debug(s"Got Extract: $ex"); code(ex) }) match { case resOpt =>
           
-          val resOpt = code(ex)
-          debug(s"Got Code: ${resOpt map (_ show)}")
+          debug(s"Got Code: ${resOpt map (_ show) map (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
+          //debug(s"Got Code: ${resOpt map (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
           
           resOpt foreach { res =>
             currentRep = res
@@ -40,7 +40,8 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
         } catch {
           case RewriteAbort(msg) =>
             debug(s"Rewrite aborted. " + (if (msg isEmpty) "" else s"Message: $msg"))
-        }}
+        }
+        
       }
     }
     

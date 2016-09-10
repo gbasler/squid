@@ -49,21 +49,22 @@ trait ASTHelpers { self: AST =>
   // Q: use a reinterpreter? (cf: would facilitate the work for Args)
   def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter {
+    val showMtdReturnType = false
     def apply(r: Rep): String = apply(dfn(r))
     def apply(d: Def): String = d match {
       case Constant(str: String) => '"' + str + '"'
       case Constant(v) => s"$v"
       case Typed(BoundVal(name), typ) => s"[$name:$typ]"
       case Abs(p, b) => s"{$p => ${apply(b)}}"
-      case Imperative(effs, res) => s"{${effs map apply mkString "; "}; $res"
+      case Imperative(effs, res) => s"{${effs map apply mkString "; "}; $res }"
       case MethodApp(s, m, ts, ass, typ) => 
         val targsStr = if (ts isEmpty) "" else s"[${ts mkString ","}]"
-        s"${apply(s)}.${m.name.decodedName}$targsStr${ass map (_ show apply) mkString ""}" + s"->$typ"
+        s"${apply(s)}.${m.name.decodedName}$targsStr${ass map (_ show apply) mkString ""}" + (if (showMtdReturnType) s"->$typ" else "")
       case Module(pre, nam, tp) => s"${apply(pre)}.$nam"
       case StaticModule(fnam) => fnam
       case Ascribe(r,t) => s"${apply(r)}: $t"
-      case Typed(Hole(name), typ) => s"$name: $typ"
-      case Typed(SplicedHole(name), typ) => s"$name<:$typ*"
+      case Typed(Hole(name), typ) => s"$$$name<:$typ"
+      case Typed(SplicedHole(name), typ) => s"$$$name<:$typ*"
     }
   }
   

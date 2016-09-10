@@ -18,7 +18,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   type TypSymbol = ScalaTypeSymbol
   
   type Rep = Any
-  class BoundVal(var value: Any = null)
+  class BoundVal(var value: Rep = null)
   type TypeRep = () => TypSymbol
   
   
@@ -37,7 +37,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
       case Nil => () => body
       case x0 :: Nil => (p0: Any) => x0.value = p0; body
       case x0 :: x1 :: Nil => (p0: Any, p1: Any) => x0.value = p0; x1.value = p1; body
-      ...
+      // ...
     }
   */
   
@@ -188,9 +188,9 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   object Const extends ConstAPI {
     def unapply[T: sru.TypeTag](ir: IR[T, _]): Option[T] = ???
   }
-  def hole(name: String, typ: TypeRep): Any = ???
-  def splicedHole(name: String, typ: TypeRep): Any = ???
-  def substitute(r: Any,defs: scala.collection.immutable.Map[String,Any]): Any = ???
+  def hole(name: String, typ: TypeRep): Rep = ???
+  def splicedHole(name: String, typ: TypeRep): Rep = ???
+  def substitute(r: Rep,defs: scala.collection.immutable.Map[String,Rep]): Rep = ???
   def typeHole(name: String): TypeRep = ???
   
   
