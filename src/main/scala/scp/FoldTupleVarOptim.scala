@@ -6,9 +6,12 @@ import utils.Debug.show
 
 import scp.lib.Var
 
-class FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransformer {
-  val base: NormDSL.type = NormDSL
+trait FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransformer { self =>
   import base.Predef._
+  
+  // weirdly, this is now needed:
+  import self.base.InspectableIROps
+  import self.base.IntermediateIROps
   
   rewrite {
     
@@ -126,5 +129,6 @@ class FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransfo
   }*/
   
 }
-object FoldTupleVarOptim extends FoldTupleVarOptim
-
+object FoldTupleVarOptim {
+  class ForNormDSL extends NormDSL.SelfTransformer with FoldTupleVarOptim
+}

@@ -51,6 +51,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         (base, term, t.tpe, c.tpe)
     }
     val base = baseTree
+    debug(s"Found base `${showCode(base)}` of type `${base.tpe}`")
     
     val transName = TermName(c.freshName("trans"))
     
@@ -79,7 +80,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
       val base: ${base.tpe} = $base
     }
     ${rwTree}
-    $base.`internal IR`[$typ,$outputContext]($transName.optimizeRep($termTree.rep.asInstanceOf[$transName.base.Rep]))
+    $base.`internal IR`[$typ,$outputContext]($transName.optimizeRep($termTree.rep.asInstanceOf[$transName.base.Rep]).asInstanceOf[$base.Rep])
     """
     
     debug("Generated: " + showCode(res))
@@ -227,7 +228,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           }
         }
         
-        val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${
+        val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], ((__extr__ : $base.Extract) => ${
         //val r = q"$baseBinding; $trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${
           ((subPatterns zip patNames) :\ (if (cond.isEmpty) q"_root_.scala.Option($expr.rep).asInstanceOf[Option[$trans.base.Rep]]" else q"if ($cond) _root_.scala.Some($expr.rep) else _root_.scala.None")) {
             
@@ -241,7 +242,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
               patMat(q"(__extr__.$mapName($name)) map ((__rep__ : __b__.Rep) => __b__.`internal IR`(__rep__))", pat, acc)
               
           }
-        })"
+        }).asInstanceOf[$trans.base.Extract => _root_.scala.Option[$trans.base.Rep]])"
         
         //debug(r)
         

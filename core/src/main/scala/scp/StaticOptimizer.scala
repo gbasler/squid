@@ -1,7 +1,8 @@
 package scp
 
 import utils._
-import utils.meta.RuntimeUniverseHelpers.{sru, srum}
+import utils.meta.{RuntimeUniverseHelpers => ruh}
+import ruh.{sru, srum}
 import utils.MacroUtils.{MacroDebug, MacroDebugger, MacroSetting}
 import lang2._
 import quasi2._
@@ -58,15 +59,18 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     val Optim = {
       val Comp = weakTypeOf[Comp]
-      val inst = try Class.forName(Comp.typeSymbol.asClass.fullName).newInstance()
+      val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe) // if that turns out to be unreliable, add requirement for a static class instead and use staticClass
+      val inst = try srum.runtimeClass(imp importSymbol Comp.typeSymbol asClass).newInstance()
       catch {
+        case e: ClassNotFoundException =>
+          c.error (c.enclosingPosition, s"Could not find the class of type parameter `$Comp` you passed to StaticOptimizer. Perhaps you passed a class defined in the same project. ($e)")
         case e: Throwable =>
-          c.error (c.enclosingPosition, s"The type parameter `$Comp` you passed to StaticOptimizer could not be instantiated without parameters: "+e.getMessage)
+          c.error (c.enclosingPosition, s"Type parameter `$Comp` you passed to StaticOptimizer could not be instantiated without parameters: "+e)
           throw e
       }
       try inst.asInstanceOf[Optimizer]
       catch {
-        case e: ClassCastException => c.abort(c.enclosingPosition, "The type parameter you passed to StaticOptimizer does not conform: "+e.getMessage)
+        case e: ClassCastException => c.abort(c.enclosingPosition, s"Type parameter `$Comp` you passed to StaticOptimizer does not conform: "+e)
       }
     }
     val Base: Optim.base.type = Optim.base

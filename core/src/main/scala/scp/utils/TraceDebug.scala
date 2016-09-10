@@ -7,7 +7,7 @@ trait TraceDebug {
   
   protected def isDebugEnabled = debugEnabled
   
-  protected def debug(x: => Any) = if (debugEnabled) println("| " * indent + x)
+  protected def debug(x: => Any) = if (debugEnabled) println(s"${Debug.GREY}| ${Console.RESET}" * indent + x)
   
   @inline final def setDebugFor[T](enabled: Boolean)(x: => T): T = {
     val old = debugEnabled
@@ -27,5 +27,6 @@ trait TraceDebug {
 trait PublicTraceDebug extends TraceDebug {
   
   override def debug(x: => Any) = super.debug(x)
+  override def nestDbg[T](x: => T) = super.nestDbg(x)
   
 }
