@@ -123,9 +123,9 @@ self: Base =>
   
   protected def mergeOpt(a: Option[Extract], b: => Option[Extract]): Option[Extract] = for { a <- a; b <- b; m <- merge(a,b) } yield m
   protected def merge(a: Extract, b: Extract): Option[Extract] = {
-    b._1 foreach { case (name, vb) => (a._1 get name) foreach { va => if (!(va =~= vb)) return None } }
+    b._1 foreach { case (name, vb) => (a._1 get name) foreach { va => if (!mergeableReps(va, vb)) return None } }
     b._3 foreach { case (name, vb) => (a._3 get name) foreach { va =>
-      if (va.size != vb.size || !(va zip vb forall {case (vva,vvb) => vva =~= vvb})) return None } }
+      if (va.size != vb.size || !(va.iterator zip vb.iterator forall {case (vva,vvb) => mergeableReps(vva, vvb)})) return None } }
     val typs = a._2 ++ b._2.map {
       case (name, t) =>
         a._2 get name map (t2 => name -> mergeTypes(t, t2).getOrElse(return None)) getOrElse (name -> t)
@@ -139,6 +139,8 @@ self: Base =>
     if (as isEmpty) return Some(EmptyExtract)
     as.reduce[Option[Extract]] { case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
   }
+  
+  def mergeableReps(a: Rep, b: Rep): Boolean = a =~= b
   
   def mergeTypes(a: TypeRep, b: TypeRep): Option[TypeRep] =
     // Note: We can probably do better than =:=, but that is up to the implementation of TypingBase to override it

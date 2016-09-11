@@ -1,6 +1,8 @@
 package scp
 package lang2
 
+import utils._
+
 import ir2.Variance
 import scp.utils.TraceDebug
 
@@ -15,8 +17,15 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   
   def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extract(xtor, xtee) flatMap code
   
-  def extract(xtor: Rep, xtee: Rep): Option[Extract]
-  def spliceExtract(xtor: Rep, t: Args): Option[Extract]
+  protected def extract(xtor: Rep, xtee: Rep): Option[Extract]
+  protected def spliceExtract(xtor: Rep, t: Args): Option[Extract]
+  
+  /** The top-level function called by quasiquotes extractors */
+  def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = {
+    import Console.{BOLD, RESET}
+    debug(s"${BOLD}Extracting$RESET $xtee ${BOLD}with$RESET $xtor")
+    nestDbg(extract(xtor, xtee)) and (res => debug(s"${BOLD}Result:$RESET $res"))
+  }
   
   def `internal checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(splicedValKeys: String*): Extract = {
     val prnt = (s: Traversable[_]) => s mkString ("{", ",", "}")
@@ -47,12 +56,19 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
     import scala.language.experimental.macros
     import scp.utils.MacroUtils.MacroSetting
     
+    /** Note: this is only a top-level call to `base.extractRep`; not supposed to be called in implementations of `extract` itself */
+    def extractRep(that: IR[_,_]) = self.rep extractRep that.rep
+    
     // TODO take the Transformer as an implicit (w/ default arg?) -- currently it arbitrarily uses a new SimpleRuleBasedTransformer with TopDownTransformer
     def rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir2.RuleBasedTransformerMacros.termRewrite
     @MacroSetting(debug = true) def dbg_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir2.RuleBasedTransformerMacros.termRewrite
   }
-  implicit class InspectableRepOps(private val self: Rep) {
+  protected implicit class ProtectedInspectableRepOps(private val self: Rep) {
     def extract (that: Rep) = baseSelf.extract(self, that)
+  }
+  implicit class InspectableRepOps(private val self: Rep) {
+    /** Note: this is only a to-level call to `base.extractRep`; not supposed to be called in implementations of `extract` itself */
+    def extractRep (that: Rep) = baseSelf.extractRep(self, that)
   }
   implicit class InspectableTypeRepOps(private val self: TypeRep) {
     def extract (that: TypeRep, va: Variance) = baseSelf.extractType(self, that, va)

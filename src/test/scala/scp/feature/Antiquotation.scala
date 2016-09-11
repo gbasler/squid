@@ -77,8 +77,8 @@ class Antiquotation extends MyFunSuite2 {
     
     eqt(ir"($$x:Int)+$x", ir"($$x:Int)+1")
     
-    assert(ir"($$x:Int, $$y:Int)".rep.extract(ir"(1,2)".rep).get._1 === Map("x" -> ir"1".rep, "y" -> ir"2".rep))
-    assert(ir"( $x,      $y    )".rep.extract(ir"(1,2)".rep).get._1 === Map())
+    assert(ir"($$x:Int, $$y:Int)".rep.extractRep(ir"(1,2)".rep).get._1 === Map("x" -> ir"1".rep, "y" -> ir"2".rep))
+    assert(ir"( $x,      $y    )".rep.extractRep(ir"(1,2)".rep).get._1 === Map())
     
     ir"List(1,2)" match { case ir"List($$(x,y))" => }
     

@@ -502,7 +502,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             def unapply(_t_ : $termType): Boolean = {
               //val $$shortBaseName = $$baseTree
               val _term_ = $Base.wrapExtract($res)
-              $Base.extract(_term_, _t_.rep) match {
+              $Base.extractRep(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
                 case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and spliced values "+fvs); ???
                 case None => false
@@ -526,7 +526,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             $contextInfo
             def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
               val _term_ = $Base.wrapExtract($res)
-              $Base.extract(_term_, _t_.rep) map { _maps_0_ =>
+              $Base.extractRep(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`internal checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
                 (..$tupleConv)
               }

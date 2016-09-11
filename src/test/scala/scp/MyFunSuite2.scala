@@ -50,8 +50,8 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
     def matches(pfs: PartialFunction[IR[_,_],Unit]*) = funs.matches(self)(pfs: _*)
     def eqt (that: IR[_,_]) = funs.eqt(self, that)
     def dbg_eqt (that: Q[_,_]) = {
-      DSL debugFor (self.rep extract that.rep)
-      DSL debugFor (that.rep extract self.rep)
+      DSL debugFor (self.rep extractRep that.rep)
+      DSL debugFor (that.rep extractRep self.rep)
       funs.eqt(self, that)
     }
   }

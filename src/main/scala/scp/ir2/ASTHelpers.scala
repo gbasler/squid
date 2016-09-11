@@ -8,7 +8,7 @@ import ruh.sru
 
 
 /** Useful utility methods used by AST */
-trait ASTHelpers { self: AST =>
+trait ASTHelpers extends Base { self: AST =>
   
   
   // TODO implement and use `traverse` method here
@@ -66,6 +66,31 @@ trait ASTHelpers { self: AST =>
       case Typed(Hole(name), typ) => s"$$$name<:$typ"
       case Typed(SplicedHole(name), typ) => s"$$$name<:$typ*"
     }
+  }
+  
+  
+  /** Provides some useful debugging when a merge fails. */
+  override protected def merge(a: Extract, b: Extract): Option[Extract] = {
+    val res = super.merge(a, b)
+    if (res.isEmpty && isDebugEnabled) {
+      debug(s"Could not merge Extract's:")
+      debug("\t"+a)
+      debug("\t"+b)
+      val collTerms =
+        for (k <- a._1.keySet intersect b._1.keySet; v0 = a._1(k); v1 = b._1(k); if !mergeableReps(v0,v1)) yield v0 -> v1
+      if (collTerms nonEmpty) {
+        debug(s"Colliding simple terms:")
+        for (v0 -> v1 <- collTerms) debug(s"\t$v0  <>  $v1")
+      }
+      val collTyps =
+        for (k <- a._2.keySet intersect b._2.keySet; v0 = a._2(k); v1 = b._2(k); if mergeTypes(v0,v1) isEmpty) yield v0 -> v1
+      if (collTyps nonEmpty) {
+        debug(s"Colliding types:")
+        for (v0 -> v1 <- collTyps) debug(s"\t$v0  <>  $v1")
+      }
+      if (a._3 nonEmpty) debug(s"(Perhaps some spliced terms collide.)")
+    }
+    res
   }
   
   

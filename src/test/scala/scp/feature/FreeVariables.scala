@@ -29,15 +29,15 @@ class FreeVariables extends MyFunSuite2 {
   }
   
   test("Rep extraction") {
-    hopefully(ir"Some($$x:Int)".rep extract ir"Some(42)".rep isDefined)
-    hopefully(ir"Some(42)".rep extract ir"Some($$x:Int)".rep isEmpty)
+    hopefully(ir"Some($$x:Int)".rep extractRep ir"Some(42)".rep isDefined)
+    hopefully(ir"Some(42)".rep extractRep ir"Some($$x:Int)".rep isEmpty)
   }
   
   test("Term Equivalence") {
     
     //val a = ir"($$x: Int)"
     //val b = ir"($$x: Int):Int"
-    //println(a.rep extract b.rep, b.rep extract a.rep)
+    //println(a.rep extractRep b.rep, b.rep extractRep a.rep)
     
     assert(ir"($$x: Int)" =~= ir"($$x: Int)")
     assert(!(ir"($$x: Int)" =~= ir"($$y: Int)"))
@@ -61,7 +61,7 @@ class FreeVariables extends MyFunSuite2 {
     hopefullyNot(ir"$$str:String" =~= base.`internal IR`(hole("str", N)))
     
     hopefully(hole("str", N) =~=  hole("str", N))
-    eqt( (hole("str", typeRepOf[Any]) extract hole("str", N)).get._1("str"), hole("str", N) )
+    eqt( (hole("str", typeRepOf[Any]) extractRep hole("str", N)).get._1("str"), hole("str", N) )
     hopefullyNot(hole("str", N) =~=  hole("str", typeRepOf[Int]))
     hopefullyNot(hole("str", typeRepOf[String]) =~=  hole("str", typeRepOf[Int]))
     

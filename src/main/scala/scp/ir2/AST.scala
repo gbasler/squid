@@ -107,10 +107,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   
   
-  def extract(xtor: Rep, xtee: Rep): Option[Extract] = dfn(xtor) extractImpl xtee
+  protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = dfn(xtor) extractImpl xtee
   
   //def spliceExtract(xtor: Rep, t: Args): Option[Extract] = ???
-  def spliceExtract(xtor: Rep, args: Args): Option[Extract] = xtor match {
+  protected def spliceExtract(xtor: Rep, args: Args): Option[Extract] = xtor match {
     case RepDef(SplicedHole(name)) => Some(Map(), Map(), Map(name -> args.reps))
     case RepDef(h @ Hole(name)) => // If we extract ($xs*) using ($xs:_*), we have to build a Seq in the object language and return it
       //val rep = methodApp(
@@ -138,9 +138,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   * since it checks that each extraction extracts exactly a hole with the same name
   */
   def repEq(a: Rep, b: Rep): Boolean = {
-    val a_e_b = a extract b
+    val a_e_b = a extractRep b
     if (a_e_b.isEmpty) return false
-    (a_e_b, b extract a) match {
+    (a_e_b, b extractRep a) match {
       //case (Some((xs,xts)), Some((ys,yts))) => xs.keySet == ys.keySet && xts.keySet == yts.keySet
       case (Some((xs,xts,fxs)), Some((ys,yts,fys))) =>
         // Note: could move these out of the function body:
