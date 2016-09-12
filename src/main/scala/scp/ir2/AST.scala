@@ -71,33 +71,57 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     case _ => r
   }}
   
-  def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = post({
-    val d = dfn(pre(r))
-    //println(s"Traversing $r")
-    val tr = (r: Rep) => transformRep(r)(pre, post)
-    val ret = d match {
-      case a @ Abs(p, b) =>
-        Abs(p, tr(b))(a.typ) // Note: we do not transform the parameter; could lead to surprising behaviors? (esp. in case of erroneous transform)
-      case Ascribe(r,t) => Ascribe(tr(r),t)
-      case Hole(_) | SplicedHole(_) | NewObject(_) => d
-      case mo @ StaticModule(fullName) => mo
-      case Module(pref, name, typ) => Module(tr(pref), name, typ)
-      case RecordGet(se, na, tp) => RecordGet(tr(se), na, tp)
-      case MethodApp(self, mtd, targs, argss, tp) =>
-        def trans(args: Args) = Args(args.reps map tr: _*)
-        MethodApp(tr(self), mtd, targs, argss map {
-          case as: Args => trans(as)
-          case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
-          case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), tr(va))
-        }, tp)
-      case v: BoundVal => v
-      case Constant(_) => d
-      //case or: OtherRep => or.transform(f) // TODO?
+  def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
+  class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
+    
+    //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
+    /* Optimized version that prevents recreating too many Rep's: */
+    def apply(_r: Rep): Rep = {
+      val r = pre(_r)
+      val d = dfn(r)
+      val newD = apply(d) 
+      post(if (newD eq d) r else rep(newD))
     }
-    //println(s"Traversed $r, got $ret")
-    //println(s"=> $ret")
-    rep(ret)
-  })
+    
+    def apply(d: Def): Def = {
+      //println(s"Traversing $r")
+      val rec: Rep => Rep = apply
+      val ret = d match {
+        case a @ Abs(p, b) =>
+          val newB = rec(b)
+          if (newB eq b) d else Abs(p, newB)(a.typ) // Note: we do not transform the parameter; it could lead to surprising behaviors (esp. in case of erroneous transform)
+        case Ascribe(r,t) => 
+          val newR = rec(r)
+          if (newR eq r) d else Ascribe(newR,t)
+        case Hole(_) | SplicedHole(_) | NewObject(_) => d
+        case StaticModule(fullName) => d
+        case Module(pref, name, typ) =>
+          val newPref = rec(pref)
+          if (newPref eq pref) d else Module(newPref, name, typ)
+        case RecordGet(se, na, tp) => RecordGet(rec(se), na, tp)
+        case MethodApp(self, mtd, targs, argss, tp) =>
+          val newSelf = rec(self)
+          var sameArgs = true
+          def tr2 = (r: Rep) => {
+            val newR = rec(r)
+            if (!(newR eq r)) sameArgs = false
+            newR
+          }
+          def trans(args: Args) = Args(args.reps map tr2: _*)
+          val newArgss = argss map { // TODO use List.mapConserve in Args if possible?
+            case as: Args => trans(as)
+            case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
+            case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), tr2(va))
+          }
+          if ((newSelf eq self) && sameArgs) d else MethodApp(newSelf, mtd, targs, newArgss, tp)
+        case v: BoundVal => v
+        case Constant(_) => d
+        //case or: OtherRep => or.transform(f) // TODO?
+      }
+      //println(s"Traversed $r, got $ret")
+      ret
+    }
+  }
   
   def bottomUp(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(identity, f)
   def topDown(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(f)
@@ -257,6 +281,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       //println(s"${this.show} << ${t.show}")
       //dbgs(s"${this} << ${r}")
       dbgs("   "+this);dbgs("<< "+r)
+      //dbgs("   "+this);dbgs("<< "+r.show)
       //dbgs(s"${showRep(rep(this))} << ${showRep(r)}")  // may create mayhem, as showRep may use scalaTree, which uses a Reinterpreter that has quasiquote patterns!
       
       val d = dfn(r)

@@ -84,14 +84,19 @@ trait ASTReinterpreter { ast: AST =>
   /* --- --- --- Specialized Scala reinterpretation, reverting virtualized constructs --- --- --- */
   
   override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = muteFor {
-    import MBM.u._
-    
-    lazy val NothingType = Predef.implicitType[Nothing]
-    
-    new Reinterpreter {
+    new ReinterpreterToScala {
+      val MetaBases: MBM.type = MBM
       val newBase: SRB.type = SRB
-      def apply(r: Rep) = apply(dfn(r))
       override val extrudedHandle = ExtrudedHandle
+    } apply rep
+  }
+  abstract class ReinterpreterToScala extends Reinterpreter {
+      val MetaBases: MetaBases
+      import MetaBases.u._
+      val newBase: MetaBases.ScalaReflectionBase
+      def apply(r: Rep) = apply(dfn(r))
+      
+      protected lazy val NothingType = Predef.implicitType[Nothing]
       
       /** Remembers mutable variable bindings */
       val boundVars = collection.mutable.Map[BoundVal, TermName]()
@@ -140,10 +145,10 @@ trait ASTReinterpreter { ast: AST =>
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
           case ir"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>
-            val varName = MBM.freshName(bv.name)
+            val varName = newBase.freshName(bv.name)
             
             //q"var $varName: ${rect(tv rep)} = ${apply(init.rep)}; ${body subs 'v -> q"$varName"}"
-            /* ^ this does not work because `subs` wants to substitute something or IR type of the current base, not a Scala tree */
+            /* ^ this does not work because `subs` wants to substitute with something of IR type of the current base, not a Scala tree */
             
             q"var $varName: ${rect(tv.rep/*.tpe.typeArgs.head*/)} = ${apply(init.rep)}; ..${
               boundVars += bv -> varName
@@ -181,11 +186,8 @@ trait ASTReinterpreter { ast: AST =>
             
           case _ => super.apply(d)
         }
-      }
+    }
       
-      //lazy val ImpSym = loadMtdSymbol(loadTypSymbol("scp.lib.package$"), "Imperative", None)
-      
-    } apply rep
   }
   
   

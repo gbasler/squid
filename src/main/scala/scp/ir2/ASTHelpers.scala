@@ -12,12 +12,22 @@ trait ASTHelpers extends Base { self: AST =>
   
   
   // TODO implement and use `traverse` method here
-  def hasHoles(r: Rep): Boolean = {
-    transformRep(r){case RepDef(Hole(_)) => return true case RepDef(SplicedHole(_)) => return true case r => r}
-    false
+  def hasHoles(r: Rep): Boolean = r |> traversePartial{case RepDef(Hole(_)|SplicedHole(_)) => return true} before false
+  
+  def traversePartial(f: PartialFunction[Rep, Boolean]) = traverse(f orElse PartialFunction(_ => true)) _
+  
+  def traverse(f: Rep => Boolean)(r: Rep): Unit = {
+    val rec = if (f(r)) traverse(f) _ else ignore
+    dfn(r) match {
+      case a @ Abs(p, b) => rec(b)
+      case Ascribe(r,t) => rec(r)
+      case Module(pref, name, typ) => rec(pref)
+      case MethodApp(self, mtd, targs, argss, tp) =>
+        rec(self)
+        argss.foreach(_.reps foreach rec)
+      case Hole(_) | SplicedHole(_) | NewObject(_) | StaticModule(_) | Constant(_) | RecordGet(_,_,_) | _: BoundVal =>
+    }
   }
-  
-  
   
   object Apply {
     val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply"))

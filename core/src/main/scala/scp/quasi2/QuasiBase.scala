@@ -134,10 +134,16 @@ self: Base =>
     val vals = a._1 ++ b._1
     Some(vals, typs, splicedVals)
   }
-  protected def mergeAll(as: Option[Extract]*): Option[Extract] = mergeAll(as)
   protected def mergeAll(as: TraversableOnce[Option[Extract]]): Option[Extract] = {
     if (as isEmpty) return Some(EmptyExtract)
-    as.reduce[Option[Extract]] { case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+    
+    //as.reduce[Option[Extract]] { case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
+    /* ^ not good as it evaluates all elements of `as` (even if it's an Iterator or Stream) */
+    
+    val ite = as.toIterator
+    var res = ite.next()
+    while(ite.hasNext && res.isDefined) res = mergeOpt(res, ite.next())
+    res
   }
   
   def mergeableReps(a: Rep, b: Rep): Boolean = a =~= b

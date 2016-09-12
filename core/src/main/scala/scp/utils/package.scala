@@ -29,6 +29,10 @@ package object utils {
   implicit class GenHelper[A](val __self: A) extends AnyVal {
     
     def |> [B] (rhs: A => B): B = rhs(__self)
+    def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    
+    def >> (rhs: A => A): A = rhs(__self)
+    def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
     
     /**A lesser precedence one! */
     def /> [B] (rhs: A => B): B = rhs(__self)
@@ -55,6 +59,9 @@ package object utils {
     def <| (rhs: => A): B = __self(rhs)
   }
   */
+  
+  def ignore = (_: Any) => ()
+  
   
   implicit class SafeEq[T](val self: T) extends AnyVal {
     def === (that: T) = self == that

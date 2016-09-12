@@ -75,6 +75,20 @@ class CollectionUtilsTest extends FunSuite {
   }
   
   
+  test("In-place filter") {
+    import scala.collection.mutable
+    
+    val b0 = mutable.Buffer(1,2,3,5,7,8)
+    val b1 = b0.clone
+    
+    b0.filter_!(_ % 2 == 0)
+    b1.filter_!(_ % 2 == 1)
+    
+    assert(b0 == Seq(2,8))
+    assert(b1 == Seq(1,3,5,7))
+  }
+  
+  
 }
 
 

@@ -1,6 +1,7 @@
 package scp.utils
 
 import scala.collection.generic.CanBuildFrom
+import scala.collection.mutable
 
 object CollectionUtils {
   
@@ -60,7 +61,23 @@ object CollectionUtils {
     
   }
   
-  
+  implicit class MutBufferHelper[A](private val repr: mutable.Buffer[A]) {
+    def filter_!(p: A => Boolean) = {
+      var removed = 0
+      var i = 0
+      while (i < repr.size) {
+        val e = repr(i)
+        if (p(e)) {
+          if (removed != 0)
+            repr(i-removed) = e
+        } else {
+          removed += 1
+        }
+        i += 1
+      }
+      repr.trimEnd(removed)
+    }
+  }
   
   
   
