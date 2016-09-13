@@ -78,6 +78,8 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       anf.rep(dfn)
     }
     
+    def isHole = dfn match { case Hole(_) | SplicedHole(_) => true  case _ => false }
+    
   }
   
   object Block {
@@ -107,7 +109,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
           case s: SimpleRep => s
         }
         effects.filter_! { // Currently, we let-bind holes so effect holes retain the right eval order, and here remove the other ones
-          case r @ RepDef(Hole(_) | SplicedHole(_)) => effectHoles(r.uniqueId)
+          case r if r isHole => effectHoles(r.uniqueId)
           case _ => true
         }
         ANFDebug.debug("= "+r)
@@ -190,12 +192,45 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       ////case (_: Block) -> (_: SimpleRep) => (xtor, xtee, super.extract(xtor, xtee))
         
       case (b0: Block) -> (b1: Block) =>
-        (b0, b1, 
-          // TODO handle holes in effects (they can eat more than one effect!)
-          if (b0.effects.size != b1.effects.size) None
-          else mergeAll(b0.reps.iterator zip b1.reps.iterator map (extract _).tupled)
+        (b0, b1, {
+          val reps0 = b0.reps
+          val reps1 = b1.reps
+          reps0 indexWhere (_ isHole) match {
+            case -1 =>
+              if (reps0.size != reps1.size) None oh_and debug("Blocks have different numbers of effects.")
+              else mergeAll(reps0.iterator zip reps1.iterator map (extract _).tupled)
+            case i =>
+              reps0 lastIndexWhere (_ isHole) match {
+                case `i` =>
+                  if (reps1.size < reps0.size-1) None oh_and debug("Extracted block does not have enough effects.")
+                  else {
+                    val (pre, h +: post) = reps0 splitAt i
+                    val preEx = pre.iterator zip reps1.iterator map (extract _).tupled
+                    val postEx = post.reverseIterator zip reps1.reverseIterator map (extract _).tupled
+                    val extractedSlice = reps1.slice(pre.size, reps1.size-post.size)
+                    lazy val hExt: Extract = h match {
+                      case RepDef(Hole(name)) =>
+                        val (effs :+ res) = extractedSlice
+                        val r = if (effs isEmpty) res.toBlock else Block {
+                          effs foreach effect_!
+                          res and effect_!
+                        }
+                        (Map(name -> r),Map(),Map())
+                      case RepDef(SplicedHole(name)) => (Map(),Map(),Map(name -> extractedSlice.map(_ toBlock)))
+                      case _ => wtf
+                    }
+                    //mergeAll(preEx :+ hExt ++ postEx)
+                    mergeAll(preEx ++ Iterator(Some(hExt)) ++ postEx)
+                  }
+                case _ =>
+                  System.err.println("Extraction of blocks with several effect holes not yet supported.") // TODO proper reporting/logging
+                  None
+              }
+          }
+          
+        }
         )
-      case _ => wth("A SimpleRep extracting a Block") // naked rep extracts a Block?!
+      case _ => wth(s"A SimpleRep extracting a Block: $xtor << $xtee") // naked rep extracts a Block?!
       //case _ => wth(s"A SimpleRep used as an extractor: ${xtor} << $xtee") // naked rep extracts?!
     }
     
@@ -265,7 +300,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   
   
   override def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep =
-    ANFDebug.debug(Console.BOLD+"--- NEW TRANSFO ---") before
+    ANFDebug.debug(Console.BOLD+"--- NEW TRANSFO ---"+Console.RESET) before
     (new ANFRepTransformer(pre,post))(r)
   
   class ANFRepTransformer(pre: Rep => Rep, post: Rep => Rep) extends super.RepTransformer(pre, post) {
@@ -285,7 +320,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       ANFDebug nestDbg cache.getOrElseUpdate(r.uniqueId, {
         val r2 = pre(r)
         post(cache.getOrElseUpdate(r2.uniqueId, r2 match {
-          case b: Block => Block {
+          case b: Block => val newB = Block {
             
             b.effects foreach { e =>
               deb("INIT "+e)
@@ -304,15 +339,16 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
             newRes = ANFDebug nestDbg apply(newRes).inline
             deb("RET-LAST "+newRes)
             cache += b.result.uniqueId -> newRes
-            newRes
             //effect_!(newRes)
             newRes
           }
+            if (newB.effects.size == b.effects.size && (newB.effects zip b.effects forall {case(a,b)=>a eq b}) && (newB.result eq b.result)) b
+            else newB
           case bv: BoundValRep => bv |> pre |> post  // BoundVal is not viewed as a Rep in AST, so AST never does that
           case _ =>
             val d = dfn(r2)
             val newD = apply(d) 
-            (if (newD eq d) r else rep(newD))
+            if (newD eq d) r else rep(newD)
             
         }))  and (r3 => cache += r3.uniqueId -> r3)
       }  ) and (res => if (!(r eq res)) deb(s"${BOLD}RW${RESET} $r  -->  $res"))
@@ -359,7 +395,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
         case ArgsVarargs(Args(), effs)::Args(res)::Nil =>
           effs.reps foreach effect_!
           effs.reps foreach {
-            case r @ RepDef(Hole(_) | SplicedHole(_)) => currentBlock.effectHoles += r.uniqueId
+            case r: SimpleRep if r isHole => currentBlock.effectHoles += r.uniqueId
             case _ =>
           }
           res

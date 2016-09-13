@@ -33,6 +33,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
   object FixPointTrans extends DSL.SelfTransformer with ANFRewritingTests.Rewritings with TopDownTransformer with FixPointRuleBasedTransformer
   Trans
   
+  
   test("Rewrites Result") {
     
     var x = ir"readInt:Double"
@@ -44,6 +45,8 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     y eqt ir"val n = readDouble; println(n); n: Any"
     
   }
+  
+  
   test("Rewrites With Non-Trivial Subexpression") {
     
     var x = ir"Math.pow(readDouble,2)+1"
@@ -51,11 +54,14 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     x eqt ir"((d: Double) => d*d)(readDouble)+1"
     
   }
+  
+  
   test("Rewrites Effects") {
     var x = ir"val n = readInt:Double; println(n); n+42"
     x = x transformWith Trans
     x eqt ir"val r = readDouble; println(r); r + 42"
   }
+  
   
   test("Binding Rewriting") {
     var x = ir"val r: Double = readInt; 42 + r * r * r"  // Note: Scala converts `readInt:Double` to `readDouble`
@@ -63,6 +69,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     x eqt ir"val r = readDouble; 42 + r * r * r"
     x neqt ir"readInt; val r = readDouble; r * r * r"
   }
+  
   
   test("Effects") {
     
@@ -95,6 +102,49 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     x eqt ir"42 + { val r = readDouble; val r2 = r * r; r2 * r2 }"
     
   }
+  
+  
+  test("Nested Blocks") {
+    
+    var x = ir"Math.pow(((x:Unit) => readInt.toDouble)(Unit), 2)"
+    x = x transformWith Trans
+    x eqt ir"val r = readDouble; r * r"
+    
+    x = ir"val r = (() => readInt.toDouble)(); r * r"
+    x = x transformWith Trans
+    x eqt ir"val r = (() => readDouble)(); r * r"
+    
+    x = ir"val r = () => readInt.toDouble; r() * r()"
+    x = x transformWith Trans
+    x eqt ir"val r = () => readDouble; r() * r()"
+    x eqt ir"(() => readDouble)() * (() => readDouble)()"
+    
+    x = ir"Math.pow((() => 42.0)(), 2)"
+    x = x transformWith Trans
+    x eqt ir"val app = (() => 42.0)(); app * app"
+    
+    x = ir"Math.pow((() => readInt.toDouble)(), 2)"
+    x = x transformWith Trans
+    x eqt ir"val app = (() => readDouble)(); app * app"
+    
+    x = x transformWith DSL.BN
+    x eqt ir"val rd = readDouble; rd * rd"
+    
+  }
+  
+  
+  test("Removing Uncurry on Effectful Function") {
+    
+    var x = ir"(() => readDouble)()"
+    x = x transformWith DSL.BN
+    x eqt ir"readDouble"
+    
+    x = ir"val app = (() => readDouble)(); app * app"
+    x = x transformWith DSL.BN
+    x eqt ir"val n = readDouble; n * n"
+    
+  }
+  
   
   test("Prevents Removal of Still Used Effects") {
     val init = ir"val n = readInt; val a = n.toDouble; val b = n+1; a + b"
@@ -133,6 +183,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     y = y transformWith DSL.BN
     y eqt ir"println($res)"
   }
+  
   
 }
 

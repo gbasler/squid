@@ -193,28 +193,40 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
     
     val x = ir"(x: Int) => println(x)"
     
-    //base debugFor
-    {x match {
-      //case ir"(x: Int) => $bo" => // FIXME pack effects in holes
-      //case ir"(x: Int) => $bo: $t" =>
-      case ir"(x: Int) => { $ef; $bo }" =>
+    x match {
+      case ir"(x: Int) => $bo" =>
+        bo eqt ir"println($$x: Int)"
     }
     x match {
-      case ir"(x: Int) => { $ef: Unit; $bo }" =>
-        //println(ef rep)
-        //println(bo rep)
-    }}
+      case ir"($x: Int) => $bo" =>
+        bo eqt ir"println($$x: Int)"
+        bo match { case ir"println($$x)" => }
+    }
     
-    //base debugFor
-    {ir"val x = readInt; x + x" matches {
-      case ir"($a:Int) + ($b: Int)" => // FIXME pack
+    // We don't support multi-effect-holes matching (yet?)
+    /*x match {
+      case ir"(x: Int) => { $ef; $bo }" =>
+      case ir"(x: Int) => { $ef: Unit; $bo }" =>
+        println(ef rep)
+        println(bo rep)
+    }*/
+    
+    val init = ir"val x = readInt; x + x"
+    init matches {
+      case ir"($a:Int) + ($b: Int)" => // TODOmaybe? pack effects in non-effect holes?!
       case _ =>
     } and {
-      //case ir"($a:Int) + a" => // FIXME type of repeated holes
-      //case ir"($a:Int) + (a: Int)" => // FIXME pack
+      //case ir"($a:Int) + a" => // TODO propagate type of repeated holes
+      //case ir"($a:Int) + (a: Int)" => // pack?
       case ir"$eff; ($a:Int) + (a: Int)" =>
-      //case _ =>
-    }}
+        eff eqt ir"readInt"
+        a eqt eff
+        ir"$a + $a" eqt init
+    } and {
+      case ir"$eff: Int; ($a:Int) + (a: Int)" =>
+        ir"$eff + $eff" eqt init
+        ir"$a + $eff" eqt init
+    }
     
   }
   
@@ -250,9 +262,10 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
     
     ir"println; println; 42" matches {
         
-      case ir"$effs; 42" => ??? // FIXME pack effects in effect holes
-        effs eqt ir"println; println"
+      case ir"$effs; 42" => // We can pack effects in one effects hole
+        effs eqt ir"println; println" 
         
+    } and {
       //case ir"$effs: _*; 42" =>
       //case ir"${effs @ __*}; 42" =>
       //case ir"${effs:Seq[Any]}*; 42" =>
@@ -260,13 +273,13 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
       
       case _ =>
       
-    } and {
+    } /*and {  // Not supported (yet?)
         
       case ir"$ef0; $ef1; 42" =>
         ef0 eqt ef1
         ef1 eqt ir"println"
         
-    }
+    }*/
     
   }
   
