@@ -115,7 +115,8 @@ trait ASTReinterpreter { ast: AST =>
             case v =>
               // TODO handle gracefully? (by implementing the expected semantics?)
               throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
-          }}}
+          }
+          case _ => None }}
         
         `internal IR`[Any,Nothing](ast.rep(d)) match {
     

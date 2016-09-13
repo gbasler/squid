@@ -15,7 +15,7 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   
   def topDown(r: Rep)(f: Rep => Rep): Rep
   
-  def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extract(xtor, xtee) flatMap code
+  def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extractRep(xtor, xtee) flatMap code
   
   protected def extract(xtor: Rep, xtee: Rep): Option[Extract]
   protected def spliceExtract(xtor: Rep, t: Args): Option[Extract]

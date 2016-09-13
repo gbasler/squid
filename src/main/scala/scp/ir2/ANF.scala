@@ -47,7 +47,7 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
     def inline: SimpleRep
     
     override def equals(that: Any) = that match {
-      case that: Rep => (uniqueId === that.uniqueId || isPure && that.isPure && this =~= that)  case _ => false }
+      case that: Rep => uniqueId === that.uniqueId || isPure && that.isPure && this =~= that  case _ => false }
     override def hashCode = uniqueId
     
     override def toString = prettyPrint(this)
@@ -66,13 +66,21 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
       if (!isPure) effect_!(this)
       this
     }
-    def asBlock: Block = new Block(scrapEffects)
+    def asBlock: Block = Block(scrapEffects)
     
     def inline = this
     
   }
   
-  class Block(repFun: => Rep) extends Rep {
+  object Block {
+    def apply(repFun: => Rep): Block = new Block ({ // Tries not to create a different Block we get a Block with no effects as the result
+      repFun >>? { case b: Block =>
+        if (currentBlock.effects isEmpty) return b
+        else b
+      }
+    })
+  }
+  class Block private(repFun: => Rep) extends Rep {
     val effects = mutable.Buffer[SimpleRep]()
     
     val hasEffect: mutable.Set[Int] = mutable.Set[Int](
@@ -100,7 +108,7 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
     } finally scopes pop;
     val dfn = result.dfn
     
-    override lazy val isPure = effects.isEmpty && result.isPure
+    override lazy val isPure = effects.isEmpty && result.isPure  // Note: second clause should be redundant
     
     def reps = effects :+ result
     
@@ -132,11 +140,11 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
   override val inlineVariables = true
   
   // Make sure to wrap terms in a top-level Block:
-  override def wrapConstruct(r: => Rep): Rep = new Block(super.wrapConstruct(r))
-  override def wrapExtract(r: => Rep): Rep = new Block(super.wrapExtract(r))
+  override def wrapConstruct(r: => Rep): Rep = Block(super.wrapConstruct(r))
+  override def wrapExtract(r: => Rep): Rep = Block(super.wrapExtract(r))
   
   // Wrap lambda bodies in Block's
-  override def abs(param: BoundVal, body: => Rep): Rep = super.abs(param, new Block(body))
+  override def abs(param: BoundVal, body: => Rep): Rep = super.abs(param, Block(body))
   
   
   override def mergeableReps(a: Rep, b: Rep): Boolean = {
@@ -170,6 +178,10 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
         
       case (_: SimpleRep) -> (_: SimpleRep) => (xtor, xtee, super.extract(xtor, xtee))
       case (_: Block) -> (_: SimpleRep) => (xtor, xtee, None)
+        
+      //case _ -> (_: SimpleRep) => (xtor, xtee, super.extract(xtor, xtee)) // TODO make sure only match pure stuff when Block extracts Simple?
+      ////case (_: Block) -> (_: SimpleRep) => (xtor, xtee, super.extract(xtor, xtee))
+        
       case (b0: Block) -> (b1: Block) =>
         (b0, b1, 
           // TODO handle holes in effects (they can eat more than one effect!)
@@ -177,6 +189,7 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
           else mergeAll(b0.reps.iterator zip b1.reps.iterator map (extract _).tupled)
         )
       case _ => wth("A SimpleRep extracting a Block") // naked rep extracts a Block?!
+      //case _ => wth(s"A SimpleRep used as an extractor: ${xtor} << $xtee") // naked rep extracts?!
     }
     
     if (rep.isPure && xrep.isPure || xtor.dfn.isInstanceOf[Hole]||xtor.dfn.isInstanceOf[SplicedHole]) res  // Q: can it really happen that one is pure and the other not?
@@ -191,6 +204,48 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
       (maps._1 filterKeys (k => !(k startsWith "#")), maps._2, maps._3)
     }
   }
+  
+  /** Note: could return a Rep and the caller could see if it was applied by watching eval of code... or not really (we may decide not to rewrite even if we call code) */
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
+    if (!xtee.isInstanceOf[Block]) return None
+    
+    val xbl = xtor.asInstanceOf[Block]
+    val bl = xtee.asInstanceOf[Block]
+    val reps = bl.effects :+ bl.result
+    
+    //println("Rewriting Block: "+bl)
+    
+    for (r <- reps; ex <- extract(xbl.result, r); res <- code(ex)) {
+      ANFDebug debug(s"Rewriting $r -> $res")
+      
+      val cache = mutable.Map(ex._1 collect { case name -> rep if name startsWith "#" => name.tail.toInt -> rep } toSeq: _*)
+      val removed = cache.keySet.toSet
+      cache += r.uniqueId -> res
+      
+      // Updates references to rewritten Reps:
+      val Updater = new RepTransformer({ r => cache get r.uniqueId map (
+        _.inline and { r2 => if (r2 isImpure) ANFDebug debug s"UPDATE $r -> $r2" }) getOrElse r }, identity)
+      
+      return Some(Block {
+        val newReps = for (e <- reps if !cache.isDefinedAt(e.uniqueId) || e.uniqueId == r.uniqueId) yield {
+          val e2 = e |> Updater.apply
+          e2 |> traversePartial {
+            case r if removed(r.uniqueId) =>
+              // A rewrite rule may want to remove an effect still used somewhere, which it should not be able to do
+              ANFDebug debug(s"Rewrite aborted: $r is still used")
+              return None 
+          }
+          cache += e.uniqueId -> e2
+          e2 |> effect_!
+          e2
+        }
+        newReps.last
+      })
+    }
+    
+    None
+  }
+  
   
   override def hole(name: String, typ: TypeRep): Rep = super.hole(name, typ) and effect_!
   override def splicedHole(name: String, typ: TypeRep): Rep = super.splicedHole(name, typ) and effect_!
@@ -218,7 +273,7 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
       ANFDebug nestDbg cache.getOrElseUpdate(r.uniqueId, {
         val r2 = pre(r)
         post(cache.getOrElseUpdate(r2.uniqueId, r2 match {
-          case b: Block => new Block({
+          case b: Block => Block {
             
             b.effects foreach { e =>
               deb("INIT "+e)
@@ -240,7 +295,7 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
             newRes
             //effect_!(newRes)
             newRes
-          })
+          }
           case bv: BoundValRep => bv |> pre |> post  // BoundVal is not viewed as a Rep in AST, so AST never does that
           case _ =>
             val d = dfn(r2)
@@ -301,17 +356,9 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
   
   
   
-  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = ANFDebug muteFor {
-    
-    // TODO adapt
-    
-    super.rewriteRep(xtor, xtee, code)
-    //super.rewriteRep(xtor, xtee, code) map (_ scrapEffects)
-  }
   
   
-  
-  protected def ensureEnclosingScope(r: => SimpleRep) = if (scopes isEmpty) new Block(r) else r
+  protected def ensureEnclosingScope(r: => SimpleRep) = if (scopes isEmpty) Block(r) else r
   
   protected def processSubs(originalR: Rep, newR: => Rep) = {
     // TODO? if was a block, make a block, otherwise inline/scrap

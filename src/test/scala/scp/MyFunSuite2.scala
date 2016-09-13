@@ -54,6 +54,7 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
       DSL debugFor (that.rep extractRep self.rep)
       funs.eqt(self, that)
     }
+    def neqt (that: IR[_,_]) = funs.eqt(self, that, false)
   }
   
   def implicitTypeOf[A: IRType](x: IR[A,_]) = irTypeOf[A].rep
