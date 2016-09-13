@@ -31,6 +31,11 @@ trait ASTHelpers extends Base { self: AST =>
   
   object Apply {
     val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply"))
+    def unapply(d: Def): Option[Rep -> Rep] = d match {
+      case MethodApp(f, Symbol, Nil, Args(a)::Nil, _) => Some(f -> a)
+      case _ => None
+    }
+    def unapply(r: Rep): Option[Rep -> Rep] = unapply(dfn(r))
   }
   
   // TODO implement helpers to ease method loading : method[Tp](name) or method[Tp](_.mtd(???...)), or using QQ: ir"($$_:Int)+($$_:Int)".method?

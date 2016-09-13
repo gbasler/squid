@@ -15,13 +15,16 @@ import scala.collection.mutable
   * 
   * 
   * */
-class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf =>
+class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   
   object ANFDebug extends PublicTraceDebug
   //import ANFDebug._  // Does not seem to be picked up because we already extend TraceDebug... :/
   
   
-  def rep(definition: Def) = new SimpleRep { val dfn = definition }
+  def rep(definition: Def) = definition match {
+    case Apply(RepDef(Abs(p,b)), a) if isConstructing || !hasHoles(b) => inline(p, b, a)
+    case _ => new SimpleRep { val dfn = definition }
+  }
   def dfn(r: Rep): Def = r.dfn
   
   def repType(r: Rep): TypeRep = r.dfn.typ
@@ -137,7 +140,6 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
     }
   
   
-  override val inlineVariables = true
   
   // Make sure to wrap terms in a top-level Block:
   override def wrapConstruct(r: => Rep): Rep = Block(super.wrapConstruct(r))
@@ -314,9 +316,15 @@ class ANF extends AST with CurryEncoding with NaiveInliner with ANFHelpers { anf
   }
   override def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = new BoundValRep(name, typ, annots)
   
-  override def inline(param: BoundVal, body: Rep, arg: Rep) = {
+  def inline(param: BoundVal, body: Rep, arg: Rep) = {
     ANFDebug.debug(s"Inlining $arg as $param in $body")
-    val res = super.inline(param, body, arg)  // Note that the transformer invoked to inline the body will take care of unpacking it (inlining its effects)
+    
+    // Note that the transformer invoked to inline the body will take care of unpacking it (inlining its effects)
+    val res = bottomUp(body) { // Note: topDown does not work with ANF.. why?
+      case RepDef(`param`) => arg
+      case r => r
+    }
+    
     arg |> effect_!
     res
   }

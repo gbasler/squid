@@ -98,6 +98,8 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
     ir"((x: Int, y: Int) => x + y)(1,2)" transformWith (new ANFTests.DSL.SelfTransformer with BindingNormalizer) eqt
       ir"val u = 1; val v = 2; u + v"
     
+    ir"val f = (x: Int) => x; f(42)" eqt ir"42"
+    
   }
   
   
