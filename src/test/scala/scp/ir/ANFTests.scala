@@ -114,6 +114,50 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
   }
   
   
+  test("Block Equivalence") {
+    
+    ir"() => readDouble" eqt ir"() => readDouble"
+    ir"(() => readDouble)()" eqt ir"(() => readDouble)()"
+    ir"(() => readDouble)() * (() => readDouble)()" eqt ir"(() => readDouble)() * (() => readDouble)()"
+    ir"(() => 42)() * (() => 42)()" eqt ir"val f = () => 42; f() * f()"
+    
+  }
+  
+  
+  test("Block Inlining") {
+    
+    val f = ir"() => readDouble"
+    
+    ir"val f = $f; (f, f)" eqt
+      ir"(() => readDouble, () => readDouble)"
+    
+    ir"($f)() * ($f)()" eqt
+      ir"val f = $f; f() * f()"
+    
+    ir"(() => readDouble)() * (() => readDouble)()" eqt
+      ir"val f = $f; f() * f()"
+    
+    val fufu = ir"val f = (x:Unit) => readDouble; f(Unit) * f(Unit)"
+    fufu eqt ir"readDouble * readDouble" 
+    fufu neqt ir"val r = readDouble; val f = (x:Unit) => r; f(Unit) * f(Unit)"
+    
+    ir"val r = readInt; val f = (x:Unit) => r + readInt; f(Unit) * f(Unit)" eqt
+      ir"val r = readInt; val a = readInt; val x = r + a; val b = readInt; val y = r + b; x * y"
+    
+  }
+  
+  
+  test("Inlined Argument Eval ORder") {
+    
+    ir"((x: Int) => println(x))(readInt)" eqt
+      ir"val x = readInt; println(x)"
+    
+    ir"((_: Int) => println)(readInt)" eqt
+      ir"readInt; println"
+    
+  }
+  
+  
   test("Effectful Term Equivalence") {
     
     
@@ -163,11 +207,11 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
     
     //base debugFor
     {ir"val x = readInt; x + x" matches {
-      case ir"($a:Int) + ($b: Int)" => // FIXME
+      case ir"($a:Int) + ($b: Int)" => // FIXME pack
       case _ =>
     } and {
       //case ir"($a:Int) + a" => // FIXME type of repeated holes
-      //case ir"($a:Int) + (a: Int)" => // FIXME
+      //case ir"($a:Int) + (a: Int)" => // FIXME pack
       case ir"$eff; ($a:Int) + (a: Int)" =>
       //case _ =>
     }}

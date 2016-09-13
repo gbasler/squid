@@ -44,7 +44,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     final def isImpure = !isPure
     
     def scrapEffects: SimpleRep
-    def asBlock: Block
+    def toBlock: Block
     def isBlock = false
     
     def inline: SimpleRep
@@ -69,9 +69,14 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       if (!isPure) effect_!(this)
       this
     }
-    def asBlock: Block = Block(scrapEffects)
+    def toBlock: Block = Block(scrapEffects)
     
     def inline = this
+    
+    def renew = {
+      require(isImpure)
+      anf.rep(dfn)
+    }
     
   }
   
@@ -120,7 +125,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       result.inline
     }
     override def scrapEffects = inline
-    override def asBlock = this
+    override def toBlock = this
     override def isBlock = true
     
   }
@@ -174,7 +179,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     val (xrep, rep, res) = xtor -> xtee match {
         
       case RepDef(Typed(Hole(name), tp)) -> (s: SimpleRep) => // Wraps extracted Reps in Blocks
-        ( xtor,  xtee,  extractType(tp, s.typ, Covariant) flatMap (e => merge((Map(name -> s.asBlock),Map(),Map()),e)) )
+        ( xtor,  xtee,  extractType(tp, s.typ, Covariant) flatMap (e => merge((Map(name -> s.toBlock),Map(),Map()),e)) )
         // ^ FIXME does it break rep'd holes?
       case RepDef(Hole(name)) -> (s: SimpleRep) => ??? // TODO
         
@@ -194,18 +199,23 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       //case _ => wth(s"A SimpleRep used as an extractor: ${xtor} << $xtee") // naked rep extracts?!
     }
     
-    if (rep.isPure && xrep.isPure || xtor.dfn.isInstanceOf[Hole]||xtor.dfn.isInstanceOf[SplicedHole]) res  // Q: can it really happen that one is pure and the other not?
-    else res flatMap (merge(_, (Map(
+    val newRes = xtee match { case b: Block => res map filterANFExtract  case _ => res }
+    
+    if (rep.isPure && xrep.isPure   // Q: can it really happen that one is pure and the other not?
+      || xtor.dfn.isInstanceOf[Hole]||xtor.dfn.isInstanceOf[SplicedHole]
+      || xtee.isBlock // if we extracted a Block, no need to rememeber its id (block normally only happen at top-level or RHS of lambdas)
+    ) newRes
+    else newRes flatMap (merge(_, (Map(
       "#"+xrep.uniqueId -> rep,
       "#"+rep.uniqueId -> xrep   // TODO check not hole!!
     ),Map(),Map()) ))
   }
   
-  override def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = {
-    super.extractRep(xtor, xtee) map { maps =>
-      (maps._1 filterKeys (k => !(k startsWith "#")), maps._2, maps._3)
-    }
-  }
+  override def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = super.extractRep(xtor, xtee) map filterANFExtract
+  
+  /** TODO also handle vararg reps! */
+  protected def filterANFExtract(maps: Extract) = (maps._1 filterKeys (k => !(k startsWith "#")), maps._2, maps._3)
+  
   
   /** Note: could return a Rep and the caller could see if it was applied by watching eval of code... or not really (we may decide not to rewrite even if we call code) */
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
@@ -319,14 +329,23 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   def inline(param: BoundVal, body: Rep, arg: Rep) = {
     ANFDebug.debug(s"Inlining $arg as $param in $body")
     
-    // Note that the transformer invoked to inline the body will take care of unpacking it (inlining its effects)
-    val res = bottomUp(body) { // Note: topDown does not work with ANF.. why?
-      case RepDef(`param`) => arg
-      case r => r
+    arg |> effect_!
+    //assert(arg.isPure || (currentBlock hasEffect arg.uniqueId)) // TODO enable this and properly fix where it crashes
+    
+    val res = body match {
+      case b: Block =>
+        val effs = b.effects map (_ uniqueId) toSet;
+        val Upd = new ANFRepTransformer(identity, { // Note: doing this in bottomUp; topDown does not work with ANF.. why?
+          case RepDef(`param`) => arg
+          case r: SimpleRep if effs(r.uniqueId) => r.renew
+          // ^ Makes brand new effects for the inlined body (so they're not conflated with effects from unrelated inlinings)
+          case r => r
+        })
+        Upd(b)
+      case _ => wtf
     }
     
-    arg |> effect_!
-    res
+    res.inline
   }
   
   override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
