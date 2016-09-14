@@ -16,6 +16,12 @@ trait Transformer extends Optimizer { self =>
   final def transformBottomUp(rep: Rep): Rep = (base bottomUp rep)(transform)
   
   final def pipeline = transform
+  //final def pipeline = r => {
+  //  val r2 = transform(r)
+  //  //println(s"$r  --->   $r2")
+  //  //println(r.asInstanceOf[AnyRef] eq r2.asInstanceOf[AnyRef])
+  //  if (!(r2 eq r)) substitute(r2) else r2
+  //}
   
   def andThen(that: Transformer{val base: self.base.type}): Transformer{val base: self.base.type} = new Transformer {
     val base: self.base.type = self.base

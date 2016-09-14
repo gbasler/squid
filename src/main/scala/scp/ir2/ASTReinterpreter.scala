@@ -139,6 +139,7 @@ trait ASTReinterpreter { ast: AST =>
           case ir"(${ScalaVar(id)}: scp.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: scp.lib.Var[$tv]) !" => id
           case ir"$v: scp.lib.Var[$tv]" if !(v.typ <:< NothingType) =>
+            //System.err.println(s"TYP `${v typ}`")
             System.err.println(s"Virtualized variable `${v rep}` escapes its defining scope!")
             val r = super.apply(dfn(v rep))
             //System.err.println("Note: "+showCode(r))

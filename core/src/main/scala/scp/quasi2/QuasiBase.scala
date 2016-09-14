@@ -158,6 +158,7 @@ self: Base =>
   final protected def isConstructing = !isExtracting
   def wrapConstruct(r: => Rep) = { val old = extracting; extracting = false; try r finally { extracting = old } }
   def wrapExtract  (r: => Rep) = { val old = extracting; extracting = true;  try r finally { extracting = old } }
+  //def wrapExtract  (r: => Rep) = { val old = extracting; extracting = true; println("BEG EXTR"); try r finally { println("END EXTR"); extracting = old } }
   // ^ TODO find a solution cf by-name params, which creates owner corruption in macros
 
   

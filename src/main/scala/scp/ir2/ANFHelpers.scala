@@ -21,7 +21,7 @@ trait ANFHelpers extends AST { anf: ANF =>
     } apply rep
   }}
   
-  /** Would probably make more sense to make a proper clean-up pass (inline order-safe used-once vals, etc) generating SimpleAST and then use scalaTreeIn on it */
+  /** Would probably make more sense to make a proper clean-up pass (inline order-safe used-once vals, rm redundant variable reads, etc) generating SimpleAST and then use scalaTreeIn on it */
   abstract class ReinterpreterToScala extends super.ReinterpreterToScala {
     val MetaBases: MetaBases
     import MetaBases.u._
@@ -30,6 +30,7 @@ trait ANFHelpers extends AST { anf: ANF =>
     val repCache = mutable.Map[Int, newBase.Rep]()
     
     override def apply(r: Rep) = repCache.getOrElseUpdate(r.uniqueId, r match { // Q: cache update useful here? (will it ever miss?)
+        
       case b: anf.Block =>
         b.effects match {
           case Seq() => apply(b.result)
@@ -61,6 +62,7 @@ trait ANFHelpers extends AST { anf: ANF =>
                     val varName = newBase.freshName("v") // TODO try to retain names; on inlining, save an `originalBinding`? (cannot be used for boundVar bookkeeping though, as we may inline several times into the same block)
                     q"var $varName: ${rect(tp)} = ${apply(v)}; ..${
                       //boundVars += bv -> varName  // No `bv`, the var has been inlined!
+                      //println(s"VAR $varName "+e.uniqueId)
                       repCache += e.uniqueId -> q"$varName"
                       bod()
                     }"
@@ -78,6 +80,14 @@ trait ANFHelpers extends AST { anf: ANF =>
             constr()
         }
         
+      //case RepDef(MethodApp(_, Var.Apply.Symbol, _, _, _)) =>
+      //  println(r.uniqueId)
+      //  ???
+        
+      case RepDef(MethodApp(v, Var.Bang.Symbol, _, _, _)) =>
+        apply(v)
+        
+        
       case _ => super.apply(r)
     })
     
@@ -87,14 +97,18 @@ trait ANFHelpers extends AST { anf: ANF =>
   def prettyPrint(r: Rep) = (new DefPrettyPrinter)(r)
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
+    //val showBlockIds = false
+    val showBlockIds = true
+    
     val namePrefix = "#"
     val defShown = mutable.Set[Int]()
     override def apply(r: Rep): String = apply(r, false)
     def apply(r: Rep, inBlock: Boolean): String = r match {
       case b: Block =>
         val effsStrs = b.effects map (apply(_, true))
-        val line = s"[ ${effsStrs mkString "; "}; ${apply(b.result)} ]"
-        if (line.length > 80 && b.effects.size > 1) s"[ ${effsStrs map (_ + "\n  ") mkString}${apply(b.result, true)} ]"
+        val id = if (showBlockIds) r.uniqueId.toString else ""
+        val line = s"$id[ ${effsStrs mkString "; "}; ${apply(b.result)} ]"
+        if (line.length > 80 && b.effects.size > 1) s"$id[ ${effsStrs map (_ + "\n  ") mkString}${apply(b.result, true)} ]"
         else line
       case _ =>
       if (r.isPure) super.apply(r)

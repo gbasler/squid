@@ -20,6 +20,13 @@ object ANFRewritingTests {
   
   object OnlineOptDSL extends ANF with OnlineOptimizer with Rewritings
   
+  object OnlineOptDSLNorm extends ANF with OnlineOptimizer {
+    // FIXME NPE/sof
+    val RW = new SelfTransformer with Rewritings
+    val BN = new SelfTransformer with BindingNormalizer
+    def pipeline = BN.pipeline andThen RW.pipeline
+  }
+  
 }
 
 /** TODO test online optims */
@@ -30,6 +37,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
   def bl(q: IR[_,_]) = q.rep.asInstanceOf[base.Block]
   
   object Trans extends DSL.SelfTransformer with ANFRewritingTests.Rewritings with TopDownTransformer
+  //object Trans extends DSL.SelfTransformer with ANFRewritingTests.Rewritings with BottomUpTransformer
   object FixPointTrans extends DSL.SelfTransformer with ANFRewritingTests.Rewritings with TopDownTransformer with FixPointRuleBasedTransformer
   Trans
   
@@ -105,6 +113,56 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
   
   
   test("Nested Blocks") {
+    // TODO test
+    var w = ir"() => readInt.toDouble"
+    ///*
+    w = w transformWith Trans
+    //println(w)
+    //println(w rep)
+    w eqt ir"() => readDouble"
+    
+    val wInit = ir"val ri = readInt; () => ri.toDouble"
+    w = wInit
+    //println(w rep)
+    w = /*Trans.TranformerDebug.debugFor*/ (w transformWith Trans)
+    //println(w)
+    //println(w rep)
+    w eqt wInit // rw should not apply
+    
+    println
+    
+    w = ir"val ri = readInt.toDouble; () => ri"
+    //println(w rep)
+    w = /*Trans.TranformerDebug.debugFor*/ (w transformWith Trans)
+    //println(w)
+    //println(w rep)
+    //println(ir"val ri = readDouble; () => ri" rep)
+    w eqt ir"val ri = readDouble; () => ri" // FIXedME nested block eqvce
+    
+    
+    // A failed rewriting should not prevent later ones
+    //w = ir"val ri = readInt; val ri2 = readInt.toDouble; () => ri.toDouble+ri2"
+    w = ir"val ri = readInt; () => ri.toDouble + readInt.toDouble"
+    //println(w rep)
+    w = /*Trans.TranformerDebug.debugFor*/ (w transformWith Trans)
+    //println(w rep)
+    w eqt ir"val ri = readInt; () => ri.toDouble + readDouble"
+    
+    
+    // One rw at a time...
+    // TODOne
+    var v = ir"readInt.toDouble + readInt.toDouble"
+    v = /*Trans.TranformerDebug.debugFor*/ (v transformWith Trans)
+    v eqt ir"readDouble + readInt.toDouble"
+    v = /*Trans.TranformerDebug.debugFor*/ (v transformWith Trans)
+    v eqt ir"readDouble + readDouble"
+    
+    
+    //w = w transformWith Trans
+    //println(w rep)
+    
+    //System exit 0
+    //*/
     
     var x = ir"Math.pow(((x:Unit) => readInt.toDouble)(Unit), 2)"
     x = x transformWith Trans
@@ -173,7 +231,9 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     
     x = ir"while(true) { val c = $fun(1, 2); c }; 42"
     x = x transformWith DSL.BN
-    x eqt ir"while(true) { $res; () }; 42"
+    //println(x)
+    //x eqt ir"while(true) { $res; () }; 42" // FIXME effect is not retained!
+    x eqt ir"while(true) { val tmp = $res; () }; 42"
     
     y = ir"while(true) { var c = $fun(1, 2); c += 1; println(c) }"
     y = y transformWith DSL.BN
@@ -182,6 +242,12 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     y = ir"((y: Int) => println($fun(1,y)))(2)"
     y = y transformWith DSL.BN
     y eqt ir"println($res)"
+    
+    
+    val z = ir"scp.lib.uncurried2((acc_7: Unit) => (x_8: Int) => { (4, 5) }).apply(Unit,3)"
+    println(z)
+    println(z transformWith DSL.BN)
+    
   }
   
   

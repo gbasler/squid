@@ -10,12 +10,16 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   
   type Rep <: AnyRef  // AnyRef bound so we can 'eq' them and optimize traversals that leave subtrees identical
   
+  /** Used by online rewritings; should be applied to all created IR nodes */
+  def postProcess(r: Rep): Rep = r
+  
   def bottomUp(r: Rep)(f: Rep => Rep): Rep
   def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
   def topDown(r: Rep)(f: Rep => Rep): Rep
   
   def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extractRep(xtor, xtee) flatMap code
+  def disableRewritingsFor[A](r: => A): A = r
   
   protected def extract(xtor: Rep, xtee: Rep): Option[Extract]
   protected def spliceExtract(xtor: Rep, t: Args): Option[Extract]

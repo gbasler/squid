@@ -9,7 +9,7 @@ import collection.mutable
 trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
   val base: InspectableBase
   import base._
-  import TranformerDebug.debug
+  import TranformerDebug.{debug, nestDbg}
   
   val rules = mutable.ArrayBuffer[(Rep, Extract => Option[Rep])]()
   override def registerRule(xtor: Rep, code: Extract => Option[Rep]): Unit = rules += xtor -> code
@@ -18,13 +18,29 @@ trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
     debug(s"Processing $rep")
     var currentRep = rep
     
-    rules foreach { case (xtor, code) =>
-      try rewriteRep(xtor, currentRep, code) foreach { res => currentRep = res }
+    //if (rep.asInstanceOf[ir2.ANF#Rep].uniqueId == 31)
+    if (rep.toString startsWith "27[")
+      42
+    if (rep.toString startsWith "25[")
+      42
+    
+    nestDbg(rules foreach { case (xtor, code) =>
+      //debug(s"Matching xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
+      
+      //try rewriteRep(xtor, currentRep, code) foreach { res => currentRep = res }
+      nestDbg(try rewriteRep(xtor, currentRep, code) and { resOpt =>
+        //debug(s"Got Code: ${resOpt map (_ show) map (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
+      } foreach { res =>
+        //debug(s"Matched xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
+        debug(s"Matched xtor ${Console.BOLD}${xtor}${Console.RESET} << ${currentRep}")
+        debug(s"Got Code: ${res |> (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
+        //debug(s"Got Code: ${res.show |> (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
+        currentRep = res }
       catch {
         case RewriteAbort(msg) =>
           debug(s"Rewrite aborted. " + (if (msg isEmpty) "" else s"Message: $msg"))
-      }
-    }
+      })
+    })
     
     currentRep
   }

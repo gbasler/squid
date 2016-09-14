@@ -10,11 +10,18 @@ trait OnlineOptimizer extends Optimizer with InspectableBase {
   
   val transformExtractors = false
   
+  private var enabled = true
+  override def disableRewritingsFor[A](r: => A): A = {
+    val old = enabled
+    enabled = false
+    try super.disableRewritingsFor(r) finally enabled = old
+  }
+  
   /** It is important not to try and optimize extractors, as it may result in unexpected behavior and the loss of extraction holes.
     * For example, beta reduction on a redex pattern where the body  isextracted will "eat" the argument value
     * (it won't find any occurence of the binder in the body, which is just a hole!) */
-  protected def processOnline(r: Rep) = if (isExtracting && !transformExtractors) r else optimizeRep(r)
-  
+  protected def processOnline(r: Rep) = if (!enabled || isExtracting && !transformExtractors) r else optimizeRep(r)
+  /*
   abstract override def readVal(v: BoundVal): Rep = processOnline(super.readVal(v))
   abstract override def const(value: Any): Rep = processOnline(super.const(value))
   abstract override def lambda(params: List[BoundVal], body: => Rep): Rep = processOnline(super.lambda(params, body))
@@ -26,6 +33,13 @@ trait OnlineOptimizer extends Optimizer with InspectableBase {
     processOnline(super.methodApp(self, mtd, targs, argss, tp))
   
   abstract override def byName(arg: => Rep): Rep = processOnline(super.byName(arg))
+  */
+  
+  //override def wrapConstruct(r: => Rep) = processOnline(super.wrapConstruct(r)) // TODO rm; use a `process` or `postProcess` method instead
+  //override def wrapExtract  (r: => Rep) = { val old = extracting; extracting = true;  try r finally { extracting = old } }
+  
+  //abstract override def postProcess(r: Rep) = processOnline(super.postProcess(r))
+  override def postProcess(r: Rep) = processOnline(super.postProcess(r))
   
 }
 

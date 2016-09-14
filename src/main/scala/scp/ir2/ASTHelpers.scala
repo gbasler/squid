@@ -69,6 +69,7 @@ trait ASTHelpers extends Base { self: AST =>
     def apply(d: Def): String = d match {
       case Constant(str: String) => '"' + str + '"'
       case Constant(v) => s"$v"
+      case NewObject(typ) => s"new $typ"
       case Typed(BoundVal(name), typ) => s"[$name:$typ]"
       case Abs(p, b) => s"{$p => ${apply(b)}}"
       case Imperative(effs, res) => s"{${effs map apply mkString "; "}; $res }"
