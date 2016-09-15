@@ -79,7 +79,7 @@ trait ASTHelpers extends Base { self: AST =>
       case Module(pre, nam, tp) => s"${apply(pre)}.$nam"
       case StaticModule(fnam) => fnam
       case Ascribe(r,t) => s"${apply(r)}: $t"
-      case Typed(Hole(name), typ) => s"$$$name<:$typ"
+      case Typed(h @ Hole(name), typ) => s"$$$name<:$typ" //+ (h.originalSymbol getOrElse "")
       case Typed(SplicedHole(name), typ) => s"$$$name<:$typ*"
     }
   }

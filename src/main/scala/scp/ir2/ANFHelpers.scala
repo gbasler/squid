@@ -57,9 +57,12 @@ trait ANFHelpers extends AST { anf: ANF =>
                     repCache += e.uniqueId -> q"()"
                     q"$eff; ..${bod()}"
                   }
-                  else if (tpe.widen.typeSymbol == Var.ClassSymbol) { // TODO use ScalaVar xtor?
+                  //else if (tpe.widen.typeSymbol == Var.ClassSymbol) { // TODO use ScalaVar xtor?
+                  else if (e.dfn.isInstanceOf[MethodApp] && e.dfn.asInstanceOf[MethodApp].sym === Var.Apply.Symbol) { // TODO use ScalaVar xtor?
                     val RepDef(MethodApp(_, Var.Apply.Symbol, tp::Nil, Args(v)::Nil, _)) = e
-                    val varName = newBase.freshName("v") // TODO try to retain names; on inlining, save an `originalBinding`? (cannot be used for boundVar bookkeeping though, as we may inline several times into the same block)
+                    val nameHint = b.associatedBoundValues get e.uniqueId map (_.name) getOrElse "v"
+                    //val varName = newBase.freshName("v") // TODO try to retain names; on inlining, save an `originalBinding`? (cannot be used for boundVar bookkeeping though, as we may inline several times into the same block)
+                    val varName = newBase.freshName(nameHint)
                     q"var $varName: ${rect(tp)} = ${apply(v)}; ..${
                       //boundVars += bv -> varName  // No `bv`, the var has been inlined!
                       //println(s"VAR $varName "+e.uniqueId)
@@ -69,7 +72,10 @@ trait ANFHelpers extends AST { anf: ANF =>
                   }
                   else
                   {
-                    val bound = newBase.bindVal(s"x", rect(e.typ), Nil)
+                    //val nameHint = b.associatedBoundValues getOrElse (e.uniqueId, "x")
+                    val nameHint = b.associatedBoundValues get e.uniqueId map (_.name) getOrElse "x"
+                    //val bound = newBase.bindVal(s"x", rect(e.typ), Nil)
+                    val bound = newBase.bindVal(nameHint, rect(e.typ), Nil)
                     val eff = apply(e)
                     repCache += e.uniqueId -> newBase.readVal(bound)
                     newBase.letin(bound, eff, bod(), rect(b.typ))
@@ -108,8 +114,8 @@ trait ANFHelpers extends AST { anf: ANF =>
         val effsStrs = b.effects map (apply(_, true))
         val id = if (showBlockIds) r.uniqueId.toString else ""
         val line = s"$id[ ${effsStrs mkString "; "}; ${apply(b.result)} ]"
-        if (line.length > 80 && b.effects.size > 1) s"$id[ ${effsStrs map (_ + "\n  ") mkString}${apply(b.result, true)} ]"
-        else line
+        (if (line.length > 80 && b.effects.size > 1) s"$id[ ${effsStrs map (_ + "\n  ") mkString}${apply(b.result, true)} ]"
+        else line) + s"<${b.associatedBoundValues mkString ";"}>"
       case _ =>
       if (r.isPure) super.apply(r)
       else if (defShown(r.uniqueId)) s"$namePrefix${r.uniqueId}"

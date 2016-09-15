@@ -80,4 +80,8 @@ lazy val scBackend = (project in file("sc-backend")).
   dependsOn(core)
 
 
+lazy val example = (project in file("example")).
+  settings(commonSettings: _*).
+  dependsOn(main)
+
 

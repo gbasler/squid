@@ -26,12 +26,16 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   def rep(definition: Def) = Block mkNoProcess (postProcess(definition match {
   //def rep(definition: Def) = postProcess(new SimpleRep { val dfn: Def = definition match {
       
-    case Apply(RepDef(Abs(p,b)), a) if isConstructing || !hasHoles(b) =>
+    case Apply(RepDef(Abs(p,b)), a) if isConstructing || (!hasHoles(b) && !p.isExtractedBinder) =>
+    //case Apply(RepDef(Abs(p,b)), a) if isConstructing || (!p.isExtractedBinder) =>
     //case Apply(RepDef(Abs(p,b)), a) =>
       //currentBlock.effectHoles += a.uniqueId
-      a |>? { case s: SimpleRep if s isHole => currentBlock.effectHoles += s.uniqueId } // TODO what if the arg is a bigger expr (potentially stil trivial!) containing a hole?
+      a |>? { case s: SimpleRep if s isHole => currentBlock.effectHoles += s.uniqueId } // TODO what if the arg is a bigger expr (potentially still trivial!) containing a hole?
+      //println(s"INL $p "+b)
+      
       //inline(p, b, a.inline)
-      inline(p, b, a.normalize)
+      inline(p, b, a.normalize)  //and (res => println(s"Inlined: $res"))
+      //inline(p, b, a.normalize withName p)
       
     case Ascribe(s,t) =>
       //Ascribe(s.inline, t) |> mkRep
@@ -106,8 +110,28 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   }
   private var repCount = 0
   
+  /*
+  // TODO can also wrap other Rep's?
+  //class NamedSimpleRep(val origin: BoundVal, val under: SimpleRep) extends SimpleRep { // TODO make inner class
+  case class NamedSimpleRep(origin: BoundVal, under: SimpleRep) extends SimpleRep { // TODO make inner class
+    override val uniqueId = under.uniqueId
+    val dfn = under.dfn
+    
+    
+    override def inline = this
+    
+    override def renew = {
+      NamedSimpleRep(origin, under.renew.normalize)
+    }
+    
+    
+    override def toString = s"$origin~$under"
+  }
+  */
   
   sealed trait SimpleRep extends Rep { rep =>
+    
+    //def withName(bv: BoundVal) = new NamedSimpleRep(bv, this)
     
     def scrapEffects: this.type = {
       this |> traverse {
@@ -123,7 +147,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     
     def inline = this
     
-    def renew = {
+    def renew = { // TODO rm?
       require(isImpure)
       anf.rep(dfn)
     }
@@ -200,6 +224,8 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       scopes.headOption.iterator flatMap (_.hasEffect) toSeq: _*) // No need to register effects that are already registered in an outer scope
     
     val effectHoles = mutable.Set[Int]()
+    val associatedBoundValues = mutable.Map[Int, BoundVal]()
+    
     
     scopes push this
     val result: SimpleRep = try { // Note that the result of a Block may be composed of references to its effects wrapped in some pure computation
@@ -231,6 +257,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     
     def inline = {
       currentBlock.effectHoles ++= effectHoles // if we're wrapping everything in blocks later normalized we'd better have that...
+      currentBlock.associatedBoundValues ++= associatedBoundValues
       
       effects foreach effect_!
       result.inline
@@ -291,6 +318,24 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     }
   }
   
+  // TODO handle extractor bindings to pure values!
+  //def extractValBinding(param: BoundVal, bdoy: Block, arg: Rep, headRep: Rep, tailReps: Seq[Rep]): Option[Extract] = {
+  def extractValBinding(param: BoundVal, body: Block, arg: Rep, headEffect: Rep, tailEffects: Seq[Rep], result: Rep): Option[Extract] = {
+    val Upd = new ANFRepTransformer(identity, { // Note: doing this in bottomUp; topDown does not work with ANF.. why?
+      case `headEffect` => hole(param.name, param.typ)
+      case r => r
+    })
+    //var xtedbody: Rep = Block mkNoProcess {(headEffect +: tailReps.init) foreach effect_!; tailReps.last}
+    var xtedbody: Rep = Block mkNoProcess {headEffect |> effect_!; tailEffects foreach effect_!; result}
+    //println("XBody: "+xtedbody)
+    xtedbody |>= Upd.apply
+    //println("XBUpdated: "+xtedbody)
+    var ex = mergeOpt(extract(arg, headEffect), extract(body, xtedbody))
+    //if (param.isExtractedBinder) ex = ex flatMap (merge(_,  (Map(param.name -> headEffect),Map(),Map())  ))
+    if (param.isExtractedBinder) ex = ex flatMap (merge(_,  (Map(param.name -> rep(Hole(param.name)(param.typ, Some(param)))),Map(),Map())  ))
+    ex
+  }
+  
   /** ANF inlines everything, so we need to keep track of which effectful xtor Rep's matched which xtee so it's not later
     * matched with a distinct one (and vice versa).
     * To do this, we register associations inside the Extract map by using names of the form #{uniqueId}, and we remove
@@ -302,7 +347,45 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     * Solving this would involve advanced trickery or major redesign. */
   override protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = {
     //dbgs("   "+xtor);dbgs("<< "+xtee)
+    //println(s"EXTR $xtor  <<<  $xtee")
     val (xrep, rep, res) = xtor -> xtee match {
+        
+      //case NamedSimpleRep(or, un) -> _ =>
+      //  val ex: Extract = if (or isExtractedBinder) (Map(or.name -> xtee.toBlock),Map(),Map()) else EmptyExtract
+      //  (un, xtee, extract(un, xtee) flatMap (merge(ex, _)))
+      //  
+        
+      case _ if xtor.uniqueId == xtee.uniqueId => (xtor, xtee, Some(EmptyExtract))
+      case (xtor:Block) -> _ if xtor.result.uniqueId == xtee.uniqueId => (xtor, xtee, Some(EmptyExtract))
+        
+        /*
+      //case RepDef(MethodApp(self, Apply.Symbol))
+      //case Apply(f,a) -> _ =>
+      case Apply(RepDef(f: Abs),a) -> (bl: Block) if bl.effects.nonEmpty /*&& !f.param.isExtractedBinder*/ => // TODO handle case empty effects  TODO handle extrBinder
+        //println(f,a,xtee)
+        //println(a,xtee)
+        //???
+        //(xtor, xtee, None)
+        val (arg +: reps) = bl.reps
+        
+        //val xtedbody = Block mkNoProcess {reps.init foreach effect_!; reps.last}
+        val Upd = new ANFRepTransformer(identity, { // Note: doing this in bottomUp; topDown does not work with ANF.. why?
+          case `arg` => hole(f.param.name, f.param.typ)
+          case r => r
+        })
+        var xtedbody: Rep = Block mkNoProcess {reps.init foreach effect_!; reps.last}
+        //println("XBody: "+xtedbody)
+        xtedbody |>= Upd.apply
+        //println("XBUpdated: "+xtedbody)
+        var ex = mergeOpt(extract(a, arg), extract(f.body, xtedbody))
+        if (f.param.isExtractedBinder) ex = ex flatMap (merge(_,  (Map(f.param.name -> arg),Map(),Map())  ))
+        (xtor, xtee, ex)
+        */
+      case Apply(RepDef(Abs(p,b)),a) -> (bl: Block) if bl.effects.nonEmpty => // TODO handle extrBinder
+        //val reps = bl.reps
+        //(xtor, xtee, extractValBinding(p,b,a, reps.head, reps.tail)) // TODO handle case empty effects
+        (xtor, xtee, extractValBinding(p, b.asInstanceOf[Block], a, bl.effects.head, bl.effects.tail, bl.result)) // TODO handle case empty effects
+        
         
         // TODO invest. it seems we're always xting a block now...
       //case RepDef(Typed(Hole(name), tp)) -> (s: SimpleRep) => // Wraps extracted Reps in Blocks
@@ -408,6 +491,22 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     
     //println("Rewriting Block: "+bl)
     
+    // TODO also match the effects in xbl!!!
+    
+    xbl |>? {
+      case Apply(RepDef(Abs(p,b)),a) =>
+        //for (rs <- reps.tails; if rs.nonEmpty; ex <- extractValBinding(p, b, a, rs.head, rs.tail); res <- disableRewritingsFor( code(ex) )) {
+        for (rs <- bl.effects.tails; if rs.nonEmpty; ex <- extractValBinding(p, b.asInstanceOf[Block], a, rs.head, rs.tail, bl.result); res <- disableRewritingsFor( code(ex) )) {
+          //???
+          val init = bl.effects.take(bl.effects.size-rs.size)
+          //println("Init effects: "+init)
+          return Some(Block {
+            init foreach effect_!  // TODO update...
+            res.normalize
+            //bl.result
+          })
+        }
+    }
     for (r <- reps; ex <- extract(xbl.result, r); res <- disableRewritingsFor( code(ex) )) breakable {
       /* ^ We disable online rewritings from happening while constructed the RHS of a rewriting, otherwise it may eat effects
        * that it sees as local but that will actually be inlined in a bigger scope where they may also be used.
@@ -493,7 +592,8 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   class ANFRepTransformer(pre: Rep => Rep, post: Rep => Rep) extends super.RepTransformer(pre, post) {
     val cache = mutable.Map[Int, Rep]()
     
-    val Updater = new RepTransformer({ r => cache get r.uniqueId map (
+    //val Updater = new RepTransformer({ r => cache get r.uniqueId map (
+    lazy val Updater = new ANFRepTransformer({ r => cache get r.uniqueId map ( // SOF
       _ and (r2 => if (r2 isImpure) ANFDebug debug s"Updating $r -> $r2")) getOrElse r }, identity)
     
     override def apply(r: Rep): Rep = {
@@ -508,10 +608,29 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
         val r2 = pre(r)
         post(cache.getOrElseUpdate(r2.uniqueId, r2 match {
           //case b: Block => val newB = Block {
+            
+          //case NamedSimpleRep(org, und) =>
+          //  //val rec = apply(und).normalize
+          //  //val rec = apply(und).asInstanceOf[SimpleRep]
+          //  ???
+          //  apply(und) match {
+          //    case s: SimpleRep => 
+          //      val ret = NamedSimpleRep(org, s)
+          //      println(cache get r2.uniqueId)
+          //      cache += (r2.uniqueId -> ret) // rebinds
+          //      ret
+          //    case r => r
+          //  }
+            
           case b: Block => val newB = Block mkNoProcess {
+    //val Updater = new ANFRepTransformer({ r => cache get r.uniqueId map ( // SOF
+    //  _ and (r2 => if (r2 isImpure) ANFDebug debug s"Updating $r -> $r2")) getOrElse r }, identity)
+            // ^ when defined here the Updater doesn't do its job fully
             
             b.effects foreach { e =>
               deb("INIT "+e)
+              if (e.uniqueId == 141)
+                42
               val e2 = ANFDebug nestDbg Updater(e)
               deb("NEW "+e2)
               //val e3 = apply(e2)
@@ -525,10 +644,20 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
             deb("RET-INIT "+newRes)
             newRes = ANFDebug nestDbg Updater(newRes).inline // `inline` does nothing if it's already a SimpleRep
             deb("RET-NEW "+newRes)
-            newRes = ANFDebug nestDbg apply(newRes).inline
+            //newRes = ANFDebug nestDbg apply(newRes).inline
+            newRes = ANFDebug nestDbg apply(newRes).normalize
             deb("RET-LAST "+newRes)
             cache += b.result.uniqueId -> newRes
             //effect_!(newRes)
+            
+            // TODO? also transfer effect holes?!
+            //currentBlock.associatedBoundValues ++= b.associatedBoundValues
+            //currentBlock.associatedBoundValues ++= (b.associatedBoundValues map {
+            //  //case id => cache get id getOrElse()
+            //  _ >>? (cache andThen (_ uniqueId))
+            //})
+            currentBlock.associatedBoundValues ++= (b.associatedBoundValues map { case k -> v => (k >>? (cache andThen (_ uniqueId))) -> v })
+            
             newRes
           }
             if (newB.effects.size == b.effects.size && (newB.effects zip b.effects forall {case(a,b)=>a eq b}) && (newB.result eq b.result)) b
@@ -553,13 +682,15 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   override def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = new BoundValRep(name, typ, annots)
   
   def inline(param: BoundVal, body: Rep, arg: Rep) = {
-    ANFDebug.debug(s"Inlining $arg as $param in $body")
+    ANFDebug debug
+      /*println*/(s"Inlining $arg as $param in $body")
     
     arg |> effect_!
     //assert(arg.isPure || (currentBlock hasEffect arg.uniqueId)) // TODO enable this and properly fix where it crashes
     
     val res = body match {
       case b: Block =>
+        b.associatedBoundValues += arg.uniqueId -> param
         val effs = b.effects map (_ uniqueId) toSet;
         val Upd = new ANFRepTransformer(identity, { // Note: doing this in bottomUp; topDown does not work with ANF.. why?
           case RepDef(`param`) => arg
@@ -630,7 +761,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     //newR.normalize
     //Block(newR.normalize)
     //Block(newR.scrapEffects)
-  }
+  } //and (r => println("Subs: "+r))
   override def substitute(r: Rep, defs: Map[String, Rep]): Rep = processSubs(r, super.substitute(r, defs))
   override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = processSubs(r, super.substituteLazy(r, defs))
   

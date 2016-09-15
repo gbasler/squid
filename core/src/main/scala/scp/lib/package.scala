@@ -20,7 +20,7 @@ package object lib {
     def := (that: A) = value = that
     def ! = value
   }
-  implicit def readVar[A](v: Var[A]): A = v!
+  implicit def readVar[A](v: Var[A]): A = v!  // Q: what's this for?? rm?
   
   
   def uncurried0[b](f: => b): () => b =

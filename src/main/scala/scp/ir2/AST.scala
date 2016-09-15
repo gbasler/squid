@@ -205,10 +205,13 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   lazy val ExtractedBinderSym = loadTypSymbol(ruh.encodedTypeSymbol(ruh.sru.typeOf[scp.lib.ExtractedBinder].typeSymbol.asType))
   
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
+    def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
+    
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name
       val extr: Extract =
-        if (model.annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)) (Map(newName -> rep(this)),Map(),Map())
+        //if (model.annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)) (Map(newName -> rep(this)),Map(),Map())
+        if (model isExtractedBinder) (Map(newName -> rep(this)),Map(),Map())
         else EmptyExtract
       extr -> Hole(newName)(typ, Some(this))
     }

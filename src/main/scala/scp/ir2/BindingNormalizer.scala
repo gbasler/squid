@@ -18,6 +18,7 @@ trait BindingNormalizer extends SimpleRuleBasedTransformer {
   
   rewrite {
     
+    // TODO separate these RW from the actual bond-norm (which ANF does not use -- it may even be harmful to it)
     /** Curries function applications, useful when inlining Scala methods with multiple parameters as lambdas. */
     case ir"uncurried0($f: $t)()"                                                        => ir"$f"
     case ir"uncurried2($f: ($ta => $tb => $t))($x, $y)"                                  => ir"$f($x)($y)"
