@@ -96,6 +96,9 @@ trait ASTReinterpreter { ast: AST =>
       val newBase: MetaBases.ScalaReflectionBase
       def apply(r: Rep) = apply(dfn(r))
       
+      //val ascribeUselessTypes = true
+      val ascribeUselessTypes = false
+      
       protected lazy val NothingType = Predef.implicitType[Nothing]
       
       /** Remembers mutable variable bindings */
@@ -161,9 +164,13 @@ trait ASTReinterpreter { ast: AST =>
             * Note: we don't do it for multi-parameter lambdas, assuming they are already normalized (cf: `BindingNormalizer`) */
           case ir"((${p @ BV(bv)}: $ta) => $body: $tb)($arg)" =>
             newBase.letin(recv(bv), apply(arg rep), apply(body subs 'p -> p rep), rect(tb rep))
+            //newBase.letin(recv(bv), apply(arg rep), apply(body subs 'p -> p rep), EmptyTree)
             
             
           /** We explicitly convert multi-parameter lambdas, as they may be encoded (cf: `CurryEncoding`): */
+            
+          case ir"() => $body: $tb" =>
+            newBase.lambda(Nil, apply(body rep))
             
           case ir"((${p @ BV(bp)}: $tp, ${q @ BV(bq)}: $tq) => $body: $tb)" =>
             newBase.lambda(recv(bp) :: recv(bq) :: Nil, apply(body  subs 'p -> p subs 'q -> q rep))

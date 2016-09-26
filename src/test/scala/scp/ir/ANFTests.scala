@@ -34,7 +34,7 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
   
   
   test("Imperative Removal") {
-    
+    // TODO tests
     
     println(ir"print(1); print(2); print(3)" rep)
     
@@ -159,6 +159,32 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
   }
   
   
+  test("Keep effects from outside intact") {
+    
+    val a = ir"println"
+    val base.IR(base.Block(Seq(e0),r0)) = a
+    
+    //eqt ir"val x = 0; $a"
+    ir"$a; 42" match {
+      case ir"${eff @ base.IR(base.Block(Seq(e),r))}; 42" =>
+        //println(a.rep)
+        //println(eff.rep)
+        //assert(a.rep.uniqueId == eff.rep.uniqueId)
+        //assert(a.rep.asInstanceOf[base.Block].effects uniqueId == eff.rep.uniqueId)
+        a eqt eff
+        //a match {
+        //  case base.IR(base.Block(Seq(e0),r0)) =>
+        assert(e.uniqueId == e0.uniqueId)
+        assert(r.uniqueId == r0.uniqueId)
+        //}
+    }
+    
+    val b = ir"val x = 0; $a"
+    println(b rep)
+    
+  }
+  
+  
   test("Simple Term Equivalence") {
     
     val lss = ir"List(1,2,3).sum"
@@ -194,7 +220,7 @@ class ANFTests extends MyFunSuite2(ANFTests.DSL) {
       ir"val f = $f; f() * f()"
     
     val fufu = ir"val f = (x:Unit) => readDouble; f(Unit) * f(Unit)"
-    fufu eqt ir"readDouble * readDouble" 
+    fufu eqt ir"readDouble * readDouble"
     fufu neqt ir"val r = readDouble; val f = (x:Unit) => r; f(Unit) * f(Unit)"
     
     ir"val r = readInt; val f = (x:Unit) => r + readInt; f(Unit) * f(Unit)" eqt

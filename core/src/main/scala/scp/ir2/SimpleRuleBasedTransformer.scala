@@ -18,12 +18,6 @@ trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
     debug(s"Processing $rep")
     var currentRep = rep
     
-    //if (rep.asInstanceOf[ir2.ANF#Rep].uniqueId == 31)
-    if (rep.toString startsWith "27[")
-      42
-    if (rep.toString startsWith "25[")
-      42
-    
     nestDbg(rules foreach { case (xtor, code) =>
       //debug(s"Matching xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
       

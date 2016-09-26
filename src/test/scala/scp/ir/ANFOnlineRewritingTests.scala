@@ -4,6 +4,13 @@ package ir
 import utils._
 import ir2._
 
+/*
+
+  //object DSL extends ANF with OnlineOptimizer with BindingNormalizer // FIXME dups the while
+  //object DSL extends ANF with OnlineOptimizer with BindingNormalizer with TopDownTransformer // FIXME dups the while
+
+*/
+
 class ANFOnlineRewritingTests extends MyFunSuite2(ANFRewritingTests.OnlineOptDSL) {
   import DSL.Predef._
   

@@ -75,8 +75,10 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     
     //val $transName = new _root_.scp.ir2.SimpleRuleBasedTransformer with _root_.scp.ir2.TopDownTransformer {
     //val $transName: _root_.scp.ir2.Transformer{val base: ${base.tpe} } = new _root_.scp.ir2.SimpleTransformer {
+    //object $transName extends _root_.scp.ir2.SimpleRuleBasedTransformer with _root_.scp.ir2.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
+    // TODO give possibility to chose transformer (w/ implicit?)
     val res = q""" 
-    object $transName extends _root_.scp.ir2.SimpleRuleBasedTransformer with _root_.scp.ir2.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
+    object $transName extends _root_.scp.ir2.FixPointRuleBasedTransformer with _root_.scp.ir2.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
       val base: ${base.tpe} = $base
     }
     ${rwTree}

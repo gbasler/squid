@@ -15,13 +15,13 @@ package object utils {
   
   implicit class Andable[T](val self: T) extends AnyVal {
     
-    def and(f: T => Unit) = { f(self); self }
+    @inline final def and(f: T => Unit) = { f(self); self }
     
-    def oh_and(effect: Unit) = self
+    @inline final def oh_and(effect: Unit) = self
     
-    def but_before(f: => Unit) = { f; self }
+    @inline final def but_before(f: => Unit) = { f; self }
     
-    def before[A](x: A) = x
+    @inline final def before[A](x: A) = x
     
   }
   

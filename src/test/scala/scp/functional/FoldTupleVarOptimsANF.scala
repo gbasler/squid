@@ -174,7 +174,7 @@ class FoldTupleVarOptimsANF extends MyFunSuite2(FoldTupleVarOptimsANF) {
     //println(ir"val r = List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x)); r._1 + r._2" transformWith FoldTupleVarOptim)
     
     var q = ir"List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x))"
-    /*
+    ///*
     //println(q)
     println(q) // FIXedME
     q = q transformWith FoldTupleVarOptim
@@ -189,10 +189,10 @@ class FoldTupleVarOptimsANF extends MyFunSuite2(FoldTupleVarOptimsANF) {
     //println(q) // FIXedME
     
     
-    */
+    //*/
     
     
-    ///*
+    /*
     q = ir"""{
   val x_0: scala.collection.immutable.List[scala.Int] = scala.collection.immutable.List.apply[scala.Int](1, 2, 3);
   val x_1: scala.Tuple2[scala.Int, scala.Int] = scala.Tuple2.apply[scala.Int, scala.Int](0, 0);
@@ -259,7 +259,7 @@ class FoldTupleVarOptimsANF extends MyFunSuite2(FoldTupleVarOptimsANF) {
     
     println(q) // FIXedME
     
-    //*/
+    */
     
     //println(q rep) // FIXME
     //println(q run) // FIXME returns (0,0) instead of (2,4) -- cf handling of variables...

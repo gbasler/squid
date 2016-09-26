@@ -103,8 +103,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           val newSelf = rec(self)
           var sameArgs = true
           def tr2 = (r: Rep) => {
+            //if (r.asInstanceOf[ANF#Rep].uniqueId == 125)
+            //  42
             val newR = rec(r)
-            if (!(newR eq r)) sameArgs = false
+            if (!(newR eq r))
+              sameArgs = false
             newR
           }
           def trans(args: Args) = Args(args.reps map tr2: _*)

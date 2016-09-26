@@ -56,9 +56,8 @@ trait ASTHelpers extends Base { self: AST =>
     object Apply {
       val Symbol = loadMtdSymbol(ModuleSymbol, "apply", None)
     }
-    object Bang {
-      val Symbol = loadMtdSymbol(ClassSymbol, "$bang", None)
-    }
+    object Bang { val Symbol = loadMtdSymbol(ClassSymbol, "$bang", None) }
+    object ColonEqual { val Symbol = loadMtdSymbol(ClassSymbol, "$colon$eq", None) }
   }
   
   // Q: use a reinterpreter? (cf: would facilitate the work for Args)

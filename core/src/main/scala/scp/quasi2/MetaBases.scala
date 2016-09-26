@@ -27,8 +27,8 @@ trait MetaBases {
     
     /** For legibility of the gen'd code, calls `mapp` instead of `methodApp`.
       * Note: maybe it will make the gen'd pgrm slower (cf: more Seq/List ction?) */
-    val shortAppSyntax = true
-    //val shortAppSyntax = false
+    //val shortAppSyntax = true
+    val shortAppSyntax = false
     
     val symbols = mutable.Buffer[(TermName, Tree)]()
     def mkSymbolDefs = symbols map { case(n, t) => q"val $n = $t" }
@@ -184,6 +184,9 @@ trait MetaBases {
     * It does not add types to the trees, although it could (to some extent). */
   class ScalaReflectionBase extends Base {
     
+    //val ascribeUselessTypes = true
+    val ascribeValBindings = false
+    
     val startPathsFromRoot = false
     
     type Rep = Tree
@@ -221,9 +224,10 @@ trait MetaBases {
     """
     
     override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
-      val ${bound._1}: ${bound._2} = $value
+      val ${bound._1}: ${if (ascribeValBindings) bound._2 else tq""} = $value
       ..$body
     """
+      //val ${bound._1}: ${if (ascribeValBindings) bound._2 else EmptyTree} = $value  // mks errors like Error:(65, 21) value + is not a member of <notype>
     
     def newObject(tp: TypeRep): Rep = New(tp)
     def moduleObject(fullName: String, isPackage: Boolean): Rep = {

@@ -10,6 +10,7 @@ import ruh.sru
 
 import scala.collection.mutable
 
+/** TODO specialize general Reinterpreter so it does not evaluate expressions more than once (thence fixing run on ANF nodes) */
 trait ANFHelpers extends AST { anf: ANF =>
   
   
@@ -79,6 +80,7 @@ trait ANFHelpers extends AST { anf: ANF =>
                     val eff = apply(e)
                     repCache += e.uniqueId -> newBase.readVal(bound)
                     newBase.letin(bound, eff, bod(), rect(b.typ))
+                    //newBase.letin(bound, eff, bod(), if (ascribeUselessTypes) rect(b.typ) else EmptyTree)
                   }
                 } //and (r => println(s"Rewrote $e => ${r}"))
                 
@@ -92,6 +94,9 @@ trait ANFHelpers extends AST { anf: ANF =>
         
       case RepDef(MethodApp(v, Var.Bang.Symbol, _, _, _)) =>
         apply(v)
+        
+      case RepDef(MethodApp(v, Var.ColonEqual.Symbol, _, Args(x)::Nil, _)) =>
+        q"${apply(v)} = ${apply(x)}"
         
         
       case _ => super.apply(r)

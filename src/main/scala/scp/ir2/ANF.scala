@@ -12,7 +12,16 @@ import scala.collection.mutable
 
 /** Effectful-let-insertion-based implementation of ANF
   * 
-  * 
+  * One of the main problems:
+  *   We often end up with symbols in a block that are actually defined in an outer block
+  *   Inlining such a block (if it's the body of a function) will renew these symbols, making them new symbols!
+  *   This also manifests in the presence of several let bindings, as in in example.ListOptimTestsANF {{{ ir{ val f = (x: List[Int]) => x.foldLeft(0)(_ + _); f(List(1,2,3)) } }}}
+  *   Was "pseudo-fixed" with `inlinedReps` flag in Block, which kept track of whether a block had already been inlined in some outer block
+  *       but this is a pain to propagate properly through the tons of Block transformations (incl. function bodies)
+  *       it crashed test("Block Inlining") {{{ fufu eqt ir"readDouble * readDouble" }}}
+  *     Also, is this really what we want to do? It would probably cause more confusion/weird bugs than it solves...
+  *   
+  *   
   * 
   * */
 class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
@@ -81,7 +90,11 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     val dfn: Def
     val uniqueId = repCount oh_and (repCount += 1)
     //if (uniqueId == 37)
-    if (uniqueId == 27)
+    //if (uniqueId == 27)
+    //if (uniqueId == 141)
+    //if (uniqueId == 131)
+    //if (uniqueId == 134)
+    if (uniqueId == 103)
       42
     
     /** Note: holes are considered impure;
@@ -203,6 +216,8 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       }
     })
     
+    def unapply(x: Block) = Some(x.effects, x.result)
+    
     //def apply(repFun: => Rep): Block = postProcess(new Block ({ // Tries not to create a different Block we get a Block with no effects as the result
     //  repFun >>? { case b: Block =>
     //    if (currentBlock.effects isEmpty) return b
@@ -225,6 +240,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     
     val effectHoles = mutable.Set[Int]()
     val associatedBoundValues = mutable.Map[Int, BoundVal]()
+    val inlinedReps = mutable.Set[Int]() // does not really work (cf: mtd inline) TODO rm
     
     
     scopes push this
@@ -258,6 +274,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     def inline = {
       currentBlock.effectHoles ++= effectHoles // if we're wrapping everything in blocks later normalized we'd better have that...
       currentBlock.associatedBoundValues ++= associatedBoundValues
+      currentBlock.inlinedReps ++= inlinedReps
       
       effects foreach effect_!
       result.inline
@@ -496,17 +513,49 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
     xbl |>? {
       case Apply(RepDef(Abs(p,b)),a) =>
         //for (rs <- reps.tails; if rs.nonEmpty; ex <- extractValBinding(p, b, a, rs.head, rs.tail); res <- disableRewritingsFor( code(ex) )) {
-        for (rs <- bl.effects.tails; if rs.nonEmpty; ex <- extractValBinding(p, b.asInstanceOf[Block], a, rs.head, rs.tail, bl.result); res <- disableRewritingsFor( code(ex) )) {
+        for (rs <- bl.effects.tails; if rs.nonEmpty; ex <- extractValBinding(p, b.asInstanceOf[Block], a, rs.head, rs.tail, bl.result); res <- disableRewritingsFor( code(ex) )) breakable {
           //???
           val init = bl.effects.take(bl.effects.size-rs.size)
           //println("Init effects: "+init)
-          return Some(Block {
-            init foreach effect_!  // TODO update...
+          
+          //val reps = 
+          
+          //println(ex._1)
+          //println(xtor)
+          //println(res)
+          
+          // TODO factor with below?
+          //val cache = mutable.Map(ex._1 collect { case name -> rep if name startsWith "#$" => name.tail.tail.toInt -> rep } toSeq: _*)
+          //cache += rs.head.uniqueId -> res  // shouldn't be necessary
+          val removed = (ex._1 collect { case name -> rep if name startsWith "##" => name.tail.tail.toInt } toSet);
+          removed -- reps.iterator.map(_ uniqueId) foreach { r =>
+            ANFDebug debug
+              /*println*/(s"Rewrite aborted: $r is not a local effect")
+            break
+          }
+          
+          /*
+          return Some(Block mkNoProcess {
+            init foreach effect_!  // TODO update... remove matched symbols
             res.normalize
             //bl.result
           })
+          */
+          
+          return Some(Block mkNoProcess {
+            //init foreach effect_!  // TODO update... remove matched symbols
+            init filterNot (((_:Rep) uniqueId) andThen removed) foreach effect_!  // TODO update... remove matched symbols
+            
+            //println(removed)
+            //println(init)
+            
+            res.normalize
+            //bl.result
+          })
+          
         }
     }
+    // Q: can these ever apply if the one above did too?
     for (r <- reps; ex <- extract(xbl.result, r); res <- disableRewritingsFor( code(ex) )) breakable {
       /* ^ We disable online rewritings from happening while constructed the RHS of a rewriting, otherwise it may eat effects
        * that it sees as local but that will actually be inlined in a bigger scope where they may also be used.
@@ -515,6 +564,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       
       ANFDebug debug(s"Rewriting $r -> $res")
       
+      // TODO make immut
       val cache = mutable.Map(ex._1 collect { case name -> rep if name startsWith "#$" => name.tail.tail.toInt -> rep } toSeq: _*)
       //val removed = cache.keySet.toSet
       cache += r.uniqueId -> res
@@ -530,12 +580,19 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       }
       */
       
+      
+      // Problem: named holes don't get a corresponding ## entry... try to put them back?
+      // did it.. now the optim fails!
+      
       val removed = ex._1 collect { case name -> rep if name startsWith "##" => name.tail.tail.toInt } toSet;
+      
+      //println("MAP "+ex._1)
       //println(removed, reps.iterator.map(_ uniqueId).toSet)
       //println("CACHE "+cache)
+      
       removed -- reps.iterator.map(_ uniqueId) foreach { r =>
         //ANFDebug debug
-        /*println*/(s"Rewrite aborted: $r is not a local effect")
+          println(s"Rewrite aborted: $r is not a local effect")
         //return None
         break
       }
@@ -543,14 +600,19 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
       // Updates references to rewritten Reps:
       //val Updater = new RepTransformer({ r => cache get r.uniqueId map ( // simple RepTransformer won't transform Blocks!!
       val Updater = new ANFRepTransformer({ r => cache get r.uniqueId map (
-        _.inline and { r2 => if (r2 isImpure) ANFDebug debug s"UPDATE $r -> $r2" }) getOrElse r }, identity)
+        //_.inline and { r2 => if (r2 isImpure) ANFDebug debug s"UPDATE $r -> $r2" }) getOrElse r }, identity)
+        _ and { r2 => if (r2 isImpure) ANFDebug debug s"UPDATE $r -> $r2" }) getOrElse r }, identity)
       
       //return Some(Block {
       return Some(Block mkNoProcess {
         //val newReps = for (e <- reps if !cache.isDefinedAt(e.uniqueId) || e.uniqueId == r.uniqueId) yield {
         val newReps = for (e <- reps if !removed(e.uniqueId) || e.uniqueId == r.uniqueId) yield {
+        //val newReps = for ((e,i) <- reps.zipWithIndex if !removed(e.uniqueId) || i == reps.size-1) yield {
           //println("Effect "+e)
+          if (e.uniqueId == 40)
+            42
           val e2 = e |> Updater.apply
+          //val e2 = cache get e.uniqueId getOrElse (e |> Updater.apply)
           //val e2 = ANFDebug debugFor (e |> Updater.apply)
           //println("Updated "+e2)
           e2 |> traversePartial {
@@ -561,13 +623,17 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
               //return None // FIXME don't return
               break
           }
-          cache += e.uniqueId -> e2
+          assert(Updater.cache isDefinedAt e.uniqueId)
+          //cache += e.uniqueId -> e2
+          
+          //println("! "+e2.uniqueId)
           e2.normalize
           /*
           e2 |> effect_! // not necessary aymore (cf normalize ^)
           e2
           */
         }
+        //println("> "+newReps.last.uniqueId)
         newReps.last
       }) and { b =>
         //println("RWB "+b)
@@ -636,6 +702,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
               //val e3 = apply(e2)
               val e3 = apply(e2).normalize
               deb("LAST "+e3)
+              //Updater.cache += e.uniqueId -> e3 // ???
               cache += e.uniqueId -> e3 // we might already have a binding e2->e3, but we also need e->e3!
               //effect_!(e3) // not necessary aymore (cf normalize ^)
             }
@@ -647,6 +714,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
             //newRes = ANFDebug nestDbg apply(newRes).inline
             newRes = ANFDebug nestDbg apply(newRes).normalize
             deb("RET-LAST "+newRes)
+            //Updater.cache += b.result.uniqueId -> newRes // ???
             cache += b.result.uniqueId -> newRes
             //effect_!(newRes)
             
@@ -656,7 +724,9 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
             //  //case id => cache get id getOrElse()
             //  _ >>? (cache andThen (_ uniqueId))
             //})
-            currentBlock.associatedBoundValues ++= (b.associatedBoundValues map { case k -> v => (k >>? (cache andThen (_ uniqueId))) -> v })
+            //currentBlock.associatedBoundValues ++= (b.associatedBoundValues map { case k -> v => (k >>? (cache andThen (_ uniqueId))) -> v })
+            currentBlock.associatedBoundValues ++= (b.associatedBoundValues map { case k -> v => (k >>? (cache orElse Updater.cache andThen (_ uniqueId))) -> v })
+            currentBlock.inlinedReps ++= b.inlinedReps
             
             newRes
           }
@@ -665,6 +735,8 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
           case bv: BoundValRep => bv |> pre |> post  // BoundVal is not viewed as a Rep in AST, so AST never does that
           case _ =>
             val d = dfn(r2)
+            if (r2.uniqueId == 127) 
+              42
             val newD = apply(d) 
             //if (newD eq d) r else rep(newD)
             if (newD eq d) r2 else rep(newD)
@@ -683,7 +755,14 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   
   def inline(param: BoundVal, body: Rep, arg: Rep) = {
     ANFDebug debug
-      /*println*/(s"Inlining $arg as $param in $body")
+      println(s"Inlining $arg as $param in $body")
+    
+    /*
+    val alreadInlined = currentBlock.inlinedReps(body.uniqueId)
+    //println(s"Already inlined ($body): "+currentBlock.inlinedReps(body.uniqueId))
+    println(s"Already inlined (${currentBlock.uniqueId}): "+alreadInlined)
+    //println(currentBlock.effects)
+    */
     
     arg |> effect_!
     //assert(arg.isPure || (currentBlock hasEffect arg.uniqueId)) // TODO enable this and properly fix where it crashes
@@ -694,13 +773,21 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
         val effs = b.effects map (_ uniqueId) toSet;
         val Upd = new ANFRepTransformer(identity, { // Note: doing this in bottomUp; topDown does not work with ANF.. why?
           case RepDef(`param`) => arg
-          case r: SimpleRep if effs(r.uniqueId) => r.renew
-          // ^ Makes brand new effects for the inlined body (so they're not conflated with effects from unrelated inlinings)
+          case r: SimpleRep if effs(r.uniqueId) =>
+            //if (alreadInlined) r.renew else r  // very messy: we want to avoid renewing reps just because of a let binding because they may come from the outside and should not lose their identity...
+            r.renew
+            // ^ Makes brand new effects for the inlined body (so they're not conflated with effects from unrelated inlinings)
           case r => r
         })
         Upd(b)
       case _ => wtf
     }
+    
+    /*
+    if (!alreadInlined)
+    currentBlock.inlinedReps += body.uniqueId // TODO a better way? perhaps mark outside reps to avoid renewing them instead... well this would be even worse and surprising
+    println(s"XAlready inlined ($body): "+currentBlock.inlinedReps(body.uniqueId))
+    */
     
     res.inline
   }

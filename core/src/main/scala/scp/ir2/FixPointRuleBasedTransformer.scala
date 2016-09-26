@@ -14,6 +14,7 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
   val MAX_TRANSFORM_ITERATIONS = 8
   
   override def transform(rep: Rep) = {
+  //abstract override def transform(rep: Rep) = {
     debug(s"Processing $rep")
     var matched = true
     var currentRep = rep
