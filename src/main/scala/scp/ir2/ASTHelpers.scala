@@ -30,17 +30,29 @@ trait ASTHelpers extends Base { self: AST =>
   }
   
   object Apply {
-    val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply"))
+    val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply")).asMethod // TODO use loadMtdSymbol
+    def apply(f: Rep, a: Rep, typ: TypeRep) = MethodApp(f, Symbol, Nil, Args(a)::Nil, typ)
     def unapply(d: Def): Option[Rep -> Rep] = d match {
       case MethodApp(f, Symbol, Nil, Args(a)::Nil, _) => Some(f -> a)
       case _ => None
     }
     def unapply(r: Rep): Option[Rep -> Rep] = unapply(dfn(r))
   }
+  object LetIn {
+    def unapply(d: Def): Option[(Val, Rep, Rep)] = d match {
+      case Apply(RepDef(Abs(p,b)),v) => Some(p,v,b)
+      case _ => None
+    }
+    def unapply(r: Rep): Option[(Val, Rep, Rep)] = unapply(dfn(r))
+  }
   
   // TODO implement helpers to ease method loading : method[Tp](name) or method[Tp](_.mtd(???...)), or using QQ: ir"($$_:Int)+($$_:Int)".method?
   object Imperative {
     val Symbol = loadMtdSymbol(loadTypSymbol("scp.lib.package$"), "Imperative", None)
+    def apply(effects: Seq[Rep], res: Rep) = {
+      require(effects nonEmpty)
+      MethodApp(staticModule("scp.lib.package"), Symbol, res.typ::Nil, ArgsVarargs(Args(),Args(effects: _*))::Args(res)::Nil, res.typ) // TODO factor below
+    }
     def apply(effects: Rep*)(res: Rep) = if (effects isEmpty) res else
       rep(MethodApp(staticModule("scp.lib.package"), Symbol, res.typ::Nil, ArgsVarargs(Args(),Args(effects: _*))::Args(res)::Nil, res.typ))
     def unapply(r: Rep): Option[(Seq[Rep], Rep)] = unapply(dfn(r))
@@ -64,23 +76,29 @@ trait ASTHelpers extends Base { self: AST =>
   def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter {
     val showMtdReturnType = false
+    //val showMtdReturnType = true
+    var ident = 0
     def apply(r: Rep): String = apply(dfn(r))
     def apply(d: Def): String = d match {
       case Constant(str: String) => '"' + str + '"'
       case Constant(v) => s"$v"
-      case NewObject(typ) => s"new $typ"
-      case Typed(BoundVal(name), typ) => s"[$name:$typ]"
+      case NewObject(typ) => s"new ${typ |> apply}"
+      case Typed(BoundVal(name), typ) => s"[$name:${typ |> apply}]"
       case Abs(p, b) => s"{$p => ${apply(b)}}"
-      case Imperative(effs, res) => s"{${effs map apply mkString "; "}; $res }"
+      case LetIn(p, v, b) => s"let $p = ${apply(v) oh_and (ident += 2)} in\n${try " " * ident + apply(b) finally ident -= 2}"
+      //case Imperative(effs, res) => s"{ ${effs map apply mkString "; "}; $res }"
+      case Imperative(effs, res) => s"{\n${ident += 2; try ((effs :+ res) map apply map (" " * ident + _ + "\n") mkString) finally ident -= 2}${" " * ident}}"
       case MethodApp(s, m, ts, ass, typ) => 
         val targsStr = if (ts isEmpty) "" else s"[${ts mkString ","}]"
-        s"${apply(s)}.${m.name.decodedName}$targsStr${ass map (_ show apply) mkString ""}" + (if (showMtdReturnType) s"->$typ" else "")
+        s"${apply(s)}.${m.name.decodedName}$targsStr${ass map (_ show apply) mkString ""}" + (if (showMtdReturnType) s"->${typ |> apply}" else "")
       case Module(pre, nam, tp) => s"${apply(pre)}.$nam"
       case StaticModule(fnam) => fnam
-      case Ascribe(r,t) => s"${apply(r)}: $t"
-      case Typed(h @ Hole(name), typ) => s"$$$name<:$typ" //+ (h.originalSymbol getOrElse "")
-      case Typed(SplicedHole(name), typ) => s"$$$name<:$typ*"
+      case Ascribe(r,t) => s"${apply(r)}: ${t |> apply}"
+      case Typed(h @ Hole(name), typ) => s"$$$name<:${typ |> apply}" //+ (h.originalSymbol getOrElse "")
+      case Typed(SplicedHole(name), typ) => s"$$$name<:${typ |> apply}*"
     }
+    def apply(typ: TypeRep) =
+      typ.toString.replace("scp.ir2.ScalaTyping.TypeHole[java.lang.String", "$[")
   }
   
   

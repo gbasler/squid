@@ -119,7 +119,10 @@ self: Base =>
   
   /** Artifact of a term extraction: map from hole name to terms, types and spliced term lists */
   type Extract = (Map[String, Rep], Map[String, TypeRep], Map[String, Seq[Rep]])
-  val EmptyExtract: Extract = (Map(), Map(), Map())
+  type Extract_? = Extract |> Option
+  final val EmptyExtract: Extract = (Map(), Map(), Map())
+  @inline final def mkExtract(rs: String -> Rep *)(ts: String -> TypeRep *)(srs: String -> Seq[Rep] *): Extract = (rs toMap, ts toMap, srs toMap)
+  @inline final def repExtract(rs: String -> Rep *): Extract = mkExtract(rs: _*)()()
   
   protected def mergeOpt(a: Option[Extract], b: => Option[Extract]): Option[Extract] = for { a <- a; b <- b; m <- merge(a,b) } yield m
   protected def merge(a: Extract, b: Extract): Option[Extract] = {

@@ -753,7 +753,7 @@ class ANF extends AST with CurryEncoding with ANFHelpers { anf =>
   }
   override def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = new BoundValRep(name, typ, annots)
   
-  def inline(param: BoundVal, body: Rep, arg: Rep) = {
+  override def inline(param: BoundVal, body: Rep, arg: Rep) = {
     ANFDebug debug
       println(s"Inlining $arg as $param in $body")
     

@@ -19,6 +19,8 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
     
     case ir"val $tup = Var($init: ($ta, $tb)); $body: $t" =>
       
+      //show(body)
+      
       val a = ir"$$a: Var[$ta]"
       val b = ir"$$b: Var[$tb]"
       
@@ -32,6 +34,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       //show(newBody)
       
       val newwBody2 = newBody subs 'tup -> ({
+        //println(s"tup is still used! in: ${newBody rep}")
         throw RewriteAbort(s"tup is still used! in: $newBody")} : IR[tup.Typ,{}])
       
       
@@ -40,6 +43,17 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       //show(res)
       res
       
+      
+    // Note: breaks the old CombinedOptimsTestsANF !
+    case ir"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, and that a/b are trivial
+      val newBody = body rewrite {
+        case ir"$$tup._1" => ir"$a"
+        case ir"$$tup._2" => ir"$b"
+      }
+      //val newwBody2 = newBody subs 'tup -> ir"($a,$b)"  // can't do that as the transformer would have no fixed point
+      val newwBody2 = newBody subs 'tup -> ({throw RewriteAbort()} : IR[tup.Typ,{}])
+      newwBody2
+    
   }
   
 }

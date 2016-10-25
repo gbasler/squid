@@ -19,9 +19,11 @@ trait NaiveInliner extends AST {
       case _ => super.methodApp(self, mtd, targs, argss, tp)
     }
   }
+  /*
   //def inline(param: BoundVal, body: Rep, arg: Rep) = transformRep(body) { // does not work with ANF.. why?
   def inline(param: BoundVal, body: Rep, arg: Rep) = bottomUp(body) {
     case RepDef(`param`) => arg
     case r => r
   }
+  */
 }

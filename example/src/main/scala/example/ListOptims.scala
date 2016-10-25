@@ -21,7 +21,7 @@ trait ListOptims extends SimpleRuleBasedTransformer { self =>
             $ls foreach { x => cur = $f(cur, x) }
             cur """
       
-      /*
+      ///*
     case ir"($ls: List[$t]) foreach ($f: t => Any)" =>
       
       //val res =
@@ -31,7 +31,7 @@ trait ListOptims extends SimpleRuleBasedTransformer { self =>
       
       //show(res rep)
       //res
-      */
+      //*/
   }
   
   

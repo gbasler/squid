@@ -22,20 +22,21 @@ package object utils {
     @inline final def but_before(f: => Unit) = { f; self }
     
     @inline final def before[A](x: A) = x
+    @inline final def !> [A](x: A) = x
     
   }
   
   
   implicit class GenHelper[A](val __self: A) extends AnyVal {
     
-    def |> [B] (rhs: A => B): B = rhs(__self)
-    def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    @inline final def |> [B] (rhs: A => B): B = rhs(__self)
+    @inline final def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
     
-    def >> (rhs: A => A): A = rhs(__self)
-    def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
+    @inline final def >> (rhs: A => A): A = rhs(__self)
+    @inline final def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
     
     /**A lesser precedence one! */
-    def /> [B] (rhs: A => B): B = rhs(__self)
+    @inline final def /> [B] (rhs: A => B): B = rhs(__self)
     
     /** 
      * A helper to write left-associative applications, mainly used to get rid of paren hell
@@ -43,13 +44,24 @@ package object utils {
      *   println(Id(Sym(f(chars))))
      *   println(Id <|: Sym.apply <|: f <|: chars)  // `Sym` needs `.apply` because it's overloaded
      */
-    def <|: [B] (lhs: A => B): B = lhs(__self)
+    @inline final def <|: [B] (lhs: A => B): B = lhs(__self)
     
     def withTypeOf[T >: A](x: T) = __self: T
     
-    def If (cond: Boolean) = if (cond) Some(__self) else None
+    @inline final def If (cond: Bool) = if (cond) Some(__self) else None
+    @inline final def If (cond: A => Bool) = if (cond(__self)) Some(__self) else None
+    @inline final def IfNot (cond: Bool) = if (!cond) Some(__self) else None
+    @inline final def IfNot (cond: A => Bool) = if (!cond(__self)) Some(__self) else None
     
   }
+  
+  
+  implicit class OptionHelper[A](val __self: Option[A]) extends AnyVal {
+    def Else[B >: A](x: => B) = __self getOrElse x
+  }
+  @inline def some[A](x: A): Option[A] = Some(x)
+  @inline def none = None
+  
   implicit class FunHelper[A,B](val __self: A => B) extends AnyVal {
     def <| (rhs: A): B = __self(rhs)
     def |>: (lhs: A): B = __self(lhs)
@@ -60,7 +72,10 @@ package object utils {
   }
   */
   
+  type |>[A, F[_]] = F[A]
+  
   def ignore = (_: Any) => ()
+  def pairWith[A,B](f: A => B)(x: A) = x -> f(x)
   
   
   implicit class SafeEq[T](val self: T) extends AnyVal {
@@ -69,13 +84,16 @@ package object utils {
   }
   
   
-  implicit class StringOps(self: String) {
+  implicit class StringOps(private val self: String) extends AnyVal {
     import collection.mutable
     def splitSane(Sep: Char) = {
       val buf = mutable.ArrayBuffer(new StringBuilder)
       for (c <- self) if (c == Sep) buf += new StringBuilder else buf.last append c
       buf.map(_.toString)
     }
+    def mapLines(f: String => String) = splitSane('\n') map f mkString "\n"
+    def indent(pre: String) = mapLines(pre + _)
+    def indent: String = indent("\t")
   }
   
   type -> [+A,+B] = (A,B)

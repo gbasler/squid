@@ -257,6 +257,9 @@ trait MetaBases {
     def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val tp = typ()
       val pre = self match {
+        // sometimes `staticTypeApp` produces such trees, and it really corresponds to a type projection:
+        case tq"$t.${tn:TypeName}" =>
+          return tq"$t.$tn#${TypeName(tp.name.toString)}"
         case tq"$t.type" => t
         case _ => self
       }

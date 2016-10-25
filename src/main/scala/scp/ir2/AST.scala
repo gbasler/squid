@@ -24,6 +24,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   /* --- --- --- Provided defs --- --- --- */
   
   
+  /** Invoked when the Rep is only transitory and not supposed to be kept around in the AST, as in for pattern matching a Def with QQs */
+  def simpleRep(dfn: Def): Rep = rep(dfn)
+  
   def readVal(v: BoundVal): Rep = rep(v)
   
   def hole(name: String, typ: TypeRep) = rep(Hole(name)(typ))
@@ -31,7 +34,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   def const(value: Any): Rep = rep(Constant(value))
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
-  def freshBoundVal(typ: TypeRep) = BoundVal("val$"+varCount)(typ, Nil) oh_and (varCount += 1)
+  def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) oh_and (varCount += 1)
+  protected def freshNameImpl(n: Int) = "val$"+n
+  protected final def freshName: String = freshNameImpl(varCount)
   private var varCount = 0
   
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
@@ -60,6 +65,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   def recordGet(self: Rep, name: String, typ: TypeRep) = RecordGet(self, name, typ)
   
   
+  def inline(param: BoundVal, body: Rep, arg: Rep) = bottomUp(body) {
+    case RepDef(`param`) => arg
+    case r => r
+  }
+  
   override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = if (defs isEmpty) r else bottomUp(r) { r => dfn(r) match {
     case h @ Hole(n) => defs get n map (_()) getOrElse r
     case h @ SplicedHole(n) => defs get n map (_()) getOrElse r
@@ -71,6 +81,12 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     case _ => r
   }}
   
+  def mapDef(f: Def => Def)(r: Rep) = {
+    val d = dfn(r)
+    val newD = f(d)
+    if (newD eq d) r else rep(newD)
+  }
+  
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
     
@@ -78,9 +94,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     /* Optimized version that prevents recreating too many Rep's: */
     def apply(_r: Rep): Rep = {
       val r = pre(_r)
-      val d = dfn(r)
-      val newD = apply(d) 
-      post(if (newD eq d) r else rep(newD))
+      post(r |> mapDef(apply))
     }
     
     def apply(d: Def): Def = {
@@ -147,14 +161,17 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       //  Args()(args.reps: _*) :: Nil, h.typ)
       //Some(Map(name -> rep), Map(), Map())
       //Seq(12)
+      
+      val tp = ruh.sru.lub(args.reps map (_.typ.tpe) toList)
+      
       val rep = methodApp(
         staticModule("scala.collection.Seq"),
         loadMtdSymbol(
           //loadTypSymbol("scala.collection.Seq"),
           loadTypSymbol("scala.collection.generic.GenericCompanion"),
           "apply", None),
-        h.typ.tpe.typeArgs.head :: Nil,
-        Args()(args.reps: _*) :: Nil, h.typ)
+        tp :: Nil,
+        Args()(args.reps: _*) :: Nil, staticTypeApp(loadTypSymbol("scala.collection.Seq"), tp :: Nil))
       Some(Map(name -> rep), Map(), Map())
     case _ => throw IRException(s"Trying to splice-extract with invalid extractor $xtor")
   }
@@ -207,6 +224,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   lazy val ExtractedBinderSym = loadTypSymbol(ruh.encodedTypeSymbol(ruh.sru.typeOf[scp.lib.ExtractedBinder].typeSymbol.asType))
   
+  type Val = BoundVal
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
     
@@ -214,7 +232,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       val newName = model.name
       val extr: Extract =
         //if (model.annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)) (Map(newName -> rep(this)),Map(),Map())
-        if (model isExtractedBinder) (Map(newName -> rep(this)),Map(),Map())
+        if (model isExtractedBinder) (Map(newName -> readVal(this)),Map(),Map())
         else EmptyExtract
       extr -> Hole(newName)(typ, Some(this))
     }
@@ -278,15 +296,23 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //}
   case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Def
   
+  def isPure(d: Def) = d match {
+    case _: MethodApp => false
+    case Hole(_)|SplicedHole(_) => false
+    case _ => true
+  }
+  
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
     
+    lazy val isPureDef = self.isPure(this)  // TODO rename to isPure
+    
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
       //dbgs(s"${this} << ${r}")
-      dbgs("   "+this);dbgs("<< "+r)
+      dbgs(s"${Console.BOLD}M${Console.RESET}  "+this);dbgs("<< "+r)
       //dbgs("   "+this);dbgs("<< "+r.show)
       //dbgs(s"${showRep(rep(this))} << ${showRep(r)}")  // may create mayhem, as showRep may use scalaTree, which uses a Reinterpreter that has quasiquote patterns!
       
@@ -354,7 +380,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           
         case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
           //if mtd1 == mtd2
-          if {val r = mtd1 == mtd2; debug(s"Symbol: ${mtd1.fullName} ${if (r) "===" else "=/="} ${mtd2.fullName}"); r}
+          //if {val r = mtd1 == mtd2; debug(s"Symbol: ${mtd1.fullName} ${if (r) "===" else "=/="} ${mtd2.fullName}"); r}
+          if mtd1 === mtd2 || { debug(s"Symbol: ${mtd1.fullName} =/= ${mtd2.fullName}"); false }
         =>
           assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
           assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")

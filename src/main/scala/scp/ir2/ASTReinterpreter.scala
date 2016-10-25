@@ -67,7 +67,13 @@ trait ASTReinterpreter { ast: AST =>
       //  //???
         
     }
-    protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ), bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}) and (bound += bv -> _)
+    //protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ), bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}) and (bound += bv -> _)
+    protected def recv(bv: BoundVal) = newBase.bindVal(
+      bv.name IfNot (_ startsWith "$") Else "x",
+      rect(bv.typ),
+      bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}
+    ) and (bound += bv -> _)
+    
     def rect(r: TypeRep): newBase.TypeRep = reinterpretType(r, newBase)
     
   }
@@ -106,6 +112,11 @@ trait ASTReinterpreter { ast: AST =>
       
       import Quasiquotes.QuasiContext
       
+      //override def rect(r: TypeRep): newBase.TypeRep = {
+      //  //println("> "+r)
+      //  super.rect(r) //and (println)
+      //}
+      
       override def apply(d: Def) = {
         
         object BV { def unapply(x: IR[_,_]) = x match {
@@ -121,7 +132,8 @@ trait ASTReinterpreter { ast: AST =>
           }
           case _ => None }}
         
-        `internal IR`[Any,Nothing](ast.rep(d)) match {
+        //`internal IR`[Any,Nothing](ast.rep(d)) match {
+        `internal IR`[Any,Nothing](ast.simpleRep(d)) match {
     
           //case MethodApp(se, sy, ts, ArgList(effs @ _*) :: Args(res) :: Nil, tp) if sy === ImpSym =>
           //  lazy val r = apply(res)
@@ -150,7 +162,7 @@ trait ASTReinterpreter { ast: AST =>
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
           case ir"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>
-            val varName = newBase.freshName(bv.name)
+            val varName = newBase.freshName(bv.name IfNot (_ startsWith "$") Else "v")
             
             //q"var $varName: ${rect(tv rep)} = ${apply(init.rep)}; ${body subs 'v -> q"$varName"}"
             /* ^ this does not work because `subs` wants to substitute with something of IR type of the current base, not a Scala tree */

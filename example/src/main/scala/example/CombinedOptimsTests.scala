@@ -35,6 +35,41 @@ object CombinedOptimsTests extends App {
 }
 
 
+object CombinedOptimsTestsSimpleANF extends App {
+  object DSL extends SimpleANF with OnlineOptimizer with CurryEncoding.ApplicationNormalizer
+  import DSL.Predef._
+  import DSL.Quasicodes._
+  
+  object Optim extends DSL.SelfTransformer
+    with ListOptims
+    with TupleVarOptim
+    //with BindingNormalizer
+    with TopDownTransformer
+    with FixPointTransformer
+  
+  var pgrm = ir{
+    List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x))
+    //println(1,2)
+  }
+  
+  show(pgrm)
+  //show(pgrm rep)
+  
+  pgrm = pgrm transformWith Optim
+  //pgrm = base.ANFDebug debugFor (pgrm transformWith Optim)
+  
+  //show(pgrm rep)
+  show(pgrm)
+  
+  //pgrm = pgrm transformWith Optim
+  //
+  //show(pgrm rep)
+  //show(pgrm)
+  
+  
+}
+
+
 object CombinedOptimsTestsANF extends App {
   object DSL extends ANF
   import DSL.Predef._

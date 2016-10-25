@@ -7,7 +7,10 @@ trait TraceDebug {
   
   protected def isDebugEnabled = debugEnabled
   
-  protected def debug(x: => Any) = if (debugEnabled) println(s"${Debug.GREY}| ${Console.RESET}" * indent + x)
+  protected def debug(x: => Any) = if (debugEnabled) {
+    val lines = x.toString.splitSane('\n')
+    println(lines map (s"${Debug.GREY}| ${Console.RESET}" * indent + _) mkString "\n")
+  }
   
   @inline final def setDebugFor[T](enabled: Boolean)(x: => T): T = {
     val old = debugEnabled
