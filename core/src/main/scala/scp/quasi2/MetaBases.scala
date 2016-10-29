@@ -15,7 +15,9 @@ trait MetaBases {
   import Helpers.TreeOps
   
   def freshName(hint: String): TermName
-  def curatedFreshName(hint: String): TermName = freshName(hint replace('$', '_'))
+  def curatedFreshName(hint: String): TermName =
+    //freshName(hint replace('$', '_'))
+    freshName(hint replace('$', '_') replace('<', '_') replace('>', '_'))
   
   /** Base that generates the Scala code necessary to construct the DSL program.
     * This class let-binds type symbols, method symbols, type applications and modules: the corresponding definitions

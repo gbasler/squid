@@ -18,7 +18,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   def reinterpret(r: Rep, newBase: Base)(extrudedHandle: (BoundVal => newBase.Rep) = DefaultExtrudedHandler): newBase.Rep
   
   //override def showRep(r: Rep) = showScala(r)
-  private var showing = false
+  @volatile private var showing = false
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
   def showScala(r: Rep) = sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?"))) )
   

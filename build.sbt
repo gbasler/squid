@@ -70,14 +70,20 @@ lazy val benchmark = (project in file("benchmark")).
   dependsOn(main)
 
 
-val SCVersion = "0.1.2-SNAPSHOT"
+val SCVersion = "0.1.3-SNAPSHOT"
 
-lazy val scBackend = (project in file("sc-backend")).
+lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(commonSettings: _*).
   settings(
     libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
   ).
   dependsOn(core)
+lazy val scBackend = (project in file("sc-backend")).
+  settings(commonSettings: _*).
+  settings(
+    libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
+  ).
+  dependsOn(scBackendMacros)
 
 
 lazy val example = (project in file("example")).
