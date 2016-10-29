@@ -85,6 +85,15 @@ object AutoBinder {
       
     }
     
+    /** Methods marked by the user as to be ignore, with syntax {{{type `ignore fullName`}}} */
+    val ignorePrefix = "ignore "
+    val ignore = (for {
+      mem <- base.tpe.members
+      name = mem.name.decodedName.toString
+      if mem.isType && name.startsWith(ignorePrefix)
+      mtdName = name drop ignorePrefix.length
+    } yield mtdName).toSet
+    
     
     type E = Either[ClassSymbol, TypeSymbol]
     
@@ -94,7 +103,7 @@ object AutoBinder {
     val ctorMtds = (for {
       mem <- base.tpe.members
       if mem.isMethod
-      mtd = mem.asMethod  
+      mtd = mem.asMethod
       mname = mtd.name.toString
       if mname startsWith __newPrefix
       if !ignoredName(mname)
@@ -169,7 +178,9 @@ object AutoBinder {
         c.warning(c.enclosingPosition, s"Method ${mtd} from ${mtd owner} was evicted because it has non-TypeRep implicit parameters: $impls")
         Nil
         
-      case typ -> ((trunk,mtd) -> Some(origMtd)) =>
+      case typ -> ((trunk,mtd) -> Some(origMtd))
+      if !ignore(origMtd.fullName)
+      =>
         val t = modEmb.loadTypSymbol(encodedTypeSymbol(origMtd.owner.asType))
         val m = modEmb.getMtd(t, origMtd.asMethod.asInstanceOf[modEmb.uni.MethodSymbol])
         
@@ -215,6 +226,7 @@ object AutoBinder {
         }
         
       case _ -> (_ -> None) => Nil
+      case _ -> (_ -> Some(m)) => Nil  // `m` was in `ignored`
         
     }
     

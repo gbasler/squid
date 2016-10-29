@@ -32,7 +32,9 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         
       case ImperativeSymbol => return argss.tail.head.reps.head
         
-      case PrintlnSymbol => return ir.asInstanceOf[ScalaPredefOps].println(argss.head.reps.head)
+      case PrintlnSymbol => ir match {
+        case ir: ScalaPredefOps => return ir.println(argss.head.reps.head)
+        case _ => throw IRException("This IR does not extend `ScalaPredefOps` and thus does not support `println`.") }
         
       case IfThenElseSymbol =>
         //val Args(cond, thn, els)::Nil = argss

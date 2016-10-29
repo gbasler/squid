@@ -83,6 +83,14 @@ class PardisIRTests extends FunSuite {
   }
   
   
+  test("String") {
+    
+    val q = block(ir{ println(((x: String) => x.length)("ok")) })
+    //println(q)
+    
+  }
+  
+  
   
   
 }
