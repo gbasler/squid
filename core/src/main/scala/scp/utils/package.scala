@@ -13,30 +13,32 @@ package object utils {
   final class UnknownContext private() // TODO extend <extruded type>
   
   
-  implicit class Andable[T](val self: T) extends AnyVal {
+  implicit final class Andable[T](private val self: T) extends AnyVal {
     
-    @inline final def and(f: T => Unit) = { f(self); self }
+    @inline def and(f: T => Unit) = { f(self); self }
     
-    @inline final def oh_and(effect: Unit) = self
+    @inline def oh_and(effect: Unit) = self
     
-    @inline final def but_before(f: => Unit) = { f; self }
+    @inline def but_before(f: => Unit) = { f; self }
     
-    @inline final def before[A](x: A) = x
-    @inline final def !> [A](x: A) = x
+    @inline def before[A](x: A) = x
+    @inline def !> [A](x: A) = x
     
   }
   
   
-  implicit class GenHelper[A](val __self: A) extends AnyVal {
+  implicit final class GenHelper[A](private val __self: A) extends AnyVal {
     
-    @inline final def |> [B] (rhs: A => B): B = rhs(__self)
-    @inline final def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    @inline def into [B] (rhs: A => B): B = rhs(__self)
     
-    @inline final def >> (rhs: A => A): A = rhs(__self)
-    @inline final def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
+    @inline def |> [B] (rhs: A => B): B = rhs(__self)
+    @inline def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    
+    @inline def >> (rhs: A => A): A = rhs(__self)
+    @inline def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
     
     /**A lesser precedence one! */
-    @inline final def /> [B] (rhs: A => B): B = rhs(__self)
+    @inline def /> [B] (rhs: A => B): B = rhs(__self)
     
     /** 
      * A helper to write left-associative applications, mainly used to get rid of paren hell
@@ -44,19 +46,19 @@ package object utils {
      *   println(Id(Sym(f(chars))))
      *   println(Id <|: Sym.apply <|: f <|: chars)  // `Sym` needs `.apply` because it's overloaded
      */
-    @inline final def <|: [B] (lhs: A => B): B = lhs(__self)
+    @inline def <|: [B] (lhs: A => B): B = lhs(__self)
     
     def withTypeOf[T >: A](x: T) = __self: T
     
-    @inline final def If (cond: Bool) = if (cond) Some(__self) else None
-    @inline final def If (cond: A => Bool) = if (cond(__self)) Some(__self) else None
-    @inline final def IfNot (cond: Bool) = if (!cond) Some(__self) else None
-    @inline final def IfNot (cond: A => Bool) = if (!cond(__self)) Some(__self) else None
+    @inline def If (cond: Bool) = if (cond) Some(__self) else None
+    @inline def If (cond: A => Bool) = if (cond(__self)) Some(__self) else None
+    @inline def IfNot (cond: Bool) = if (!cond) Some(__self) else None
+    @inline def IfNot (cond: A => Bool) = if (!cond(__self)) Some(__self) else None
     
   }
   
   
-  implicit class OptionHelper[A](val __self: Option[A]) extends AnyVal {
+  implicit class OptionHelper[A](private val __self: Option[A]) extends AnyVal {
     def Else[B >: A](x: => B) = __self getOrElse x
   }
   @inline def some[A](x: A): Option[A] = Some(x)
