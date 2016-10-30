@@ -21,7 +21,7 @@ class PardisIRTests extends FunSuite {
   }
   
   
-  test("While Loop") {} // TODO
+  //test("While Loop") {} // TODO
   
   
   test("Code Insertion") {
@@ -71,7 +71,16 @@ class PardisIRTests extends FunSuite {
   }
   
   
-  test("Companion Object Methods") {} // TODO
+  test("Companion Object Methods") {
+    // Note: both `apply` methods mirrored in MirrorSeq and MirrorArrayBuffer refer to the _same_ method defined in GenericCompanion
+    // so one will overwrite the other; to avoid that we'll have to manually make the binding by overriding `methodApp`
+    
+    val q0 = block(ir{ Seq(1,2,3) })         // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
+    val q1 = block(ir{ ArrayBuffer(1,2,3) }) // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
+    //println(q0)
+    //println(q1)
+    
+  }
   
   
   test("Blocks & Bindings") {

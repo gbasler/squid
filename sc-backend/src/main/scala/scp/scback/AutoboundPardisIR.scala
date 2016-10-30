@@ -64,12 +64,20 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     
     //println(argss)
     val args = self match {
-      case New(tps) => assert(targs isEmpty); argsTail
+      case New(_) => assert(targs isEmpty); argsTail
+      case null => argsTail
       case _ => self :: argsTail
     }
     
     type TRL = ir.TypeRep[Any] |> List
-    mk(args, self.tp.typeArguments.asInstanceOf[TRL], targs.asInstanceOf[TRL])
+    
+    mk(args,
+      // `self` will be null if it corresponds to a static module (eg: `Seq`)
+      // in that case, the method type parameters are expected to be passed in first position:
+      (targs If (self == null)
+             Else self.tp.typeArguments
+        ).asInstanceOf[TRL],
+      targs.asInstanceOf[TRL])
   }
   
 }

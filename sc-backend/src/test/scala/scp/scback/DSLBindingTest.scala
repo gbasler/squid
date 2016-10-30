@@ -15,6 +15,7 @@ object DSLBindingTest {
   }
   
   //object DSL extends ir.Base
+  //object DSL extends ir.Base with SeqOps
   //object DSL extends ir.Base with ArrayBufferOps
   //object DSL extends ir.Base with StringOps with NoStringCtor
   //object DSL extends ir.Base with ArrayBufferOps with NumericOps with ScalaPredefOps
@@ -23,7 +24,10 @@ object DSLBindingTest {
   
   object SDSL extends AutoboundPardisIR(DSL)
   /*_*/
-  SDSL.ab = AutoBinder(DSL, SDSL)
+  SDSL.ab = {
+    import scala.collection.mutable.ArrayBuffer
+    AutoBinder(DSL, SDSL)
+  }
   /*_*/
   
 }

@@ -9,7 +9,7 @@ import scp.utils._
 
 import scala.language.experimental.macros
 import scala.reflect.macros.TypecheckException
-import meta.RuntimeUniverseHelpers.{sru}
+import meta.RuntimeUniverseHelpers.sru
 
 class AutoBinder[B <: pardis.ir.Base, SB <: lang2.Base](val _b_ : B, val _sb_ : SB) {
   
@@ -95,7 +95,7 @@ object AutoBinder {
     } yield mtdName).toSet
     
     
-    type E = Either[ClassSymbol, TypeSymbol]
+    type E = Either[ClassSymbol, Tree]
     
     val __newPrefix = "__new"
     val ignoredName = Set(__newPrefix, "__newDef", "__newVar")
@@ -116,9 +116,49 @@ object AutoBinder {
         case typSym =>
           val typ = typSym.asType.toType
           val originalSym = findCorrespondingShallow(mtd, true, typ)
-          (typ -> ((Right(typSym.asType):E) -> mtd -> originalSym)) :: Nil
+          (typ -> ((Right(q"_b_.${TermName(__newPrefix+typSym.name)}"):E) -> mtd -> originalSym)) :: Nil
       }
     }).flatten
+    
+    
+    val ignoredObjName = Set("Def", "Record", "Predef") //, "ConcatDynamic", "RepToSeqRep")
+    
+    val objectMtds = (for {
+      mem <- base.tpe.members
+      if mem.isModule
+      obj = mem.asModule
+      //_ = disp(obj, obj.companion)
+      if obj.companion If (_ =/= NoSymbol) filter (_.asClass.isCaseClass) isEmpty;
+      if !ignoredObjName(obj.name.toString)
+      mems = obj.typeSignature.members.toSet -- anyMem filterNot (_ isConstructor)
+      if mems.nonEmpty
+      _ = s"<<< ( ${obj} ) >>> " |> disp
+      tree = q"${obj.name}"
+      typ <- scala.util.Try(c.typecheck(tree).tpe) match {
+        case scala.util.Success(typ) => Some(typ)
+        case scala.util.Failure(e: TypecheckException) =>
+          // Things that fail may be Java classes like "String" which cannot be typechecked as values
+          c.warning(c.enclosingPosition, s"Typing failed for `${showCode(tree)}` with: "+e.msg)
+          None
+      }
+    } yield {
+      
+      val symMappings = for {
+        mem <- mems
+        if mem.isMethod
+        mtd = mem.asMethod
+      } yield {
+        mtd |> disp
+        
+        val originalSym = findCorrespondingShallow(mtd, false, typ)
+        originalSym |> disp
+        (typ -> ((Right(q"_b_.${obj.name}.${mtd.name}"):E) -> mtd -> originalSym))
+      }
+      
+      symMappings
+      
+    }).flatten
+    
     
     val implClassMtds = (for {
       mem <- base.tpe.members
@@ -126,34 +166,38 @@ object AutoBinder {
       cls = mem.asClass  
       if cls.isImplicit
     } yield {
-      s"<<< ( ${cls.name} ) >>> " |> disp
+      s"<<< ( ${cls} ) >>> " |> disp
       
       val Seq(ctor) -> mems = cls.typeSignature.members partition (_ isConstructor)
       val repTyp = ctor.asMethod.paramLists.head.head.typeSignature
       
       repTyp.baseType(RepSym) match {
         case TypeRef(pre, RepSym, typ::Nil) =>
-          
-        val symMappings = for {
-          mem <- mems
-          if !anyMem(mem)
-          if mem.isMethod
-          mtd = mem.asMethod
-        } yield {
-          val originalSym = findCorrespondingShallow(mtd, false, typ)
-          Left(cls) -> mtd -> originalSym
-        }
-        
-        symMappings map (typ -> _)
-        
+          val symMappings = for {
+            mem <- mems
+            if !anyMem(mem)
+            if mem.isMethod
+            mtd = mem.asMethod
+          } yield {
+            val originalSym = findCorrespondingShallow(mtd, false, typ)
+            Left(cls) -> mtd -> originalSym
+          }
+          symMappings map (typ -> _)
       }
       
     }).flatten
     
+    
+    val allClasses = ctorMtds ++ implClassMtds ++ objectMtds
+    //val allClasses = ctorMtds
+    //val allClasses = objectMtds
+    
+    
+    
     disp("\n-----------\n")
     
     object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
-    import Helpers.encodedTypeSymbol
+    import Helpers.{encodedTypeSymbol, RepeatedParamClass}
     
     import quasi2.{MetaBases, ModularEmbedding}
     object MBM extends MetaBases {
@@ -165,9 +209,6 @@ object AutoBinder {
     val MB = new MBM.MirrorBase(q"_sb_")
     
     val modEmb = new ModularEmbedding[sru.type,MB.type](sru, MB, debug = x => disp(x))
-    
-    val allClasses = ctorMtds ++ implClassMtds
-    //val allClasses = ctorMtds
     
     val fillingCode = allClasses flatMap {
       
@@ -196,16 +237,22 @@ object AutoBinder {
         val tparamTops = mtd.typeParams map { case TypeBounds(a,b) => b  case _ => typeOf[Any] }
         val explicitParams = mtd.paramLists collect { case ps if ps.headOption map (p => !p.isImplicit) getOrElse true => ps }
         val paramTypes = explicitParams map (_ map (_ typeSignature))
-        def saneParams(offset: Int) = paramTypes map (_.zipWithIndex.map { case pt->i => q"rs(${i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]" })
+        def saneParams(offset: Int) = paramTypes map (_.zipWithIndex.map {
+          case TypeRef(_,RepeatedParamClass,pt::Nil)->i =>
+            assert(i == paramTypes.indices.last) // Here we assume the repeated argument is the very last
+            q"rs.drop(${i+offset}).asInstanceOf[List[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]]: _*"
+          case pt->i => q"rs(${i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]"
+        })
         
         val overloadPrefix = "overload"
-        val overloadArg = mtd.paramLists.flatten collectFirst {
-          case p if p.isImplicit && (p.name.toString startsWith overloadPrefix) =>
-            q"_b_.${ TermName("overloaded" + (p.name.toString drop overloadPrefix.length)) }" }
-        //overloadArg |> disp
         
         def implArgs(pickFrom: Tree) = {
-          val args = overloadArg ++ (mtd.typeParams.indices map (i => q"$pickFrom($i)"))
+          var i = 0
+          val args = mtd.paramLists.flatten filter (_ isImplicit) map {
+            case p if p.name.toString startsWith overloadPrefix => q"_b_.${ TermName("overloaded" + (p.name.toString drop overloadPrefix.length)) }"
+            case p if p.typeSignature.baseType(TypeRepSym) =/= NoType => q"$pickFrom($i)" oh_and (i += 1)
+            //case _ => "??? "+mtd.name |> disp; ??? // TODO proper error
+          }
           if (args isEmpty) Nil
           else List(args)
         }
@@ -218,8 +265,8 @@ object AutoBinder {
               else List(tpTops.zipWithIndex map {case tp->i => q"ts($i).asInstanceOf[_b_.TypeRep[$tp]]"})
             }).${mtd.name}(...${ saneParams(1) })(...${ implArgs(q"ts2") }))" :: Nil
             
-          case Right(tp) =>
-            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => _b_.${TermName(__newPrefix+tp.name)}[..${/*saneTargs*/ tpTops}](...${
+          case Right(pre) =>
+            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => ${pre}[..${/*saneTargs*/ tpTops}](...${
               saneParams(0)
             })(...${ implArgs(q"ts") }))" :: Nil
             
