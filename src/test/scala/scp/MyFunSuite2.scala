@@ -3,10 +3,19 @@ package scp
 import org.scalatest.FunSuite
 import scp.lang.Base
 import scp.ir2.AST
+import scp.lang2.InspectableBase
 import utils.meta.RuntimeUniverseHelpers.sru
 
+class MyFunSuite2[DSL <: AST](override val DSL: DSL = TestDSL2) extends MyFunSuiteBase[DSL](DSL) { funs =>
+  import DSL._
+  
+  def eqt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ =:= _)
+  def eqt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ =:= _)
+  
+}
+
 /** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure... */
-class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =>
+class MyFunSuiteBase[DSL <: InspectableBase](val DSL: DSL = TestDSL2) extends FunSuite { funs =>
   import DSL._
   
   def hopefully(condition: Boolean) = assert(condition)
@@ -29,8 +38,6 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
   def subt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ <:< _)
   def subt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ <:< _)
   
-  def eqt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ =:= _)
-  def eqt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ =:= _)
   def eqt(a: Rep, b: Rep) = eqtBy(a,b)(_ =~= _)
   def eqt(a: IR[_,_], b: IR[_,_], truth: Boolean = true) = eqtBy(a,b,truth)(_ =~= _)
   
@@ -48,11 +55,11 @@ class MyFunSuite2[DSL <: AST](val DSL: DSL = TestDSL2) extends FunSuite { funs =
   
   implicit class Matches(self: IR[_,_]) {
     def matches(pfs: PartialFunction[IR[_,_],Unit]*) = funs.matches(self)(pfs: _*)
-    def eqt (that: IR[_,_]) = funs.eqt(self, that)
+    def eqt (that: IR[_,_]) = funs.eqt(self.rep, that.rep)
     def dbg_eqt (that: Q[_,_]) = {
       DSL debugFor (self.rep extractRep that.rep)
       DSL debugFor (that.rep extractRep self.rep)
-      funs.eqt(self, that)
+      funs.eqt(self.rep, that.rep)
     }
     def neqt (that: IR[_,_]) = funs.eqt(self, that, false)
   }
