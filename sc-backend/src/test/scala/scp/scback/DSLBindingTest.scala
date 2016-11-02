@@ -20,13 +20,13 @@ object DSLBindingTest {
   //object DSL extends ir.Base with StringOps with NoStringCtor
   //object DSL extends ir.Base with ArrayBufferOps with NumericOps with ScalaPredefOps
   //object DSL extends ir.Base with NumericOps
-  object DSL extends ir.Base with ScalaCoreOps with NoStringCtor
+  object SCDSL extends ir.Base with ScalaCoreOps with NoStringCtor
   
-  object SDSL extends AutoboundPardisIR(DSL)
+  object SDSL extends AutoboundPardisIR(SCDSL)
   /*_*/
   SDSL.ab = {
     import scala.collection.mutable.ArrayBuffer
-    AutoBinder(DSL, SDSL)
+    AutoBinder(SCDSL, SDSL)
   }
   /*_*/
   

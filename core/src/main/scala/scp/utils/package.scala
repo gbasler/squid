@@ -75,6 +75,7 @@ package object utils {
   */
   
   type |>[A, F[_]] = F[A]
+  type \/[+A, +B] = Either[A,B]
   
   def ignore = (_: Any) => ()
   def pairWith[A,B](f: A => B)(x: A) = x -> f(x)

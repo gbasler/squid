@@ -3,7 +3,7 @@ package scp.scback
 import org.scalatest.FunSuite
 
 import collection.mutable.ArrayBuffer
-import DSLBindingTest.{DSL, SDSL}
+import DSLBindingTest.{SCDSL, SDSL}
 import ch.epfl.data.sc.pardis.ir.Constant
 
 class PardisIRTests extends FunSuite {
@@ -65,7 +65,7 @@ class PardisIRTests extends FunSuite {
       case SDSL.TopLevelBlock(b) =>
         assert(b.stmts.size == 1)
         b.res.correspondingNode match {
-          case DSL.ArrayBufferNew1(Constant(42)) =>
+          case SCDSL.ArrayBufferNew1(Constant(42)) =>
         }
     }
   }
@@ -98,6 +98,11 @@ class PardisIRTests extends FunSuite {
     //println(q)
     
   }
+  
+  
+  //test("Variables") {}  // TODO
+  
+  
   
   
   

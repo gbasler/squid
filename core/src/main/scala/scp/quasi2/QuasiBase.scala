@@ -121,6 +121,7 @@ self: Base =>
   type Extract = (Map[String, Rep], Map[String, TypeRep], Map[String, Seq[Rep]])
   type Extract_? = Extract |> Option
   final val EmptyExtract: Extract = (Map(), Map(), Map())
+  final val SomeEmptyExtract: Option[Extract] = EmptyExtract |> some
   @inline final def mkExtract(rs: String -> Rep *)(ts: String -> TypeRep *)(srs: String -> Seq[Rep] *): Extract = (rs toMap, ts toMap, srs toMap)
   @inline final def repExtract(rs: String -> Rep *): Extract = mkExtract(rs: _*)()()
   

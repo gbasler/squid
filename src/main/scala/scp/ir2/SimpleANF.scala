@@ -241,7 +241,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         // TODO also try eating less code? (backtracking)
         extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap code
         
-      // Matching a whole block with a single hole
+      // Matching an arbitrary expression of a block with the last expression of an xtor
+      // -- rewriting can happen in the middle of a Block, and then we have to ensure later terms do not reference removed bindings
       case (Nil -> r0, (Left(b -> v) :: es) -> r1) =>
         for {
           e <- extract(r0, v)
