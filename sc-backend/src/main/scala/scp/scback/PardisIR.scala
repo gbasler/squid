@@ -28,10 +28,13 @@ import scala.reflect.runtime.universe.TypeTag
 abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSymbols with InspectableBase { self =>
   import ir.Def
   
-  type Rep = ir.Rep[Any]
+  type Rep = ANFNode
   type BoundVal = ir.Sym[_]
   type TypeRep = ir.TypeRep[Any]
-  type Block = ir.Block[Any]
+  type Expr = ir.Rep[_]
+  //type ExprSym = ir.Sym[_]
+  type Block = ir.Block[_]
+  //type Block = ir.Block[Any]
   type Sym = ir.Sym[_]
   type Stm = ir.Stm[_]
   
@@ -136,6 +139,10 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   }
   def toAtom(r: ir.Def[_]) = ir.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
   
+  def toExpr(r: Rep): Expr = r match {
+    case r: Expr => r
+  }
+  
   
   
   // * --- * --- * --- *  Implementations of `QuasiBase` methods  * --- * --- * --- *
@@ -191,7 +198,18 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   // * --- * --- * --- *  Implementations of `IntermediateBase` methods  * --- * --- * --- *
   
   
-  def repType(r: Rep): TypeRep = r.tp
+  def repType(r: Rep): TypeRep = r match {
+    case r: PardisVar[_] => r.e.tp
+    case r: PardisNode[_] => r.tp
+    case r: Stm => r.typeT
+    //case r: Hole[_] => r.tp
+    // PardisFunArg:
+    case r: PardisLambdaDef => ???
+    case r: PardisVarArg => ???
+    case r: Expr => r.tp
+    //case r: Sym => r.tp  // is an Expr
+    //case r: Block => r.res.tp  // is a PNode
+  }
   def boundValType(bv: BoundVal): TypeRep = bv.tp
   def reinterpret(r: Rep, newBase: Base)(extrudedHandle: (BoundVal => newBase.Rep) = DefaultExtrudedHandler): newBase.Rep = ???
   
@@ -212,38 +230,61 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     protected val subst = collection.mutable.Map.empty[Rep, Rep]
     
     def apply(r: Rep): Rep = post(pre(r) match {
+      //case e: Expr => apply(e)
+      //case e: PardisFunArg => transformFunArg(e)
+      case b: Block => transformBlock(b)
+      case TopLevelBlock(b) => TopLevelBlock(b |> transformBlock)
+      case cst: pir.Constant[_] => cst
+      case ex: ExpressionSymbol[_] => ex
+      case r: PardisNode[_] => r  // FIXME anything to do?
+    })
+    /*
+    //def apply(r: Rep): Rep = post(pre(r) match {
+    def apply(r: Expr): Rep = r match {
       case cst: pir.Constant[_] => cst
       case ex: ExpressionSymbol[_] => ex
       case TopLevelBlock(b) => TopLevelBlock(b |> apply)
       // New, Hole
-    })
+    }
+    /*
     def apply(fa: PardisFunArg): PardisFunArg = fa match {
-      case r: Rep => apply(r)
+      //case r: Rep => apply(r)
+      case r: Expr => apply(r)
       case PardisVarArg(und) =>
         println(und)
         //PardisVarArg(und |> apply)
         ir.__varArg(und |> apply)
     }
     // TODO copy other cases from SC's Transformer.scala:162
-    def apply(d: Def[_]): Def[_] = d match {
+    */
+    def applyDef(d: Def[_]): Def[_] = d match {
       case b: ir.Block[_] => apply(b)
       //case n: pir.PardisNode[_] => n.rebuild(n.funArgs map apply : _*)
       case _ => d.rebuild(d.funArgs.map(transformFunArg): _*)
     }
-    protected def transformFunArg(funArg: PardisFunArg): PardisFunArg = funArg match {
-      case d: Def[_]       => apply(d.asInstanceOf[Def[Any]]).asInstanceOf[PardisFunArg]
-      case e: Rep       => apply(e)
-      case PardisVarArg(v) => transformFunArg(v)
+    //protected def transformFunArg(funArg: PardisFunArg): PardisFunArg = funArg match {
+    //  case d: Def[_]       => apply(d.asInstanceOf[Def[Any]]).asInstanceOf[PardisFunArg]
+    //  //case e: Rep       => apply(e)
+    //  //case e: Expr       => apply(e)
+    //  case e: Constant[_]       => apply(e)
+    //  case PardisVarArg(v) => PardisVarArg(transformFunArg(v))
+    //}
+    protected def transformFunArg(funArg: PardisFunArg): PardisFunArg = apply(funArg) match {
+      //case d: Def[_] => d
+      case d: PardisFunArg => d
     }
-    
-    def apply(b: Block): Block = {
+    */
+    def transformDef(d: Def[_]): Def[_] = apply(d) match {
+      case d: Def[_] => d
+    }
+    def transformBlock(b: Block): Block = {
       ir.reifyBlock[Any] {
-        b.stmts foreach apply
+        b.stmts foreach transformStm
         b.res
       }(b.tp)
     }
     def transformType(tp: TypeRep): TypeRep = tp
-    def apply(st: Stm): Stm = {
+    def transformStm(st: Stm): Stm = {
       val ir.Stm(sym, rhs) = st
       val transformedSym = if (ir.IRReifier.findDefinition(sym).nonEmpty) {
         // creates a symbol with a new name in order not to conflict with any existing symbol
@@ -254,7 +295,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
       }
 
       subst += sym -> transformedSym
-      val newdef = apply(rhs)
+      val newdef = transformDef(rhs)
 
       val stmt = ir.Stm(transformedSym, newdef)(transformedSym.tp)
       
@@ -276,7 +317,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
       typ extract (xtee.typ, Covariant) flatMap { merge(_, (Map(name -> xtee), Map(), Map())) }
       
     case (Constant(v1), Constant(v2)) =>
-      mergeOpt(extractType(xtor.tp, xtee.tp, Covariant),
+      mergeOpt(extractType(xtor.typ, xtee.typ, Covariant),
         if (v1 === v2) Some(EmptyExtract) else failExtrWith(s"Different constant values: $v1 =/= $v2"))
       
     // TODO proper impl of extraction
@@ -360,10 +401,16 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
     debug(s"${"Rewriting" |> bold} $xtee ${"with" |> bold} $xtor")
     
+    //if (xtee.isInstanceOf[PardisVarArg]) return None // lolz
+    xtee >>? { // TODO (?) :
+      case (_:PardisVarArg)|(_:PardisLiftedSeq[_]) => return None
+    }
+    
     def codeBlock(ex: Extract): Option[Block] = typedBlock(code(ex) getOrElse (return None)) |> some
     
     type Val = Sym
-    type ListBlock = List[Stm] -> Rep
+    //type ListBlock = List[Stm] -> Rep
+    type ListBlock = List[Stm] -> Expr
     
     def toHole(from: Sym, to: Sym): Extract = {
       debug(s"TODO Should bind $from -> $to")
@@ -433,8 +480,15 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     })
     
     def toBlock(x: Rep) = x match {
+    //def toBlock(x: Expr) = x match {
       case TopLevelBlock(ir.Block(sts, r)) => sts -> r
-      case r => Nil -> r
+      case ir.Block(sts, r) => sts -> r
+      //case r => Nil -> r
+      case r: Expr => Nil -> r
+      case d: Def[_] =>
+        val f = ir.fresh(d.tp)
+        (ir.Stm(f,d)(f.tp)::Nil) -> f
+      //case 
     }
     
     def process(xtor: ListBlock, xtee: ListBlock): List[Stm \/ Block] = {
@@ -450,6 +504,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     val processed = process(xtor |> toBlock, xteeBlock)
     
     if (processed forall (_ isLeft)) none  // No RwR have kicked in
+    // TODO
     else TopLevelBlock(ir.reifyBlock {
       processed foreach {
         case Left(s: Stm) => ir.reflectStm(s)//(s.)
@@ -457,9 +512,9 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
           bl.stmts foreach (s => ir.reflectStm(s))
       }
       xteeBlock._2
-    }(xtee.tp)) |> some
+    }(xtee.typ)) |> some
+    //else ???
     
-    //???
   }
   
   

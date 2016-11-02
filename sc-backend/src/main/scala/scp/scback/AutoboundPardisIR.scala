@@ -33,7 +33,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
       case ImperativeSymbol => return argss.tail.head.reps.head
         
       case PrintlnSymbol => ir match {
-        case ir: ScalaPredefOps => return ir.println(argss.head.reps.head)
+        case ir: ScalaPredefOps => return ir.println(argss.head.reps.head |> toExpr)
         case _ => throw IRException("This IR does not extend `ScalaPredefOps` and thus does not support `println`.") }
         
       case IfThenElseSymbol =>
@@ -51,7 +51,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         
       case Function1ApplySymbol =>
         val arg = argss.head.asInstanceOf[Args].reps.head
-        return ir.__app(self.asInstanceOf[R[Any=>Any]])(arg.tp.asInstanceOf[TR[Any]], tp.asInstanceOf[TR[Any]])(arg)
+        return ir.__app(self.asInstanceOf[R[Any=>Any]])(arg.typ.asInstanceOf[TR[Any]], tp.asInstanceOf[TR[Any]])(arg |> toExpr)
         
       case _ =>
     }
@@ -71,11 +71,11 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     
     type TRL = ir.TypeRep[Any] |> List
     
-    mk(args,
+    mk(args map toExpr,
       // `self` will be null if it corresponds to a static module (eg: `Seq`)
       // in that case, the method type parameters are expected to be passed in first position:
       (targs If (self == null)
-             Else self.tp.typeArguments
+             Else self.typ.typeArguments
         ).asInstanceOf[TRL],
       targs.asInstanceOf[TRL])
   }
