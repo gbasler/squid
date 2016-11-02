@@ -2,8 +2,8 @@ package scp
 package scback
 
 import collection.mutable
-
 import ch.epfl.data.sc._
+import ch.epfl.data.sc.pardis.deep.scalalib.collection.ArrayBufferIRs.ArrayBuffer
 import pardis.ir.Base
 import scp.utils._
 
@@ -50,7 +50,7 @@ object AutoBinder {
           val tps = originalType.typeSymbol.typeSignature.typeParams
           val tpSyms = originalType.typeArgs map (_.typeSymbol)
           val tpTops = tps.map(_.typeSignature).map { case TypeBounds(a,b) => b }
-          val saneTyp = originalType.substituteTypes(tpSyms, tpTops)
+          val saneTyp = internal.typeRef(originalType.typeSymbol.owner.asType.toType, originalType.typeSymbol, tpTops)
           
           val tparamTops = mtd.typeParams map { case TypeBounds(a,b) => b  case _ => typeOf[Any] }
           val paramTypesMaybe = mtd.paramLists.headOption map (_ map (_.typeSignature.baseType(RepSym)) map { case NoType => None case TypeRef(_,_,tp::Nil) => Some(tp) })
@@ -98,7 +98,7 @@ object AutoBinder {
     type E = Either[ClassSymbol, Tree]
     
     val __newPrefix = "__new"
-    val ignoredName = Set(__newPrefix, "__newDef", "__newVar")
+    val ignoredName = Set(__newPrefix, "__newDef", "__newVar", "__newVarNamed")
     
     val ctorMtds = (for {
       mem <- base.tpe.members
@@ -216,7 +216,7 @@ object AutoBinder {
       if mtd.paramLists.flatten exists (p => p.isImplicit && !p.name.toString.startsWith("overload") && (p.typeSignature.baseType(TypeRepSym) == NoType))
       =>
         val impls = mtd.paramLists.flatten filter (p => p.isImplicit && (p.typeSignature.baseType(TypeRepSym) == NoType))
-        c.warning(c.enclosingPosition, s"Method ${mtd} from ${mtd owner} was evicted because it has non-TypeRep implicit parameters: $impls")
+        c.warning(c.enclosingPosition, s"Method ${mtd.name} from ${mtd owner} was evicted because it has non-TypeRep implicit parameters: $impls")
         Nil
         
       case typ -> ((trunk,mtd) -> Some(origMtd))
