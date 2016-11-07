@@ -1,106 +1,72 @@
 package scp.scback
 
-import org.scalatest.FunSuite
-
 import collection.mutable.ArrayBuffer
-import DSLBindingTest.{SCDSL, SDSL}
-import ch.epfl.data.sc.pardis.ir.Constant
 
-class PardisIRTests extends FunSuite {
+class PardisIRTests extends PardisTestSuite {
   
-  DSLBindingTest
-  
-  import SDSL.Predef._
-  import SDSL.Quasicodes._
-  import SDSL.{block, pardisBlock}
+  import Sqd.Predef._
+  import Sqd.Quasicodes._
+  import Sqd.{block}
   
   
-  test("If Then Else") {
-    val q = pardisBlock(ir{ if (1.5.toInt > 0) println("ok") else "ko" })
-    assert(q.stmts.size == 3)
+  test("Folding of Simple Expressions") {
+    
+    val a = ir"val x = 42; println(x); x"
+    assert(stmts(a).size == 1)
+    assert(ret(a) == base.const(42))
+    
+    val b = ir"val x = 42; val y = x; val z = y; println(z); z"
+    //println(b)
+    assert(stmts(b) match {
+      case s :: Nil =>
+        //println(s.rhs,stmts(ir{println(42)}).head.rhs)
+        s.rhs == stmts(ir{println(42)}).head.rhs
+      case _ => fail
+    })
+    assert(ret(a) == base.const(42))
+    
   }
-  
-  
-  //test("While Loop") {} // TODO
   
   
   test("Code Insertion") {
     
     def f(a: IR[Int,{}], b: IR[Int,{}]) = ir{ $(a) + $(a) + $(b) }
     
-    val q = pardisBlock(ir{ $( f(ir{1.5.toInt}, ir{666}) ) + 1 })
-    
-    //println(q)
-    assert(q.stmts.size == 4)
-    
-  }
-  
-  
-  test("Lambdas & Applications") {
-    
-    def f = ir{ (a: Int) => a+1 }
-    
-    val q0 = block(f)
-    val q1 = block(ir{ $(f)(42) })
-    
-    //println(q0)
-    //println(q1)
-    
-  }
-  
-  
-  test("Methods") {
-    
-    val q = block(ir{ println(new ArrayBuffer[Int](0) append 1) })
+    val q = ir{ $( f(ir{1.5.toInt}, ir{666}) ) + 1 }
     //println(q)
     
+    assert(stmts(q).size == 4)
+    
   }
   
   
-  test("Constructors") {
+  test("Code Insertion of Effects") {
     
-    val q = block(ir{ new ArrayBuffer(42) })
+    val a = ir"val x = 42; println(x); x"
+    //println(a)  // ir"{ val x2 = println(42); 42 }"
+    assert(stmts(a).size == 1)
     
-    q.rep match {
-      case SDSL.TopLevelBlock(b) =>
-        assert(b.stmts.size == 1)
-        b.res.correspondingNode match {
-          case SCDSL.ArrayBufferNew1(Constant(42)) =>
-        }
-    }
-  }
-  
-  
-  test("Companion Object Methods") {
-    // Note: both `apply` methods mirrored in MirrorSeq and MirrorArrayBuffer refer to the _same_ method defined in GenericCompanion
-    // so one will overwrite the other; to avoid that we'll have to manually make the binding by overriding `methodApp`
+    val b = ir" ${ ir"val x = 42.toDouble; println(x); x" } + 1.0"
+    //println(b)  // ir"{ val x1 = 42.toDouble; val x3 = println(x1); val x5 = x1.+(1.0); x5 }"
+    assert(stmts(b).size == 3)
     
-    val q0 = block(ir{ Seq(1,2,3) })         // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
-    val q1 = block(ir{ ArrayBuffer(1,2,3) }) // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
-    //println(q0)
-    //println(q1)
+    val c = ir"println(0); ${ ir"println(1); println(2)" }; println(3); ()"
+    //println(c)  // ir"{ val x6 = println(0); val x7 = println(1); val x8 = println(2); val x9 = println(3); () }"
+    assert(stmts(c).size == 4)
     
   }
   
   
   test("Blocks & Bindings") {
-    // TODO remove extra bindings?
     
     val q = block(ir{ val n = 0; val a = new ArrayBuffer[Int](n); val b = 1; val c = a append 1; println(c) })
-    //println(q)
+    //println(q)  // ir"{ val a2 = new ArrayBuffer[Int](0); val c5 = a2.append(1); val x7 = println(c5); x7 }"
+    assert(stmts(q).size == 3)
     
   }
   
   
-  test("String") {
-    
-    val q = block(ir{ println(((x: String) => x.length)("ok")) })
-    //println(q)
-    
-  }
-  
-  
-  //test("Variables") {}  // TODO
+  //test("Blocks") {}  // TODO
   
   
   

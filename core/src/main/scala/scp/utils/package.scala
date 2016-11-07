@@ -36,6 +36,8 @@ package object utils {
     
     @inline def >> (rhs: A => A): A = rhs(__self)
     @inline def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
+    @inline def |>= (rhs: A => A): A = rhs(__self)
+    @inline def |>=? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
     
     /**A lesser precedence one! */
     @inline def /> [B] (rhs: A => B): B = rhs(__self)

@@ -5,7 +5,8 @@ import scp.lang.Base
 import scp.ir.AST
 import scp.utils.TraceDebug
 
-/** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure... */
+/** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure...
+  * TODO solve sbt parallel test pb (remake cake...) */
 class MyFunSuite[DSL <: AST](val DSL: DSL = TestDSL) extends FunSuite { funs =>
   import DSL._
   

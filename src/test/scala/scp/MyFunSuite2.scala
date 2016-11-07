@@ -15,7 +15,14 @@ class MyFunSuite2[DSL <: AST](override val DSL: DSL = TestDSL2) extends MyFunSui
 }
 
 /** The reason we currently have {{{DSL <: AST}}} is because otherwise the 'eqt' functions have the same erasure... */
-class MyFunSuiteBase[DSL <: InspectableBase](val DSL: DSL = TestDSL2) extends FunSuite { funs =>
+//class MyFunSuiteBase[DSL <: InspectableBase](val DSL: DSL = TestDSL2) extends MyFunSuiteTrait[DSL.type]
+//class MyFunSuiteBase[DSL <: InspectableBase](val DSL: DSL = TestDSL2) extends MyFunSuiteTrait[DSL]
+class MyFunSuiteBase[DSL <: InspectableBase](val DSL: DSL = TestDSL2) extends MyFunSuiteTrait
+//abstract class MyFunSuiteTrait[DSL <: InspectableBase] extends FunSuite { funs =>
+//trait MyFunSuiteTrait[DSL <: InspectableBase] extends FunSuite { funs =>
+  //val DSL: DSL
+trait MyFunSuiteTrait extends FunSuite { funs =>
+  val DSL: InspectableBase
   import DSL._
   
   def hopefully(condition: Boolean) = assert(condition)

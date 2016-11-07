@@ -70,7 +70,7 @@ lazy val benchmark = (project in file("benchmark")).
   dependsOn(main)
 
 
-val SCVersion = "0.1.3-SNAPSHOT"
+val SCVersion = "0.1.31-SNAPSHOT"
 
 lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(commonSettings: _*).

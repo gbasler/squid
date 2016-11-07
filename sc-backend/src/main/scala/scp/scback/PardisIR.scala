@@ -34,7 +34,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   type Expr = ir.Rep[_]
   //type ExprSym = ir.Sym[_]
   type Block = ir.Block[_]
-  //type Block = ir.Block[Any]
+  type ABlock = ir.Block[Any]
   type Sym = ir.Sym[_]
   type Stm = ir.Stm[_]
   
@@ -45,10 +45,8 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   
   case class New[A](_tp: TR[A]) extends Expression[A]()(_tp)
-  case class TopLevelBlock[A](b: ir.Block[A]) extends Expression[A]()(b.tp)
   
   case class Hole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp)
-  
   
   case class TypeHole[A](name: String) extends PardisType[A] {
     def rebuild(newArguments: TR[_]*): TR[_] = this
@@ -61,7 +59,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = ir.freshNamed(name)(typ)
-  def readVal(v: BoundVal): Rep = v
+  def readVal(v: BoundVal): Rep = curSubs.getOrElse(v, v)
   def const(value: Any): Rep = {
     import types.PardisTypeImplicits._
     value match {
@@ -77,21 +75,23 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   }
   def lambda(params: List[BoundVal], body: => Rep): Rep = params match {
     case p :: Nil =>
-      val ir.Block(s,r) = ir.reifyBlock(body.asInstanceOf[ir.Rep[Any]])(types.AnyType)
-      val typedBlock = ir.Block(s,r)(r.tp)
-      val d = ir.Lambda[Any,Any]((x: Rep) => ??? /*TODO*/ , p, typedBlock)(p.tp/*.asInstanceOf[TR[Any]]*/, r.tp)
-      ir.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, r.tp))
+      val b = typedBlock(toExpr(body))
+      val d = ir.Lambda[Any,Any]((x: Rep) => ??? /*TODO*/ , p, b)(p.tp, b.tp)
+      ir.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, b.tp))
     case _ => ??? // TODO
   }
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
-    //ir.reflectStm(ir.Stm[Any](bound, value.correspondingNode)(bound.tp))  // duplicates the Def (not good!)
-    ir.reflectStm(ir.Stm[Any](bound, PardisReadVal(value.asInstanceOf[R[Any]])(bound.tp))(bound.tp))  // duplicates the binding
-    body
+    value match {
+      case d: Def[_] =>  // Def <=> PardisNode
+        ir.reflectStm(ir.Stm[Any](bound, d)(bound.tp))
+        body
+      case e: Expr => withSubs(bound -> e)(body)
+    }
   }
   def newObject(tp: TypeRep): Rep = New(tp)
   def staticModule(fullName: String): Rep = null
   def module(prefix: Rep, name: String, typ: TypeRep): Rep = ???
-  def byName(arg: => Rep): Rep = TopLevelBlock(typedBlock(arg))
+  def byName(arg: => Rep): Rep = typedBlock(arg)
   
   object Const extends ConstAPI {
     def unapply[T: IRType](ir: IR[T, _]): Option[T] = ir.rep match {
@@ -103,25 +103,27 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   def repEq(a: Rep, b: Rep): Boolean = a == b
   
   
+  protected val curSubs = mutable.HashMap[Sym, Expr]()
+  protected def withSubs[A](s: Sym -> Expr)(code: => A): A = {
+    assert(!curSubs.isDefinedAt(s._1))
+    curSubs += s
+    try code
+    finally curSubs -= s._1
+  }
+  
+  
   // Reimplementations
   
   override def showRep(r: Rep) = {
     import pardis.deep.scalalib.ArrayScalaCodeGen
     import ch.epfl.data.sc.pardis.prettyprinter.ASTCodeGenerator
     import ch.epfl.data.sc.pardis.utils.document.toDocumentContext
-    import ch.epfl.data.sc.pardis.ir.{Constant}
     r match {
-      //case ir.Def(b: ir.Block[_]) => new ScalaCodeGenerator{}.blockToDocument(b).toString
-      case TopLevelBlock(b) => new ScalaCodeGenerator with ASTCodeGenerator[ir.type] with ArrayScalaCodeGen {
+      case b: Block => new ScalaCodeGenerator with ASTCodeGenerator[ir.type] with ArrayScalaCodeGen {
         val IR: ir.type = ir
         override def expToDocument(exp: Expression[_]) = exp match {
           case Constant(b: Boolean) => doc"${b.toString}"
-          case r: TopLevelBlock[_] => showRep(r) // FIXME should not happen
           case _                    => super.expToDocument(exp)
-        }
-        override def stmtToDocument(stmt: Statement[_]) = super.stmtToDocument(stmt) match {
-          case d if d === Document.empty => d
-          case d => d :: ";"
         }
       }.blockToDocument(b).toString
       case cn =>
@@ -133,14 +135,20 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   // Helpers
   
-  protected def typedBlock(body: => Rep): Block = {
-    val ir.Block(s,r) = ir.reifyBlock(body.asInstanceOf[ir.Rep[Any]])(types.AnyType)
+  protected def typedBlock(body: => Rep): ABlock = {
+    val ir.Block(s,r) = ir.reifyBlock[Any](toExpr(body))(types.AnyType)
     ir.Block(s,r)(r.tp)
   }
   def toAtom(r: ir.Def[_]) = ir.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
+  def inlineBlock(b: Block) = b |> toAtom  // TDOO proper impl
+  //  b.stmts foreach 
+  //  b.res
+  //}
   
   def toExpr(r: Rep): Expr = r match {
     case r: Expr => r
+    case b: Block => inlineBlock(b)
+    case d: Def[_] => toAtom(d)
   }
   
   
@@ -224,56 +232,33 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
   
   
-  // FIXME: doesn't properly work: have to reify statements again (cf: global symbol map)
+  // FIXME: probably doesn't work for things other than Block's: have to reify statements again (cf: global symbol map)
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
     
     protected val subst = collection.mutable.Map.empty[Rep, Rep]
     
-    def apply(r: Rep): Rep = post(pre(r) match {
-      //case e: Expr => apply(e)
-      //case e: PardisFunArg => transformFunArg(e)
+    def apply(r: Rep): Rep = /*println(s"Apply: $r") before*/ post(pre(r) match {
+    // PardisNode
+        
       case b: Block => transformBlock(b)
-      case TopLevelBlock(b) => TopLevelBlock(b |> transformBlock)
-      case cst: pir.Constant[_] => cst
-      case ex: ExpressionSymbol[_] => ex
-      case r: PardisNode[_] => r  // FIXME anything to do?
+        
+      case r: PardisNode[_] => 
+        r.rebuild(r.funArgs map transformFunArg: _*)
+        
+    // PardisFunArg
+        
+      // Expr
+        case cst: pir.Constant[_] => cst
+        case ex: ExpressionSymbol[_] => ex
+        
+      case PardisVarArg(v) => PardisVarArg(v |> transformFunArg)
+      
+      // TODO? PardisLambdaDef
+        
     })
-    /*
-    //def apply(r: Rep): Rep = post(pre(r) match {
-    def apply(r: Expr): Rep = r match {
-      case cst: pir.Constant[_] => cst
-      case ex: ExpressionSymbol[_] => ex
-      case TopLevelBlock(b) => TopLevelBlock(b |> apply)
-      // New, Hole
-    }
-    /*
-    def apply(fa: PardisFunArg): PardisFunArg = fa match {
-      //case r: Rep => apply(r)
-      case r: Expr => apply(r)
-      case PardisVarArg(und) =>
-        println(und)
-        //PardisVarArg(und |> apply)
-        ir.__varArg(und |> apply)
-    }
-    // TODO copy other cases from SC's Transformer.scala:162
-    */
-    def applyDef(d: Def[_]): Def[_] = d match {
-      case b: ir.Block[_] => apply(b)
-      //case n: pir.PardisNode[_] => n.rebuild(n.funArgs map apply : _*)
-      case _ => d.rebuild(d.funArgs.map(transformFunArg): _*)
-    }
-    //protected def transformFunArg(funArg: PardisFunArg): PardisFunArg = funArg match {
-    //  case d: Def[_]       => apply(d.asInstanceOf[Def[Any]]).asInstanceOf[PardisFunArg]
-    //  //case e: Rep       => apply(e)
-    //  //case e: Expr       => apply(e)
-    //  case e: Constant[_]       => apply(e)
-    //  case PardisVarArg(v) => PardisVarArg(transformFunArg(v))
-    //}
-    protected def transformFunArg(funArg: PardisFunArg): PardisFunArg = apply(funArg) match {
-      //case d: Def[_] => d
-      case d: PardisFunArg => d
-    }
-    */
+    
+    def transformFunArg: PardisFunArg => PardisFunArg = _ |> apply |>=? { case PardisVarArg(v) => v } |> toExpr
+    
     def transformDef(d: Def[_]): Def[_] = apply(d) match {
       case d: Def[_] => d
     }
@@ -321,9 +306,9 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
         if (v1 === v2) Some(EmptyExtract) else failExtrWith(s"Different constant values: $v1 =/= $v2"))
       
     // TODO proper impl of extraction
-    case TopLevelBlock(ir.Block(s0, r0)) -> TopLevelBlock(ir.Block(s1, r1)) => ???
-    case TopLevelBlock(ir.Block(Nil, r0)) -> _ =>
-      r0 extract xtee
+    case _ -> ir.Block(Nil, r1) => xtor extract r1
+    case ir.Block(Nil, r0) -> _ => r0 extract xtee
+    case ir.Block(s0, r0) -> ir.Block(s1, r1) => ???
       
     case Def(f0: pir.FunctionNode[_]) -> Def(f1: pir.FunctionNode[_]) if pure(f0) && pure(f1) => //if f0.isPure && f1.isPure =>
       extractDef(f0, f1)
@@ -340,7 +325,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   protected def extractDef(xtor: Def[_], xtee: Def[_]): Option[Extract] = {
     xtor -> xtee match {
-      case (f0: pir.FunctionNode[_]) -> (f1: pir.FunctionNode[_]) =>
+      case (f0: pir.FunctionNode[_], f1: pir.FunctionNode[_]) =>
         if (f0.name =/= f1.name) failExtrWith(s"Different names: ${f0.name} =/= ${f1.name}")
         else for {
           e <- f0.caller -> f1.caller match {
@@ -351,16 +336,10 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
           () = assert(f0.typeParams.size === f1.typeParams.size)
           ts <- mergeAll( (f0.typeParams zip f1.typeParams) map { case (a,b) => weakenTypeRep(a) extract (b, Covariant) } )
           e <- merge(e, ts)
-          ass <- mergeAll( (f0.funArgs zip f1.funArgs) map {
-            case (a:ir.Rep[_],b:ir.Rep[_]) => extract(a,b)
-            case (a:ir.Block[_],b:ir.Block[_]) => extract(TopLevelBlock(a),TopLevelBlock(b))
-            // TODO lambdaDef, vararg
-          })
+          ass <- mergeAll( (f0.funArgs zipAnd f1.funArgs)(_ extract _) )
           e <- merge(e, ass)
         } yield e
-      case PardisReadVal(b0) -> PardisReadVal(b1) => b0 extract b1
-      case _ -> PardisReadVal(b1) => failExtrWith(s"No Def match [1]") // TODO better?
-      case PardisReadVal(b0) -> _ => failExtrWith(s"No Def match [2]") // TODO better?
+      case (b0: Block, _) => b0 extract xtee
     }
   }
   
@@ -398,6 +377,8 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     case _ => d isPure
   }
   
+  def varsIn(r: Rep): Set[Sym] = ???
+  
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
     debug(s"${"Rewriting" |> bold} $xtee ${"with" |> bold} $xtor")
     
@@ -426,7 +407,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
       * then applying the associated `code` function and checking removed statements are not used later on in the list.
       * @return pure statements encountered and skipped, rewritten block output by `code`, rest of the statements */
     def rec(ex: Extract, matchedVals: List[Val], pureStms: List[Stm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block, ListBlock)] =  // TODO rm `matchedVals`?
-    debug(s"rec ${xy._1}\n<<  ${xy._2}") before nestDbg(xy match {
+    debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2}") before nestDbg(xy match {
       case (Nil -> r0, Nil -> r1) =>
         for {
           e <- extract(r0, r1)
@@ -481,7 +462,6 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     
     def toBlock(x: Rep) = x match {
     //def toBlock(x: Expr) = x match {
-      case TopLevelBlock(ir.Block(sts, r)) => sts -> r
       case ir.Block(sts, r) => sts -> r
       //case r => Nil -> r
       case r: Expr => Nil -> r
@@ -504,16 +484,14 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     val processed = process(xtor |> toBlock, xteeBlock)
     
     if (processed forall (_ isLeft)) none  // No RwR have kicked in
-    // TODO
-    else TopLevelBlock(ir.reifyBlock {
+    else ir.reifyBlock {
       processed foreach {
         case Left(s: Stm) => ir.reflectStm(s)//(s.)
         case Right(bl) =>
           bl.stmts foreach (s => ir.reflectStm(s))
       }
       xteeBlock._2
-    }(xtee.typ)) |> some
-    //else ???
+    }(xtee.typ) |> some
     
   }
   
@@ -537,8 +515,12 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   
   /** Extraction nodes need to be wrapped in a Block, because it makes no sense to let statements escape the pattern. */
-  override def wrapExtract(r: => Rep): Rep = TopLevelBlock(typedBlock(r))
-  
+  override def wrapExtract(r: => Rep): Rep = typedBlock(r)
+  /** In case there is no enclosing block, just create one instead of crashing!
+    * If the resulting Block node is inserted as an expression later in a tree, it will be inlined anyway. */
+  override def wrapConstruct(r: => Rep): Rep =
+    if (ir._IRReifier.scopeDepth == 0) typedBlock(r)
+    else r |> toExpr  // inlines blocks and calls toAtom on Def's
   
   
   
@@ -546,8 +528,8 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   // * --- * --- * --- *  Other Implementations * --- * --- * --- *
   
   
-  def block[T:IRType,C](q: => IR[T,C]) = `internal IR`[T,C](TopLevelBlock[T](pardisBlock(q)))
-  def pardisBlock[T:IRType,C](q: => IR[T,C]) = ir.reifyBlock[T] { q.rep.asInstanceOf[ir.Rep[T]] }
+  def block[T:IRType,C](q: => IR[T,C]) = `internal IR`[T,C](pardisBlock[T,C](q))
+  def pardisBlock[T:IRType,C](q: => IR[T,C]) = ir.reifyBlock[T] { toExpr(q.rep).asInstanceOf[R[T]] }
   
   
   implicit def typeRepFromIRType[A:IRType]: ir.TypeRep[A] = implicitly[IRType[A]].rep.asInstanceOf[ir.TypeRep[A]]

@@ -9,6 +9,8 @@ import scp.utils._
 import scala.collection.mutable
 import scp.ir2.IRException
 
+import scala.language.existentials
+
 
 /** PardisIR that uses an `AutoBinder` to associate shallow method symbols to their deep embedding,
   * and special-cases a few core methods */
@@ -19,18 +21,16 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("scp.lib.package$"), "IfThenElse", None)
   val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
   
-  def inlineBlock(b: ir.Block[Any]) = b |> toAtom  // TDOO proper impl
-  //  b.stmts foreach 
-  //  b.res
-  //}
-  
   /** TODO a general solution to by-name parameters */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println(mtd, mtd.owner)
     
     mtd match {
         
-      case ImperativeSymbol => return argss.tail.head.reps.head
+      case ImperativeSymbol =>
+        val ArgList(efs @ _*)::Args(r)::Nil = argss
+        efs foreach toExpr
+        return r
         
       case PrintlnSymbol => ir match {
         case ir: ScalaPredefOps => return ir.println(argss.head.reps.head |> toExpr)
@@ -44,10 +44,8 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         //val Args(cond, TopLevelBlock(thn), TopLevelBlock(els))::Nil = argss
         //val (cond,thn,els) = argss match { case Args(cond, TopLevelBlock(thn), TopLevelBlock(els))::Nil => (cond,thn,els) } 
         
-        val Args(cond, thn0, els0)::Nil = argss
-        val (thn,els) = (thn0.asInstanceOf[TopLevelBlock[Any]].b, els0.asInstanceOf[TopLevelBlock[Any]].b)
-        
-        return ir.__ifThenElse(cond.asInstanceOf[R[Bool]], thn |> inlineBlock, els |> inlineBlock)(tp.asInstanceOf[TR[Any]])
+        val Args(cond, thn: ABlock @unchecked, els: ABlock @unchecked)::Nil = argss
+        return ir.IfThenElse(toExpr(cond).asInstanceOf[R[Bool]], thn, els)(tp)
         
       case Function1ApplySymbol =>
         val arg = argss.head.asInstanceOf[Args].reps.head
@@ -71,13 +69,19 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     
     type TRL = ir.TypeRep[Any] |> List
     
-    mk(args map toExpr,
+    def node = mk(args map toExpr,
       // `self` will be null if it corresponds to a static module (eg: `Seq`)
       // in that case, the method type parameters are expected to be passed in first position:
       (targs If (self == null)
              Else self.typ.typeArguments
         ).asInstanceOf[TRL],
       targs.asInstanceOf[TRL])
+    
+    // Method makers currently call toAtom; we don't want this (we just want the Def):
+    val ir.Block(sts :+ st, _) = ir.reifyBlock(node)(types.AnyType)
+    sts foreach (s => ir.reflectStm(s))
+    st.rhs
+    
   }
   
 }

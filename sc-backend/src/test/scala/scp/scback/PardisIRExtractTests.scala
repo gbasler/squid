@@ -1,17 +1,15 @@
 package scp
 package scback
 
-import collection.mutable.ArrayBuffer
-import DSLBindingTest.{SCDSL, SDSL}
-import ch.epfl.data.sc.pardis.ir.Constant
+import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs
 
-class PardisIRExtractTests extends MyFunSuiteBase(SDSL) {
+import collection.mutable.ArrayBuffer
+
+class PardisIRExtractTests extends PardisTestSuite {
   
-  DSLBindingTest
+  import Sqd.Predef._
+  import Sqd.Quasicodes._
   
-  import SDSL.Predef._
-  import SDSL.Quasicodes._
-  import SDSL.{block, pardisBlock}
   
   /*_*/
   
@@ -53,36 +51,40 @@ class PardisIRExtractTests extends MyFunSuiteBase(SDSL) {
   }
   
   
-  test("Rewriting") {
+  test("Rewriting Consecutive Statements") {
     
-    ///*{
-      val q = block(ir{val arr = ArrayBuffer(1,2,3); arr append 1; arr.size})
-      println(q)
-      
-      val q2 = /*SDSL.debugFor*/ { q rewrite {
-        case ir"($arr: ArrayBuffer[$t]) append $x" =>
-          println("Running rwr code!!")
-          ir{ println("nope!") } 
-      }}
-      
-      println(q2)
-    //}*/
+    assert(SC.OptionApplyObject(null)(SC.typeInt).isPure) // we have the right SC version
     
-    {
-      //val q = block(ir{val arr = new ArrayBuffer[Int](); arr append 1; arr.clear; arr.size})
-      val q = block(ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; arr.size}) // FIXedME should apply  // TODO try to rm pure stmts referring to rm'd syms (trans clos)
-      //val q = block(ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}) // TODO should not apply
-      println(q)
-      
-      val q2 = /*SDSL.debugFor*/ { q rewrite {
-        case ir"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" =>
-          println("Running rwr code!!")
-          ir{ $(arr).clear }
-      }}
-      
-      println(q2)
-      
+    
+    val a0 = ir{ val arr = ArrayBuffer(1,2,3); arr append 1; arr.size }
+    
+    val a1 = /*SDSL.debugFor*/ { a0 rewrite {
+      case ir"($arr: ArrayBuffer[$t]) append $x" =>
+        //println("Running rwr code!!")
+        ir{ println("nope!") }
+    }}
+    
+    //println(a1) // ir"{ val arr1 = ArrayBuffer.apply(1, 2, 3); val x10 = println("nope!"); val x7 = arr1.size; x7 }"
+    
+    assert(stmts(a1)(2).rhs == ScalaPredefIRs.Println(SC.unit("nope!")(SC.typeString)))
+    // another way to check:
+    stmts(a1) match {
+      case liftedSeqShit :: _ :: p :: _ :: Nil =>
+        assert(p.rhs == dfn(ir{ println("nope!") }))
+      case _ => fail
     }
+    
+    val b0 = ir{ val arr = new ArrayBuffer[Int](); Option(arr append 1); arr.clear; arr.size } // TODO try to rm pure stmts referring to rm'd syms (trans clos)
+    //val b0 = block(ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}) // TODO should not apply
+    //println(b0)
+    
+    val q2 = /*SDSL.debugFor*/ { b0 rewrite {
+      case ir"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" =>
+        //println("Running rwr code!!")
+        ir{ $(arr).clear }
+    }}
+    
+    //println(q2) // ir"{ val arr19 = new ArrayBuffer[Int](); val x26 = Option.apply(x22); val x34 = arr19.clear(); val x28 = arr19.size; x28 }"
     
     
   }

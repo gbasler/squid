@@ -4,7 +4,7 @@ package scback
 import collection.mutable
 import ch.epfl.data.sc._
 import ch.epfl.data.sc.pardis.deep.scalalib.collection.ArrayBufferIRs.ArrayBuffer
-import pardis.ir.Base
+import pardis.ir.{ANFNode, Base}
 import scp.utils._
 
 import scala.language.experimental.macros
@@ -14,7 +14,8 @@ import meta.RuntimeUniverseHelpers.sru
 class AutoBinder[B <: pardis.ir.Base, SB <: lang2.Base](val _b_ : B, val _sb_ : SB) {
   
   /** type argss for self's type, method type args, method args */
-  type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]
+  type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]  // currently returns Rep because it uses the implicit Rep class methods
+  //type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => ANFNode   // TODO call the Def-making methods instead
   
   val map = mutable.Map[_sb_.MtdSymbol, MtdMaker]()
   
