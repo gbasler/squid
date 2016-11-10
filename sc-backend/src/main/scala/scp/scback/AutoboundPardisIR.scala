@@ -2,6 +2,7 @@ package scp
 package scback
 
 import ch.epfl.data.sc._
+import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs.Println
 import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefOps
 import pardis._
 import scp.utils._
@@ -23,7 +24,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   
   /** TODO a general solution to by-name parameters */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
-    //println(mtd, mtd.owner)
+    //println("METHOD "+mtd+" in "+mtd.owner)
     
     mtd match {
         
@@ -32,8 +33,9 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         efs foreach toExpr
         return r
         
+      // The autobinder does not see deep `println`, as it is not defined in an object (but directly in the cake!)
       case PrintlnSymbol => ir match {
-        case ir: ScalaPredefOps => return ir.println(argss.head.reps.head |> toExpr)
+        case ir: ScalaPredefOps => return Println(argss.head.reps.head |> toExpr)
         case _ => throw IRException("This IR does not extend `ScalaPredefOps` and thus does not support `println`.") }
         
       case IfThenElseSymbol =>
@@ -56,7 +58,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     
     //println(ab.map.get(mtd))
     val mk = ab.map.getOrElse(mtd, throw IRException(
-      s"Could not find a deep representation for $mtd in ${mtd owner}; perhaps it is absent from the DSL cake or the auto-binding failed."))
+      s"Could not find a deep representation for $mtd${mtd.typeSignature} in ${mtd owner}; perhaps it is absent from the DSL cake or the auto-binding failed."))
     
     val argsTail = argss.flatMap(_.reps)
     

@@ -1,5 +1,7 @@
 package scp.scback
 
+import scp.utils._
+
 import ch.epfl.data.sc._
 import pardis._
 import deep.scalalib._
@@ -22,7 +24,26 @@ trait DSLBindingTest {
   //object SC extends ir.Base with NumericOps
   object SC extends ir.Base with ScalaCoreOps with NoStringCtor
   
-  object Sqd extends AutoboundPardisIR(SC)
+  object Sqd extends AutoboundPardisIR(SC) {
+    
+    lazy val SeqApplySymbol = loadMtdSymbol(loadTypSymbol("scala.collection.generic.GenericCompanion"), "apply", None)
+    
+    // Special-case some problematic methods:
+    override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = mtd match {
+        
+      case SeqApplySymbol if baseName(tp) == "Seq" =>  // distinguish from an `apply` on `ArrayBuffer`
+        val ta :: Nil = targs
+        SeqIRs.SeqApplyObject[Any]((argss match {
+          case ArgList(as @ _*) :: Nil => ir.__liftSeq[Any](as map toExpr)(ta)
+          case ArgsVarargSpliced(Args(), spliced) :: Nil => spliced |> toExpr
+        }).asInstanceOf[R[Seq[Any]]])(ta)
+        
+      case _ => 
+        super.methodApp(self, mtd, targs, argss, tp)
+        
+    }
+  }
+  
   /*_*/
   Sqd.ab = {
     import scala.collection.mutable.ArrayBuffer

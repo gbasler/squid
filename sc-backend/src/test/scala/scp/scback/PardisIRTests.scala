@@ -41,18 +41,37 @@ class PardisIRTests extends PardisTestSuite {
   
   
   test("Code Insertion of Effects") {
+    // Note: interestingly, in Squid ir".. outer .. ${ inner } .." executes the `inner` code in the middle of the
+    // construction of `outer` tree... so the statements will be directly generated and aggregated in the enclosing block,
+    // unlike what happens if `inner` is built outside the quote (also tested here).
     
     val a = ir"val x = 42; println(x); x"
     //println(a)  // ir"{ val x2 = println(42); 42 }"
     assert(stmts(a).size == 1)
     
-    val b = ir" ${ ir"val x = 42.toDouble; println(x); x" } + 1.0"
-    //println(b)  // ir"{ val x1 = 42.toDouble; val x3 = println(x1); val x5 = x1.+(1.0); x5 }"
-    assert(stmts(b).size == 3)
+    val b0 = ir" ${ ir"val x = 42.toDouble; println(x); x" } + 1.0"
+    //println(b0)  // ir"{ val x1 = 42.toDouble; val x3 = println(x1); val x5 = x1.+(1.0); x5 }"
+    assert(stmts(b0).size == 3)
     
-    val c = ir"println(0); ${ ir"println(1); println(2)" }; println(3); ()"
-    //println(c)  // ir"{ val x6 = println(0); val x7 = println(1); val x8 = println(2); val x9 = println(3); () }"
-    assert(stmts(c).size == 4)
+    val b1 = { val ins = ir"val x = 42.toDouble; println(x); x"; ir"$ins + 1.0" }
+    //println(b1)  // ir"{ val x1 = 42.toDouble; val x3 = println(x1); val x5 = x1.+(1.0); x5 }"
+    assert(stmts(b1).size == 3)
+    
+    val c0 = ir"println(0); ${ ir"println(1); println(2)" }; println(3); ()"
+    //println(c0)  // ir"{ val x6 = println(0); val x7 = println(1); val x8 = println(2); val x9 = println(3); () }"
+    assert(stmts(c0).size == 4)
+    
+    val c1 = { val ins = ir"println(1); println(2)"; ir"println(0); $ins; println(3); ()" }
+    //println(c1)  // ir"{ val x6 = println(0); val x7 = println(1); val x8 = println(2); val x9 = println(3); () }"
+    assert(stmts(c1).size == 4)
+    
+    val d0 = ir"println(0); ${ ir"println(1); println(2)" }"
+    //println(d0)  // ir"{ val x12 = println(0); val x13 = println(1); val x14 = println(2); x14 }"
+    assert(stmts(d0).size == 3)
+    
+    val d1 = { val ins = ir"println(1); println(2)"; ir"println(0); $ins" }
+    //println(d1)  // ir"{ val x12 = println(0); val x13 = println(1); val x14 = println(2); x14 }"
+    assert(stmts(d1).size == 3)
     
   }
   

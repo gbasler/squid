@@ -74,7 +74,7 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   
   
-  sealed trait ArgList {
+  sealed trait ArgList extends Product with Serializable {
     def reps: Seq[Rep]
     //def extract(al: ArgList): Option[Extract] = (this, al) match {
     //  case (a0: Args, a1: Args) => a0 extract a1

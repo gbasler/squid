@@ -179,7 +179,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
   }
   
-  /* TODO flexible spliced holes */
+  /* TODO flexible spliced holes
+   * TODO consecutive mutable statement matching like in PardisIR */
   /** Rewrites a Rep by applying a rewriting on the corresponding ANF block;
     * aborting the rewriting if it removes Vals still used later on. */
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {

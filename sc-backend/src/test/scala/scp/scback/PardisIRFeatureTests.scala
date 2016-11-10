@@ -63,8 +63,13 @@ class PardisIRFeatureTests extends PardisTestSuite {
     
     val q0 = block(ir{ Seq(1,2,3) })         // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
     val q1 = block(ir{ ArrayBuffer(1,2,3) }) // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
-    println(q0)
-    println(q1)
+    
+    //println(q0)
+    //println(q1)
+    
+    // Note: the first statement is a `PardisLiftedSeq`
+    assert(stmts(q0).tail.head.rhs.isInstanceOf[SC.SeqApplyObject[_]])
+    assert(stmts(q1).tail.head.rhs.isInstanceOf[SC.ArrayBufferApplyObject[_]])
     
   }
   
@@ -74,6 +79,11 @@ class PardisIRFeatureTests extends PardisTestSuite {
     val q = block(ir{ println(((x: String) => x.length)("ok")) })
     //println(q)
     
+  }
+  
+  
+  test("Type Ascription") { // TODO
+    println(ir"42:Any")
   }
   
   
