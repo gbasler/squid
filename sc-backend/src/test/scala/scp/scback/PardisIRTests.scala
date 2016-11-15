@@ -88,6 +88,21 @@ class PardisIRTests extends PardisTestSuite {
   //test("Blocks") {}  // TODO
   
   
+  test("Subexpressions and Scheduling") {
+    // TODO test subexpr scheduling
+    
+    //println(ir{println(1.toDouble);println(2.toDouble)}) // FIXME
+    
+    // FIXME
+    //println(ir{val arr = new ArrayBuffer[Int](); arr append 1; val o = Option(arr.size)})
+    //println(ir{val arr = new ArrayBuffer[Int](); arr append 1; val o = arr.size+1})
+    
+    // no prob:
+    //println(ir{val arr = new ArrayBuffer[Int](); val a = arr append 1; val o = arr.size+1})
+    //println(ir{1.toDouble + 2.toDouble})
+    
+  }
+  
   
   
   

@@ -238,12 +238,12 @@ object AutoBinder {
         val tparamTops = mtd.typeParams map { case TypeBounds(a,b) => b  case _ => typeOf[Any] }
         val explicitParams = mtd.paramLists collect { case ps if ps.headOption map (p => !p.isImplicit) getOrElse true => ps }
         val paramTypes = explicitParams map (_ map (_ typeSignature))
-        def saneParams(offset: Int) = paramTypes map (_.zipWithIndex.map {
+        def saneParams(offset: Int) = paramTypes.zipWithIndex map {case ps->j => ps.zipWithIndex.map {
           case TypeRef(_,RepeatedParamClass,pt::Nil)->i =>
-            assert(i == paramTypes.indices.last) // Here we assume the repeated argument is the very last
-            q"rs.drop(${i+offset}).asInstanceOf[List[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]]: _*"
-          case pt->i => q"rs(${i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]"
-        })
+            assert(j == paramTypes.indices.last) // For convenience, assume the repeated argument is the very last argument in the argument lists
+            q"rs.drop(${j+i+offset}).asInstanceOf[List[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]]: _*"
+          case pt->i => q"rs(${j+i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]"
+        }}
         
         val overloadPrefix = "overload"
         

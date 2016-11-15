@@ -1,9 +1,10 @@
 package scp
 package scback
 
+import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs.Println
+import scp.ir2.RewriteAbort
 import utils._
-
-import scp.ir2.{FixPointRuleBasedTransformer, FixPointTransformer, SimpleRuleBasedTransformer, TopDownTransformer}
+import scp.ir2.{FixPointRuleBasedTransformer, SimpleRuleBasedTransformer, TopDownTransformer, FixPointTransformer}
 
 import collection.mutable.ArrayBuffer
 
@@ -59,7 +60,7 @@ class PardisIRExtractTests extends PardisTestSuite {
   
   test("Rewriting Consecutive Statements") {
     
-    assert(SC.OptionApplyObject(null)(SC.typeInt).isPure) // we have the right SC version
+    assert(SC.OptionApplyObject(null)(SC.typeInt).isPure) // makes sure we have the right SC version
     
     
     // Specializes Seq constructions to ArrayBuffer
@@ -67,6 +68,16 @@ class PardisIRExtractTests extends PardisTestSuite {
       rewrite {
         case ir"($arr: ArrayBuffer[Int]) append 42" => ir{ println("nope!") }
         case ir"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" => ir{ $(arr).clear }
+          
+        //case ir"val s = ($arr: ArrayBuffer[$t]).size; (arr:ArrayBuffer[t]) append $x; s" => ir{ $(arr) append $(x); $(arr).size-1 }
+        // ^ Note, as expected (because of $x):
+        //     Error:(71, 95) Cannot rewrite a term of context <context @ 71:14> to a stricter context <context @ 71:14>{val s: Int}
+          
+        case ir"val s = ($arr: ArrayBuffer[$t]).size; (arr:ArrayBuffer[t]) append $x; s" =>
+          val x2 = x subs 's -> ((throw new RewriteAbort): IR[Int,{}])
+          //ir{ $(arr2) append $(x2); $(arr2).size-1 }  // FIXME order of subexprs
+          ir{ $(arr) append $(x2); val s = $(arr).size; s-1 }
+          
       }}
     
     sameDefs(ir{ val arr = ArrayBuffer(1,2,3); arr append 42;    arr.size } transformWith Tr,
@@ -79,8 +90,53 @@ class PardisIRExtractTests extends PardisTestSuite {
     sameDefs(ir{ val arr = new ArrayBuffer[Int](); Option(arr append 1); arr.clear; arr.size } transformWith Tr,
              ir{ val arr = new ArrayBuffer[Int]();                       arr.clear; arr.size })
     
-    sameDefsAfter( // should not apply:
+    sameDefsAfter( // should not apply (cf later usage of `lol`; can't be removed):
              ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}, _ transformWith Tr)
+    
+    // Update the Option to apply on the new `clear` statement!
+    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
+             ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
+    
+    
+    sameDefsAfter(ir{
+      val arr = new ArrayBuffer[Int]()
+      arr append 2
+      arr.size  // viewed as effectful; in fact it could be removed (needs a better effect system)
+      arr.clear
+      42
+    }, _ transformWith Tr)
+    
+    sameDefs(ir{
+      val arr = new ArrayBuffer[Int]()
+      arr append 2
+      val s = arr.size
+      val o = Option(s)
+      arr append o.get
+      arr.clear
+      o
+    } transformWith Tr, ir{
+      val arr = new ArrayBuffer[Int]()
+      arr append 2
+      val s = arr.size
+      val o = Option(s)
+      o.get
+      arr.clear
+      o
+    })
+    
+    
+    // Testing the "size-commuting" rewriting
+    val y0 =     ir{ val arr = new ArrayBuffer[Int](); val s = arr.size; arr append 1;                                 println(s)  } transformWith Tr
+    sameDefs(y0, ir{ val arr = new ArrayBuffer[Int]();                   arr append 1; val s = arr.size; val s0 = s-1; println(s0) })
+    stmts(y0) |> {
+      case (s @ SC.Stm(a0, d)) :: _ :: SC.Stm(r0, SC.ArrayBufferSize(a1)) :: SC.Stm(s0, SC.`Int-1`(r1, t0)) :: SC.Stm(_, Println(s1)) :: Nil =>
+        assert(s.typeT == SC.ArrayBufferType(SC.typeInt))
+        assert(a0 == a1) 
+        assert(r0 == r1) 
+        assert(s0 == s1) 
+      case x => fail(x.toString)  // Very fun (huge) warnings sometimes when removing this line!
+    }
+    
     
     // More complicated, with nested blocks:
     sameDefs(ir{
@@ -98,17 +154,35 @@ class PardisIRExtractTests extends PardisTestSuite {
       } else println("yo")
     })
     
+    
+    
+    object Tr2 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
+      rewrite {
+        case ir"val s = Seq[$t]($xs*); s" =>
+          ir{ ArrayBuffer($(xs:_*)) }
+          //ir"ArrayBuffer($xs*)"       // other way, with QQs
+      }}
+    
+    val a0 = ir{ val s = Seq(1,2,3);         println(s(0)); s.size }
+    val ar = ir{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
+    val a1 = a0 transformWith Tr2
+    
+    sameDefs(a1, ar)
+    
+    
   }
   
   
   
   test("Rewriting Bindings") {
     
+    
     // Specializes Seq constructions to ArrayBuffer
     object Tr extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite { case ir"val x = Seq[$t]($xs*); $body: $bt" =>  // println(s"Running rwr code!! body = $body")
           ir"val x = ArrayBuffer($xs*); $body"
       }}
+    
     
     val a0 = ir{ val s = Seq(1,2,3);         println(s(0)); s.size }
     val ar = ir{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
@@ -125,17 +199,67 @@ class PardisIRExtractTests extends PardisTestSuite {
         assert(abap.typeA == irTypeOf[Int].rep)
     }
     
+    
     // Another way to do the same thing (but note that it uses a FixedPointTransformer!):
-    sameDefs(a0 rewrite {
-      case ir"val x = Seq[$t]($xs*); $body: $bt" => ir"val x = ArrayBuffer($xs*); $body"
-    }, ar)
+    sameDefs(a0 rewrite { case ir"val x = Seq[$t]($xs*); $body: $bt"  =>  ir"val x = ArrayBuffer($xs*); $body" }, ar)
+    
+    
+    sameDefs(ir{         Seq(1,2,3).filter(_ > 0) } transformWith Tr,
+             ir{ ArrayBuffer(1,2,3).filter(_ > 0) })
+    
     
     // FIXME reinsert pure statements
-    //sameDefs(ir{ Seq(1,2,3)        .map(_+1) } transformWith Tr, 
-    //         ir{ ArrayBuffer(1,2,3).map(_+1)(Seq.canBuildFrom[Int]) },true)
+    //println(ir{val s = Seq(1,2,3); val f: Int => Bool = _>0; s.filter(f)} transformWith Tr)
+    //sameDefs(ir{ val s =         Seq(1,2,3); val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
+    //         ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
     
-    // FIXME args to map?!
-    //println(ir{ val f: Int => Int = _+1; Seq(1,2,3).map(f) } transformWith Tr)
+    
+    sameDefs(ir{ Seq(1,2,3)        .map(_ + 1)                        } transformWith Tr, 
+             ir{ ArrayBuffer(1,2,3).map(_ + 1)(Seq.canBuildFrom[Int]) })
+    
+    
+    
+    object Tr2 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
+      // Short-cuts anything that happens after println(666), if the final type is Unit:
+      rewrite { case ir"println(666); $body: Unit" =>  // println(s"Running rwr code!! body = $body")
+          ir"println(42)"
+      }}
+    
+    val b0 = ir{
+      println(1)
+      println(666)
+      println(2)
+      println(3)
+    }
+    val b1 = ir{ println(1); println(42) }
+    sameDefs(b0 transformWith Tr2, b1)
+    stmts_ret(b1) match { case (_ :: SC.Stm(s0, _) :: Nil) -> s1 => assert(s0 == s1) }
+    
+    sameDefs(ir{
+      println(1)
+      println(666)
+    } transformWith Tr2, b1)
+    
+    sameDefs(ir{
+      println(666)
+      "ok"
+    } transformWith Tr2, ir{
+      println(42)
+      "ok"
+    })
+    
+    // currently, if the `body` hole cannot match the entire block remainder (here there is a type mismatch), we don't
+    // get bind-rw, so what's applied is the simple seq-rw instead.
+    sameDefs(ir{
+      println(666)
+      println(1)
+      "ok"
+    } transformWith Tr2, ir{
+      println(42)
+      println(1)
+      "ok"
+    })
+    
     
   }
   
@@ -219,14 +343,34 @@ class PardisIRExtractTests extends PardisTestSuite {
       arr.size
     }, _ transformWith Tr )
     
-    // should not remove the `clear` cf returned FIXME
-    println( ir{
+    // should not remove the `clear` cf returned
+    val a0 = ir{
+      val arr = new ArrayBuffer[Int]()
+      arr.clear
+    }
+    sameDefsAfter( a0, _ transformWith Tr )
+    
+    // Should apply the first rewrite and update the Option, but keep the clear (don't apply second rewrite)
+    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
+             ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
+    
+    sameDefs( ir{
       val arr = new ArrayBuffer[Int]()
       arr append 1
       arr append 2
       arr append 3
       arr.clear
-    } transformWith Tr )
+    } transformWith Tr, a0)
+    
+    sameDefs( ir{
+      val arr = new ArrayBuffer[Int]()
+      arr append 1
+      arr.clear
+      arr append 2
+    } transformWith Tr, ir{
+      val arr = new ArrayBuffer[Int]()
+      arr append 2
+    })
     
     // should apply both (but keep one append)
     sameDefs( ir{

@@ -33,7 +33,6 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   type BoundVal = ir.Sym[_]
   type TypeRep = ir.TypeRep[Any]
   type Expr = ir.Rep[_]
-  //type ExprSym = ir.Sym[_]
   type Block = ir.Block[_]
   type ABlock = ir.Block[Any]
   type Sym = ir.Sym[_]
@@ -189,20 +188,20 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   }
   override def substitute(r: Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs.mapValues(() => _))
   override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = {
-    //println(s"SUBST $r with "+(defs mapValues (f=>typedBlock(f()))))
+    //debug(s"SUBST $r with "+(defs mapValues (f=>util.Try(typedBlock(f())))))
     
     val nameMap = curSubs collect { case k -> Hole(n,_) => k -> n }
     
-    (if (defs isEmpty) r else bottomUp(r) {
+    if (defs isEmpty) r else bottomUp(r) {
       case h @ Hole(n,_) => defs get n map (_()) getOrElse h
       case h @ SplicedHole(n,_) => defs get n map (_()) getOrElse h
       case s: Sym =>
         //println("Trav "+s, nameMap get s flatMap (defs get _) map (_()) getOrElse s)
         nameMap get s flatMap defs.get map (_()) getOrElse s
       case r => r
-    }) |> notUnnecessaryBlock  //and (r => println(s"SUBS RESULT = $r"))
+    }
     
-  }
+  } |> notUnnecessaryBlock  //and (r => println(s"SUBS RESULT = $r"))
   
   def hole(name: String, typ: TypeRep): Rep = Hole(name, typ)
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)
@@ -222,10 +221,8 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
         throw new IRException(s"Unsupported uninterpreted type: `$typ`")
     }
   }
-  //def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = ???
   def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
-    //println(self,typ,targs)
-    //???
+    // This can happen in some cases, but is usually just a quirk
     null
   }
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
@@ -290,7 +287,6 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   // * --- * --- * --- *  Implementations of `InspectableBase` methods  * --- * --- * --- *
   
   
-  override def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = ??? // TODO
   def bottomUp(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(identity, f)
   def topDown(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(f)
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
@@ -299,12 +295,19 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   // ^ TODOmaybe simply rebind things in the global map; we don't care about the old value of transformed stuff anyway (Q: is it okay with speculative Rw?)
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
     
-    protected val subst = collection.mutable.Map.empty[Rep, Rep]
-    
     def apply(r: Rep): Rep = /*println(s"Apply: $r") before*/ post(pre(r) match {
     // PardisNode
         
       case b: Block => transformBlock(b)
+        
+      // Note: we do not try to transform the inputs to lambdas, as there is no Sym=>Sym mapping available
+      // Q: should we renew the symbols?
+      case PardisLambda0(f, o: ABlock) =>
+        PardisLambda0[Any](() => ??? /* TODO */, o |> transformBlock)(o.tp)
+      case pl @ PardisLambda(f, i, o: ABlock) =>
+        PardisLambda[Any,Any]((_) => ??? /* TODO */, i, o |> transformBlock)(pl.typeT, pl.typeS)
+      case pl @ PardisLambda2(f, i0, i1, o: ABlock) => ??? // TODO
+      case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) => ??? // TODO
         
       case r: PardisNode[_] => 
         r.rebuild(r.funArgs map transformFunArg: _*)
@@ -313,7 +316,9 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
         
       // Expr
         case cst: pir.Constant[_] => cst
-        case ex: ExpressionSymbol[_] => ex
+        //case ex: ExpressionSymbol[_] => ex
+        case ex: ExpressionSymbol[_] => curSubs.getOrElse(ex, ex)
+        //case ex: ExpressionSymbol[_] => ex |> transformSym
         
       case PardisVarArg(v) => PardisVarArg(v |> transformFunArg)
       
@@ -331,38 +336,23 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
       case x => x |> toExpr
     }
     
-    def transformDef(d: Def[_]): Def[_] = apply(d) match {
-      case d: Def[_] => d
-    }
-    def transformBlock(b: Block): Block = {
-      ir.reifyBlock[Any] {
-        b.stmts foreach transformStm
-        b.res
-      }(b.tp)
-    }
-    def transformType(tp: TypeRep): TypeRep = tp
-    def transformStm(st: Stm): Stm = {
-      //println("Old stmt: "+st)
-      
-      val ir.Stm(sym, rhs) = st
-      val transformedSym = if (ir.IRReifier.findDefinition(sym).nonEmpty) {
-        // creates a symbol with a new name in order not to conflict with any existing symbol
-        ir.fresh(transformType(sym.tp))
-      } else {
-        //newSym(sym.asInstanceOf[Sym[Any]])
-        ir.fresh(transformType(sym.tp)).copyFrom(sym)(sym.tp)
+    def transformBlock(b: Block): ABlock = ir.reifyBlock[Any] {
+      def rec(sts: List[Stm]): Unit = sts match {
+        case ir.Stm(sym, rhs) :: sts =>
+          apply(rhs) match {
+            case d: Def[_] =>
+              ir._IRReifier.findSymbol(d)(d.tp) getOrElse (ir.Stm(sym, d)(sym.tp) |> ir.reflectStm)
+              // ^ Note: not renewing the symbol (I think it's unnecessary)
+              rec(sts)
+            case r: Rep =>
+              val e = r |> toExpr
+              withSubs(sym -> e)(rec(sts))
+          }
+        case Nil =>
       }
-
-      subst += sym -> transformedSym
-      val newdef = transformDef(rhs)
-
-      val stmt = ir.Stm(transformedSym, newdef)(transformedSym.tp)
-      
-      //println("New stmt: "+stmt)
-      
-      ir.reflectStm(stmt)
-      stmt
-    }
+      rec(b.stmts)
+      b.res |> apply |> toExpr
+    }(b.tp)
     
   }
   
@@ -464,15 +454,18 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
     debug(s"${"Rewriting" |> bold} $xtee ${"with" |> bold} $xtor")
     
-    //if (xtee.isInstanceOf[PardisVarArg]) return None // lolz
     xtee >>? { // TODO (?) :
       case (_:PardisVarArg)|(_:PardisLiftedSeq[_]) => return None
     }
     
-    def codeBlock(ex: Extract): Option[Block] = typedBlock(code(ex) getOrElse (return None)) |> some
+    def codeBlock(ex: Extract): Option[Block] = try typedBlock(code(ex) getOrElse (
+      return failExtrWith("Rewritten code could not be constructed successfully: returned None"))
+    ) |> some and (c => debug(s"Constructed code: ${c.get}")) catch {
+      case e: Throwable =>
+        failExtrWith(s"Rewritten code could not be constructed successfully: threw $e")
+        throw e }
     
     type Val = Sym
-    //type ListBlock = List[Stm] -> Rep
     type ListBlock = List[AStm] -> Expr
     
     def constructBlock(lb: ListBlock): ABlock = ir.reifyBlock[Any] {
@@ -483,10 +476,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     def toHole(from: Sym, to: Sym): Extract = {
       debug(s"TODO Should bind $from -> $to")
       // TODO handle xted bindings!
-      // TODO update rwr context
-      
-      rwrCtx += from -> to // TODO cleanup
-      
+      rwrCtx += from -> to // TODO cleanup, make reentrant
       EmptyExtract
     }
     
@@ -494,94 +484,91 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
       * then applying the associated `code` function and checking removed statements are not used later on in the list.
       * Note: we accumulate skipped pure statements in `pureStms` because we need to look at them to see if they refer to removed nodes
       * @return pure statements encountered and skipped, rewritten block output by `code`, rest of the statements */
-    def rec(ex: Extract, matchedVals: List[Val -> Val], pureStms: List[AStm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block, ListBlock)] =
+    def rec(ex: Extract, matchedVals: List[Val -> Val], pureStms: List[AStm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block -> Option[Val], ListBlock)] =
     debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2}") before nestDbg(xy match {
-      case (Nil -> r0, Nil -> r1) =>
-        for {
-          e <- extract(r0, r1)
-          //() = println(e)
-          m <- merge(e, ex)
-          //() = println(m)
-          () = debug(s"Constructing rewritten code with $m")
-          b <- codeBlock(m)
-        } yield (pureStms, b, Nil -> r1) // TODO update symbols!?
-      
-      case (x, ((ps @ ir.Stm(_, e1)) :: es1) -> r1) if e1 |> pure =>
+        
+      // Note: placing this here makes it very eager; it will skip pure statements instead of matching a $body xtor (not ideal)
+      case (x, ((ps @ ir.Stm(_, e1)) :: es1) -> r1) if (e1 |> pure) && matchedVals.nonEmpty =>
         rec(ex, matchedVals, ps :: pureStms)(x, es1 -> r1)
         
-        
       case ((ir.Stm(b0, e0) :: es0) -> r0, (ir.Stm(b1, e1) :: es1) -> r1) =>
-        //println("e0: "+e0)
-        //println("e1: "+e1)
         for {
           e <- extractDef(e0, e1)
           e <- merge(e, ex)
           hExtr = toHole(b1, b0)
-          //() = println(hExtr,h)
           e <- merge(e, hExtr)
-          //() = println(s"Extracting binder $b1: $hr")
-          es1i = es1
-          r1i = r1
-          ///*bl -> ls <-*/ ( rec(e, b1 :: matchedVals)(Nil -> r0, Nil -> b1) If (es0 isEmpty) Else None
-          //r <- ( (if (es0 isEmpty) rec(e, b1 :: matchedVals, pureStms)(Nil -> r0, Nil -> b1) map {case bl->(ls->r) => bl->((ls++es1i)->r1i) } else None)
-          r <- (
-            // TODO swap order so that code matching $body does not have to run rwr code twice
-            (if (es0 nonEmpty) None else {
-              
-              // TODO reschedule pure stmts at the right place........
-              
-              rec(e, b0 -> b1 :: matchedVals, pureStms)(Nil -> r0, Nil -> b1) flatMap {
-                case (ps,bl,(ls->r)) =>  // FIXME? what about r
-                  assert(ls isEmpty)
-                  val newStms = ls ++ es1i
-                  
-                  def removeStmts(acc: List[AStm])(toRm: Set[Val], from: List[AStm]): Option[List[AStm]] = /*println(s"To remove: $toRm from $from") before*/ from match {
-                    case st :: sts =>
-                      val refs = st.rhs.funArgs collect { case s: Sym => s } toSet;
-                      if (refs intersect toRm nonEmpty) {
-                        if (st.rhs |> pure) removeStmts(acc)(toRm + st.sym, sts)
-                        else None
-                      } else removeStmts(st :: acc)(toRm, sts)
-                    case Nil if r1i |>? {case s:Sym => toRm(s)} forall (!_) => Some(acc.reverse)
-                    case Nil => None
-                  }
-                  
-                  // TODO try to keep b1 bound..(how?)
-                  // Note: `pureStms` passed here are not correctly ordered and may refer to things bound later,
-                  // but they'll be ignored and only reintroduced if necessary at the end of the rewriteRep algo
-                  removeStmts(Nil)(matchedVals.unzip._2.toSet + b1, pureStms ++ newStms) map (newStms =>
-                    (ps, bl, newStms -> r1i))  // TODO look at r1i
-              }  //and (r => println("Maybe rewrote sequence to "+r))
-            })
-            orElse rec(e, b0 -> b1 :: matchedVals, pureStms)(es0 -> r0, es1i -> r1i)
-          )
+          
+          // Try to match the current xtor binding with the corresponding xtee binding, and proceed with the rest
+          r <- rec(e, b0 -> b1 :: matchedVals, pureStms)(es0 -> r0, es1 -> r1)
           
         } yield r
         
-      case (Nil -> r0, bl @ (ir.Stm(b, v) :: es) -> r1) =>
-        //  if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
+      case (Nil -> r0, bl @ sts -> r1) =>
         
-        for {
+        // Function to check that a set of bound vals are not used in a list of statements,
+        // trying to remove pure statements referring to them, and transitively
+        def removeStmts(acc: List[AStm])(toRm: Set[Val], from: List[AStm], fromRet: Expr): Option[List[AStm]] = debug(s"To remove: $toRm from $from ret $fromRet") before from match {
+          case st :: stms =>
+            val refs = st.rhs.funArgs collect { case s: Sym => s } toSet;
+            if (refs intersect toRm nonEmpty) {
+              if (st.rhs |> pure) debug(s"Getting rid of pure ${st.sym}") before removeStmts(acc)(toRm + st.sym, stms, fromRet)
+              else failExtrWith(s"Statement ${st.sym} references symbols in the remove set ${toRm}")
+            } else removeStmts(st :: acc)(toRm, stms, fromRet)
+          case Nil if fromRet |>? {case s:Sym => toRm(s)} forall (!_) => 
+            Some(acc.reverse)
+          case Nil => failExtrWith(s"Returned symbol ${fromRet} is in the remove set ${toRm}")
+        }
+        
+        debug(s"Matched $matchedVals; ret $r1")
+        debug(s"Skipped Pure $pureStms")
+        
+        // In case we're at the end of the xtor block, try to use its result to extrac the whole of the remaining xtee
+        // This implements eager matching, which allow things like `case ir" ... ; $body: $t "` to work and extract the full body.
+        (for {
+          
           e <- extract(r0, bl |> constructBlock)
           m <- merge(e, ex)
-          () = debug(s"Constructing rewritten code with $m")
+          () = debug(s"${Console.GREEN}Constructing bin-rewritten code with $m${Console.RESET}")
           //() = println(matchedVals)
           bindings = matchedVals collect {
             case a -> b if a.name contains NAME_SUFFIX =>
               b -> Hole(a.name splitAt (a.name indexOf NAME_SUFFIX) _1, b.tp)
           }
           //() = println(bindings)
-          b <- withSubs(bindings:_*) {codeBlock(m)}
-        } yield (pureStms, b, Nil -> r1) // TODO update symbols!? (r1)
+          b <- withSubs(bindings:_*) {codeBlock(m)} // TODO do that in other cases too!
+          
+          //pureStmsR = pureStms.reverse  // makes typechecking fail with arcane error...
+          _newStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet, pureStms/*.reverse*/ ++ b.stmts.asInstanceOf[List[AStm]], b.res) // FIXME pureStms here?
+          // ^ Note: `pureStms` passed here are not correctly ordered and may refer to things bound later,
+          // but they'll be ignored and only reintroduced if necessary at the end of the rewriteRep algo
+          
+        } yield (pureStms.reverse, b -> (r1 |>? {case s: Sym => s}), Nil -> b.res)
+          // ^ Q: _newStms instead of Nil?
+          
+        ) orElse { if (r0 |> isHole) None else { // If we're not in a $body-result xtor – we're not going to match the result, so it would be unsound if it had a hole
+          // If the above did not work, try only matching statements up to where we are currently in the xtee
+          // This implements sequential statements rewriting, which can operate in the middle of blocks
+          
+          debug(s"${Console.GREEN}Constructing seq-rewritten code with $ex${Console.RESET}")
+          debug(s"Matched $matchedVals; ret $r1")
+          
+          val matchedRet = matchedVals find (_._1 == r0) map (_._2)
+          //val matchedRet = matchedVals collect { case `r0`->bv => bv }  // Crashes Scalac!!
+          
+          removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms.reverse ++ sts, r1) flatMap { newStms =>
+            // ^ Note: `pureStms` passed here are not correctly ordered and may refer to things bound later,
+            // but they'll be ignored and only reintroduced if necessary at the end of the rewriteRep algo
+            
+            codeBlock(ex) map { bloc => (pureStms, bloc -> matchedRet, newStms -> r1) }
+            
+          }  and (r => debug("Maybe rewrote sequence to "+r))
+        }}
         
       case _ =>
-        debug("Rec reached None")
+        debug("Rec reached default case")
         None
         
     })
-    
-    // TODO rm:
-    def isHole(r: R[Any]) = r |>? { case Hole(_,_)|SplicedHole(_,_) => } isDefined
     
     def toBlock(x: Rep): Bool -> ListBlock = x match {
       case ir.Block(sts:List[AStm @unchecked], r) => true -> (sts -> r)
@@ -591,11 +578,11 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
         false -> ((ir.Stm[Any](f,d)(f.tp)::Nil) -> f)
     }
     
-    def process(xtor: ListBlock, xtee: ListBlock): List[Stm \/ Block] = {
+    def process(xtor: ListBlock, xtee: ListBlock): List[Stm \/ (Block -> Option[Val])] = {
       rec(EmptyExtract, Nil, Nil)(xtor, xtee) match {
-        case Some((ps, b, lb)) => Right(b) +: process(xtor, lb)
+        case Some((ps, b -> v, lb)) => Right(b -> v) +: process(xtor, lb)  // TODO use `ps`?
         case None => xtee match {
-          case (st :: sts) -> r => Left(st) :: process(xtor, sts -> r)  // FIXME no need to pass around the return?
+          case (st :: sts) -> r => Left(st) :: process(xtor, sts -> r)  // Note: no need to pass around the return?
           case Nil -> r => Nil
         }
       }
@@ -603,19 +590,46 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
     val (xteeWasBlock, xteeBlock) = xtee |> toBlock
     val processed = process(xtor |> toBlock _2, xteeBlock)
     
-    // Not sure really useful to make a distinction here; used to always wrap (then it'd get inlined later anyways)
-    def wrap(r: => Expr) = if (xteeWasBlock) ir.reifyBlock[Any](r)(xtee.typ) else r
     
     if (processed forall (_ isLeft)) none  // No RwR have kicked in
-    else wrap {
-      // TODO reintroduce pure stmts
-      processed foreach {
-        case Left(s: Stm) => ir.reflectStm(s)//(s.)
-        case Right(bl) =>
-          bl.stmts foreach (s => ir.reflectStm(s))
+    else {
+      
+      val sub = mutable.Map[Val,Rep]()
+      def addBinding(ft: Val -> Rep) = {  // lol, changing Rep to Expr crashes Scalac
+        sub += ft
+        // Support for transitivity:  (Q: really needed?)
+        for (f -> ft._1 <- sub; ft._2 -> t2 <- sub if t2 =/= ft._2) sub += f -> t2
       }
-      xteeBlock._2
-    } |> some
+      
+      val b = ir.reifyBlock[Any] {
+        // TODO reintroduce pure stmts
+        processed foreach {
+          case Left(s: Stm) => ir.reflectStm(s)//(s.)
+          case Right(bl -> v) =>
+            v foreach (_ -> bl.res |> addBinding)
+            //debug(s"Inlining with substitutions $sub, block: $bl")
+            bl.stmts foreach (s => ir.reflectStm(s))
+        }
+        xteeBlock._2
+      }(xtee.typ)
+      
+      //debug(s"Mapping: $sub")
+      //debug(s"Pre: $b")
+      
+      // Update all the references to rewritten statements blocks:
+      val b2 = bottomUpPartial(b){ case s:Sym => sub.getOrElse(s, s) }
+      
+      //debug(s"Post: $b2")
+      
+      // Not sure really useful to make a distinction here; used to always wrap (then it'd get inlined later anyways)
+      val r = if (xteeWasBlock) b2
+        else b2 |> toExpr // to inline the Block if necessary
+      
+      //debug(s"Res: $r")
+      
+      r
+      
+    } |> some and (r => debug(s"${"Rewrote:" |> bold} $r"))
     
   }
   
@@ -652,6 +666,8 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
   
   // * --- * --- * --- *  Other Implementations * --- * --- * --- *
   
+  
+  protected def isHole(r: R[Any]) = r |>? { case Hole(_,_)|SplicedHole(_,_) => } isDefined
   
   def block[T:IRType,C](q: => IR[T,C]) = `internal IR`[T,C](pardisBlock[T,C](q))
   def pardisBlock[T:IRType,C](q: => IR[T,C]) = ir.reifyBlock[T] { toExpr(q.rep).asInstanceOf[R[T]] }

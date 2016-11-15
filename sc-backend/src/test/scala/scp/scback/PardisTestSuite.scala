@@ -50,7 +50,7 @@ class PardisTestSuite extends MyFunSuiteTrait with DSLBindingTest {
       }
     }
     
-    assert(s0.size == s1.size)
+    assert(s0.size == s1.size, s"– sizes differ beteen:\n\t$s0\n\t$s1")
     s0 zip s1 foreach {
       case SC.Stm(_,rhs0:FunctionNode[_]) -> SC.Stm(_,rhs1:FunctionNode[_]) =>
         assert(rhs0.name == rhs1.name)
