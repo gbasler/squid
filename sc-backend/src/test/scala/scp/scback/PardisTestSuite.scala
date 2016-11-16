@@ -32,6 +32,7 @@ class PardisTestSuite extends MyFunSuiteTrait with DSLBindingTest {
   /** Compares the contents of blocks, ignoring symbols */
   def sameDefs(x: IR[_,_],y: IR[_,_], dbg: Bool = false): Unit = {
     if (dbg) println(s"Comparing:\n->\t$x\n->\t$y")
+    if (dbg) println(s"Which reps are:\n->\t${x.rep}\n->\t${y.rep}")
     val (s0,r0) = stmts_ret(x)
     val (s1,r1) = stmts_ret(y)
     sameDefs(s0,r0,s1,r1)

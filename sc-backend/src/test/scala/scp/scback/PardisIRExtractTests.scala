@@ -1,7 +1,8 @@
 package scp
 package scback
 
-import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs.Println
+import ch.epfl.data.sc._
+import pardis.deep.scalalib.ScalaPredefIRs.Println
 import scp.ir2.RewriteAbort
 import utils._
 import scp.ir2.{FixPointRuleBasedTransformer, SimpleRuleBasedTransformer, TopDownTransformer, FixPointTransformer}
@@ -94,6 +95,7 @@ class PardisIRExtractTests extends PardisTestSuite {
              ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}, _ transformWith Tr)
     
     // Update the Option to apply on the new `clear` statement!
+    //base debugFor 
     sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
              ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
     
@@ -156,6 +158,8 @@ class PardisIRExtractTests extends PardisTestSuite {
     
     
     
+    import pardis.shallow.scalalib.collection.Cont
+    
     object Tr2 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite {
         case ir"val s = Seq[$t]($xs*); s" =>
@@ -166,8 +170,20 @@ class PardisIRExtractTests extends PardisTestSuite {
     val a0 = ir{ val s = Seq(1,2,3);         println(s(0)); s.size }
     val ar = ir{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
     val a1 = a0 transformWith Tr2
-    
     sameDefs(a1, ar)
+    
+    
+    
+    object Tr3 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
+      rewrite {
+        case ir"val a = new Cont[Double]($n, null); new Cont[Double](n, a)" =>  // works as expected
+          ir{ new Cont($(n), null) }
+        case ir"val a = new Cont[Int]($n, null); val b = new Cont[Int](n, a); a" =>
+          ir{ new Cont($(n), null) }
+      }}
+    
+    // FIXME wrong ordering of the Option
+    //println(ir{ new Cont(42, new Cont(42, null)) } transformWith Tr3)
     
     
   }
@@ -208,11 +224,12 @@ class PardisIRExtractTests extends PardisTestSuite {
              ir{ ArrayBuffer(1,2,3).filter(_ > 0) })
     
     
-    // FIXME reinsert pure statements
-    //println(ir{val s = Seq(1,2,3); val f: Int => Bool = _>0; s.filter(f)} transformWith Tr)
-    //sameDefs(ir{ val s =         Seq(1,2,3); val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
-    //         ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
+    // Note: used to the reorder (the pure lambda statement was ignored and then reintroduced at the beginning)
+    sameDefs(ir{ val s = Seq(1,2,3);         val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
+             ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
     
+    sameDefs(ir{ val s =         Seq(1,2,3); val f: Int => Bool = _ > s.size; s.filter(f) } transformWith Tr,
+             ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > a.size; a.filter(f) })
     
     sameDefs(ir{ Seq(1,2,3)        .map(_ + 1)                        } transformWith Tr, 
              ir{ ArrayBuffer(1,2,3).map(_ + 1)(Seq.canBuildFrom[Int]) })
@@ -305,8 +322,8 @@ class PardisIRExtractTests extends PardisTestSuite {
     } transformWith Tr, ir{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
-      arr.clear
       val opt = Option(a1)
+      arr.clear
       println(opt)
     })
     
@@ -321,8 +338,8 @@ class PardisIRExtractTests extends PardisTestSuite {
     } transformWith Tr, ir{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
-      arr.clear
       val opt = Option(a1)
+      arr.clear
       opt
     })
     

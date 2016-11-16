@@ -22,7 +22,8 @@ trait DSLBindingTest {
   //object SC extends ir.Base with StringOps with NoStringCtor
   //object SC extends ir.Base with ArrayBufferOps with NumericOps with ScalaPredefOps
   //object SC extends ir.Base with NumericOps
-  object SC extends ir.Base with ScalaCoreOps with NoStringCtor
+  //object SC extends ir.Base with ScalaCoreOps with NoStringCtor
+  object SC extends ir.Base with ScalaCoreOps with NoStringCtor with ContOps
   
   object Sqd extends AutoboundPardisIR(SC) {
     
