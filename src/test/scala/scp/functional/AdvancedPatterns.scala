@@ -1,6 +1,9 @@
 package scp
 package functional
 
+// TODO port Pattern Alternation
+/*
+
 import ir._
 import PatternAlternation._
 
@@ -58,5 +61,6 @@ object AdvancedPatterns {
   object DSL extends AST with MyDSL with lang.ScalaTyping with PatternAlternation
   
 }
+*/
 
 

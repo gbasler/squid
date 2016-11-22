@@ -1,10 +1,13 @@
 package scp
 package functional
 
+// TODO port OtherRep?
+/*
 import lang._
 import quasi._
 import ir._
 import utils._
+
 
 class Dict[A](val entries: Map[Symbol, A])
 object Dict {
@@ -86,6 +89,7 @@ object PartiallyEvaluatedStructures {
     
   }
 }
+*/
 
 
 

@@ -1,8 +1,6 @@
 package scp
 package feature
 
-import scp.lang.ScalaTyping
-
 class Binders extends MyFunSuite2 {
   import TestDSL2.Predef._
   

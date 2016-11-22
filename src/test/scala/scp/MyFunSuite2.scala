@@ -1,7 +1,6 @@
 package scp
 
 import org.scalatest.FunSuite
-import scp.lang.Base
 import scp.ir2.AST
 import scp.lang2.InspectableBase
 import utils.meta.RuntimeUniverseHelpers.sru

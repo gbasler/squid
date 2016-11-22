@@ -41,6 +41,7 @@ self: Base =>
   sealed case class IR[+T, -C] private[quasi2] (rep: Rep) extends TypeErased with ContextErased {
     type Typ <: T
     type Ctx >: C
+    
     override def equals(that: Any): Boolean = that match {
       case that: IR[_,_] => rep =~= that.rep
       case _ => false

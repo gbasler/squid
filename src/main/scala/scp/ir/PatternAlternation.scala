@@ -1,5 +1,6 @@
 package scp
 package ir
+/*
 import scp.lang.Precedence
 
 trait PatternAlternation extends AST {
@@ -44,4 +45,5 @@ object PatternAlternation {
     def | (that: A) = throw new IllegalAccessError("This method is not supposed to be called directly.")
   }
 }
+*/
 
