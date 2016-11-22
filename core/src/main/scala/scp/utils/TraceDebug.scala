@@ -9,7 +9,12 @@ trait TraceDebug {
   
   protected def debug(x: => Any) = if (debugEnabled) {
     val lines = x.toString.splitSane('\n')
-    println(lines map (s"${Debug.GREY}| ${Console.RESET}" * indent + _) mkString "\n")
+    val pre = "| " * indent
+    println(lines map ((if (pre nonEmpty) Debug.GREY + pre + Console.RESET else "") + _) mkString "\n")
+  }
+  protected def debugVisible(x: => Any) = if (debugEnabled) {
+    val lines = s"$x".splitSane('\n')
+    println(lines map (Console.RED + "| " * indent + ">> " + Console.RESET + Console.BOLD + _) mkString s"${Console.RESET}\n")
   }
   
   @inline final def setDebugFor[T](enabled: Boolean)(x: => T): T = {

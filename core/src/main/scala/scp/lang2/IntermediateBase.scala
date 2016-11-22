@@ -36,6 +36,9 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def subs[T1,C1](s: => (Symbol, IR[T1,C1])): IR[Typ,_ >: Ctx] = macro quasi2.QuasiMacros.subsImpl[T1,C1]
     @MacroSetting(debug = true) def dbg_subs[T1,C1](s: => (Symbol, IR[T1,C1])): IR[Typ,_ >: Ctx] = macro quasi2.QuasiMacros.subsImpl[T1,C1]
     
+    def reinterpretIn(newBase: Base): newBase.IR[Typ,Ctx] =
+      newBase.`internal IR`(newBase.wrapConstruct( reinterpret(self.rep, newBase)(DefaultExtrudedHandler) ))
+    
     def run(implicit ev: {} <:< Ctx): Typ = {
       val Inter = new ir2.BaseInterpreter
       reinterpret(self.rep, Inter)().asInstanceOf[Typ]

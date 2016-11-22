@@ -351,6 +351,7 @@ abstract class PardisIR(val ir: pardis.ir.Base) extends Base with ir2.RuntimeSym
               withSubs(sym -> e)(rec(sts))
           }
         case Nil =>
+        case _ => wtf // Scala spurious warning
       }
       rec(b.stmts)
       b.res |> apply |> toExpr

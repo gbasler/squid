@@ -77,7 +77,7 @@ lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(
     libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
   ).
-  dependsOn(core)
+  dependsOn(main)
 lazy val scBackend = (project in file("sc-backend")).
   dependsOn(scBackendMacros).
   dependsOn(main % "test->test").
