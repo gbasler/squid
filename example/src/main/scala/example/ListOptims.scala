@@ -1,10 +1,10 @@
 package example
 
-import scp._
+import squid._
 import utils._
-import ir2._
+import ir._
+import squid.lang.Optimizer
 import utils.Debug.show
-import scp.lang2.Optimizer
 
 /**
   * Created by lptk on 15/09/16.

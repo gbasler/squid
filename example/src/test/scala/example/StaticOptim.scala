@@ -1,7 +1,7 @@
 package example
 
-import scp._
-import scp.ir2.{BindingNormalizer, TopDownTransformer}
+import squid._
+import squid.ir.{BindingNormalizer, TopDownTransformer}
 import utils._
 
 /**

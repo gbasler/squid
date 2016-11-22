@@ -1,4 +1,4 @@
-package scp
+package squid
 
 case class HPair[+A](first: A, second: A) {
   

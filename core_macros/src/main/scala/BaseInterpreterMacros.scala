@@ -1,5 +1,5 @@
-package scp
-package ir2
+package squid
+package ir
 
 object BaseInterpreterMacros {
   

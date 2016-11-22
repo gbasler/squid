@@ -1,9 +1,9 @@
 package example
 
-import scp._
+import squid._
 import utils._
-import ir2._
-import scp.lang2.Optimizer
+import ir._
+import squid.lang.Optimizer
 import utils.Debug.show
 
 

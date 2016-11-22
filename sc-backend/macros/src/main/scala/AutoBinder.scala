@@ -1,17 +1,18 @@
-package scp
+package squid
 package scback
 
 import collection.mutable
 import ch.epfl.data.sc._
 import ch.epfl.data.sc.pardis.deep.scalalib.collection.ArrayBufferIRs.ArrayBuffer
 import pardis.ir.{ANFNode, Base}
-import scp.utils._
+import squid.utils._
 
 import scala.language.experimental.macros
 import scala.reflect.macros.TypecheckException
 import meta.RuntimeUniverseHelpers.sru
+import squid.lang
 
-class AutoBinder[B <: pardis.ir.Base, SB <: lang2.Base](val _b_ : B, val _sb_ : SB) {
+class AutoBinder[B <: pardis.ir.Base, SB <: lang.Base](val _b_ : B, val _sb_ : SB) {
   
   /** type argss for self's type, method type args, method args */
   type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]  // currently returns Rep because it uses the implicit Rep class methods
@@ -24,7 +25,7 @@ class AutoBinder[B <: pardis.ir.Base, SB <: lang2.Base](val _b_ : B, val _sb_ : 
 /** TODO also bind method for deep companion objects */
 object AutoBinder {
   
-  def apply(base: Base, sb: lang2.Base): AutoBinder[base.type,sb.type] = macro applyImpl
+  def apply(base: Base, sb: lang.Base): AutoBinder[base.type,sb.type] = macro applyImpl
   
   import scala.reflect.macros.blackbox
   def applyImpl(c: blackbox.Context)(base: c.Tree, sb: c.Tree) = {
@@ -200,7 +201,7 @@ object AutoBinder {
     object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
     import Helpers.{encodedTypeSymbol, RepeatedParamClass}
     
-    import quasi2.{MetaBases, ModularEmbedding}
+    import quasi.{MetaBases, ModularEmbedding}
     object MBM extends MetaBases {
       val u: c.universe.type = c.universe
       //def freshName(hint: String) = c.freshName(TermName(hint))

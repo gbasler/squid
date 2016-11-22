@@ -1,8 +1,8 @@
 package example
 
-import scp._
+import squid._
 import utils._
-import ir2._
+import ir._
 import utils.Debug.show
 
 /**
@@ -13,7 +13,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
   
-  import scp.lib.Var
+  import squid.lib.Var
   
   rewrite {
     
