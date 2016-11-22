@@ -1,6 +1,10 @@
 package scp
 package ir
 
+// TODO port for SimpleANF
+
+/*
+
 import utils._
 import ir2._
 
@@ -46,7 +50,7 @@ class ANFOnlineRewritingTests extends MyFunSuite2(ANFRewritingTests.OnlineOptDSL
   
   test("Rewrites ?") {
     
-    ///*
+    ///_*_
     //TODO test
     //val x = ir"val r = readInt.toDouble; () => r+1" // ok
     //val x = ir"val r = readInt.toDouble; ((x:Unit) => r+1)(())" // ok
@@ -89,7 +93,7 @@ class ANFOnlineRewritingTests extends MyFunSuite2(ANFRewritingTests.OnlineOptDSL
     //System exit 0
     
     x eqt ir"val a = readDouble; a * a"
-    //*/
+    //_*_/
     
     val y =
       base.TranformerDebug debugFor 
@@ -151,3 +155,4 @@ class ANFOnlineNormRewritingTests extends MyFunSuite2(ANFRewritingTests.OnlineOp
     
   
 }
+*/

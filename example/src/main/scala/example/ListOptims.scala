@@ -89,7 +89,7 @@ object ListOptimTestsOnline extends App {
 
 
 object ListOptimTestsANF extends App {
-  object DSL extends ANF
+  object DSL extends SimpleANF
   import DSL.Predef._
   import DSL.Quasicodes._
   
@@ -105,18 +105,18 @@ object ListOptimTestsANF extends App {
   //  f(List(1,2,3))
   //}
   
-  //show(pgrm)
-  show(pgrm rep)
+  //show(pgrm rep)
+  show(pgrm)
   
   pgrm = pgrm transformWith Optim
-  show(pgrm)
+  
   //show(pgrm rep)
+  show(pgrm)
   
   //pgrm = pgrm transformWith Optim
   //show(pgrm)
   
   //show(pgrm.run)
-  
   
 }
 

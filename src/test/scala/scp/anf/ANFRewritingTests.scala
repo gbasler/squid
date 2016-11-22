@@ -1,6 +1,10 @@
 package scp
 package ir
 
+// TODO port for SimpleANF
+
+/*
+
 import ir2._
 
 object ANFRewritingTests {
@@ -115,7 +119,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
   test("Nested Blocks") {
     // TODO test
     var w = ir"() => readInt.toDouble"
-    ///*
+    ///_*_
     w = w transformWith Trans
     //println(w)
     //println(w rep)
@@ -162,7 +166,7 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
     //println(w rep)
     
     //System exit 0
-    //*/
+    //_*_/
     
     var x = ir"Math.pow(((x:Unit) => readInt.toDouble)(Unit), 2)"
     x = x transformWith Trans
@@ -252,4 +256,5 @@ class ANFRewritingTests extends MyFunSuite2(ANFRewritingTests.DSL) {
   
   
 }
+*/
 

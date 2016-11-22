@@ -77,14 +77,14 @@ object TupleVarOptimTests extends App {
   pgrm = pgrm transformWith Optim
   show(pgrm)
   
-  show(pgrm.run)
+  //show(pgrm.run)
   
   
 }
 
 
 object TupleVarOptimTestsANF extends App {
-  object DSL extends ANF
+  object DSL extends SimpleANF
   import DSL.Predef._
   import DSL.Quasicodes._
   
@@ -96,13 +96,15 @@ object TupleVarOptimTestsANF extends App {
     t._1 to t._2
   }
   
-  show(pgrm rep)
-  //show(pgrm)
+  //show(pgrm rep)
+  show(pgrm)
   
   pgrm = pgrm transformWith Optim
   
-  show(pgrm rep)
+  //show(pgrm rep)
   show(pgrm)
+  
+  //show(pgrm.run)
   
   
 }
