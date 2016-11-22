@@ -6,6 +6,7 @@ import utils._
 import ir2.Variance
 import scp.utils.TraceDebug
 
+/* TODO proper error if user tries to do QQ matching with a Base that does not extend this */
 trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceDebug { baseSelf =>
   
   type Rep <: AnyRef  // AnyRef bound so we can 'eq' them and optimize traversals that leave subtrees identical
@@ -23,6 +24,12 @@ trait InspectableBase extends IntermediateBase with quasi2.QuasiBase with TraceD
   
   protected def extract(xtor: Rep, xtee: Rep): Option[Extract]
   protected def spliceExtract(xtor: Rep, t: Args): Option[Extract]
+  
+  val Const: ConstAPI
+  trait ConstAPI extends super.ConstAPI {
+    def unapply[T: IRType](ir: IR[T,_]): Option[T]
+  }
+  
   
   /** The top-level function called by quasiquotes extractors */
   def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = {

@@ -212,8 +212,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   object Const extends ConstAPI {
     import meta.RuntimeUniverseHelpers.sru
-    def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T] = dfn(ir.rep) match {
-      case cst @ Constant(v) if cst.typ <:< sru.typeTag[T].tpe => Some(v.asInstanceOf[T])
+    def unapply[T: IRType](ir: IR[T,_]): Option[T] = dfn(ir.rep) match {
+      case cst @ Constant(v) if typLeq(cst.typ, irTypeOf[T].rep) => Some(v.asInstanceOf[T])
       case _ => None
     }
   }
@@ -402,7 +402,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           
             /** It should not be necessary to match return types, knowing that we already match all term and type arguments.
               * On the other hand, it might break legitimate things like (()=>42).apply():Any =~= (()=>42:Any).apply(),
-              * in which case the return type of .apply is Int inthe former and Any in the latter, but everything else is equivalent */
+              * in which case the return type of .apply is Int in the former and Any in the latter, but everything else is equivalent */
             //rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
             rt = EmptyExtract
           

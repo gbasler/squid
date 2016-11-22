@@ -33,6 +33,7 @@ trait ASTReinterpreter { ast: AST =>
     protected def apply(d: Def): newBase.Rep = d match {
         
       case cnst @ Constant(v) => newBase.const(v)
+      case LetIn(bv, vl, body) => newBase.letin(bv |> recv, apply(vl), apply(body), rect(body.typ))
       case Abs(bv, body) if bv.name == "$BYNAME$" => newBase.byName(apply(body))
       case Abs(bv, body) =>
         bv.typ.tpe match {

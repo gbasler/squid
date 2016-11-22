@@ -33,9 +33,8 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   
   val Const: ConstAPI
-  trait ConstAPI { // TODO put in InspectableBase!
-    def apply[T: sru.TypeTag](v: T): IR[T,{}] = `internal IR`(const(v))  // TODO rm TypeTag
-    def unapply[T: sru.TypeTag](ir: IR[T,_]): Option[T]  // TODO make it IRType?
+  trait ConstAPI {
+    def apply[T: IRType](v: T): IR[T,{}] = `internal IR`(const(v))
   }
   
   
@@ -75,7 +74,7 @@ trait Base extends TypingBase with quasi2.QuasiBase {
   
   
   
-  sealed trait ArgList {
+  sealed trait ArgList extends Product with Serializable {
     def reps: Seq[Rep]
     //def extract(al: ArgList): Option[Extract] = (this, al) match {
     //  case (a0: Args, a1: Args) => a0 extract a1

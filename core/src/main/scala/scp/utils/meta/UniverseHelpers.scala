@@ -103,7 +103,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case TypeRef(_, Fun3Sym, _::_::_::ret::Nil) => ret
       case TypeRef(_, Fun4Sym, _::_::_::_::ret::Nil) => ret
       case TypeRef(_, Fun5Sym, _::_::_::_::_::ret::Nil) => ret
-      case _ => null // converted to None by Option
+      case _ => null // converted to None by `Option`
     })
     
     def apply(params: Type*)(ret: Type) = internal.typeRef(scalaPackage, symbol(params.size), params :+ ret toList)
@@ -115,7 +115,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case 3 => Fun3Sym
       case 4 => Fun4Sym
       case 5 => Fun5Sym
-      case _ => throw new UnsupportedOperationException(s"Function type of arity $arity > 5")
+      case _ => throw new UnsupportedOperationException(s"Function type of arity $arity not between 0 and 5")
     }).asType
     
   }

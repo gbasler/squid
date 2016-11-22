@@ -18,7 +18,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   def reinterpret(r: Rep, newBase: Base)(extrudedHandle: (BoundVal => newBase.Rep) = DefaultExtrudedHandler): newBase.Rep
   
   //override def showRep(r: Rep) = showScala(r)
-  private var showing = false
+  @volatile private var showing = false
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
   def showScala(r: Rep) = sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?"))) )
   
@@ -35,6 +35,9 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     import scala.language.experimental.macros
     def subs[T1,C1](s: => (Symbol, IR[T1,C1])): IR[Typ,_ >: Ctx] = macro quasi2.QuasiMacros.subsImpl[T1,C1]
     @MacroSetting(debug = true) def dbg_subs[T1,C1](s: => (Symbol, IR[T1,C1])): IR[Typ,_ >: Ctx] = macro quasi2.QuasiMacros.subsImpl[T1,C1]
+    
+    def reinterpretIn(newBase: Base): newBase.IR[Typ,Ctx] =
+      newBase.`internal IR`(newBase.wrapConstruct( reinterpret(self.rep, newBase)(DefaultExtrudedHandler) ))
     
     def run(implicit ev: {} <:< Ctx): Typ = {
       val Inter = new ir2.BaseInterpreter

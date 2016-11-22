@@ -41,6 +41,7 @@ self: Base =>
   sealed case class IR[+T, -C] private[quasi2] (rep: Rep) extends TypeErased with ContextErased {
     type Typ <: T
     type Ctx >: C
+    
     override def equals(that: Any): Boolean = that match {
       case that: IR[_,_] => rep =~= that.rep
       case _ => false
@@ -121,6 +122,7 @@ self: Base =>
   type Extract = (Map[String, Rep], Map[String, TypeRep], Map[String, Seq[Rep]])
   type Extract_? = Extract |> Option
   final val EmptyExtract: Extract = (Map(), Map(), Map())
+  final val SomeEmptyExtract: Option[Extract] = EmptyExtract |> some
   @inline final def mkExtract(rs: String -> Rep *)(ts: String -> TypeRep *)(srs: String -> Seq[Rep] *): Extract = (rs toMap, ts toMap, srs toMap)
   @inline final def repExtract(rs: String -> Rep *): Extract = mkExtract(rs: _*)()()
   

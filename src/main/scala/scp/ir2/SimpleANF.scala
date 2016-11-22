@@ -179,7 +179,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
   }
   
-  /* TODO flexible spliced holes */
+  /* TODO flexible spliced holes
+   * TODO consecutive mutable statement matching like in PardisIR */
   /** Rewrites a Rep by applying a rewriting on the corresponding ANF block;
     * aborting the rewriting if it removes Vals still used later on. */
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
@@ -241,7 +242,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         // TODO also try eating less code? (backtracking)
         extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap code
         
-      // Matching a whole block with a single hole
+      // Matching an arbitrary expression of a block with the last expression of an xtor
+      // -- rewriting can happen in the middle of a Block, and then we have to ensure later terms do not reference removed bindings
       case (Nil -> r0, (Left(b -> v) :: es) -> r1) =>
         for {
           e <- extract(r0, v)

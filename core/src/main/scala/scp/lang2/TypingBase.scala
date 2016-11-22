@@ -24,7 +24,7 @@ trait TypingBase { self: Base =>
   
   final def staticModuleType(fullName: String): TypeRep = staticTypeApp(loadTypSymbol(fullName+"$"), Nil)
   
-  implicit class RepOps(private val self: TypeRep) {
+  implicit class TypingRepOps(private val self: TypeRep) {
     def <:< (that: TypeRep) = typLeq(self, that)
     def =:= (that: TypeRep) = typEq(self, that)
   }
