@@ -429,6 +429,26 @@ class PardisIRExtractTests extends PardisTestSuite {
   }
   
   
+  test("Hole in Statement Position") {
+    
+    val pgrm = ir"ArrayBuffer[Int]().size"
+    sameDefs( pgrm rewrite {
+      case ir"val hm: ArrayBuffer[Int] = $init; $body: Int"
+      if stmts(body).headOption exists (_.rhs.nodeName != "ArrayBufferApply") =>  // prevents non-convergence of the RwR
+        ir"$init(0)"
+    }, ir"ArrayBuffer[Int]()(0)")
+    
+  }
+  
+  
+  test("Hole in Pure Position") {
+    
+    // TODO
+    
+    
+  }
+  
+  
   
   
   

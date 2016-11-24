@@ -49,8 +49,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   case class New[A](_tp: TR[A]) extends Expression[A]()(_tp)
   
-  case class Hole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp)
-  case class SplicedHole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp)
+  sealed trait AnyHole[A] extends Expression[A] { val name: String }
+  case class Hole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp) with AnyHole[A]
+  case class SplicedHole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp) with AnyHole[A]
+  
+  case class HoleDef[A](h: AnyHole[A]) extends PardisNode[A]()(h.tp)
+  
   
   case class TypeHole[A](name: String) extends PardisType[A] {
     def rebuild(newArguments: TR[_]*): TR[_] = this
@@ -99,6 +103,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     typedBlock( 
       value match {
         case d: Def[_] =>  // Def <=> PardisNode
+          sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
+          body
+        case h:AnyHole[_] => // todo generalize
+          val d = HoleDef(h)
           sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
           body
         case e: Expr => withSubs(bound -> e)(body)
@@ -410,6 +418,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           ass <- mergeAll( (f0.funArgs zipAnd f1.funArgs)(_ extract _) )
           e <- merge(e, ass)
         } yield e
+      case (HoleDef(h), _) => extract(h, xtee)
       case (f0: pir.PardisNode[_], f1: pir.PardisNode[_]) =>
         if (f0.nodeName =/= f1.nodeName) failExtrWith(s"Different names: ${f0.nodeName} =/= ${f1.nodeName}")
         else mergeAll( (f0.funArgs zipAnd f1.funArgs)(_ extract _) )
