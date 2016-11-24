@@ -41,7 +41,13 @@ trait RuntimeSymbols {
     val root = if (path.head endsWith "$") srum.staticModule(path.head.init) else srum.staticClass(path.head)
     val res = path.tail.foldLeft(root) {
       case (s, name) if name.endsWith("$") => s.asType.toType.member(sru.TermName(name.init))
-      case (s, name) => s.asType.toType.member(sru.TypeName(name))
+      case (s, name) => 
+        if (s.isType) s.asType.toType.member(sru.TypeName(name))
+        else {
+          assert(s.isModule)
+          // If `s` is an object, look at its type signature...
+          s.typeSignature.member(sru.TypeName(name))
+        }
     }
     (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) and (x => debug(s"Loaded: $x"))
   }

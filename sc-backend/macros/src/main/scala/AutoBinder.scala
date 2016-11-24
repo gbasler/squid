@@ -11,6 +11,9 @@ import scala.language.experimental.macros
 import scala.reflect.macros.TypecheckException
 import meta.RuntimeUniverseHelpers.sru
 import squid.lang
+import utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
+
+import scala.reflect.macros.whitebox
 
 class AutoBinder[B <: pardis.ir.Base, SB <: lang.Base](val _b_ : B, val _sb_ : SB) {
   
@@ -18,6 +21,9 @@ class AutoBinder[B <: pardis.ir.Base, SB <: lang.Base](val _b_ : B, val _sb_ : S
   type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]  // currently returns Rep because it uses the implicit Rep class methods
   //type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => ANFNode   // TODO call the Def-making methods instead
   
+  implicit def coerceRep[A](r: _b_.Rep[_]): _b_.Rep[A] = r.asInstanceOf[_b_.Rep[A]]
+  implicit def coerceTypeRep[A](tp: _b_.TypeRep[_]): _b_.TypeRep[A] = tp.asInstanceOf[_b_.TypeRep[A]]
+      
   val map = mutable.Map[_sb_.MtdSymbol, MtdMaker]()
   
 }
@@ -26,13 +32,17 @@ class AutoBinder[B <: pardis.ir.Base, SB <: lang.Base](val _b_ : B, val _sb_ : S
 object AutoBinder {
   
   def apply(base: Base, sb: lang.Base): AutoBinder[base.type,sb.type] = macro applyImpl
+  @MacroSetting(debug = true) def dbg(base: Base, sb: lang.Base): AutoBinder[base.type,sb.type] = macro applyImpl
   
   import scala.reflect.macros.blackbox
-  def applyImpl(c: blackbox.Context)(base: c.Tree, sb: c.Tree) = {
+  def applyImpl(c: blackbox.Context)(base: c.Tree, sb: c.Tree): c.Tree = {
     import c.universe._
     
+    val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
+    
     //var n = 0; def disp(x: Any) = x oh_and println(s"$n> $x") oh_and (n += 1)
-    def disp(x: Any) = x
+    //def disp(x: Any) = x
+    def disp(x: Any) = debug(x)
     
     val anyMem = typeOf[AnyRef].members.toSet
     
@@ -95,6 +105,8 @@ object AutoBinder {
       if mem.isType && name.startsWith(ignorePrefix)
       mtdName = name drop ignorePrefix.length
     } yield mtdName).toSet
+    
+    debug("IGNORING: "+ignore)
     
     
     type E = Either[ClassSymbol, Tree]
@@ -222,7 +234,8 @@ object AutoBinder {
         Nil
         
       case typ -> ((trunk,mtd) -> Some(origMtd))
-      if !ignore(origMtd.fullName)
+      if !ignore(origMtd.fullName) && !ignore(origMtd.owner.fullName)
+      && !ignore(mtd.fullName) && !ignore(mtd.owner.fullName)
       =>
         val t = modEmb.loadTypSymbol(encodedTypeSymbol(origMtd.owner.asType))
         val m = modEmb.getMtd(t, origMtd.asMethod.asInstanceOf[modEmb.uni.MethodSymbol])
@@ -233,10 +246,12 @@ object AutoBinder {
         }
         
         val tpSyms = typ.typeArgs map (_.typeSymbol)
-        val saneTyp = typ.substituteTypes(tpSyms, tpTops)
+        val originalType = typ
+        //val saneTyp = internal.typeRef(originalType.typeSymbol.owner.asType.toType, originalType.typeSymbol, tpTops)
         
         // TODO factor with code in `findCorrespondingShallow`
-        val tparamTops = mtd.typeParams map { case TypeBounds(a,b) => b  case _ => typeOf[Any] }
+        val tparamTops = mtd.typeParams map (_ typeSignature) map { case TypeBounds(a,b) => b  case _ => typeOf[Any] }
+        //disp("MTD: "+mtd); disp("TPT: "+tparamTops)
         val explicitParams = mtd.paramLists collect { case ps if ps.headOption map (p => !p.isImplicit) getOrElse true => ps }
         val paramTypes = explicitParams map (_ map (_ typeSignature))
         def saneParams(offset: Int) = paramTypes.zipWithIndex map {case ps->j => ps.zipWithIndex.map {
@@ -244,6 +259,7 @@ object AutoBinder {
             assert(j == paramTypes.indices.last) // For convenience, assume the repeated argument is the very last argument in the argument lists
             q"rs.drop(${j+i+offset}).asInstanceOf[List[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]]: _*"
           case pt->i => q"rs(${j+i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]"
+            // ^ Note: asInstanceOf is necessary here as Scala will not be able to infer some of the tricky argument types
         }}
         
         val overloadPrefix = "overload"
@@ -262,9 +278,10 @@ object AutoBinder {
         trunk match {
             
           case Left(cls) =>
-            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => new _b_.${cls.name}[..${tpTops}](rs(0).asInstanceOf[_b_.Rep[${saneTyp}]])(...${
+            // Used to be `(rs(0).asInstanceOf[_b_.Rep[${saneTyp}]])`, but now `coerceRep` does it for us.
+            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => new _b_.${cls.name}[..${tpTops}](rs(0))(...${
               if (tpTops.isEmpty) Nil
-              else List(tpTops.zipWithIndex map {case tp->i => q"ts($i).asInstanceOf[_b_.TypeRep[$tp]]"})
+              else List(tpTops.zipWithIndex map {case tp->i => q"ts($i)"})
             }).${mtd.name}(...${ saneParams(1) })(...${ implArgs(q"ts2") }))" :: Nil
             
           case Right(pre) =>
@@ -279,9 +296,12 @@ object AutoBinder {
         
     }
     
-    val ret = q"new AutoBinder[${base.tpe}, ${sb.tpe}]($base,$sb) { ..${MB.mkSymbolDefs}; ..$fillingCode }"
+    val ret = q"""new AutoBinder[${base.tpe}, ${sb.tpe}]($base,$sb) {
+      ..${MB.mkSymbolDefs}; ..$fillingCode
+    }"""
     
-    println(s"Generated: ${showCode(ret)}")
+    debug(s"Generated: ${showCode(ret)}")
+    println(s"Generated AutoBinder: ${showCode(ret).count(_ == '\n')} lines of code for ${allClasses.size} deep methods.")
     
     ret
   }
