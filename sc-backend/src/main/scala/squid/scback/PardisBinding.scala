@@ -6,31 +6,29 @@ import ch.epfl.data.sc._
 import pardis._
 import deep.scalalib._
 import deep.scalalib.collection._
+import PardisBinding._
 
+import ch.epfl.data.sc.pardis
+import pardis.deep.scalalib.collection.SeqOps
 
-trait DSLBindingTest {
-  trait NoStringCtor {
+/**
+  * Created by lptk on 22/11/16.
+  */
+object PardisBinding {
+  
+  trait NoStringCtor { self: ir.Base =>
     /** For some unfathomable reason, there are 16 String ctors at compile time, but reflection only shows 15.
       * The one that's missing is {{{(x$1: Array[Char], x$2: Boolean)String}}}, which does not even appear in the Java
       * docs or in Java source. Scala-compiler hack? */
     type `ignore java.lang.String.<init>`
   }
   
-  //object SC extends ir.Base
-  //object SC extends ir.Base with SeqOps
-  //object SC extends ir.Base with ArrayBufferOps
-  //object SC extends ir.Base with StringOps with NoStringCtor
-  //object SC extends ir.Base with ArrayBufferOps with NumericOps with ScalaPredefOps
-  //object SC extends ir.Base with NumericOps
-  //object SC extends ir.Base with ScalaCoreOps with NoStringCtor
-  object SC extends ir.Base with ScalaCoreOps with NoStringCtor with ContOps
-  
-  object Sqd extends AutoboundPardisIR(SC) {
+  trait DefaultRedirections[DSL <: pardis.ir.Base] extends squid.lang.Base { self: AutoboundPardisIR[DSL] => //with SeqOps =>
     
     lazy val SeqApplySymbol = loadMtdSymbol(loadTypSymbol("scala.collection.generic.GenericCompanion"), "apply", None)
     
     // Special-case some problematic methods:
-    override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = mtd match {
+    abstract override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = mtd match {
         
       case SeqApplySymbol if baseName(tp) == "Seq" =>  // distinguish from an `apply` on `ArrayBuffer`
         val ta :: Nil = targs
@@ -45,12 +43,4 @@ trait DSLBindingTest {
     }
   }
   
-  /*_*/
-  Sqd.ab = {
-    import scala.collection.mutable.ArrayBuffer
-    AutoBinder(SC, Sqd)
-  }
-  /*_*/
-  
 }
-

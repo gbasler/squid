@@ -8,7 +8,7 @@ import ch.epfl.data.sc.pardis.ir.PardisNode
 import ch.epfl.data.sc.pardis.ir.PardisVarArg
 import squid.utils._
 
-class PardisTestSuite extends MyFunSuiteTrait with DSLBindingTest {
+class PardisTestSuite extends MyFunSuiteTrait with DSLBinding {
   val DSL: Sqd.type = Sqd
   
   import Sqd.Predef._
@@ -17,8 +17,9 @@ class PardisTestSuite extends MyFunSuiteTrait with DSLBindingTest {
   
   // Helper Methods
   
-  def stmts_ret(x: IR[_,_]) = x.rep match {
+  def stmts_ret(x: IR[_,_]): List[Sqd.Stm] -> Sqd.Expr = x.rep match {
     case SC.Block(sts, r) => sts -> r
+    case _ => stmts_ret(Sqd.`internal IR`(Sqd.typedBlock(x.rep)))
   }
   def stmts(x: IR[_,_]) = stmts_ret(x)._1
   def ret(x: IR[_,_]) = stmts_ret(x)._2

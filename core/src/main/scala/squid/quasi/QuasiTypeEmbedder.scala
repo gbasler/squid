@@ -3,7 +3,6 @@ package quasi
 
 import utils._
 import squid.lang.Base
-import squid.quasi.EmbeddingException
 
 /* TODO: make it work with intermediate bases (eg: `ViaASTQuasiConfig`) */
 abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <: Base](val c: C, val base: B, debug: String => Unit) {

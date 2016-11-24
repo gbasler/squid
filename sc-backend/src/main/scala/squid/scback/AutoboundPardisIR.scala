@@ -25,6 +25,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   /** TODO a general solution to by-name parameters */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println("METHOD "+mtd+" in "+mtd.owner)
+    assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialize.")
     
     mtd match {
         
