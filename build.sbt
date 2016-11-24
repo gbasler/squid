@@ -30,6 +30,9 @@ lazy val main = (project in file(".")).
   dependsOn(core % "test->test").
   settings(commonSettings: _*).
   settings(
+    name := "squid"
+  ).
+  settings(
     // other settings here
     addCommandAlias("bench", "benchmark/run"): _*
   )
@@ -38,19 +41,22 @@ lazy val core = (project in file("core")).
   dependsOn(core_macros).
   settings(commonSettings: _*).
   settings(
+    name := "squid-core",
     libraryDependencies += scalaReflect.value,
     libraryDependencies += scalaCompiler.value,
     // other settings here
     //libraryDependencies += "ch.epfl.lamp" % "scala-yinyang_2.11" % "0.2.0-SNAPSHOT",
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _),
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _),
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _)
+    libraryDependencies += scalaVersion("org.scala-lang" % "scala-reflect" % _).value,
+    libraryDependencies += scalaVersion("org.scala-lang" % "scala-library" % _).value,
+    libraryDependencies += scalaVersion("org.scala-lang" % "scala-compiler" % _).value,
+    publishArtifact in packageDoc := false // otherwise compiler crashes while trying to gen doc (java.util.NoSuchElementException: next on empty iterator)
   )
 
 lazy val core_macros = (project in file("core_macros")).
   settings(commonSettings: _*).
   settings(
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
+    name := "squid-core-macros",
+    libraryDependencies += scalaVersion("org.scala-lang" % "scala-reflect" % _).value
   )
 
 lazy val benchmark = (project in file("benchmark")).
@@ -75,6 +81,7 @@ val SCVersion = "0.1.31-SNAPSHOT"
 lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(commonSettings: _*).
   settings(
+    name := "squid-sc-backend-macros",
     libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
   ).
   dependsOn(main)
@@ -83,6 +90,7 @@ lazy val scBackend = (project in file("sc-backend")).
   dependsOn(main % "test->test").
   settings(commonSettings: _*).
   settings(
+    name := "squid-sc-backend",
     libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
   )
 
