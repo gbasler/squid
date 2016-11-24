@@ -8,7 +8,7 @@ import deep.scalalib._
 import deep.scalalib.collection._
 import PardisBinding._
 
-trait DSLBinding {
+trait TestDSLBinding {
   
   //object SC extends ir.Base
   //object SC extends ir.Base with SeqOps
@@ -17,10 +17,10 @@ trait DSLBinding {
   //object SC extends ir.Base with ArrayBufferOps with NumericOps with ScalaPredefOps
   //object SC extends ir.Base with NumericOps
   //object SC extends ir.Base with ScalaCoreOps with NoStringCtor
-  object SC extends ir.Base with ScalaCoreOps with NoStringCtor with ContOps
+  object SC extends ir.Base with ScalaCoreOps with DefaultPardisMixin with ContOps
   
   /*_*/
-  object Sqd extends AutoboundPardisIR(SC) with DefaultRedirections[SC.type]
+  object Sqd extends AutoboundPardisIR(SC) with DefaultRedirections[SC.type] with PublicTraceDebug
   
   Sqd.ab = {
     import scala.collection.mutable.ArrayBuffer

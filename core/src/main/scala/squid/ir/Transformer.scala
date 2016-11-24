@@ -10,6 +10,7 @@ trait Transformer extends Optimizer { self =>
   import base._
   
   object TranformerDebug extends PublicTraceDebug
+  //lazy val TranformerDebug = new PublicTraceDebug{}
   
   /** Use `pipeline` to correctly apply a Transformer */
   protected def transform(rep: Rep): Rep

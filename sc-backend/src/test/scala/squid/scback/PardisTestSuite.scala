@@ -8,7 +8,7 @@ import ch.epfl.data.sc.pardis.ir.PardisNode
 import ch.epfl.data.sc.pardis.ir.PardisVarArg
 import squid.utils._
 
-class PardisTestSuite extends MyFunSuiteTrait with DSLBinding {
+class PardisTestSuite extends MyFunSuiteTrait with TestDSLBinding {
   val DSL: Sqd.type = Sqd
   
   import Sqd.Predef._
@@ -67,7 +67,7 @@ class PardisTestSuite extends MyFunSuiteTrait with DSLBinding {
       case _ => fail
     }
   }
-  def sameDefsAfter(x: IR[_,_], f: IR[_,_]=>IR[_,_]): Unit = sameDefs(x, f(x))
+  def sameDefsAfter(x: IR[_,_], f: IR[_,_]=>IR[_,_], dbg: Bool = false): Unit = sameDefs(x, f(x), dbg)
   
   
   

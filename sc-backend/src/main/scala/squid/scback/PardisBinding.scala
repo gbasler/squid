@@ -1,14 +1,13 @@
 package squid.scback
 
 import squid.utils._
-
 import ch.epfl.data.sc._
 import pardis._
 import deep.scalalib._
 import deep.scalalib.collection._
 import PardisBinding._
-
 import ch.epfl.data.sc.pardis
+import ch.epfl.data.sc.pardis.types.PardisType
 import pardis.deep.scalalib.collection.SeqOps
 
 /**
@@ -21,6 +20,11 @@ object PardisBinding {
       * The one that's missing is {{{(x$1: Array[Char], x$2: Boolean)String}}}, which does not even appear in the Java
       * docs or in Java source. Scala-compiler hack? */
     type `ignore java.lang.String.<init>`
+  }
+  trait DefaultPardisMixin extends NoStringCtor { self: ir.Base =>
+    
+    val typeExtractedBinder = ExtractedBinderType
+    
   }
   
   trait DefaultRedirections[DSL <: pardis.ir.Base] extends squid.lang.Base { self: AutoboundPardisIR[DSL] => //with SeqOps =>
@@ -41,6 +45,12 @@ object PardisBinding {
         super.methodApp(self, mtd, targs, argss, tp)
         
     }
+  }
+  
+  case object ExtractedBinderType extends PardisType[Any] {
+    def rebuild(newArguments: PardisType[_]*): PardisType[_] = this
+    val name: String = "ExtractedBinder"
+    val typeArguments: List[PardisType[_]] = Nil
   }
   
 }

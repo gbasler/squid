@@ -10,6 +10,7 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
   val base: InspectableBase
   
   import base._
+  //override lazy val TranformerDebug = base.asInstanceOf[PublicTraceDebug]
   import TranformerDebug.debug
   
   val MAX_TRANSFORM_ITERATIONS = 8

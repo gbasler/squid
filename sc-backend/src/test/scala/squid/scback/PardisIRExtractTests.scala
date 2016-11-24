@@ -449,6 +449,53 @@ class PardisIRExtractTests extends PardisTestSuite {
   }
   
   
+  test("Extracted Binders") {
+    
+    object Tr extends FixPointRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
+      rewrite {
+        case ir"val $arr: ArrayBuffer[$t] = $init; $body: $bt" =>
+          //println(s"Running rwr code!\n\tarr = $arr\n\tinit = $init\n\tbody = $body")
+          
+          val newBody = body rewrite {
+            case ir"$$arr.size" =>
+              ir"42"
+          }
+          
+          //println(s"New body: $newBody")
+          
+          // TODO test: it seems arr refs are converted to a hole after rwr; can we still match them with $$arr?
+          
+          val closedBody = newBody subs 'arr -> ((throw new RewriteAbort):IR[arr.Typ,{}])
+          
+          //println(s"Closed body: $newBody")
+          
+          closedBody
+      }
+    }
+    
+    sameDefsAfter( ir{
+      val arr = ArrayBuffer(1,2,3)
+      arr append 1
+      arr.size
+    }, _ transformWith Tr)
+    
+    sameDefs( ir{
+      //val arr = ArrayBuffer(1,2,3) // produces an annoying Vararg node...
+      val arr = new ArrayBuffer[Int]
+      arr.size + arr.size
+    } transformWith Tr, ir{
+      (42:Int) + 42
+    })
+    
+    
+    // Q: let-bind holes?
+    // TODO test
+    //  case ir"($a: ArrayBuffer[$vt]); $body: $bt" =>
+    
+    
+  }
+  
+  
   
   
   

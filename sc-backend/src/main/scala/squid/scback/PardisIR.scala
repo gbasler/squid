@@ -18,6 +18,7 @@ import squid.ir.IRException
 import squid.ir.{Covariant, Variance}
 import squid.lang.Base
 import squid.lang.InspectableBase
+import squid.scback.PardisBinding.ExtractedBinderType
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import scala.language.existentials
@@ -72,8 +73,17 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   // * --- * --- * --- *  Implementations of `Base` methods  * --- * --- * --- *
   
   final val NAME_SUFFIX = "_$"
-  def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = sc.freshNamed(name+NAME_SUFFIX)(typ)
+  final val XTED_BINDER_SUFFIX = s"${NAME_SUFFIX}$$"
+  // ^ Binders the user wants to extract are marked with two $$ (for example, in: `case ir"val $x = ..." => ...`)
+  
+  def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = sc.freshNamed(
+    if (annots.unzip._1 contains ExtractedBinderType)
+      name+XTED_BINDER_SUFFIX
+    else name+NAME_SUFFIX
+  )(typ)
+  
   def readVal(v: BoundVal): Rep = curSubs.getOrElse(v, v)
+  
   def const(value: Any): Rep = {
     import types.PardisTypeImplicits._
     value match {
@@ -148,6 +158,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       val IR: sc.type = sc
       override def expToDocument(exp: Expression[_]) = exp match {
         case Constant(b: Boolean) => doc"${b.toString}"
+        case Hole(n,tp) => doc"($$$n: ${tp |> tpeToDocument})"
+        case SplicedHole(n,tp) => doc"($$$n: ${tp |> tpeToDocument}*)"
         case _                    => super.expToDocument(exp)
       }
     }
@@ -194,8 +206,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   // * --- * --- * --- *  Implementations of `QuasiBase` methods  * --- * --- * --- *
   
-  protected def notUnnecessaryBlock(r: Rep) = r |>=? {
-    case b: Block => inlineBlockIfEnclosed(b)
+  protected def inlineUnlessEnclosedOr(dontInline: Bool)(r: Rep) = r |>=? {
+    case b: Block if !dontInline => inlineBlockIfEnclosed(b)
   }
   override def substitute(r: Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs.mapValues(() => _))
   override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = {
@@ -212,7 +224,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       case r => r
     }
     
-  } |> notUnnecessaryBlock  //and (r => println(s"SUBS RESULT = $r"))
+  } |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  and (r => debug(s"SUBS RESULT = $r"))
   
   def hole(name: String, typ: TypeRep): Rep = Hole(name, typ)
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)
@@ -330,6 +342,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         //case ex: ExpressionSymbol[_] => ex
         case ex: ExpressionSymbol[_] => curSubs.getOrElse(ex, ex)
         //case ex: ExpressionSymbol[_] => ex |> transformSym
+        case ah: AnyHole[_] => ah
         
       case PardisVarArg(v) => PardisVarArg(v |> transformFunArg)
       
@@ -510,6 +523,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         for {
           e <- extractDef(e0, e1)
           e <- merge(e, ex)
+          e <- if (b0.name endsWith XTED_BINDER_SUFFIX) merge(e, repExtract(b0.name.dropRight(XTED_BINDER_SUFFIX.length) -> b1))
+               else Some(e)
           hExtr = toHole(b1, b0)
           e <- merge(e, hExtr)
           
@@ -714,6 +729,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       // Expr
         case cst: pir.Constant[_] =>
         case ex: ExpressionSymbol[_] =>
+        case ah: AnyHole[_] =>
         
       case PardisVarArg(und) => und |> rec
         
