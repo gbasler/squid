@@ -1,8 +1,6 @@
 package squid
 package ir
 
-import squid.ir.BottomUpTransformer
-import squid.ir.SimpleRuleBasedTransformer
 import squid.lang.InspectableBase
 
 class OfflineTransformerTest extends MyFunSuite {

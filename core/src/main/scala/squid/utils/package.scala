@@ -12,6 +12,10 @@ package object utils {
     * useful to ensure rewrite rules are fully parametric in the context of the terms they match */
   final class UnknownContext private() // TODO extend <extruded type>
   
+  /** Rewrite rules, which are defined on an `Extract` artifact, may need to access the scrutinee,
+    * which is thus assumed to be stored in the Rep mapping under the name `SCRUTINEE_KEY`. */
+  final val SCRUTINEE_KEY = "__scrutinee__"
+  
   
   implicit final class Andable[T](private val self: T) extends AnyVal {
     

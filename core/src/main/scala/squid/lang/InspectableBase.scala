@@ -19,7 +19,10 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   
   def topDown(r: Rep)(f: Rep => Rep): Rep
   
-  def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = extractRep(xtor, xtee) flatMap code
+  def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] =
+    extractRep(xtor, xtee) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code
+  
+  // Don't think this is still used anywhere:
   def disableRewritingsFor[A](r: => A): A = r
   
   protected def extract(xtor: Rep, xtee: Rep): Option[Extract]

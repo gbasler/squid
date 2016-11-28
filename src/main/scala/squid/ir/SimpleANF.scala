@@ -269,7 +269,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         
     })
     
-    rec(EmptyExtract,Nil)(xtor.asBlock -> xtee.asBlock) //and (r => println(s"Ret: $r"))
+    rec(repExtract(SCRUTINEE_KEY -> xtee),Nil)(xtor.asBlock -> xtee.asBlock) //and (r => println(s"Ret: $r"))
     
   }
   

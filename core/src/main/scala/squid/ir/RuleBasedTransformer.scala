@@ -2,6 +2,7 @@ package squid
 package ir
 
 import squid.lang.Base
+import squid.quasi.EmbeddingException
 import squid.utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
 import utils._
 import utils.CollectionUtils._
@@ -198,8 +199,10 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         //} match { case Some(ValDef(_, _, _, q"__b__.wrapExtract($termTree)")) => termTree }
         
         
-        val (xtor, subPatterns) = pat match {
-          case UnApply(fun, args) => fun -> args
+        val (alias, xtor, subPatterns) = pat match {
+          case UnApply(fun, args) => (None, fun, args)
+          case Bind(alias, UnApply(fun, args)) => (Some(alias), fun, args)
+          case _ => throw EmbeddingException("Unrecognized pattern shape: "+showCode(pat))
         }
         
         /** List[(name of the map in the Extract artifact, pattern name)] */
@@ -231,9 +234,18 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           }
         }
         
+        val patAlias = alias match {
+          case Some(a) => q"""val ${a.toTermName} = __b__.`internal IR`[Any,_root_.squid.utils.UnknownContext](__extr__._1($SCRUTINEE_KEY))"""
+          case None => q""
+        }
+        
+        debug(s"PATTERN ALIAS: ${showCode(patAlias)}")
+        
         val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], ((__extr__ : $base.Extract) => ${
         //val r = q"$baseBinding; $trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${
-          ((subPatterns zip patNames) :\ (if (cond.isEmpty) q"_root_.scala.Option($expr.rep).asInstanceOf[Option[$trans.base.Rep]]" else q"if ($cond) _root_.scala.Some($expr.rep) else _root_.scala.None")) {
+          ((subPatterns zip patNames) :\ (
+              if (cond.isEmpty) q"..$patAlias; _root_.scala.Option($expr.rep).asInstanceOf[Option[$trans.base.Rep]]"
+              else q"..$patAlias; if ($cond) _root_.scala.Some($expr.rep) else _root_.scala.None") ) {
             
             case ((pat, (mapName @ TermName("_1"), name)), acc) =>
               patMat(q"__b__.`internal IR`(__extr__.$mapName($name))", pat, acc)

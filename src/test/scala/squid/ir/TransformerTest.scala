@@ -78,6 +78,27 @@ class TransformerTest extends MyFunSuite/*(new SimpleAST)*/ {
   }
   
   
+  test ("With Top-Level Pattern Alias") {
+    
+    var saved = Option.empty[IR[Any,_]]
+    
+    T.rewrite {
+      
+      // Note that we cannot get a precise type for `x` here,
+      // because the patmat has to be typed before it goes through the `rewrite` macro
+      case x @ ir"Option[Int]($v).get" =>
+        saved = Some(x)
+        ir"$v"
+      
+    }
+    
+    ir"println(Option(42).get)" transformWith T eqt ir"println(42)"
+    
+    saved.get eqt ir"Option(42).get"
+    
+  }
+  
+  
   
 }
 
