@@ -4,12 +4,16 @@ package scback
 import ch.epfl.data.sc._
 import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs.Println
 import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefOps
+import ch.epfl.data.sc.pardis.ir.PardisFunArg
 import pardis._
 import squid.utils._
 
 import scala.collection.mutable
 import squid.ir.IRException
+import squid.utils.CollectionUtils.TraversableOnceHelper
+import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
+import scala.reflect.runtime.{universe => sru}
 import scala.language.existentials
 
 
@@ -59,22 +63,35 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
       case _ =>
     }
     
-    //println(ab.map.get(mtd))
     val mk = ab.map.getOrElse(mtd, throw IRException(
       s"Could not find a deep representation for $mtd${mtd.typeSignature} in ${mtd owner}; perhaps it is absent from the DSL cake or the auto-binding failed."))
     
-    val argsTail = argss.flatMap(_.reps)
+    assert(argss.size == mtd.paramLists.size)
+    val argsTail = (argss zip mtd.paramLists) flatMap { case (as,ps) =>
+      val (nonRepeatedReps, repeatedReps) = as match {
+        // FIXMElater: will fail on ArgsVarargSpliced
+        case Args(as @ _*) =>
+          assert(as.size == ps.size)
+          (as, Nil)
+        case ArgsVarargs(as,vas) =>
+          assert(as.reps.size+1 == ps.size)
+          (as.reps,vas.reps)
+      }
+      (nonRepeatedReps zipAnd ps) { (a, p) => p.typeSignature match {
+        case sru.TypeRef(_, ruh.ByNameParamClass, tp) => a |> toBlock
+        case tp => a |> toExpr
+      }} ++ (repeatedReps map toExpr) // Note: repeated parameters cannot be by-name
+    }
     
-    //println(argss)
     val args = self match {
       case New(_) => assert(targs isEmpty); argsTail
       case null => argsTail
-      case _ => self :: argsTail
+      case _ => (self |> toExpr) :: argsTail
     }
     
     type TRL = sc.TypeRep[Any] |> List
     
-    def node = mk(args map toExpr,
+    def node = mk(args.asInstanceOf[List[PardisFunArg]],
       // `self` will be null if it corresponds to a static module (eg: `Seq`)
       // in that case, the method type parameters are expected to be passed in first position:
       (targs If (self == null)

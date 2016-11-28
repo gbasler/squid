@@ -4,7 +4,7 @@ package scback
 import collection.mutable
 import ch.epfl.data.sc._
 import ch.epfl.data.sc.pardis.deep.scalalib.collection.ArrayBufferIRs.ArrayBuffer
-import pardis.ir.{ANFNode, Base}
+import pardis.ir.{PardisFunArg, Base}
 import squid.utils._
 
 import scala.language.experimental.macros
@@ -18,12 +18,21 @@ import scala.reflect.macros.whitebox
 class AutoBinder[B <: pardis.ir.Base, SB <: lang.Base](val _b_ : B, val _sb_ : SB) {
   
   /** type argss for self's type, method type args, method args */
-  type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]  // currently returns Rep because it uses the implicit Rep class methods
-  //type MtdMaker = (List[_b_.Rep[Any]], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => ANFNode   // TODO call the Def-making methods instead
+  type MtdMaker = (List[PardisFunArg], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => _b_.Rep[_]  // currently returns Rep because it uses the implicit Rep class methods
+  //type MtdMaker = (List[PardisFunArg], List[_b_.TypeRep[Any]], List[_b_.TypeRep[Any]]) => ANFNode   // TODO call the Def-making methods instead
   
-  implicit def coerceRep[A](r: _b_.Rep[_]): _b_.Rep[A] = r.asInstanceOf[_b_.Rep[A]]
+  implicit def coerceRep[A](r: PardisFunArg): _b_.Rep[A] = r.asInstanceOf[_b_.Rep[A]]
   implicit def coerceTypeRep[A](tp: _b_.TypeRep[_]): _b_.TypeRep[A] = tp.asInstanceOf[_b_.TypeRep[A]]
-      
+  
+  /** Some of the `Rep`s passed to `MtdMaker`s are actually blocks (for by-name params).
+    * This function converts them to the appropriate `Rep` that will be passed as a by-name parameter.
+    * It takes the argument as Any to avoid typechecking/casts to find out the travesty */
+  protected def blockAsRep[A](r: Any): _b_.Rep[A] = {
+    val b = r.asInstanceOf[_b_.Block[A]]
+    b.stmts foreach (s => _b_.reflectStm(s))
+    b.res
+  }
+  
   val map = mutable.Map[_sb_.MtdSymbol, MtdMaker]()
   
 }
@@ -211,7 +220,7 @@ object AutoBinder {
     disp("\n-----------\n")
     
     object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
-    import Helpers.{encodedTypeSymbol, RepeatedParamClass}
+    import Helpers.{encodedTypeSymbol, RepeatedParamClass, ByNameParamClass}
     
     import quasi.{MetaBases, ModularEmbedding}
     object MBM extends MetaBases {
@@ -258,6 +267,8 @@ object AutoBinder {
           case TypeRef(_,RepeatedParamClass,pt::Nil)->i =>
             assert(j == paramTypes.indices.last) // For convenience, assume the repeated argument is the very last argument in the argument lists
             q"rs.drop(${j+i+offset}).asInstanceOf[List[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]]: _*"
+          case TypeRef(_,ByNameParamClass,TypeRef(_,_,pt::Nil)::Nil)->i =>
+            q"blockAsRep[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}](rs(${j+i+offset}))"
           case pt->i => q"rs(${j+i+offset}).asInstanceOf[${pt.substituteTypes(tpSyms ++ mtd.typeParams, tpTops ++ tparamTops)}]"
             // ^ Note: asInstanceOf is necessary here as Scala will not be able to infer some of the tricky argument types
         }}
@@ -275,17 +286,19 @@ object AutoBinder {
           else List(args)
         }
         
+        val PFA = tq"ch.epfl.data.sc.pardis.ir.PardisFunArg"
+        
         trunk match {
             
           case Left(cls) =>
             // Used to be `(rs(0).asInstanceOf[_b_.Rep[${saneTyp}]])`, but now `coerceRep` does it for us.
-            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => new _b_.${cls.name}[..${tpTops}](rs(0))(...${
+            q"map += $m -> ((rs: List[$PFA], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => new _b_.${cls.name}[..${tpTops}](rs(0))(...${
               if (tpTops.isEmpty) Nil
               else List(tpTops.zipWithIndex map {case tp->i => q"ts($i)"})
             }).${mtd.name}(...${ saneParams(1) })(...${ implArgs(q"ts2") }))" :: Nil
             
           case Right(pre) =>
-            q"map += $m -> ((rs: List[_b_.Rep[Any]], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => ${pre}[..${/*saneTargs*/ tpTops}](...${
+            q"map += $m -> ((rs: List[$PFA], ts: List[_b_.TypeRep[Any]], ts2: List[_b_.TypeRep[Any]]) => ${pre}[..${/*saneTargs*/ tpTops}](...${
               saneParams(0)
             })(...${ implArgs(q"ts") }))" :: Nil
             

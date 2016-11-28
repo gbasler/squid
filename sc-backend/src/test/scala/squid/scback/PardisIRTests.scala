@@ -1,5 +1,6 @@
 package squid.scback
 
+import ch.epfl.data.sc.pardis
 import collection.mutable.ArrayBuffer
 
 class PardisIRTests extends PardisTestSuite {
@@ -103,6 +104,25 @@ class PardisIRTests extends PardisTestSuite {
     
   }
   
+  
+  test("By-Name Parameters") {
+    
+    val t0 = ir"Option(42) getOrElse {println(0); 666}"
+    assert(stmts(t0).size == 2)
+    assert(stmts(t0)(1).rhs.funArgs(1).asInstanceOf[pardis.ir.PardisBlock[_]].stmts.size == 1)
+    
+    val t1 = ir"Option(()) getOrElse {val r = println(0); r}"
+    assert(stmts(t1).size == 2)
+    
+    val t2 = ir""" Option[String](null) getOrElse "42" """
+    assert(stmts(t2).size == 2)
+    
+    //println(ir"None") // There is no auto-binding for this (in fact, not even a mirror defined for it in SC's ScalaCore)
+    //println(ir"None getOrElse 42") // Note: this will pass the block for `42` as the first argument to the generic Option's getOrElse, and result in a cast crash...
+    
+    // Note: also test Option.Empty when it is in SC
+    
+  }
   
   
   

@@ -191,7 +191,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     sc.Block(s,r)(r.tp)
   }
   protected def toAtom(r: sc.Def[_]) = sc.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
-  protected def inlineBlock(b: Block) = {
+  protected[squid] def inlineBlock(b: Block) = {
     require(sc._IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
     b.stmts.asInstanceOf[Seq[AStm]] foreach sc.reflectStm
     b.res
@@ -206,6 +206,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     case r: Expr => r
     case b: Block => inlineBlock(b)
     case d: Def[_] => toAtom(d)
+  }
+  protected def toBlock(r: Rep): Block = r match {
+    case b: Block => b
+    case _ => sc.reifyBlock(r |> toExpr)(r.typ)
   }
   
   
