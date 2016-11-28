@@ -24,15 +24,17 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   
   /** TODO a general solution to by-name parameters */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
-    //println("METHOD "+mtd+" in "+mtd.owner)
+    //println("METHOD "+mtd.name+" in "+mtd.owner)
     assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialize.")
     
     mtd match {
         
       case ImperativeSymbol =>
-        val ArgList(efs @ _*)::Args(r)::Nil = argss
-        efs foreach toExpr
-        return r
+        return blockWithType(tp) {
+          val ArgList(efs @ _*)::Args(r)::Nil = argss
+          efs foreach toExpr
+          r
+        }
         
       // The autobinder does not see deep `println`, as it is not defined in an object (but directly in the cake!)
       case PrintlnSymbol => sc match {

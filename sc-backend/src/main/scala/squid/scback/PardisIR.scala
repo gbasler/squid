@@ -112,6 +112,9 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     // used as a backup).
     typedBlock( 
       value match {
+        case b: Block =>
+          val e = b |> inlineBlock
+          withSubs(bound -> e)(body)
         case d: Def[_] =>  // Def <=> PardisNode
           sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
           body
@@ -180,6 +183,9 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   // Helpers
   
+  protected[squid] def blockWithType(tp: TypeRep)(body: => Rep): ABlock = {
+    sc.reifyBlock[Any](toExpr(body))(tp)
+  }
   protected[squid] def typedBlock(body: => Rep): ABlock = {
     val sc.Block(s,r) = sc.reifyBlock[Any](toExpr(body))(types.AnyType)
     sc.Block(s,r)(r.tp)
