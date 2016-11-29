@@ -8,6 +8,7 @@ import utils._
 import squid.ir.{FixPointRuleBasedTransformer, SimpleRuleBasedTransformer, TopDownTransformer, FixPointTransformer}
 
 import collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 class PardisIRExtractTests extends PardisTestSuite {
   
@@ -257,25 +258,20 @@ class PardisIRExtractTests extends PardisTestSuite {
       println(666)
     } transformWith Tr2, b1)
     
-    sameDefs(ir{
-      println(666)
-      "ok"
-    } transformWith Tr2, ir{
-      println(42)
-      "ok"
-    })
     
-    // currently, if the `body` hole cannot match the entire block remainder (here there is a type mismatch), we don't
-    // get bind-rw, so what's applied is the simple seq-rw instead.
-    sameDefs(ir{
+    // The RwR used to trigger for the following, because it used to interpret the `println(666)` Def as a block
+    // with a single statement by introducing a new freshVar. However, this was dubious behavior, so it no longer works. 
+    sameDefsAfter(ir{
+      println(666)
+      "ok"
+    }, _ transformWith Tr2)
+    
+    // currently, if the `body` hole cannot match the _entire_ block remainder (here there is a type mismatch), we don't get binding-rw
+    sameDefsAfter(ir{
       println(666)
       println(1)
       "ok"
-    } transformWith Tr2, ir{
-      println(42)
-      println(1)
-      "ok"
-    })
+    }, _ transformWith Tr2)
     
     
   }
@@ -421,14 +417,6 @@ class PardisIRExtractTests extends PardisTestSuite {
   
   
   
-  test("Speculative Rewritings") {
-    
-    // TODO test
-    
-    
-  }
-  
-  
   test("Hole in Statement Position") {
     
     val pgrm = ir"ArrayBuffer[Int]().size"
@@ -441,12 +429,14 @@ class PardisIRExtractTests extends PardisTestSuite {
   }
   
   
-  test("Hole in Pure Position") {
+  
+  test("Hole in Pure Statement") {
     
     // TODO
     
     
   }
+  
   
   
   test("Extracted Binders") {
@@ -457,13 +447,10 @@ class PardisIRExtractTests extends PardisTestSuite {
           //println(s"Running rwr code!\n\tarr = $arr\n\tinit = $init\n\tbody = $body")
           
           val newBody = body rewrite {
-            case ir"$$arr.size" =>
-              ir"42"
+            case ir"$$arr.size" => ir"42"
           }
           
           //println(s"New body: $newBody")
-          
-          // TODO test: it seems arr refs are converted to a hole after rwr; can we still match them with $$arr?
           
           val closedBody = newBody subs 'arr -> ((throw new RewriteAbort):IR[arr.Typ,{}])
           
@@ -492,6 +479,68 @@ class PardisIRExtractTests extends PardisTestSuite {
     // TODO test
     //  case ir"($a: ArrayBuffer[$vt]); $body: $bt" =>
     
+  }
+  
+  
+  
+  test("Speculative Rewritings") {
+    
+    object Tr extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
+      rewrite {
+        case block @ ir"val $arr: ArrayBuffer[Int] = $init; $body: $bt" =>
+          //println(s"Running rwr code!\n\tarr = $arr\n\tinit = $init\n\tbody = $body")
+          
+          block eqt body
+          
+          // To avoid ever-expanding the program!
+          val rewritten = mutable.Set[Sqd.Rep]()
+          
+          // The `rewrite` macro expands to a `FixPointTransformer`
+          val newBody = body rewrite {
+            case ir"$$arr append $v" if !rewritten(v.rep) =>
+              val newV = ir"$v + 1"
+              rewritten += newV.rep
+              ir"$arr append $newV"
+              
+            case s @ ir"$$arr.size" if !rewritten(s.rep) =>
+              val r = ir"$arr.size"
+              rewritten += r.rep
+              ir"$r+1"
+          }
+          
+          // Note that in the above rewriting, references to `arr` are converted on-the-fly to holes;
+          // but we can we still match them with `$$arr` thanks to hole memory
+          
+          //println(s"New body: $newBody")
+          
+          ir"val arr = $init; $newBody"
+      }
+    }
+    
+    sameDefs( ir{
+      //val arr = ArrayBuffer(1,2,3) // produces an annoying Vararg node...
+      val arr = new ArrayBuffer[Int]
+      arr append 0
+      arr append 1
+      arr.size
+      42
+    } transformWith Tr, ir{
+      val arr = new ArrayBuffer[Int]
+      
+      // FIXME eval order
+      //arr append ((0:Int)+1)
+      //arr append ((1:Int)+1)
+      //arr.size+1
+      
+      val a = (0:Int)+1
+      arr append a
+      val b = (1:Int)+1
+      arr append b
+      val c = arr.size
+      c+1
+      
+      42
+    })
     
   }
   

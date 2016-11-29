@@ -336,9 +336,9 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       // Note: we do not try to transform the inputs to lambdas, as there is no Sym=>Sym mapping available
       // Q: should we renew the symbols?
       case PardisLambda0(f, o: ABlock) =>
-        PardisLambda0[Any](() => ??? /* TODO */, o |> transformBlock)(o.tp)
+        PardisLambda0[Any](() => o |> toExpr, o |> transformBlock)(o.tp)
       case pl @ PardisLambda(f, i, o: ABlock) =>
-        PardisLambda[Any,Any]((_) => ??? /* TODO */, i, o |> transformBlock)(pl.typeT, pl.typeS)
+        PardisLambda[Any,Any](x => bottomUpPartial(o) { case `i` => x } |> toExpr, i, o |> transformBlock)(pl.typeT, pl.typeS)
       case pl @ PardisLambda2(f, i0, i1, o: ABlock) => ??? // TODO
       case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) => ??? // TODO
         
@@ -417,6 +417,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     case (es0: ExpressionSymbol[_]) -> (es1: ExpressionSymbol[_]) if es0 == es1 => SomeEmptyExtract
     
     case (es0: ExpressionSymbol[_]) -> (es1: ExpressionSymbol[_]) if es1 |>? rwrCtx contains es0 => SomeEmptyExtract // Q: handle xted bindings here?
+      
+    // Q: is this simplistic impl safe?
+    // TODO actually use a memory associated with the hole instead...
+    case (es0: ExpressionSymbol[_]) -> Hole(name, _) if es0.name startsWith name => SomeEmptyExtract // "hole memory"
 
     case PardisVarArg(SplicedHole(name,typ)) -> PardisVarArg(Def(PardisLiftedSeq(seq))) =>
       typ extract (xtee.typ, Covariant) flatMap { merge(_, mkExtract()()(name -> seq)) }
@@ -490,13 +494,17 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
     debug(s"${"Rewriting" |> bold} $xtee ${"with" |> bold} $xtor")
     
-    xtee >>? { // TODO (?) :
-      case (_:PardisVarArg)|(_:PardisLiftedSeq[_]) => return None
+    xtee |>? {
+      case _:Block => // Block is a Def
+      case (_:PardisVarArg)|(_:PardisLiftedSeq[_])|(_: Def[_]) =>
+        return failExtrWith(s"Can't match ${xtee} with a block.")
     }
     
     def codeBlock(ex: Extract): Option[Block] = try typedBlock(code(ex) getOrElse (
       return failExtrWith("Rewritten code could not be constructed successfully: returned None"))
     ) |> some and (c => debug(s"Constructed code: ${c.get}")) catch {
+      case e: NoSuchElementException if e.getMessage === s"key not found: $SCRUTINEE_KEY" =>
+        throw IRException(s"Could not extract a scrutinee for this rewrite pattern: ${xtor |> showRep}")
       case e: Throwable =>
         failExtrWith(s"Rewritten code could not be constructed successfully: threw $e")
         throw e }
@@ -563,19 +571,23 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         debug(s"Matched $matchedVals; ret $r1")
         debug(s"Skipped Pure $pureStms")
         
+        val block = bl |> constructBlock
+        
         // In case we're at the end of the xtor block, try to use its result to extrac the whole of the remaining xtee
         // This implements eager matching, which allow things like `case ir" ... ; $body: $t "` to work and extract the full body.
         (for {
           
-          e <- extract(r0, bl |> constructBlock)
-          m <- merge(e, ex)
-          () = debug(s"${Console.GREEN}Constructing bin-rewritten code with $m${Console.RESET}")
+          e <- extract(r0, block)
+          e <- merge(e, ex)
+          // The extracted scrutinee is the returned expression:
+          e <- merge(e, repExtract(SCRUTINEE_KEY -> block)) // FIXME WRONG!!!
+          () = debug(s"${Console.GREEN}Constructing bin-rewritten code with $e${Console.RESET}")
           bindings = matchedVals collect {
             case a -> b if a.name contains NAME_SUFFIX =>
               b -> Hole(a.name splitAt (a.name indexOf NAME_SUFFIX) _1, b.tp)
           }
           //() = debug("Bindings: "+bindings)
-          b <- withSubs(bindings:_*) {codeBlock(m)} // TODO do that in other cases too!
+          b <- withSubs(bindings:_*) {codeBlock(e)} // TODO do that in other cases too!
           
           //pureStmsR = pureStms.reverse  // makes typechecking fail with arcane error...
           _ <- removeStmts(Nil)(matchedVals.unzip._2.toSet, pureStms/*.reverse*/ ++ b.stmts.asInstanceOf[List[AStm]], b.res)
@@ -596,17 +608,20 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           debug(s"MatchedRet $matchedRet")
           debug(s"${Console.GREEN}About to construct seq-rewritten code with $ex${Console.RESET}")
           
-          removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms ++ sts, r1) flatMap { newStms =>
+          val r = for {
+            newStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms ++ sts, r1)
             // ^ Note: `pureStms` passed here are not correctly ordered and may refer to things bound later,
             // but they'll be ignored and only reintroduced if necessary at the end of the rewriteRep algo
-            
-            removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms.reverse, r1) flatMap { newPureStms =>
-            
-              codeBlock(ex) map { bloc => (newPureStms, bloc -> matchedRet, newStms -> r1) }
-              
-            }
-            
-          }  and (r => debug("Maybe rewrote sequence to "+r))
+            newPureStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms.reverse, r1)
+            // The extracted scrutinee is the returned expression, or the last matched symbol if there are none:
+            e <- matchedRet orElse (matchedVals.headOption map (_._2)) map (mr => merge(ex, repExtract(SCRUTINEE_KEY -> mr))) getOrElse some(ex)
+            bloc <- codeBlock(e)
+          } yield (newPureStms, bloc -> matchedRet, newStms -> r1)
+          
+          debug("Maybe rewrote sequence to "+r)
+          
+          r
+          
         }}
         
       case _ =>
@@ -618,9 +633,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     def toBlock(x: Rep): Bool -> ListBlock = x match {
       case sc.Block(sts:List[AStm @unchecked], r) => true -> (sts -> r)
       case r: Expr => false -> (Nil -> r)
-      case d: Def[_] =>
-        val f = sc.fresh(d.tp)
-        false -> ((sc.Stm[Any](f,d)(f.tp)::Nil) -> f)
+      // This is probably a bad idea (used to be enabled):
+      //case d: Def[_] => val f = sc.fresh(d.tp); false -> ((sc.Stm[Any](f,d)(f.tp)::Nil) -> f)
     }
     
     def process(xtor: ListBlock, xtee: ListBlock): List[Stm \/ (Block -> Option[Val])] = {
