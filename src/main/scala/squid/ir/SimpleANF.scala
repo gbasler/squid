@@ -19,6 +19,8 @@ import collection.mutable
   * 
   * TODO CSE with a WeakHashMap[Set[Val],Rep] for pure exprs
   * 
+  * TODO use a specialized Def for Imperative, to avoid overhead associated with the complex structure of the virtualized one
+  * 
   * Q: should the return of a block be a trivial expr?!
   * 
   * Implem. Notes

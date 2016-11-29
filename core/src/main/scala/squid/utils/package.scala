@@ -17,6 +17,9 @@ package object utils {
   final val SCRUTINEE_KEY = "__scrutinee__"
   
   
+  /** Allows functions taking one by-name parameter to be used on the rhs of |> and such operators. */
+  implicit def byNameFun2fun[A,B](f: (=> A) => B): A => B = f(_)
+  
   implicit final class Andable[T](private val self: T) extends AnyVal {
     
     @inline def and(f: T => Unit) = { f(self); self }

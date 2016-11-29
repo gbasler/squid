@@ -55,8 +55,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep =
     rep(MethodApp(self, mtd, targs, argss, tp))
   
-  def byName(arg: => Rep): Rep =
-    lambda(bindVal("$BYNAME$", uninterpretedType[Unit], Nil) :: Nil, arg) // FIXME proper impl  TODO use annot
+  def byName(arg: => Rep): Rep = ByName(arg)
   // TODO
   // We encode thunks (by-name parameters) as functions from some dummy 'ThunkParam' to the result
   //def byName(arg: => Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep

@@ -29,6 +29,19 @@ trait ASTHelpers extends Base { self: AST =>
     }
   }
   
+  object ByName {
+    val VAL_NAME = "$BYNAME$"
+    def apply(arg: Rep): Rep =
+      lambda(bindVal(VAL_NAME, uninterpretedType[Unit], Nil) :: Nil, arg) // FIXME proper impl  TODO use annot
+    def unapply(arg: Rep): Option[Rep] = unapply(arg |> dfn)
+    def unapply(arg: Def) = arg match {
+      case Abs(BoundVal(VAL_NAME), b) => b |> some
+      case _ =>
+        //println("Not by name: "+arg)
+        None
+    }
+  }
+  
   object Apply {
     val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply")).asMethod // TODO use loadMtdSymbol
     def apply(f: Rep, a: Rep, typ: TypeRep) = MethodApp(f, Symbol, Nil, Args(a)::Nil, typ)
