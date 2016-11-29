@@ -110,8 +110,16 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     // arguments that come before; this could be better solved with Imperative taking a by-name result (although it would
     // have the same effect); and better yet, having a Base method for imperative stuff (with scp.lib.Imperative only
     // used as a backup).
-    typedBlock( 
+    blockWithType(bodyType)(
       value match {
+        // In case the value bound here is a block that defines and return a symbol, we want to inline it without
+        // losing the original outer `bound` name!
+        case sc.Block(sts,ret:ExpressionSymbol[Any @unchecked]) if sts.exists(_.sym == ret) =>
+          sts foreach {
+            case sc.Stm(`ret`,rhs) => sc.reflectStm(sc.Stm(bound,rhs)(bound.tp))
+            case s => sc.reflectStm(s)
+          }
+          body
         case b: Block =>
           val e = b |> inlineBlock
           withSubs(bound -> e)(body)
@@ -606,7 +614,6 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           
           debug(s"Matched $matchedVals; ret $r1")
           debug(s"MatchedRet $matchedRet")
-          debug(s"${Console.GREEN}About to construct seq-rewritten code with $ex${Console.RESET}")
           
           val r = for {
             newStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms ++ sts, r1)
@@ -615,6 +622,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
             newPureStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms.reverse, r1)
             // The extracted scrutinee is the returned expression, or the last matched symbol if there are none:
             e <- matchedRet orElse (matchedVals.headOption map (_._2)) map (mr => merge(ex, repExtract(SCRUTINEE_KEY -> mr))) getOrElse some(ex)
+            () = debug(s"${Console.GREEN}About to construct seq-rewritten code with $e${Console.RESET}")
             bloc <- codeBlock(e)
           } yield (newPureStms, bloc -> matchedRet, newStms -> r1)
           

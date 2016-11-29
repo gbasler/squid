@@ -90,17 +90,18 @@ class PardisIRTests extends PardisTestSuite {
   
   
   test("Subexpressions and Scheduling") {
-    // TODO test subexpr scheduling
     
-    //println(ir{println(1.toDouble);println(2.toDouble)}) // FIXME
+    sameDefs(ir{ println(1.toDouble);println(2.toDouble) },
+             ir{ val n1 = 1.toDouble; val p1 = println(n1); val n2 = 2.toDouble; val p2 = println(n2); p2 })
     
-    // FIXME
-    //println(ir{val arr = new ArrayBuffer[Int](); arr append 1; val o = Option(arr.size)})
-    //println(ir{val arr = new ArrayBuffer[Int](); arr append 1; val o = arr.size+1})
+    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val o = Option(arr.size) },
+             ir{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; val o = Option(s); () })
     
-    // no prob:
-    //println(ir{val arr = new ArrayBuffer[Int](); val a = arr append 1; val o = arr.size+1})
-    //println(ir{1.toDouble + 2.toDouble})
+    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; arr.size+1 },
+             ir{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; s+1 })
+    
+    sameDefs(ir{ (1.toDouble+1.0,2.toDouble+2.0) },
+             ir{ val n1 = 1.toDouble; val n11 = n1+1.0; val n2 = 2.toDouble; val n22 = n2+2.0; Tuple2(n11,n22) })
     
   }
   
@@ -120,11 +121,22 @@ class PardisIRTests extends PardisTestSuite {
     //println(ir"None") // There is no auto-binding for this (in fact, not even a mirror defined for it in SC's ScalaCore)
     //println(ir"None getOrElse 42") // Note: this will pass the block for `42` as the first argument to the generic Option's getOrElse, and result in a cast crash...
     
-    // Note: also test Option.Empty when it is in SC
+    // Note: also test Option.empty when it is in SC
     
   }
   
   
+  test("Types") {
+    
+    val ABI = SC.typeArrayBuffer(SC.typeInt)
+    
+    assert(ir{ new ArrayBuffer[Int] }.typ.rep == ABI)
+    
+    assert(ir{ val n1 = 1.toDouble.toInt; ArrayBuffer(n1) }.typ.rep == ABI)
+    
+    assert(stmts(ir{ val n1 = 1.toDouble }).head.typeT == typeRepOf[Double])
+    
+  }
   
   
 }

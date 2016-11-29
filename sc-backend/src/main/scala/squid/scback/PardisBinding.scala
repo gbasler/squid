@@ -36,10 +36,12 @@ object PardisBinding {
         
       case SeqApplySymbol if baseName(tp) == "Seq" =>  // distinguish from an `apply` on `ArrayBuffer`
         val ta :: Nil = targs
-        SeqIRs.SeqApplyObject[Any]((argss match {
-          case ArgList(as @ _*) :: Nil => sc.__liftSeq[Any](as map toExpr)(ta)
-          case ArgsVarargSpliced(Args(), spliced) :: Nil => spliced |> toExpr
-        }).asInstanceOf[R[Seq[Any]]])(ta)
+        blockWithType(tp) {
+          SeqIRs.SeqApplyObject[Any]((argss match {
+            case ArgList(as @ _*) :: Nil => sc.__liftSeq[Any](as map toExpr)(ta)
+            case ArgsVarargSpliced(Args(), spliced) :: Nil => spliced |> toExpr
+          }).asInstanceOf[R[Seq[Any]]])(ta)
+        }
         
       case _ => 
         super.methodApp(self, mtd, targs, argss, tp)

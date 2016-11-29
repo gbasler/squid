@@ -77,8 +77,7 @@ class PardisIRExtractTests extends PardisTestSuite {
           
         case ir"val s = ($arr: ArrayBuffer[$t]).size; (arr:ArrayBuffer[t]) append $x; s" =>
           val x2 = x subs 's -> ((throw new RewriteAbort): IR[Int,{}])
-          //ir{ $(arr2) append $(x2); $(arr2).size-1 }  // FIXME order of subexprs
-          ir{ $(arr) append $(x2); val s = $(arr).size; s-1 }
+          ir{ $(arr) append $(x2); $(arr).size-1 }
           
       }}
     
@@ -96,7 +95,6 @@ class PardisIRExtractTests extends PardisTestSuite {
              ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}, _ transformWith Tr)
     
     // Update the Option to apply on the new `clear` statement!
-    //base debugFor 
     sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
              ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
     
@@ -180,11 +178,19 @@ class PardisIRExtractTests extends PardisTestSuite {
         case ir"val a = new Cont[Double]($n, null); new Cont[Double](n, a)" =>  // works as expected
           ir{ new Cont($(n), null) }
         case ir"val a = new Cont[Int]($n, null); val b = new Cont[Int](n, a); a" =>
-          ir{ new Cont($(n), null) }
+          ir{ new Cont($(n)+1, null) }
       }}
     
-    // FIXME wrong ordering of the Option
-    //println(ir{ new Cont(42, new Cont(42, null)) } transformWith Tr3)
+    sameDefs(ir{ new Cont(42.0, new Cont(42.0, null)) } transformWith Tr3,
+             ir{ new Cont(42.0, null) } transformWith Tr3)
+    
+    sameDefsAfter(ir{ new Cont(42, new Cont(42, null)) }, _ transformWith Tr3)
+    
+    sameDefs(ir{ val inner = new Cont(42, null); new Cont(42, inner); inner } transformWith Tr3,
+             ir{ new Cont((42:Int)+1, null) } transformWith Tr3)
+    
+    sameDefs(ir{ val inner = new Cont(42, null); new Cont(42, inner); inner.elem } transformWith Tr3,
+             ir{ new Cont((42:Int)+1, null).elem } transformWith Tr3)
     
     
   }
@@ -225,7 +231,7 @@ class PardisIRExtractTests extends PardisTestSuite {
              ir{ ArrayBuffer(1,2,3).filter(_ > 0) })
     
     
-    // Note: used to the reorder (the pure lambda statement was ignored and then reintroduced at the beginning)
+    // Note: this transfo used to reorder the stmts (the pure lambda statement was ignored and then reintroduced at the beginning)
     sameDefs(ir{ val s = Seq(1,2,3);         val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
              ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
     
@@ -517,6 +523,9 @@ class PardisIRExtractTests extends PardisTestSuite {
       }
     }
     
+    // FIXME make it work when the xtor does not have the same name!! (cf: proper hole memory)
+    
+    //base debugFor 
     sameDefs( ir{
       //val arr = ArrayBuffer(1,2,3) // produces an annoying Vararg node...
       val arr = new ArrayBuffer[Int]
@@ -525,20 +534,10 @@ class PardisIRExtractTests extends PardisTestSuite {
       arr.size
       42
     } transformWith Tr, ir{
-      val arr = new ArrayBuffer[Int]
-      
-      // FIXME eval order
-      //arr append ((0:Int)+1)
-      //arr append ((1:Int)+1)
-      //arr.size+1
-      
-      val a = (0:Int)+1
-      arr append a
-      val b = (1:Int)+1
-      arr append b
-      val c = arr.size
-      c+1
-      
+      val buf = new ArrayBuffer[Int]
+      buf append ((0:Int)+1)
+      buf append ((1:Int)+1)
+      buf.size+1
       42
     })
     
