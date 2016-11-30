@@ -21,7 +21,7 @@ lazy val commonSettings = Seq(
       if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
       else Nil
     )
-)
+) ++ publishSettings
 lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 lazy val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % scalaVersion.value }
 
@@ -78,6 +78,8 @@ lazy val benchmark = (project in file("benchmark")).
 
 val SCVersion = "0.1.31-SNAPSHOT"
 
+val currentIsSnapshot = true
+
 lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(commonSettings: _*).
   settings(
@@ -99,4 +101,27 @@ lazy val example = (project in file("example")).
   settings(commonSettings: _*).
   dependsOn(main)
 
+val developers = 
+      <developers>
+        <developer>
+          <id>LPTK</id>
+          <name>Lionel Parreaux</name>
+          <url>http://people.epfl.ch/lionel.parreaux</url>          
+        </developer>
+      </developers>
 
+lazy val publishSettings = Seq(
+  // resolvers += Resolver.sonatypeRepo("releases"),
+  publishMavenStyle := true,
+  isSnapshot := currentIsSnapshot,
+  publishTo := {
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+  },
+  publishArtifact in (Compile, packageSrc) := false,
+  pomIncludeRepository := { _ => false },
+  pomExtra := developers
+)
