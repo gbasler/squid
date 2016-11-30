@@ -76,7 +76,7 @@ lazy val benchmark = (project in file("benchmark")).
   dependsOn(main)
 
 
-val SCVersion = "0.1.31-SNAPSHOT"
+val SCVersion = "0.1.4-SNAPSHOT"
 
 val currentIsSnapshot = true
 
