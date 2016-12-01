@@ -103,6 +103,9 @@ class PardisIRTests extends PardisTestSuite {
     sameDefs(ir{ (1.toDouble+1.0,2.toDouble+2.0) },
              ir{ val n1 = 1.toDouble; val n11 = n1+1.0; val n2 = 2.toDouble; val n22 = n2+2.0; Tuple2(n11,n22) })
     
+    sameDefs(ir{ 1.toDouble+2.toDouble+3.toDouble },
+             ir{ val n1 = 1.toDouble; val n2 = 2.toDouble; val p1 = n1 + n2; val n3 = 3.toDouble; val p2 = p1 + n3; p2 })
+    
   }
   
   

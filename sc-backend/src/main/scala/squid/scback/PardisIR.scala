@@ -121,19 +121,19 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         // losing the original outer `bound` name!
         case sc.Block(sts,ret:ExpressionSymbol[Any @unchecked]) if sts.exists(_.sym == ret) =>
           sts foreach {
-            case sc.Stm(`ret`,rhs) => sc.reflectStm(sc.Stm(bound,rhs)(bound.tp))
-            case s => sc.reflectStm(s)
+            case sc.Stm(`ret`,rhs) => reflect(sc.Stm(bound,rhs)(bound.tp))
+            case s => reflect(s)
           }
           body
         case b: Block =>
           val e = b |> inlineBlock
           withSubs(bound -> e)(body)
         case d: Def[_] =>  // Def <=> PardisNode
-          sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
+          reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
         case h:AnyHole[_] => // todo generalize
           val d = HoleDef(h)
-          sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
+          reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
         case e: Expr => withSubs(bound -> e)(body)
       }
@@ -205,14 +205,22 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     sc.Block(s,r)(r.tp)
   }
   protected def toAtom(r: sc.Def[_]) = sc.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
+  
+  protected def reflect(s: Stm): Expr = {
+    if (sc.IRReifier.scopeStatements.exists(_.sym == s.sym))  // eqt to `sc.IRReifier.findDefinition(sym).nonEmpty`
+      sc.Stm(sc.freshNamed(s.sym.name)(s.sym.tp), s.rhs) |> sc.reflectStm
+    else s |> sc.reflectStm
+  }
+  
+  // TODO better impl of this with a hashtable; this is uselessly linear!
   protected[squid] def inlineBlock(b: Block) = {
-    require(sc._IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
-    b.stmts.asInstanceOf[Seq[AStm]] foreach sc.reflectStm
+    require(sc.IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
+    b.stmts.asInstanceOf[Seq[AStm]] foreach reflect
     b.res
   }
   protected def inlineBlockIfEnclosed(b: Block) = {
     if (sc._IRReifier.scopeDepth > 0) {
-      b.stmts.asInstanceOf[Seq[AStm]] foreach sc.reflectStm
+      b.stmts.asInstanceOf[Seq[AStm]] foreach reflect
       b.res
     } else b
   }
@@ -391,7 +399,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         case sc.Stm(sym, rhs) :: sts =>
           apply(rhs) match {
             case d: Def[_] =>
-              sc._IRReifier.findSymbol(d)(d.tp) getOrElse (sc.Stm(sym, d)(sym.tp) |> sc.reflectStm)
+              (if (d|>pure) sc._IRReifier.findSymbol(d)(d.tp) else None) getOrElse (sc.Stm(sym, d)(sym.tp) |> reflect)
               // ^ Note: not renewing the symbol (I think it's unnecessary)
               rec(sts)
             case r: Rep =>
@@ -534,7 +542,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     type ListBlock = List[AStm] -> Expr
     
     def constructBlock(lb: ListBlock): ABlock = sc.reifyBlock[Any] {
-      lb._1 foreach sc.reflectStm[Any]
+      lb._1 foreach reflect
       lb._2
     }(lb._2.tp)
     
@@ -688,11 +696,11 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       val b = sc.reifyBlock[Any] {
         // TODO reintroduce pure stmts
         processed foreach {
-          case Left(s: Stm) => sc.reflectStm(s)//(s.)
+          case Left(s: Stm) => reflect(s)
           case Right(bl -> v) =>
             v foreach (_ -> bl.res |> addBinding)
             //debug(s"Inlining with substitutions $sub, block: $bl")
-            bl.stmts foreach (s => sc.reflectStm(s))
+            bl.stmts foreach reflect
         }
         xteeBlock._2
       }(xtee.typ)
