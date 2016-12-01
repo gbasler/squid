@@ -224,7 +224,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   
   // TODO better impl of this with a hashtable; this is uselessly linear!
-  protected[squid] def inlineBlock(b: Block) = {
+  def inlineBlock(b: Block) = {
     require(sc.IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
     b.stmts.asInstanceOf[Seq[AStm]] foreach reflect
     b.res
@@ -235,12 +235,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       b.res
     } else b
   }
-  protected def toExpr(r: Rep): Expr = r match {
+  def toExpr(r: Rep): Expr = r match {
     case r: Expr => r
     case b: Block => inlineBlock(b)
     case d: Def[_] => toAtom(d)
   }
-  protected def toBlock(r: Rep): ABlock = r match {
+  def toBlock(r: Rep): ABlock = r match {
     case b: sc.Block[Any @unchecked] => b
     case _ => sc.reifyBlock(r |> toExpr)(r.typ)
   }
