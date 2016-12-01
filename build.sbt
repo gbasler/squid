@@ -1,7 +1,10 @@
 val paradiseVersion = "2.1.0"
 val boilerlessVersion = "0.1-SNAPSHOT"
+val squidVersion = "0.1-SNAPSHOT"
+val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(
+  version := squidVersion,
   scalaVersion := "2.11.8",
   organization := "ch.epfl.data",
   autoCompilerPlugins := true,
@@ -20,7 +23,8 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= (
       if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
       else Nil
-    )
+    ),
+  publishArtifact in packageDoc := !squidIsSnapshot // publishing doc is super slow -- don't do it for snapshots to ease development
 ) ++ publishSettings
 lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 lazy val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % scalaVersion.value }
