@@ -10,7 +10,6 @@ import squid.utils._
 import scala.language.experimental.macros
 import scala.reflect.macros.TypecheckException
 import meta.RuntimeUniverseHelpers.sru
-import squid.lang
 import utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
 
 import scala.reflect.macros.whitebox
@@ -309,9 +308,12 @@ object AutoBinder {
         
     }
     
-    val ret = q"""new AutoBinder[${base.tpe}, ${sb.tpe}]($base,$sb) {
-      ..${MB.mkSymbolDefs}; ..$fillingCode
-    }"""
+    val ret = q"""
+      def damnitScala[T](x: Any): T = x.asInstanceOf[T]  // Scala has problems with the interaction of macros and path-dependent types
+      damnitScala(new AutoBinder[${base.tpe}, ${sb.tpe}]($base,$sb) {
+        ..${MB.mkSymbolDefs}; ..$fillingCode
+      })
+    """
     
     debug(s"Generated: ${showCode(ret)}")
     println(s"Generated AutoBinder: ${showCode(ret).count(_ == '\n')} lines of code for ${allClasses.size} deep methods.")
