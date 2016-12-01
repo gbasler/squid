@@ -22,9 +22,13 @@ import scala.language.existentials
 class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   var ab: AutoBinder[DSL.type, this.type] = _
   
-  val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
-  val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
-  val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
+  protected val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
+  protected val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
+  protected val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
+  
+  protected val Function0ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function0"), "apply", None)
+  protected val Function2ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function2"), "apply", None)
+  protected val Function3ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function3"), "apply", None)
   
   /** Note: we have to wrap every method call (and corresponding statements) inside a Block.
     * It would work to simply let all expressions reify themselves in the enclosing block, but then we lose original
@@ -61,9 +65,12 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val Args(cond, thn: ABlock @unchecked, els: ABlock @unchecked)::Nil = argss
         return blockWithType(tp)(sc.IfThenElse(toExpr(cond).asInstanceOf[R[Bool]], thn, els)(tp))
         
+      case Function0ApplySymbol =>
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[()=>Any]])(tp.asInstanceOf[TR[Any]])())
+        
       case Function1ApplySymbol =>
         val arg = argss.head.asInstanceOf[Args].reps.head
-        return blockWithType(tp)(sc.__app(self.asInstanceOf[R[Any=>Any]])(arg.typ.asInstanceOf[TR[Any]], tp.asInstanceOf[TR[Any]])(arg |> toExpr))
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[Any=>Any]])(arg.typ, tp.asInstanceOf[TR[Any]])(arg |> toExpr))
         
       case _ =>
     }
