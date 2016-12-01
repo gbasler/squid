@@ -34,7 +34,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     * bound in the let-in instead of that symbol. */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println("METHOD "+mtd.name+" in "+mtd.owner)
-    assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialize.")
+    assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialized.")
     
     mtd match {
         
@@ -74,7 +74,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     blockWithType(tp){
     
     assert(argss.size == mtd.paramLists.size)
-    val argsTail = (argss zip mtd.paramLists) flatMap { case (as,ps) =>
+    def argsTail = (argss zip mtd.paramLists) flatMap { case (as,ps) =>
       val (nonRepeatedReps, repeatedReps) = as match {
         // FIXMElater: will fail on ArgsVarargSpliced
         case Args(as @ _*) =>

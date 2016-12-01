@@ -89,7 +89,7 @@ class PardisIRTests extends PardisTestSuite {
   //test("Blocks") {}  // TODO
   
   
-  test("Subexpressions and Scheduling") {
+  test("Scheduling Subexpressions") {
     
     sameDefs(ir{ println(1.toDouble);println(2.toDouble) },
              ir{ val n1 = 1.toDouble; val p1 = println(n1); val n2 = 2.toDouble; val p2 = println(n2); p2 })
