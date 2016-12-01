@@ -1,6 +1,8 @@
 package squid.scback
 
 import ch.epfl.data.sc.pardis
+import ch.epfl.data.sc.pardis.ir.PardisApply
+
 import collection.mutable.ArrayBuffer
 
 class PardisIRTests extends PardisTestSuite {
@@ -138,6 +140,21 @@ class PardisIRTests extends PardisTestSuite {
     assert(ir{ val n1 = 1.toDouble.toInt; ArrayBuffer(n1) }.typ.rep == ABI)
     
     assert(stmts(ir{ val n1 = 1.toDouble }).head.typeT == typeRepOf[Double])
+    
+  }
+  
+  
+  test("Manual Inlining") {
+    
+    val f = ir"(x: Int) => x+1"
+    val p = ir"$f(42)"
+    
+    assert(stmts(p).size == 2)
+    assert(stmts(p)(1).rhs.isInstanceOf[PardisApply[_,_]])
+    
+    val p2 = Sqd.inline(f,ir"42")
+    
+    sameDefs(p2, ir"val a = 42; a + 1")
     
   }
   

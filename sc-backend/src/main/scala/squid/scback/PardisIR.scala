@@ -206,6 +206,17 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   protected def toAtom(r: sc.Def[_]) = sc.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
   
+  def inline[A,B,C](fun: IR[A => B,C], arg: IR[A,C]): IR[B,C] = {
+    val fr = fun.rep match {
+      case PardisLambda(f,_,_) => f
+      case sc.Block(sc.Stm(s0,PardisLambda(f,_,_))::Nil,s1) if s0 == s1 => f
+      case Def(PardisLambda(f,_,_)) => f
+      case _ => throw new IRException(s"Unable to inline $fun")
+    }
+    ensureScoped(fr(arg.rep |> toExpr)) |> `internal IR`
+  }
+  protected def ensureScoped(x: => Rep) = if (sc._IRReifier.scopeDepth > 0) x else typedBlock(x)
+  
   protected def reflect(s: Stm): Expr = {
     if (sc.IRReifier.scopeStatements.exists(_.sym == s.sym))  // eqt to `sc.IRReifier.findDefinition(sym).nonEmpty`
       sc.Stm(sc.freshNamed(s.sym.name)(s.sym.tp), s.rhs) |> sc.reflectStm
