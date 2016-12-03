@@ -99,16 +99,23 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         ??? // TODO
     }
   }
-  def lambda(params: List[BoundVal], body: => Rep): Rep = params match {
-    case Nil =>
-      val b = typedBlock(toExpr(body))
-      val d = sc.Lambda0[Any](() => b |> toExpr, b)(b.tp)
-      sc.toAtom(d)(types.PardisTypeImplicits.typeLambda0(b.tp))
-    case p :: Nil =>
-      val b = typedBlock(toExpr(body))
-      val d = sc.Lambda[Any,Any]((x: Rep) => bottomUpPartial(b) { case `p` => x } |> toExpr, p, b)(p.tp, b.tp)
-      sc.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, b.tp))
-    case _ => ??? // TODO 2 and 3 params
+  def lambda(params: List[BoundVal], body: => Rep): Rep = {
+    val b = typedBlock(toExpr(body))
+    params match {
+      case Nil =>
+        val d = sc.Lambda0[Any](() => b |> toExpr, b)(b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda0(b.tp))
+      case p :: Nil =>
+        val d = sc.Lambda[Any,Any]((x: Rep) => bottomUpPartial(b) { case `p` => x } |> toExpr, p, b)(p.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, b.tp))
+      case p0 :: p1 :: Nil =>
+        val d = sc.Lambda2[Any,Any,Any]((x0: Rep, x1: Rep) => bottomUpPartial(b) { case `p0` => x0 case `p1` => x1 } |> toExpr, p0, p1, b)(p0.tp, p1.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda2(p0.tp, p1.tp, b.tp))
+      case p0 :: p1 :: p2 :: Nil =>
+        val d = sc.Lambda3[Any,Any,Any,Any]((x0: Rep, x1: Rep, x2: Rep) => bottomUpPartial(b) { case `p0` => x0 case `p1` => x1 case `p2` => x2 } |> toExpr, p0, p1, p2, b)(p0.tp, p1.tp, p2.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda3(p0.tp, p1.tp, p2.tp, b.tp))
+      case _ => throw new IRException("Unsupported function arity: "+params.size)
+    }
   }
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
     // we now put the result of let-bindings in blocks so their statements don't register before the stmts of Imperative
@@ -367,15 +374,19 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       case b: Block => transformBlock(b)
         
       // Note: we do not try to transform the inputs to lambdas, as there is no Sym=>Sym mapping available
-      // Q: should we renew the symbols?
+      // Note: no need to renew the symbols, as it should be done by block inlining and reflect(s: Stm)
       case PardisLambda0(f, o: ABlock) =>
         val newBlock = o |> pre |> apply |> post |> toBlock
         PardisLambda0[Any](() => newBlock |> toExpr, newBlock)(o.tp)
       case pl @ PardisLambda(f, i, o: ABlock) =>
         val newBlock = o |> pre |> apply |> post |> toBlock
         PardisLambda[Any,Any](x => bottomUpPartial(newBlock) { case `i` => x } |> toExpr, i, newBlock)(pl.typeT, pl.typeS)
-      case pl @ PardisLambda2(f, i0, i1, o: ABlock) => ??? // TODO
-      case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) => ??? // TODO
+      case pl @ PardisLambda2(f, i0, i1, o: ABlock) =>
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda2[Any,Any,Any]((x0,x1) => bottomUpPartial(newBlock) { case `i0` => x0 case `i1` => x1 } |> toExpr, i0, i1, newBlock)(pl.typeT1, pl.typeT2, pl.typeS)
+      case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) =>
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda3[Any,Any,Any,Any]((x0,x1,x2) => bottomUpPartial(newBlock) { case `i0` => x0 case `i1` => x1 case `i2` => x2 } |> toExpr, i0, i1, i2, newBlock)(pl.typeT1, pl.typeT2, pl.typeT3, pl.typeS)
         
       case r: PardisNode[_] => 
         r.rebuild(r.funArgs map transformFunArg: _*)
