@@ -571,14 +571,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     def rec(ex: Extract, matchedVals: List[Val -> Val], pureStms: List[AStm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block -> Option[Val], ListBlock)] =
     debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2|>trunc}") before nestDbg(xy match {
         
-      // Note: placing this here makes it very eager; it will skip pure statements instead of matching a $body xtor (not ideal)
-      case (x, ((ps @ sc.Stm(_, e1)) :: es1) -> r1) if (e1 |> pure)
-        && matchedVals.nonEmpty // don't want to start skipping defs before the xtion has even begun
-        && x._1.nonEmpty // don't want to ignore statements at the end just before the return – TODO this calls for a more general solution 
-      => rec(ex, matchedVals, ps :: pureStms)(x, es1 -> r1)
-        
-      case ((sc.Stm(b0, e0) :: es0) -> r0, (sc.Stm(b1, e1) :: es1) -> r1) =>
-        for {
+      case ((sc.Stm(b0, e0) :: es0) -> r0, ((s1 @ sc.Stm(b1, e1)) :: es1) -> r1) =>
+        val trial1 = for {
           e <- extractDef(e0, e1)
           e <- merge(e, ex)
           e <- if (b0.name endsWith XTED_BINDER_SUFFIX) merge(e, repExtract(b0.name.dropRight(XTED_BINDER_SUFFIX.length) -> b1))
@@ -590,6 +584,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           r <- rec(e, b0 -> b1 :: matchedVals, pureStms)(es0 -> r0, es1 -> r1)
           
         } yield r
+        if (trial1.isEmpty && (e1 |> pure) // try ignoring the pure statement if taking it in the match did not work out
+          // Note: because of the pattern in this case, we don't allow ignoring statements at the end just before the return
+          // – this used to be explicitly implemented as condition `xy._1._1.nonEmpty`
+          && matchedVals.nonEmpty // don't want to start skipping defs before the xtion has even begun
+        ) rec(ex, matchedVals, s1 :: pureStms)(xy._1, es1 -> r1)
+        else trial1 
         
       case (Nil -> r0, bl @ sts -> r1) =>
         
@@ -637,7 +637,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           
         } yield (newPureStms, b -> (r1 |>? {case s: Sym => s}), Nil -> b.res)
           //                                                    ^ Nil here because the entire end of the block was matched
-        ) orElse { if (r0 |> isHole) None else { // If we're not in a $body-result xtor – we're not going to match the result, so it would be unsound if it had a hole
+        ) orElse { if (r0 |> isHole || matchedVals.isEmpty) None else { // If we're not in a $body-result xtor – we're not going to match the result, so it would be unsound if it had a hole
           // If the above did not work, try only matching statements up to where we are currently in the xtee
           // This implements sequential statements rewriting, which can operate in the middle of blocks
           
@@ -683,7 +683,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           //debugVisible(ps)
           //Right(b -> v) +: process(xtor, lb)
           // FIXME: not really correct to use `ps` here:
-          ((ps map Left.apply) :+ Right(b -> v)) ++ process(xtor, lb)
+          ((ps map Left.apply) :+ Right(b -> v)) ++ (
+            if (lb._1.nonEmpty) process(xtor, lb)
+            else Nil // in case we have not matched any statement, don't recurse as it could lead to an infinite loop
+          )
         case None => xtee match {
           case (st :: sts) -> r => Left(st) :: process(xtor, sts -> r)  // Note: no need to pass around the return?
           case Nil -> r => Nil
@@ -713,7 +716,16 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
             //debug(s"Inlining with substitutions $sub, block: $bl")
             bl.stmts foreach reflect
         }
-        xteeBlock._2
+        /*
+        // If the last segment is a rewritten block and it does not have a matched val result (it could be e.g. a constant),
+        // use this as the result of the whole thing
+        processed.lastOption collect { case Right(bl -> None) => assert(!xteeBlock._2.isInstanceOf[ExpressionSymbol[_]]); bl.res } getOrElse xteeBlock._2
+        */
+        // If the result of the xtee is a Sym, it will be according to the rewritings that have taken place.
+        // Otherwise (it could be e.g. a constant), it could have been rewritten and have produced a block in the last
+        // `processed` segment, so we check for it.
+        xteeBlock._2 |>? { case s: Sym => s } orElse (processed.lastOption collect { case Right(bl -> None) => bl.res }) getOrElse xteeBlock._2
+        
       }(xtee.typ)
       
       //debug(s"Mapping: $sub")
