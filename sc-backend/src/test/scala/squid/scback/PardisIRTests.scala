@@ -176,4 +176,25 @@ class PardisIRTests extends PardisTestSuite {
   }
   
   
+  test("Variables") {
+    import squid.lib.Var
+    import SC._
+    
+    sameDefs(ir"var a = 0; 1", scBlock {
+      val a = __newVar(unit(0))
+      unit(1)
+    })
+    sameDefs(ir"var a = 0; a + 1", scBlock {
+      val a = __newVar(unit(0))
+      __readVar(a) + unit(1)
+    })
+    sameDefs(ir"var a = 0; a = a + 1; a", scBlock {
+      val a = __newVar(unit(0))
+      __assign(a,__readVar(a) + unit(1))
+      __readVar(a)
+    })
+    
+  }
+  
+  
 }

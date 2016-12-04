@@ -5,6 +5,7 @@ import ch.epfl.data.sc._
 import pardis._
 import squid.MyFunSuiteTrait
 import squid.ir.SimpleAST
+import squid.scback.PardisBinding.DefaultPardisMixin
 
 object SimpleBindings {
   
@@ -26,7 +27,7 @@ class SimpleBindings extends MyFunSuiteTrait {
   
   val DSL: sqd.type = sqd
   
-  object sc extends ir.Base {
+  object sc extends ir.Base with DefaultPardisMixin {
     implicit class Test(a:Rep[SimpleBindings.Test]) {
       def foo[A <: Seq[Int]](a:Rep[A])(implicit tp: sc.TypeRep[A]):Rep[A] = ???
     }

@@ -24,6 +24,11 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   
   protected val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
   protected val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
+  
+  protected val VarApplySymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var$"), "apply", None)
+  protected val VarBangSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var"), "$bang", None)
+  protected val VarColonEqualSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var"), "$colon$eq", None)
+  
   protected val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
   
   protected val Function0ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function0"), "apply", None)
@@ -80,6 +85,18 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val Args(a0,a1,a2)::Nil = argss
         return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[(Any,Any,Any)=>Any]])(a0.typ, a1.typ, a2.typ, tp.asInstanceOf[TR[Any]])(a0 |> toExpr, a1 |> toExpr, a2 |> toExpr))
         
+      case VarApplySymbol =>
+        val arg = argss.head.asInstanceOf[Args].reps.head
+        return sc.__newVar[Any](toExpr(arg))(arg.typ)
+        
+      case VarBangSymbol =>
+        val arg = self.asInstanceOf[Var]
+        return blockWithType(tp)(sc.__readVar[Any](arg)(tp))
+        
+      case VarColonEqualSymbol =>
+        val v = self.asInstanceOf[Var]
+        val Args(arg)::Nil = argss
+        return blockWithType(tp)(sc.__assign[Any](v, arg |> toExpr)(v.e.tp))
         
       case _ =>
     }

@@ -42,6 +42,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   type ASym = sc.Sym[Any]
   type Stm = sc.Stm[_]
   type AStm = sc.Stm[Any]
+  type Var = sc.Var[Any]
   
   type R[+A] = sc.Rep[A]
   type TR[A] = sc.TypeRep[A]
@@ -64,10 +65,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   
   
-  // TODO port to parent
-  implicit val anyType: TR[Any] = types.AnyType
+  // TODO test support for varargs
   def varargsToPardisVarargs = ???
-  
   
   
   
@@ -142,6 +141,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           val d = HoleDef(h)
           reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
+        case v: Var => withSubs(bound -> v)(body)
         case e: Expr => withSubs(bound -> e)(body)
       }
     )
@@ -161,8 +161,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   def repEq(a: Rep, b: Rep): Boolean = a == b
   
   
-  protected val curSubs = mutable.HashMap[Sym, Expr]()
-  protected def withSubs[A](ss: (Sym -> Expr)*)(code: => A): A = {
+  protected val curSubs = mutable.HashMap[Sym, Rep]()
+  protected def withSubs[A](ss: (Sym -> Rep)*)(code: => A): A = {
     val keys = ss.unzip._1.toSet
     assert(curSubs.keySet intersect keys isEmpty)
     curSubs ++= ss
@@ -226,7 +226,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   protected def reflect(s: Stm): Expr = {
     if (sc.IRReifier.scopeStatements.exists(_.sym == s.sym))  // eqt to `sc.IRReifier.findDefinition(sym).nonEmpty`
-      sc.Stm(sc.freshNamed(s.sym.name)(s.sym.tp), s.rhs) |> sc.reflectStm
+      sc.Stm(sc.freshNamed(s.sym.name)(s.sym.tp), s.rhs)(s.sym.tp) |> sc.reflectStm
     else s |> sc.reflectStm
   }
   
@@ -246,6 +246,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     case r: Expr => r
     case b: Block => inlineBlock(b)
     case d: Def[_] => toAtom(d)
+    case v: PardisVar[_] => sc.__readVar[Any](v)(v.typ)
   }
   def toBlock(r: Rep): ABlock = r match {
     case b: sc.Block[Any @unchecked] => b
