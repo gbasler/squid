@@ -17,6 +17,8 @@ class PardisTestSuite extends MyFunSuiteTrait with TestDSLBinding {
   
   // Helper Methods
   
+  def scBlock[A: SC.TypeRep](x: => SC.Rep[A]) = Sqd.`internal IR`(SC.reifyBlock(x))
+  
   def stmts_ret(x: IR[_,_]): List[Sqd.Stm] -> Sqd.Expr = x.rep match {
     case SC.Block(sts, r) => sts -> r
     case _ => stmts_ret(Sqd.`internal IR`(Sqd.typedBlock(x.rep)))

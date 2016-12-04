@@ -1,7 +1,8 @@
 package squid.scback
 
 import collection.mutable.ArrayBuffer
-import ch.epfl.data.sc.pardis.ir.Constant
+import ch.epfl.data.sc.pardis
+import pardis.ir.Constant
 
 class SimpleRewritingTests extends PardisTestSuite {
   

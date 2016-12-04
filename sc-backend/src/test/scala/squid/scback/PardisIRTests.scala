@@ -159,4 +159,21 @@ class PardisIRTests extends PardisTestSuite {
   }
   
   
+  test("Function3") {
+    
+    sameDefs(ir"(a:Int,b:Int,c:Double) => a * b + c", {
+      import SC._
+      import SC.Predef.typeLambda3
+      scBlock{ __lambda((a:Rep[Int],b:Rep[Int],c:Rep[Double]) => a * b + c) }
+    })
+    
+    sameDefs(ir"((a:Int,b:Int,c:Double) => a * b + c)(1,2,3)", {
+      import SC._
+      import SC.Predef.typeLambda3
+      scBlock{ __app(__lambda((a:Rep[Int],b:Rep[Int],c:Rep[Double]) => a * b + c)) apply (unit(1), unit(2), unit(3.0)) }
+    })
+    
+  }
+  
+  
 }

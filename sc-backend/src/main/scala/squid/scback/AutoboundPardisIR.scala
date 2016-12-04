@@ -72,6 +72,15 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val arg = argss.head.asInstanceOf[Args].reps.head
         return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[Any=>Any]])(arg.typ, tp.asInstanceOf[TR[Any]])(arg |> toExpr))
         
+      case Function2ApplySymbol =>
+        val Args(a0,a1)::Nil = argss
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[(Any,Any)=>Any]])(a0.typ, a1.typ, tp.asInstanceOf[TR[Any]])(a0 |> toExpr, a1 |> toExpr))
+        
+      case Function3ApplySymbol =>
+        val Args(a0,a1,a2)::Nil = argss
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[(Any,Any,Any)=>Any]])(a0.typ, a1.typ, a2.typ, tp.asInstanceOf[TR[Any]])(a0 |> toExpr, a1 |> toExpr, a2 |> toExpr))
+        
+        
       case _ =>
     }
     
