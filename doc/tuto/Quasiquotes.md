@@ -1,9 +1,19 @@
 # Squid Quasiquotes Tutorial
 
 
-### Summary
+## Summary
 
-[TODO]
+###1. [Introduction](#introduction)
+###2. [Code Composition & Multi-Stage Programming](#code-composition--multi-stage-programming)
+###3. [Code Extraction with Pattern Matching](#code-extraction-with-pattern-matching)
+###4. [Term Rewriting](#term-rewriting)
+###5. [Advanced Topics on Term Rewriting](#advanced-topics-on-term-rewriting)
+###6. [Debugging Quasiquotes](#debugging-quasiquotes)
+
+
+
+
+## Introduction
 
 
 ### Getting Started
@@ -17,7 +27,7 @@ import Code.Quasicodes._
 ```
 
 
-## Introduction
+### Code Quotation
 
 In Scala, text quotation is written between two `"` (double quotation marks).
 `"abc"` represents the string of characters made of characters `'a'`, `'b'` and `'c'`.
@@ -532,7 +542,7 @@ the type of the rewritten term `ir"($$d: Double)+1"` has its context requirement
 Beware that such rewritings are recursive by default: they will try to find a fixed point,
 and may apply repeatedly until they reach the recursion limit if there are none!
 
-See the [Transformers Tutorial](Transformers) if you want more control and to be able to define precise optimization passes.
+See the [Transformers Tutorial](Transformers.md) if you want more control and to be able to define precise optimization passes.
 
 
 
@@ -588,6 +598,8 @@ res: Double = 2.23606797749979
 ```
 
 
+The code code demonstrating this example is also
+[available in the example package](https://github.com/LPTK/Squid/blob/master/example/src/main/scala/example/PowOptim.scala).
 
 
 
