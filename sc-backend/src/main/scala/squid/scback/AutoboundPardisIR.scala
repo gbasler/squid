@@ -22,9 +22,18 @@ import scala.language.existentials
 class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   var ab: AutoBinder[DSL.type, this.type] = _
   
-  val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
-  val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
-  val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
+  protected val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
+  protected val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
+  
+  protected val VarApplySymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var$"), "apply", None)
+  protected val VarBangSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var"), "$bang", None)
+  protected val VarColonEqualSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package.Var"), "$colon$eq", None)
+  
+  protected val PrintlnSymbol = loadMtdSymbol(loadTypSymbol("scala.Predef$"), "println", None)
+  
+  protected val Function0ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function0"), "apply", None)
+  protected val Function2ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function2"), "apply", None)
+  protected val Function3ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function3"), "apply", None)
   
   /** Note: we have to wrap every method call (and corresponding statements) inside a Block.
     * It would work to simply let all expressions reify themselves in the enclosing block, but then we lose original
@@ -34,7 +43,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     * bound in the let-in instead of that symbol. */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println("METHOD "+mtd.name+" in "+mtd.owner)
-    assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialize.")
+    assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialized.")
     
     mtd match {
         
@@ -61,9 +70,33 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val Args(cond, thn: ABlock @unchecked, els: ABlock @unchecked)::Nil = argss
         return blockWithType(tp)(sc.IfThenElse(toExpr(cond).asInstanceOf[R[Bool]], thn, els)(tp))
         
+      case Function0ApplySymbol =>
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[()=>Any]])(tp.asInstanceOf[TR[Any]])())
+        
       case Function1ApplySymbol =>
         val arg = argss.head.asInstanceOf[Args].reps.head
-        return blockWithType(tp)(sc.__app(self.asInstanceOf[R[Any=>Any]])(arg.typ.asInstanceOf[TR[Any]], tp.asInstanceOf[TR[Any]])(arg |> toExpr))
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[Any=>Any]])(arg.typ, tp.asInstanceOf[TR[Any]])(arg |> toExpr))
+        
+      case Function2ApplySymbol =>
+        val Args(a0,a1)::Nil = argss
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[(Any,Any)=>Any]])(a0.typ, a1.typ, tp.asInstanceOf[TR[Any]])(a0 |> toExpr, a1 |> toExpr))
+        
+      case Function3ApplySymbol =>
+        val Args(a0,a1,a2)::Nil = argss
+        return blockWithType(tp)(sc.__app(toExpr(self).asInstanceOf[R[(Any,Any,Any)=>Any]])(a0.typ, a1.typ, a2.typ, tp.asInstanceOf[TR[Any]])(a0 |> toExpr, a1 |> toExpr, a2 |> toExpr))
+        
+      case VarApplySymbol =>
+        val arg = argss.head.asInstanceOf[Args].reps.head
+        return sc.__newVar[Any](toExpr(arg))(arg.typ)
+        
+      case VarBangSymbol =>
+        val arg = self.asInstanceOf[Var]
+        return blockWithType(tp)(sc.__readVar[Any](arg)(tp))
+        
+      case VarColonEqualSymbol =>
+        val v = self.asInstanceOf[Var]
+        val Args(arg)::Nil = argss
+        return blockWithType(tp)(sc.__assign[Any](v, arg |> toExpr)(v.e.tp))
         
       case _ =>
     }
@@ -74,7 +107,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     blockWithType(tp){
     
     assert(argss.size == mtd.paramLists.size)
-    val argsTail = (argss zip mtd.paramLists) flatMap { case (as,ps) =>
+    def argsTail = (argss zip mtd.paramLists) flatMap { case (as,ps) =>
       val (nonRepeatedReps, repeatedReps) = as match {
         // FIXMElater: will fail on ArgsVarargSpliced
         case Args(as @ _*) =>

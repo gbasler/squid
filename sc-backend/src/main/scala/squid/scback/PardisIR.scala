@@ -10,6 +10,7 @@ import pardis.{ir => pir}
 import squid.utils._
 import CollectionUtils.TraversableOnceHelper
 import ch.epfl.data.sc.pardis.deep.scalalib.collection.CanBuildFromIRs.CanBuildFromType
+import ch.epfl.data.sc.pardis.types
 
 import scala.collection.mutable
 import meta.{RuntimeUniverseHelpers => ruh}
@@ -41,6 +42,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   type ASym = sc.Sym[Any]
   type Stm = sc.Stm[_]
   type AStm = sc.Stm[Any]
+  type Var = sc.Var[Any]
   
   type R[+A] = sc.Rep[A]
   type TR[A] = sc.TypeRep[A]
@@ -51,7 +53,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   case class New[A](_tp: TR[A]) extends Expression[A]()(_tp)
   
   sealed trait AnyHole[A] extends Expression[A] { val name: String }
-  case class Hole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp) with AnyHole[A]
+  case class Hole[A](name: String, _tp: TR[A], originalSym: Option[BoundVal]) extends Expression[A]()(_tp) with AnyHole[A]
   case class SplicedHole[A](name: String, _tp: TR[A]) extends Expression[A]()(_tp) with AnyHole[A]
   
   case class HoleDef[A](h: AnyHole[A]) extends PardisNode[A]()(h.tp)
@@ -63,10 +65,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   
   
-  // TODO port to parent
-  implicit val anyType: TR[Any] = types.AnyType
+  // TODO test support for varargs
   def varargsToPardisVarargs = ???
-  
   
   
   
@@ -98,12 +98,23 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         ??? // TODO
     }
   }
-  def lambda(params: List[BoundVal], body: => Rep): Rep = params match {
-    case p :: Nil =>
-      val b = typedBlock(toExpr(body))
-      val d = sc.Lambda[Any,Any]((x: Rep) => ??? /*TODO*/ , p, b)(p.tp, b.tp)
-      sc.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, b.tp))
-    case _ => ??? // TODO
+  def lambda(params: List[BoundVal], body: => Rep): Rep = {
+    val b = typedBlock(toExpr(body))
+    params match {
+      case Nil =>
+        val d = sc.Lambda0[Any](() => b |> toExpr, b)(b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda0(b.tp))
+      case p :: Nil =>
+        val d = sc.Lambda[Any,Any]((x: Rep) => bottomUpPartial(b) { case `p` => x } |> toExpr, p, b)(p.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda1(p.tp, b.tp))
+      case p0 :: p1 :: Nil =>
+        val d = sc.Lambda2[Any,Any,Any]((x0: Rep, x1: Rep) => bottomUpPartial(b) { case `p0` => x0 case `p1` => x1 } |> toExpr, p0, p1, b)(p0.tp, p1.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda2(p0.tp, p1.tp, b.tp))
+      case p0 :: p1 :: p2 :: Nil =>
+        val d = sc.Lambda3[Any,Any,Any,Any]((x0: Rep, x1: Rep, x2: Rep) => bottomUpPartial(b) { case `p0` => x0 case `p1` => x1 case `p2` => x2 } |> toExpr, p0, p1, p2, b)(p0.tp, p1.tp, p2.tp, b.tp)
+        sc.toAtom(d)(types.PardisTypeImplicits.typeLambda3(p0.tp, p1.tp, p2.tp, b.tp))
+      case _ => throw new IRException("Unsupported function arity: "+params.size)
+    }
   }
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
     // we now put the result of let-bindings in blocks so their statements don't register before the stmts of Imperative
@@ -116,20 +127,21 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         // losing the original outer `bound` name!
         case sc.Block(sts,ret:ExpressionSymbol[Any @unchecked]) if sts.exists(_.sym == ret) =>
           sts foreach {
-            case sc.Stm(`ret`,rhs) => sc.reflectStm(sc.Stm(bound,rhs)(bound.tp))
-            case s => sc.reflectStm(s)
+            case sc.Stm(`ret`,rhs) => reflect(sc.Stm(bound,rhs)(bound.tp))
+            case s => reflect(s)
           }
           body
         case b: Block =>
           val e = b |> inlineBlock
           withSubs(bound -> e)(body)
         case d: Def[_] =>  // Def <=> PardisNode
-          sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
+          reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
         case h:AnyHole[_] => // todo generalize
           val d = HoleDef(h)
-          sc.reflectStm(sc.Stm[Any](bound, d)(bound.tp))
+          reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
+        case v: Var => withSubs(bound -> v)(body)
         case e: Expr => withSubs(bound -> e)(body)
       }
     )
@@ -149,8 +161,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   def repEq(a: Rep, b: Rep): Boolean = a == b
   
   
-  protected val curSubs = mutable.HashMap[Sym, Expr]()
-  protected def withSubs[A](ss: (Sym -> Expr)*)(code: => A): A = {
+  protected val curSubs = mutable.HashMap[Sym, Rep]()
+  protected def withSubs[A](ss: (Sym -> Rep)*)(code: => A): A = {
     val keys = ss.unzip._1.toSet
     assert(curSubs.keySet intersect keys isEmpty)
     curSubs ++= ss
@@ -169,7 +181,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       val IR: sc.type = sc
       override def expToDocument(exp: Expression[_]) = exp match {
         case Constant(b: Boolean) => doc"${b.toString}"
-        case Hole(n,tp) => doc"($$$n: ${tp |> tpeToDocument})"
+        case Hole(n,tp,Some(s)) => doc"($$$n: ${tp |> tpeToDocument} [from ${s |> symToDocument}])"
+        case Hole(n,tp,None) => doc"($$$n: ${tp |> tpeToDocument})"
         case SplicedHole(n,tp) => doc"($$$n: ${tp |> tpeToDocument}*)"
         case _                    => super.expToDocument(exp)
       }
@@ -199,24 +212,44 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     sc.Block(s,r)(r.tp)
   }
   protected def toAtom(r: sc.Def[_]) = sc.toAtom[Any](r)(r.tp.asInstanceOf[TR[Any]])
-  protected[squid] def inlineBlock(b: Block) = {
-    require(sc._IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
-    b.stmts.asInstanceOf[Seq[AStm]] foreach sc.reflectStm
+  
+  def inline[A,B,C](fun: IR[A => B,C], arg: IR[A,C]): IR[B,C] = {
+    val fr = fun.rep match {
+      case PardisLambda(f,_,_) => f
+      case sc.Block(sc.Stm(s0,PardisLambda(f,_,_))::Nil,s1) if s0 == s1 => f
+      case Def(PardisLambda(f,_,_)) => f
+      case _ => throw new IRException(s"Unable to inline $fun")
+    }
+    ensureScoped(fr(arg.rep |> toExpr)) |> `internal IR`
+  }
+  protected def ensureScoped(x: => Rep) = if (sc._IRReifier.scopeDepth > 0) x else typedBlock(x)
+  
+  protected def reflect(s: Stm): Expr = {
+    if (sc.IRReifier.scopeStatements.exists(_.sym == s.sym))  // eqt to `sc.IRReifier.findDefinition(sym).nonEmpty`
+      sc.Stm(sc.freshNamed(s.sym.name)(s.sym.tp), s.rhs)(s.sym.tp) |> sc.reflectStm
+    else s |> sc.reflectStm
+  }
+  
+  // TODO better impl of this with a hashtable; this is uselessly linear!
+  def inlineBlock(b: Block) = {
+    require(sc.IRReifier.scopeDepth > 0, s"No outer scope to inline into for $b")
+    b.stmts.asInstanceOf[Seq[AStm]] foreach reflect
     b.res
   }
   protected def inlineBlockIfEnclosed(b: Block) = {
     if (sc._IRReifier.scopeDepth > 0) {
-      b.stmts.asInstanceOf[Seq[AStm]] foreach sc.reflectStm
+      b.stmts.asInstanceOf[Seq[AStm]] foreach reflect
       b.res
     } else b
   }
-  protected def toExpr(r: Rep): Expr = r match {
+  def toExpr(r: Rep): Expr = r match {
     case r: Expr => r
     case b: Block => inlineBlock(b)
     case d: Def[_] => toAtom(d)
+    case v: PardisVar[_] => sc.__readVar[Any](v)(v.typ)
   }
-  protected def toBlock(r: Rep): Block = r match {
-    case b: Block => b
+  def toBlock(r: Rep): ABlock = r match {
+    case b: sc.Block[Any @unchecked] => b
     case _ => sc.reifyBlock(r |> toExpr)(r.typ)
   }
   
@@ -231,10 +264,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = {
     //debug(s"SUBST $r with "+(defs mapValues (f=>util.Try(typedBlock(f())))))
     
-    val nameMap = curSubs collect { case k -> Hole(n,_) => k -> n }
+    val nameMap = curSubs collect { case k -> Hole(n,_,_) => k -> n }
     
     if (defs isEmpty) r else bottomUp(r) {
-      case h @ Hole(n,_) => defs get n map (_()) getOrElse h
+      case h @ Hole(n,_,_) => defs get n map (_()) getOrElse h
       case h @ SplicedHole(n,_) => defs get n map (_()) getOrElse h
       case s: Sym =>
         //println("Trav "+s, nameMap get s flatMap (defs get _) map (_()) getOrElse s)
@@ -244,7 +277,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     
   } |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  and (r => debug(s"SUBS RESULT = $r"))
   
-  def hole(name: String, typ: TypeRep): Rep = Hole(name, typ)
+  def hole(name: String, typ: TypeRep): Rep = Hole(name, typ, None)
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)
   def typeHole(name: String): TypeRep = TypeHole(name)
   
@@ -342,13 +375,19 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       case b: Block => transformBlock(b)
         
       // Note: we do not try to transform the inputs to lambdas, as there is no Sym=>Sym mapping available
-      // Q: should we renew the symbols?
+      // Note: no need to renew the symbols, as it should be done by block inlining and reflect(s: Stm)
       case PardisLambda0(f, o: ABlock) =>
-        PardisLambda0[Any](() => o |> toExpr, o |> transformBlock)(o.tp)
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda0[Any](() => newBlock |> toExpr, newBlock)(o.tp)
       case pl @ PardisLambda(f, i, o: ABlock) =>
-        PardisLambda[Any,Any](x => bottomUpPartial(o) { case `i` => x } |> toExpr, i, o |> transformBlock)(pl.typeT, pl.typeS)
-      case pl @ PardisLambda2(f, i0, i1, o: ABlock) => ??? // TODO
-      case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) => ??? // TODO
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda[Any,Any](x => bottomUpPartial(newBlock) { case `i` => x } |> toExpr, i, newBlock)(pl.typeT, pl.typeS)
+      case pl @ PardisLambda2(f, i0, i1, o: ABlock) =>
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda2[Any,Any,Any]((x0,x1) => bottomUpPartial(newBlock) { case `i0` => x0 case `i1` => x1 } |> toExpr, i0, i1, newBlock)(pl.typeT1, pl.typeT2, pl.typeS)
+      case pl @ PardisLambda3(f, i0, i1, i2, o: ABlock) =>
+        val newBlock = o |> pre |> apply |> post |> toBlock
+        PardisLambda3[Any,Any,Any,Any]((x0,x1,x2) => bottomUpPartial(newBlock) { case `i0` => x0 case `i1` => x1 case `i2` => x2 } |> toExpr, i0, i1, i2, newBlock)(pl.typeT1, pl.typeT2, pl.typeT3, pl.typeS)
         
       case r: PardisNode[_] => 
         r.rebuild(r.funArgs map transformFunArg: _*)
@@ -383,7 +422,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         case sc.Stm(sym, rhs) :: sts =>
           apply(rhs) match {
             case d: Def[_] =>
-              sc._IRReifier.findSymbol(d)(d.tp) getOrElse (sc.Stm(sym, d)(sym.tp) |> sc.reflectStm)
+              (if (d|>pure) sc._IRReifier.findSymbol(d)(d.tp) else None) getOrElse (sc.Stm(sym, d)(sym.tp) |> reflect)
               // ^ Note: not renewing the symbol (I think it's unnecessary)
               rec(sts)
             case r: Rep =>
@@ -407,7 +446,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = debug(s"${"Extr." |> bold} $xtor << $xtee") before nestDbg(xtor -> xtee match {
       
-    case Hole(name, typ) -> _ => 
+    case Hole(name, typ, _) -> _ =>
       typ extract (xtee.typ, Covariant) flatMap { merge(_, (Map(name -> xtee), Map(), Map())) }
       
     case (Constant(v1), Constant(v2)) =>
@@ -426,10 +465,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     
     case (es0: ExpressionSymbol[_]) -> (es1: ExpressionSymbol[_]) if es1 |>? rwrCtx contains es0 => SomeEmptyExtract // Q: handle xted bindings here?
       
-    // Q: is this simplistic impl safe?
-    // TODO actually use a memory associated with the hole instead...
-    case (es0: ExpressionSymbol[_]) -> Hole(name, _) if es0.name startsWith name => SomeEmptyExtract // "hole memory"
-
+    case (es0: ExpressionSymbol[_]) -> Hole(name, _, Some(s)) if es0 == s => SomeEmptyExtract  // "hole memory"
+      
     case PardisVarArg(SplicedHole(name,typ)) -> PardisVarArg(Def(PardisLiftedSeq(seq))) =>
       typ extract (xtee.typ, Covariant) flatMap { merge(_, mkExtract()()(name -> seq)) }
       
@@ -499,18 +536,25 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   
   def varsIn(r: Rep): Set[Sym] = ???
   
+  private def trunc(x: Any) = {
+    val str = x.toString
+    val s = str.splitSane('\n')
+    if (s.size > 5) (s.iterator.take(5) ++ Iterator("... < truncated > ...")) mkString "\n"
+    else str
+  }
+  
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
-    debug(s"${"Rewriting" |> bold} $xtee ${"with" |> bold} $xtor")
+    debug(s"${"Rewriting" |> bold} ${xtee|>trunc} ${"with" |> bold} $xtor")
     
     xtee |>? {
       case _:Block => // Block is a Def
       case (_:PardisVarArg)|(_:PardisLiftedSeq[_])|(_: Def[_]) =>
-        return failExtrWith(s"Can't match ${xtee} with a block.")
+        return failExtrWith(s"Can't match that with a block.")
     }
     
     def codeBlock(ex: Extract): Option[Block] = try typedBlock(code(ex) getOrElse (
       return failExtrWith("Rewritten code could not be constructed successfully: returned None"))
-    ) |> some and (c => debug(s"Constructed code: ${c.get}")) catch {
+    ) |> some and (c => debug(s"Constructed code: ${c.get|>trunc}")) catch {
       case e: NoSuchElementException if e.getMessage === s"key not found: $SCRUTINEE_KEY" =>
         throw IRException(s"Could not extract a scrutinee for this rewrite pattern: ${xtor |> showRep}")
       case e: Throwable =>
@@ -521,7 +565,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     type ListBlock = List[AStm] -> Expr
     
     def constructBlock(lb: ListBlock): ABlock = sc.reifyBlock[Any] {
-      lb._1 foreach sc.reflectStm[Any]
+      lb._1 foreach reflect
       lb._2
     }(lb._2.tp)
     
@@ -537,16 +581,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       * Note: we accumulate skipped pure statements in `pureStms` because we need to look at them to see if they refer to removed nodes
       * @return pure statements encountered and skipped, rewritten block output by `code`, rest of the statements */
     def rec(ex: Extract, matchedVals: List[Val -> Val], pureStms: List[AStm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block -> Option[Val], ListBlock)] =
-    debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2}") before nestDbg(xy match {
+    debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2|>trunc}") before nestDbg(xy match {
         
-      // Note: placing this here makes it very eager; it will skip pure statements instead of matching a $body xtor (not ideal)
-      case (x, ((ps @ sc.Stm(_, e1)) :: es1) -> r1) if (e1 |> pure)
-        && matchedVals.nonEmpty // don't want to start skipping defs before the xtion has even begun
-        && x._1.nonEmpty // don't want to ignore statements at the end just before the return – TODO this calls for a more general solution 
-      => rec(ex, matchedVals, ps :: pureStms)(x, es1 -> r1)
-        
-      case ((sc.Stm(b0, e0) :: es0) -> r0, (sc.Stm(b1, e1) :: es1) -> r1) =>
-        for {
+      case ((sc.Stm(b0, e0) :: es0) -> r0, ((s1 @ sc.Stm(b1, e1)) :: es1) -> r1) =>
+        val trial1 = for {
           e <- extractDef(e0, e1)
           e <- merge(e, ex)
           e <- if (b0.name endsWith XTED_BINDER_SUFFIX) merge(e, repExtract(b0.name.dropRight(XTED_BINDER_SUFFIX.length) -> b1))
@@ -558,6 +596,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           r <- rec(e, b0 -> b1 :: matchedVals, pureStms)(es0 -> r0, es1 -> r1)
           
         } yield r
+        if (trial1.isEmpty && (e1 |> pure) // try ignoring the pure statement if taking it in the match did not work out
+          // Note: because of the pattern in this case, we don't allow ignoring statements at the end just before the return
+          // – this used to be explicitly implemented as condition `xy._1._1.nonEmpty`
+          && matchedVals.nonEmpty // don't want to start skipping defs before the xtion has even begun
+        ) rec(ex, matchedVals, s1 :: pureStms)(xy._1, es1 -> r1)
+        else trial1 
         
       case (Nil -> r0, bl @ sts -> r1) =>
         
@@ -587,12 +631,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           
           e <- extract(r0, block)
           e <- merge(e, ex)
-          // The extracted scrutinee is the returned expression:
-          e <- merge(e, repExtract(SCRUTINEE_KEY -> block)) // FIXME WRONG!!!
+          // The extracted scrutinee is the returned expression – here the whole remaining block:
+          e <- merge(e, repExtract(SCRUTINEE_KEY -> block))
           () = debug(s"${Console.GREEN}Constructing bin-rewritten code with $e${Console.RESET}")
           bindings = matchedVals collect {
             case a -> b if a.name contains NAME_SUFFIX =>
-              b -> Hole(a.name splitAt (a.name indexOf NAME_SUFFIX) _1, b.tp)
+              b -> Hole(a.name splitAt (a.name indexOf NAME_SUFFIX) _1, b.tp, Some(b))
           }
           //() = debug("Bindings: "+bindings)
           b <- withSubs(bindings:_*) {codeBlock(e)} // TODO do that in other cases too!
@@ -605,7 +649,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           
         } yield (newPureStms, b -> (r1 |>? {case s: Sym => s}), Nil -> b.res)
           //                                                    ^ Nil here because the entire end of the block was matched
-        ) orElse { if (r0 |> isHole) None else { // If we're not in a $body-result xtor – we're not going to match the result, so it would be unsound if it had a hole
+        ) orElse { if (r0 |> isHole || matchedVals.isEmpty) None else { // If we're not in a $body-result xtor – we're not going to match the result, so it would be unsound if it had a hole
           // If the above did not work, try only matching statements up to where we are currently in the xtee
           // This implements sequential statements rewriting, which can operate in the middle of blocks
           
@@ -622,7 +666,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
             newPureStms <- removeStmts(Nil)(matchedVals.unzip._2.toSet -- matchedRet, pureStms.reverse, r1)
             // The extracted scrutinee is the returned expression, or the last matched symbol if there are none:
             e <- matchedRet orElse (matchedVals.headOption map (_._2)) map (mr => merge(ex, repExtract(SCRUTINEE_KEY -> mr))) getOrElse some(ex)
-            () = debug(s"${Console.GREEN}About to construct seq-rewritten code with $e${Console.RESET}")
+            () = debug(s"${Console.GREEN}About to construct seq-rewritten code with ${e|>trunc}${Console.RESET}")
             bloc <- codeBlock(e)
           } yield (newPureStms, bloc -> matchedRet, newStms -> r1)
           
@@ -651,7 +695,10 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           //debugVisible(ps)
           //Right(b -> v) +: process(xtor, lb)
           // FIXME: not really correct to use `ps` here:
-          ((ps map Left.apply) :+ Right(b -> v)) ++ process(xtor, lb)
+          ((ps map Left.apply) :+ Right(b -> v)) ++ (
+            if (lb._1.nonEmpty) process(xtor, lb)
+            else Nil // in case we have not matched any statement, don't recurse as it could lead to an infinite loop
+          )
         case None => xtee match {
           case (st :: sts) -> r => Left(st) :: process(xtor, sts -> r)  // Note: no need to pass around the return?
           case Nil -> r => Nil
@@ -675,13 +722,22 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       val b = sc.reifyBlock[Any] {
         // TODO reintroduce pure stmts
         processed foreach {
-          case Left(s: Stm) => sc.reflectStm(s)//(s.)
+          case Left(s: Stm) => reflect(s)
           case Right(bl -> v) =>
             v foreach (_ -> bl.res |> addBinding)
             //debug(s"Inlining with substitutions $sub, block: $bl")
-            bl.stmts foreach (s => sc.reflectStm(s))
+            bl.stmts foreach reflect
         }
-        xteeBlock._2
+        /*
+        // If the last segment is a rewritten block and it does not have a matched val result (it could be e.g. a constant),
+        // use this as the result of the whole thing
+        processed.lastOption collect { case Right(bl -> None) => assert(!xteeBlock._2.isInstanceOf[ExpressionSymbol[_]]); bl.res } getOrElse xteeBlock._2
+        */
+        // If the result of the xtee is a Sym, it will be according to the rewritings that have taken place.
+        // Otherwise (it could be e.g. a constant), it could have been rewritten and have produced a block in the last
+        // `processed` segment, so we check for it.
+        xteeBlock._2 |>? { case s: Sym => s } orElse (processed.lastOption collect { case Right(bl -> None) => bl.res }) getOrElse xteeBlock._2
+        
       }(xtee.typ)
       
       //debug(s"Mapping: $sub")
@@ -700,7 +756,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       
       r
       
-    } |> some and (r => debug(s"${"Rewrote:" |> bold} $r"))
+    } |> some and (r => debug(s"${"Rewrote:" |> bold} ${r|>trunc}"))
     
   }
   
@@ -720,7 +776,13 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         mergeAll((xtor.typeArguments zipAnd xtee.typeArguments)(extractType(_,_,va))) // TODO proper handling of va
       }
   })
-  protected def baseName(tp: TypeRep) = tp.name takeWhile (_ =/= '[')
+  protected def baseName(tp: TypeRep) = (tp:TR[_]) match {
+    case _: types.Lambda0Type[_] => "Function0"
+    case _: types.Lambda1Type[_,_] => "Function1"
+    case _: types.Lambda2Type[_,_,_] => "Function2"
+    case _: types.Lambda3Type[_,_,_,_] => "Function3"
+    case _ => tp.name takeWhile (_ =/= '[')
+  }
   
   
   /** Extraction nodes need to be wrapped in a Block, because it makes no sense to let statements escape the pattern. */
@@ -785,7 +847,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   
   
-  protected def isHole(r: R[Any]) = r |>? { case Hole(_,_)|SplicedHole(_,_) => } isDefined
+  protected def isHole(r: R[Any]) = r |>? { case Hole(_,_,_)|SplicedHole(_,_) => } isDefined
   
   def block[T:IRType,C](q: => IR[T,C]) = `internal IR`[T,C](pardisBlock[T,C](q))
   def pardisBlock[T:IRType,C](q: => IR[T,C]) = sc.reifyBlock[T] { toExpr(q.rep).asInstanceOf[R[T]] }

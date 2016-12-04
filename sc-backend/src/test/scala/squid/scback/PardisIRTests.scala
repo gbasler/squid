@@ -1,6 +1,8 @@
 package squid.scback
 
 import ch.epfl.data.sc.pardis
+import ch.epfl.data.sc.pardis.ir.PardisApply
+
 import collection.mutable.ArrayBuffer
 
 class PardisIRTests extends PardisTestSuite {
@@ -89,7 +91,7 @@ class PardisIRTests extends PardisTestSuite {
   //test("Blocks") {}  // TODO
   
   
-  test("Subexpressions and Scheduling") {
+  test("Scheduling Subexpressions") {
     
     sameDefs(ir{ println(1.toDouble);println(2.toDouble) },
              ir{ val n1 = 1.toDouble; val p1 = println(n1); val n2 = 2.toDouble; val p2 = println(n2); p2 })
@@ -102,6 +104,9 @@ class PardisIRTests extends PardisTestSuite {
     
     sameDefs(ir{ (1.toDouble+1.0,2.toDouble+2.0) },
              ir{ val n1 = 1.toDouble; val n11 = n1+1.0; val n2 = 2.toDouble; val n22 = n2+2.0; Tuple2(n11,n22) })
+    
+    sameDefs(ir{ 1.toDouble+2.toDouble+3.toDouble },
+             ir{ val n1 = 1.toDouble; val n2 = 2.toDouble; val p1 = n1 + n2; val n3 = 3.toDouble; val p2 = p1 + n3; p2 })
     
   }
   
@@ -135,6 +140,59 @@ class PardisIRTests extends PardisTestSuite {
     assert(ir{ val n1 = 1.toDouble.toInt; ArrayBuffer(n1) }.typ.rep == ABI)
     
     assert(stmts(ir{ val n1 = 1.toDouble }).head.typeT == typeRepOf[Double])
+    
+  }
+  
+  
+  test("Manual Inlining") {
+    
+    val f = ir"(x: Int) => x+1"
+    val p = ir"$f(42)"
+    
+    assert(stmts(p).size == 2)
+    assert(stmts(p)(1).rhs.isInstanceOf[PardisApply[_,_]])
+    
+    val p2 = Sqd.inline(f,ir"42")
+    
+    sameDefs(p2, ir"val a = 42; a + 1")
+    
+  }
+  
+  
+  test("Function3") {
+    
+    sameDefs(ir"(a:Int,b:Int,c:Double) => a * b + c", {
+      import SC._
+      import SC.Predef.typeLambda3
+      scBlock{ __lambda((a:Rep[Int],b:Rep[Int],c:Rep[Double]) => a * b + c) }
+    })
+    
+    sameDefs(ir"((a:Int,b:Int,c:Double) => a * b + c)(1,2,3)", {
+      import SC._
+      import SC.Predef.typeLambda3
+      scBlock{ __app(__lambda((a:Rep[Int],b:Rep[Int],c:Rep[Double]) => a * b + c)) apply (unit(1), unit(2), unit(3.0)) }
+    })
+    
+  }
+  
+  
+  test("Variables") {
+    import squid.lib.Var
+    import SC._
+    
+    sameDefs(ir"var a = 0; 1", scBlock {
+      val a = __newVar(unit(0))
+      unit(1)
+    })
+    sameDefs(ir"var a = 0; a + 1", scBlock {
+      val a = __newVar(unit(0))
+      __readVar(a) + unit(1)
+    })
+    sameDefs(ir"var a = 0; a = a + 1; a", scBlock {
+      val a = __newVar(unit(0))
+      __assign(a,__readVar(a) + unit(1))
+      __readVar(a)
+    })
     
   }
   

@@ -7,6 +7,7 @@ import deep.scalalib._
 import deep.scalalib.collection._
 import PardisBinding._
 import ch.epfl.data.sc.pardis
+import ch.epfl.data.sc.pardis.ir.PardisVar
 import ch.epfl.data.sc.pardis.types.PardisType
 import pardis.deep.scalalib.collection.SeqOps
 
@@ -24,6 +25,8 @@ object PardisBinding {
   trait DefaultPardisMixin extends NoStringCtor { self: ir.Base =>
     
     val typeExtractedBinder = ExtractedBinderType
+    
+    def typeVar[A: TypeRep] = implicitly[TypeRep[A]]
     
   }
   
