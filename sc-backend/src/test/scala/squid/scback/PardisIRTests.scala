@@ -2,6 +2,7 @@ package squid.scback
 
 import ch.epfl.data.sc.pardis
 import ch.epfl.data.sc.pardis.ir.PardisApply
+import squid.utils._
 
 import collection.mutable.ArrayBuffer
 
@@ -196,5 +197,32 @@ class PardisIRTests extends PardisTestSuite {
     
   }
   
+  
+  
+  test("Special Pardis Operations") {
+    
+    import SC.{ AllRepOps, DoubleRep, infix_hashCode, infix_toString, infix_asInstanceOf, arrayBufferNew2, arrayBufferApplyObject, typeArrayBuffer }
+    import SC.Predef._
+    
+    sameDefs(ir{ 42 == 42.0.toInt },
+      scBlock { unit(42) __== unit(42.0).toInt })
+    
+    sameDefs(ir{ 42## },
+      scBlock { infix_hashCode(unit(42)) })
+    
+    sameDefs(ir{ "ok"## },
+      scBlock { infix_hashCode(unit("ok")) })
+    
+    sameDefs(ir{ true.toString },
+      scBlock { infix_toString(unit(true)) })
+    
+    sameDefs(ir{ ArrayBuffer().toString },
+      scBlock { infix_toString(arrayBufferApplyObject[Nothing]())(typeArrayBuffer[Nothing](typeNothing)) })
+    
+    sameDefs(ir{ (new ArrayBuffer).asInstanceOf[ArrayBuffer[Int]] },
+      scBlock { infix_asInstanceOf[ArrayBuffer[Int]](arrayBufferNew2[Nothing]) })
+    
+  }
+
   
 }

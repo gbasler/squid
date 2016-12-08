@@ -98,6 +98,28 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val Args(arg)::Nil = argss
         return blockWithType(tp)(sc.__assign[Any](v, arg |> toExpr)(v.e.tp))
         
+      case s if s.name.toString == "$eq$eq" =>
+        val Args(a)::Nil = argss
+        return blockWithType(types.BooleanType)(sc.infix_==(self |> toExpr, a |> toExpr)(self.typ, a.typ))
+        
+      case s if s.name.toString == "$bang$eq" =>
+        val Args(a)::Nil = argss
+        return blockWithType(types.BooleanType)(sc.infix_!=(self |> toExpr, a |> toExpr)(self.typ, a.typ))
+        
+      case s if s.name.toString == "$hash$hash" =>
+        //assert(argss.isEmpty)
+        assert(argss == List(Args()))
+        return blockWithType(types.IntType)(sc.infix_hashCode(self |> toExpr)(self.typ))
+        
+      case s if s.name.toString == "toString" =>
+        assert(argss == List(Args()))
+        return blockWithType(types.StringType)(sc.infix_toString(self |> toExpr)(self.typ))
+        
+      case s if s.name.toString == "asInstanceOf" =>
+        assert(argss == Nil)
+        val targ::Nil = targs
+        return blockWithType(targ)(sc.infix_asInstanceOf(self |> toExpr)(targ))
+        
       case _ =>
     }
     
