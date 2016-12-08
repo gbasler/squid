@@ -198,6 +198,32 @@ class PardisIRTests extends PardisTestSuite {
   }
   
   
+  test("Inserting Variables") {
+    import squid.lib.Var
+    
+    sameDefs(ir"var a = 0; a; a = a + 1; a", block {
+      val v = ir"Var(0)"
+      ir"$v := $v.! + 1; $v.!"
+    })
+    
+    sameDefs(ir"var a = 0; a = a + 1; a", {
+      val v = ir"Var(0)"
+      ir"$v := $v.! + 1; $v.!"
+    })
+    
+    sameDefs(ir"var a = 0; a = a + 1; a", block {
+      import SC.typeInt
+      val v = SC.__newVar(SC.unit(0))
+      ir"$v := $v.! + 1; $v.!"
+    })
+    
+    sameDefs(ir"var a = 0; a = a + 1; a", block {
+      val v = mkVar(ir"0")
+      ir"$v := $v.! + 1; $v.!"
+    })
+    
+  }
+  
   
   test("Special Pardis Operations") {
     

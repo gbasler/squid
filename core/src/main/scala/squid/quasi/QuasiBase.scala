@@ -91,7 +91,7 @@ self: Base =>
   def typeRepOf[T: IRType] = implicitly[IRType[T]].rep
   
   
-  object Predef extends Predef[DefaultQuasiConfig]
+  val Predef  = new Predef[DefaultQuasiConfig]
   class Predef[QC <: QuasiConfig] {
     val base: self.type = self // macro expansions will make reference to it
     

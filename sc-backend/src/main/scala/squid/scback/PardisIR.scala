@@ -252,6 +252,17 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     case b: sc.Block[Any @unchecked] => b
     case _ => sc.reifyBlock(r |> toExpr)(r.typ)
   }
+  def toVar(r: Rep): sc.Var[Any] = r match {
+    case v: PardisVar[Any @unchecked] => v
+    case PardisReadVar(v) => v
+    case sc.Def(PardisReadVar(v)) => v
+    // A special case for allowing the following syntax in a context without enclosing block:
+    //   val v = "Var(0)"; ir"$v.!"
+    case b @ sc.Block((nv @ sc.Stm(v0, PardisNewVar(init))) :: sc.Stm(r0, PardisReadVar(v @ PardisVar(v1))) :: Nil, r1)
+    if v0 == v1 && r0 == r1 =>
+      if (sc.IRReifier.scopeStatements contains nv) () else sc.reflectStm(nv)
+      v
+  }
   
   
   

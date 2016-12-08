@@ -10,6 +10,7 @@ import squid.utils._
 
 import scala.collection.mutable
 import squid.ir.IRException
+import squid.quasi.DefaultQuasiConfig
 import squid.utils.CollectionUtils.TraversableOnceHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
@@ -21,6 +22,12 @@ import scala.language.existentials
   * and special-cases a few core methods */
 class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   var ab: AutoBinder[DSL.type, this.type] = _
+  
+  override object Predef extends Predef[DefaultQuasiConfig] {
+    implicit def conv[A](x: R[A]): IR[A,{}] = `internal IR`(x)
+    implicit def convVar[A](x: sc.Var[A]): IR[squid.lib.Var[A],{}] = `internal IR`(x)
+    def mkVar[T](init: IR[T,{}]): sc.Var[T] = sc.__newVar[Any](init.rep |> toExpr)(init.rep.typ).asInstanceOf[sc.Var[T]]
+  }
   
   protected val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
   protected val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
@@ -90,11 +97,11 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         return sc.__newVar[Any](toExpr(arg))(arg.typ)
         
       case VarBangSymbol =>
-        val arg = self.asInstanceOf[Var]
-        return blockWithType(tp)(sc.__readVar[Any](arg)(tp))
+        val v = toVar(self)
+        return blockWithType(tp)(sc.__readVar[Any](v)(tp))
         
       case VarColonEqualSymbol =>
-        val v = self.asInstanceOf[Var]
+        val v = toVar(self)
         val Args(arg)::Nil = argss
         return blockWithType(tp)(sc.__assign[Any](v, arg |> toExpr)(v.e.tp))
         
