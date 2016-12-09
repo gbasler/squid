@@ -463,7 +463,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< ExtrudedType) =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< ExtrudedType) && prefix != NoPrefix =>
       //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
       dbg(s"TypeRef($prefix, $sym, $targs)")
       
