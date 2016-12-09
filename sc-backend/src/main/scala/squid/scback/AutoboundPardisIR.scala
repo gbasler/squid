@@ -74,7 +74,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         //val Args(cond, TopLevelBlock(thn), TopLevelBlock(els))::Nil = argss
         //val (cond,thn,els) = argss match { case Args(cond, TopLevelBlock(thn), TopLevelBlock(els))::Nil => (cond,thn,els) } 
         
-        val Args(cond, thn: ABlock @unchecked, els: ABlock @unchecked)::Nil = argss
+        val Args(cond, thn: sc.Block[Any @unchecked], els: sc.Block[Any @unchecked])::Nil = argss
         return blockWithType(tp)(sc.IfThenElse(toExpr(cond).asInstanceOf[R[Bool]], thn, els)(tp))
         
       case Function0ApplySymbol =>
@@ -148,7 +148,11 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
       }
       (nonRepeatedReps zipAnd ps) { (a, p) => p.typeSignature match {
         case sru.TypeRef(_, ruh.ByNameParamClass, tp) => a |> toBlock
-        case tp => a |> toExpr
+        case _ if { // Check for Scala Boolean's && and || as the by-name behavior is not exposed in their signature!!
+          val name = mtd.fullName.toString 
+          name == "scala.Boolean.$amp$amp" || name == "scala.Boolean.$bar$bar"
+        } => a |> toBlock
+        case _ => a |> toExpr
       }} ++ (repeatedReps map toExpr) // Note: repeated parameters cannot be by-name
     }
     
@@ -157,6 +161,8 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
       case null => argsTail
       case _ => (self |> toExpr) :: argsTail
     }
+    
+    //println("Args: "+args)
     
     type TRL = sc.TypeRep[Any] |> List
     

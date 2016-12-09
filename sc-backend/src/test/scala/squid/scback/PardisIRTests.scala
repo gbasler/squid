@@ -249,6 +249,37 @@ class PardisIRTests extends PardisTestSuite {
       scBlock { infix_asInstanceOf[ArrayBuffer[Int]](arrayBufferNew2[Nothing]) })
     
   }
+  
+  
+  test("Scala Boolean By-Name Inconsistecies") {
+    
+    val r = block {
+      
+      val bg = ir"new ArrayBuffer[String]"
+      val ol_number = mkVar(ir"32")
+      
+      ir"""
+        if ("ok".length > 0 || 42.toDouble > 0.0 && 0.toDouble < 42.0)
+          $bg($ol_number!) = "B"
+        else
+          $bg($ol_number!) = "G"
+      """
+    }
+    
+    import SC.{ AllRepOps, DoubleRep, typeArrayBuffer, StringRep, IntRep, BooleanRep }
+    import SC.Predef._
+    
+    sameDefs(r, scBlock {
+      val a = SC.arrayBufferNew2[String]
+      val v = SC.__newVar(unit(32))
+      SC.__ifThenElse(
+        { unit("ok").length > unit(0) || unit(42).toDouble > unit(0.0) && unit(0).toDouble < unit(42.0) },
+        { SC.arrayBufferUpdate(a,SC.__readVar(v),unit("B")) },
+        { SC.arrayBufferUpdate(a,SC.__readVar(v),unit("G")) }
+      )
+    })
+    
+  }
 
   
 }

@@ -180,12 +180,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         else ref
         
       /** --- --- --- VARIABLE ASSIGNMENTS --- --- --- */
-      case q"$vari = $valu" =>
+      case q"${vari @ Ident(_)} = $valu" =>  // Matching Ident because otherwise this can match a call to an update method!
         val ref = readVal(ctx(vari.symbol.asTerm))
-        
-        val varTyp = vari.symbol.typeSignature
         val mtd = loadMtdSymbol(varTypSym, "$colon$eq", None)
-        
         val retTp = liftType(Unit)
         methodApp(ref, mtd, Nil, Args(rec(valu, Some(vari.symbol.typeSignature)))::Nil, retTp)
         
@@ -307,6 +304,14 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
             
             
             val args = (argss zip (f.tpe.paramLists map (_.toStream map (_ typeSignature)))) map processArgs(Nil)
+            /** Boolean methods && and || in Scala have an inconsistent signature: they do not take their parameter by name.
+              * One thing to do would be to insert byName calls here.
+              * For now, we do not do it for consistency with the visible signature, but it may be necessary in the future? */
+            //val args = method.fullName.toString match {
+            //  case "scala.Boolean.$amp$amp" | "scala.Boolean.$bar$bar" =>
+            //    Args(rec(argss.head.head, Some(Boolean)) |> byName)::Nil
+            //  case _ => (argss zip (f.tpe.paramLists map (_.toStream map (_ typeSignature)))) map processArgs(Nil)
+            //}
             
             methodApp(self, {refMtd}, targsTree, args, tp)
             
