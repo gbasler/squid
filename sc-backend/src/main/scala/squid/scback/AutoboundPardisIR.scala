@@ -29,6 +29,10 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     def mkVar[T](init: IR[T,{}]): sc.Var[T] = sc.__newVar[Any](init.rep |> toExpr)(init.rep.typ).asInstanceOf[sc.Var[T]]
   }
   
+  implicit class PardisIROps[T](private val self: IR[T,_]) {
+    def toRep: sc.Rep[T] = toExpr(self.rep).asInstanceOf[sc.Rep[T]]
+  }
+  
   protected val ImperativeSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
   protected val IfThenElseSymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
   

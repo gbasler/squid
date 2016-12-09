@@ -280,6 +280,20 @@ class PardisIRTests extends PardisTestSuite {
     })
     
   }
-
+  
+  
+  test("SC.Rep[T] Conversion Helper") {
+    
+    assert(stmts(block{
+      ir"42.toDouble".toRep : SC.Rep[Double]
+    }).head.rhs.isInstanceOf[SC.IntToDouble])
+    
+    assertDoesNotCompile("""
+      ir"42.toDouble".toRep : SC.Rep[Int]
+    """)
+    
+  }
+  
+  
   
 }
