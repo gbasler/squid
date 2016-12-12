@@ -32,4 +32,13 @@ class TrickyTypes extends MyFunSuite {
   }
   
   
+  test("Explicit Empty Contexts and Inferred Contexts") {
+    
+    List[IR[Int,{}]](ir"1", ir"2", ir"3").foldLeft(ir"0") { (acc, exp) =>
+      ir"if ($acc != 0) $acc else $exp"
+    }
+    
+  }
+  
+  
 }

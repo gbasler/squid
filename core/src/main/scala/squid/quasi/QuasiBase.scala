@@ -103,6 +103,8 @@ self: Base =>
     def irTypeOf[T: IRType] = self.irTypeOf[T]
     def typeRepOf[T: IRType] = self.typeRepOf[T]
     
+    implicit def anyContextIsEmptyContext[A](ir: IR[A,AnyRef]): IR[A,Any] = ir.asInstanceOf[IR[A,Any]]
+    
     
     import scala.language.experimental.macros
     

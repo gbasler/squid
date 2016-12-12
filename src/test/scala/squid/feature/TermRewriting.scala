@@ -5,7 +5,7 @@ import squid.ir.RewriteAbort
 import utils._
 
 class TermRewriting extends MyFunSuite {
-  import TestDSL.Predef._
+  import TestDSL.Predef.{anyContextIsEmptyContext => _, _} // `anyContextIsEmptyContext` interferes with extension `eqt` in `test("Aborted Rewritings")`
   
   test("Basics") {
     
