@@ -421,6 +421,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
         
         val ctxBase = tq"${glb(termScope)}"
+        // ^ Note: the natural empty context `{}` is actually equivalent to `AnyRef`, but `glb(Nil) == Any` so explicitly using
+        // this empty context syntax can cause type mismatches. To solve this, we could do:
+        //   val ctxBase = tq"${glb(AnyRef :: termScope)}"
+        // But this makes some things uglier, like the need to have [C <: AnyRef] bounds so we don'r get IR[T,AnyRef with C{...}] types.
+        // Instead, I opted for an implicit conversion IR[T,{}] ~> IR[T,Any] in the quasiquote Predef.
         
         /*
         // putting every freevar in a different refinement (allows name redefinition!)
