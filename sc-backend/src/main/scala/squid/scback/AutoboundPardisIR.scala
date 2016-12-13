@@ -98,7 +98,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         
       case VarApplySymbol =>
         val arg = argss.head.asInstanceOf[Args].reps.head
-        return sc.__newVar[Any](toExpr(arg))(arg.typ)
+        return blockWithType(arg.typ)(sc.__newVar[Any](toExpr(arg))(arg.typ))
         
       case VarBangSymbol =>
         val v = toVar(self)

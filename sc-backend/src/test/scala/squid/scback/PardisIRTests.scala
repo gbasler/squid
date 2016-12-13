@@ -196,18 +196,22 @@ class PardisIRTests extends PardisTestSuite {
     })
     
   }
-
+  
+  
   test("Variable dependency and order") {
     import squid.lib.Var
-    import SC._
-
-    sameDefs(ir"val ab = new collection.mutable.ArrayBuffer[scala.Int]; ab.append(1); var s = ab.size; s", scBlock {
-      val ab = __newArrayBuffer[Int]()
+    import SC.Predef._
+    import SC.{ ArrayBufferRep, readVar }
+    
+    sameDefs(ir"val ab = new ArrayBuffer[Int]; ab.append(1); var s = ab.size; s", scBlock {
+      val ab = SC.__newArrayBuffer[Int]()
       ab.append(unit(1))
-      val s = __newVar(ab.size)
+      val s = SC.__newVar(ab.size)
       s
     })
+    
   }
+  
   
   test("Inserting Variables") {
     import squid.lib.Var

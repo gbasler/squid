@@ -123,14 +123,22 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     // used as a backup).
     blockWithType(bodyType)(
       value match {
-        // In case the value bound here is a block that defines and return a symbol, we want to inline it without
+        // In case the value bound here is a block that defines and returns a symbol, we want to inline it without
         // losing the original outer `bound` name!
         case sc.Block(sts,ret:ExpressionSymbol[Any @unchecked]) if sts.exists(_.sym == ret) =>
+          var itsAVar = Option.empty[Var]
           sts foreach {
+            case sc.Stm(`ret`,PardisReadVar(v)) => itsAVar = Some(v)
             case sc.Stm(`ret`,rhs) => reflect(sc.Stm(bound,rhs)(bound.tp))
             case s => reflect(s)
           }
-          body
+          itsAVar match {
+            // If the defined-and-returned symbol is the symbol of a variable, make sure to substitute symbol references
+            // with the variable, which will produce a ReadVar node every time it is used. 
+            case Some(v) =>
+              withSubs(bound -> v)(body)
+            case None => body
+          }
         case b: Block =>
           val e = b |> inlineBlock
           withSubs(bound -> e)(body)
@@ -141,7 +149,6 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
           val d = HoleDef(h)
           reflect(sc.Stm[Any](bound, d)(bound.tp))
           body
-        case v: Var => withSubs(bound -> v)(body)
         case e: Expr => withSubs(bound -> e)(body)
       }
     )
@@ -262,6 +269,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     if v0 == v1 && r0 == r1 =>
       if (sc.IRReifier.scopeStatements contains nv) () else sc.reflectStm(nv)
       v
+    case _ => throw IRException(s"Cannot convert ${r} of class ${r.getClass} to a variable.")
   }
   
   
@@ -313,7 +321,9 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
     //println(s"Type $typ $targs "+typ.isStatic)
     
-    if (typ.isModuleClass) return null  // sometimes happen that we get `object Seq` (as an arg to CanBuildFrom), not sure why
+    if (typ.isModuleClass) return null
+    // ^ sometimes happen that we get `object Seq` (as an arg to CanBuildFrom), not sure why;
+    // also when we have `scp.lib.Var`, we get `scp.lib` here -- TODO investigate why
     
     val (obj,tname) = typ.name.toString match {
       case "CanBuildFrom" =>
