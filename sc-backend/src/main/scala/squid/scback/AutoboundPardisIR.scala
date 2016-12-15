@@ -27,6 +27,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     implicit def conv[A](x: R[A]): IR[A,{}] = `internal IR`(x)
     implicit def convVar[A](x: sc.Var[A]): IR[squid.lib.Var[A],{}] = `internal IR`(x)
     def mkVar[T](init: IR[T,{}]): sc.Var[T] = sc.__newVar[Any](init.rep |> toExpr)(init.rep.typ).asInstanceOf[sc.Var[T]]
+    def mapLambda[T:IRType,C](x: IR[T,C])(f: R[T] => R[T]) = block(`internal IR`[T,C](f(x.toRep)))
   }
   
   implicit class PardisIROps[T](private val self: IR[T,_]) {

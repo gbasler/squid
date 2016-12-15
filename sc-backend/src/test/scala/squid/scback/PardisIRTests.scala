@@ -310,5 +310,19 @@ class PardisIRTests extends PardisTestSuite {
   }
   
   
+  test("SC.Rep[T] Function Helper") {
+    import SC.Predef._
+    
+    sameDefs(ir{
+      val n = ArrayBuffer(1)(0)
+      val r = $(mapLambda(ir"$$n:Int")(x => SC.IntRep(x)+SC.unit(42)))
+      r/2
+    }, ir{
+      val m = ArrayBuffer(1)(0)
+      (m+42)/2
+    })
+    
+  }
+  
   
 }
