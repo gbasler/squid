@@ -308,7 +308,7 @@ class PardisIRTests extends PardisTestSuite {
     """)
     
   }
-  
+
   test("Hole Substitution"){
     def power[C](n: Int, x: IR[Double,C]): IR[Double,C] =
       if (n > 0) ir"${power(n-1, x)} * $x"
@@ -317,7 +317,7 @@ class PardisIRTests extends PardisTestSuite {
     sameDefs(ir{
       val x = 5.0
       val x_3 = ${power(3, ir"$$x : Double")}
-    }, ir"val x = 5; val x_3 = 1.0 * x * x * x")
+    }, ir"val x = 5.0; val x_3 = 1.0 * x * x * x")
   }
   
   test("SC.Rep[T] Function Helper") {
