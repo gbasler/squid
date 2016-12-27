@@ -221,7 +221,7 @@ s: IR[Int, {}] = ir"42 + 1"
 `Symbol` is a Scala construct from the standard library which has a dedicated syntax, so that
 expression `Symbol("x")` can be written simply `'x`.
 Furthermore, calls like `a.foo(b)` can be written `a foo b`,
-where identifiers like `foo` used operators have the least precedence (lower than symbol-based operators).
+where identifiers like `foo` used as operators have the least precedence (lower than symbol-based operators).
 Finally, a tuple `(a,b)` can be written `a -> b` (standard Scala syntactic sugar).
 As a result, we will simply write the following, equivalent to the code above:
 
