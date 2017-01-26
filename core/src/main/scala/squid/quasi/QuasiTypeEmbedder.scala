@@ -57,7 +57,7 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       }
       
       
-      if (tp <:< typeOf[QuasiBase.`<extruded type>`] && !(tp <:< Nothing)) {
+      if (tp <:< typeOf[QuasiBase.`<extruded type>`] && !(tp <:< Null)) { // Note that: tp <:< Nothing ==> tp <:< Null so no need for the test
         
         throw EmbeddingException(s"Could not find type evidence associated with extracted type `$tp`.")
         

@@ -24,6 +24,8 @@ trait ASTReinterpreter { ast: AST =>
     val newBase: Base
     def apply(r: Rep): newBase.Rep
     
+    val ascribeBoundValsWhenNull = false  // also applies to bindings with value of type Nothing since Nothing <: Null
+    
     val extrudedHandle: BoundVal => newBase.Rep = bv => wth(s"Extruded variable: $bv")
     
     //def getClassName(cls: sru.ClassSymbol) = ruh.srum.runtimeClass(cls).getName
@@ -33,7 +35,10 @@ trait ASTReinterpreter { ast: AST =>
     protected def apply(d: Def): newBase.Rep = d match {
         
       case cnst @ Constant(v) => newBase.const(v)
-      case LetIn(bv, vl, body) => newBase.letin(bv |> recv, apply(vl), apply(body), rect(body.typ))
+      case LetIn(bv, vl, body) =>
+        val v = apply(vl)
+        val av = if (ascribeBoundValsWhenNull && vl.typ <:< ruh.Null) newBase.ascribe(v, rect(vl.typ)) else v
+        newBase.letin(bv |> recv, av, apply(body), rect(body.typ))
       case Abs(bv, body) if bv.name == "$BYNAME$" => newBase.byName(apply(body))
       case Abs(bv, body) =>
         bv.typ.tpe match {
@@ -103,10 +108,10 @@ trait ASTReinterpreter { ast: AST =>
       val newBase: MetaBases.ScalaReflectionBase
       def apply(r: Rep) = apply(dfn(r))
       
-      //val ascribeUselessTypes = true
-      val ascribeUselessTypes = false
+      override val ascribeBoundValsWhenNull = true
       
-      protected lazy val NothingType = Predef.implicitType[Nothing]
+      //protected lazy val NothingType = Predef.implicitType[Nothing]
+      protected lazy val NullType = Predef.implicitType[Null] // Q: why doesn't `irTypeOf[Null]` work?
       
       /** Remembers mutable variable bindings */
       val boundVars = collection.mutable.Map[BoundVal, TermName]()
@@ -154,9 +159,8 @@ trait ASTReinterpreter { ast: AST =>
     
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) !" => id
-          case ir"$v: squid.lib.Var[$tv]" if !(v.typ <:< NothingType) =>
-            //System.err.println(s"TYP `${v typ}`")
-            System.err.println(s"Virtualized variable `${v rep}` escapes its defining scope!")
+          case ir"$v: squid.lib.Var[$tv]" if !(v.typ <:< NullType) =>
+            System.err.println(s"Virtualized variable `${v rep}` of type `${tv}` escapes its defining scope!")
             val r = super.apply(dfn(v rep))
             //System.err.println("Note: "+showCode(r))
             r
@@ -176,8 +180,9 @@ trait ASTReinterpreter { ast: AST =>
           /** Converts redexes to value bindings, nicer to the eye.
             * Note: we don't do it for multi-parameter lambdas, assuming they are already normalized (cf: `BindingNormalizer`) */
           case ir"((${p @ BV(bv)}: $ta) => $body: $tb)($arg)" =>
-            newBase.letin(recv(bv), apply(arg rep), apply(body subs 'p -> p rep), rect(tb rep))
-            //newBase.letin(recv(bv), apply(arg rep), apply(body subs 'p -> p rep), EmptyTree)
+            val a = apply(arg rep)
+            val av = if (ascribeBoundValsWhenNull && arg.rep.typ <:< ruh.Null) newBase.ascribe(a, rect(bv.typ)) else a
+            newBase.letin(recv(bv), av, apply(body subs 'p -> p rep), rect(tb rep))
             
             
           /** We explicitly convert multi-parameter lambdas, as they may be encoded (cf: `CurryEncoding`): */

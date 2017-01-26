@@ -206,7 +206,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     val loweredPhases = phases.toSet
   }
   class Desugaring extends Lowering('Sugar)
-  object Desugaring extends Desugaring
+  object Desugaring extends Desugaring with TopDownTransformer
   
   
   object Const extends ConstAPI {
@@ -251,6 +251,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
       case () => TypeRep(ruh.Unit)
+      //case null => TypeRep(ruh.Null) // Not necessary; Scala creates a constant type Null(null) -- note: that type is a strict subtype of Null...
       case cls: Class[_] => // Runtime classes are considered like constants, for some reason
         val tp = ruh.srum.classSymbol(cls).toType
         val clsSym = ruh.srum.classSymbol(cls.getClass)

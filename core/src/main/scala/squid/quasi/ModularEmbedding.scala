@@ -207,7 +207,10 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
             val tp = typeApp(squidLibTyp, varTypSym, varType :: Nil)
             methodApp(squidLibVar, mtd, varType :: Nil, Args(value)::Nil, tp) -> tp
           }
-          else value -> liftType(typeIfNotNothing(rhs.tpe) getOrElse tpt.tpe) // Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
+          //else value -> liftType(typeIfNotNothing(rhs.tpe) getOrElse tpt.tpe)
+          // ^ Q: is it really sound to take the value's type? (as opposed to the declared one) -- perhaps we'd also need to annotate uses...
+          //   A: Not always! In general it's okay (even for extraction) to have the more specialized one, but not when the rhs has type Nothing or Null! 
+          else value -> liftType(tpt.tpe)
         }
         
         val bound = bindVal(name.toString, valType, vdef.symbol.annotations map (a => liftAnnot(a, x)))

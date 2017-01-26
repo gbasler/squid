@@ -41,6 +41,9 @@ self: IntermediateBase => // for 'repType' TODO rm
     case ExtractedType(Covariant, a) -> ExtractedType(Covariant, b) => Some(Covariant, sru.lub(a::b::Nil))
     case ExtractedType(Contravariant, a) -> ExtractedType(Contravariant, b) => Some(Contravariant, sru.glb(a::b::Nil))
     case ExtractedType(Covariant, a) -> ExtractedType(Contravariant, b) => Some(Invariant, a) // arbitrary!
+    // ^ Note that picking `b` instead of `a` is also possible, but seems to create problems;
+    // e.g. in ClassEmbeddingTests.test("Online Lowering and Normalization") where the BindingNormalizer matches redexes
+    //      so if the value is null of type Null(null) is will unify to this instead of the parameter type.
     case (a: ExtractedType) -> (b: ExtractedType) => mergeTypes(b, a) map { case ExtractedType(v,t) => v -> t }
     case _ => wtf
   }) map ExtractedType.tupled and { case None => debug(s"Could not merge types $a and $b") case _ =>}
@@ -164,6 +167,10 @@ self: IntermediateBase => // for 'repType' TODO rm
       case typ -> xtyp => // FIXME: is it okay to do this here? we should probably ensure typ is a TypeRef...
         val targs = typ.typeArgs
         
+        if (xtyp =:= ruh.Null) return None oh_and debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
+        
+        def erron = None oh_and debug(s"Method `baseType` returned an erroneous type.")
+        
         if (va == Contravariant && xtyp.typeSymbol != typ.typeSymbol) {
         
           val baseTargs = typ.baseType(xtyp.typeSymbol) match {
@@ -178,6 +185,7 @@ self: IntermediateBase => // for 'repType' TODO rm
                 Stream continually ruh.Nothing
               }
               else return None
+            case base if base |> isErroneous => return erron
             case base =>
               debug(s"$va $typ is an instance of ${xtyp.typeSymbol} as '$base'")
               base.typeArgs.toStream
@@ -218,13 +226,14 @@ self: IntermediateBase => // for 'repType' TODO rm
             
             if (xtyp <:< typ) {
               debug(s"... but $xtyp is still somehow a subtype of ${typ}")
-              assert(xtyp <:< ruh.Nothing,
+              assert((xtyp <:< ruh.Nothing) || (xtyp <:< ruh.Null),
                 s"$xtyp <:< $typ but !($xtyp <:< Nothing) and ${typ.typeSymbol} is not a base type of $xtyp")
               
               Stream continually ruh.Nothing
             }
             else return None
           }
+          else if (base |> isErroneous) return erron
           else base.typeArgs.toStream
           
           if (isDebugEnabled) {
@@ -232,7 +241,7 @@ self: IntermediateBase => // for 'repType' TODO rm
             if (ets nonEmpty) debug(s"$va Extr Targs: " + (ets mkString " "))
           }
           
-          assert(!baseTargs.hasDefiniteSize || targs.size == baseTargs.size)
+          assert(!baseTargs.hasDefiniteSize || targs.size == baseTargs.size, s"$baseTargs $targs")
           
           val extr = (targs zip baseTargs zip typ.typeSymbol.asType.typeParams) map {
             case ((a,b), p) => extractType(a, b, (Variance of p.asType) * va) getOrElse (return None) }

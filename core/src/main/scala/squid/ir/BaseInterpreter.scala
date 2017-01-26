@@ -95,7 +95,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
       case _ =>
     }
     
-    val cls = srum.classSymbol(self.getClass)
+    val cls = srum.classSymbol(if (self == null) classOf[Null] else self.getClass)
     if (cls.isJava && cls.isModuleClass) {
       reflect.runtime.ScalaReflectSurgeon.cache.enter(self.getClass, cls.companion.asClass)
     }
@@ -137,6 +137,10 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
       
       javaMtd.invoke(null, args: _*)
       
+    } else if (self == null && mtd.fullName=="scala.Any.asInstanceOf") {
+      
+      null
+      
     } else {
       
       //debug("Initial signature: "+mtd.typeSignature)
@@ -158,6 +162,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
           case _: Double => ClassTag.Double
           case _: Boolean => ClassTag.Boolean
           case _: Unit => ClassTag.Unit
+          case null => ClassTag.Null
           case _ => ClassTag(self.getClass)
         }).asInstanceOf[ClassTag[Any]]
         

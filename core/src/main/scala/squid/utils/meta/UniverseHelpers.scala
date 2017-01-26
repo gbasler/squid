@@ -10,6 +10,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   val Any = typeOf[Any]
   val AnyRef = typeOf[AnyRef]
   val Nothing = typeOf[Nothing]
+  val Null = typeOf[Null]
   val Unit = typeOf[Unit]
   val Boolean = typeOf[Boolean]
   // Can't name pattern variables with a cap letter :-/
@@ -167,6 +168,9 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     rec(tsym)
   }
   
+  
+  def isErroneous(tp: Type) =
+    tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous
   
 }
 

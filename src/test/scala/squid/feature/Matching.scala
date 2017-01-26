@@ -139,7 +139,8 @@ class Matching extends MyFunSuite {
     q match {
       case ir"val ${y @ IR(RepDef(bv @ BoundVal(name)))}: $t = $v; $b" =>
         same(name, "x")
-        eqt(bv.typ, constType(42))
+        //eqt(bv.typ, constType(42)) // No more the case -- now the type of let bindings is not narrowed from the value in ModularEmbedding
+        eqt(bv.typ, typeRepOf[Int])
     }
     
     //assertDoesNotCompile(""" q match { case ir"val ${IR(t)}: Int = $v; $b" => } """) // Error:(132, 20) Quasiquote Error: All extracted bindings must be named. In: ${IR((t @ _))}
@@ -154,6 +155,37 @@ class Matching extends MyFunSuite {
     }
     
   }*/
+  
+  test("Extraction with null and ???") {
+    import base._
+    
+    ir"val str: String = null; str.length" matches {
+      case ir"val str: String = $v; $body: Int" =>
+        v eqt ir"null"
+    } and {
+      case ir"val str: $t = $v; $body: Int" =>
+        //eqt(t, irTypeOf[String])
+        // ^ Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 
+        eqtBy(t, irTypeOf[String], false)(_ =:= _)
+    } and {
+      case ir"val ${x @ IR(RepDef(bv:BoundVal))}: $t = $v; $body: Int" =>
+        eqt(bv.typ, typeRepOf[String]) // Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 
+    }
+    
+    ir"val str: String = ???; str.length" matches {
+      case ir"val str: String = $v; $body: Int" =>
+        v eqt ir"???"
+    } and {
+      case ir"val str: $t = $v; $body: Int" =>
+        //eqt(t, irTypeOf[String])
+        // ^ Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 
+        eqtBy(t, irTypeOf[String], false)(_ =:= _)
+    } and {
+      case ir"val ${x @ IR(RepDef(bv:BoundVal))}: $t = $v; $body: Int" =>
+        eqt(bv.typ, typeRepOf[String]) // Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 
+    }
+    
+  }
   
 }
 

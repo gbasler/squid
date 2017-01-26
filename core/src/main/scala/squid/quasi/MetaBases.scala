@@ -186,7 +186,7 @@ trait MetaBases {
     * It does not add types to the trees, although it could (to some extent). */
   class ScalaReflectionBase extends Base {
     
-    //val ascribeUselessTypes = true
+    //val ascribeValBindings = true
     val ascribeValBindings = false
     
     val startPathsFromRoot = false
