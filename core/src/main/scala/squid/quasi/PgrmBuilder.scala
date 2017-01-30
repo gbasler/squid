@@ -17,6 +17,10 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
     })
   }
 
+  def parseError(msg: String) = c.abort(c.enclosingPosition,
+    s"""|Failed to parse DSL code: $msg
+        |In macro application:""".stripMargin)
+  
   val (holes, tree, hasVarargs) = {
     var hasVarargs = false
 
@@ -46,9 +50,7 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
     val codeTree = try c.parse((partsPos.head._1 :: codeParts).mkString) catch {
       case ParseException(pos, msg) =>
         val varargInfo = if (hasVarargs) "\nNote: the problem may be caused by a vararg matcher (syntax `$name*`)" else ""
-        c.abort(c.enclosingPosition,
-          s"""|Failed to parse DSL code: $msg$varargInfo
-              |In macro application:""".stripMargin)
+        parseError(msg+varargInfo)
     }
     
     if (codeTree.isEmpty)

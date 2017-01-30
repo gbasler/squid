@@ -171,6 +171,8 @@ class QuasiMacros(val c: whitebox.Context) {
       case _ => throw EmbeddingException(s"Cannot unquote type '$tp': it is not an IRType[_].")
     }
     
+    var hasStuckSemi = Option.empty[TermName]
+    
     def mkTermHole(name: TermName, followedBySplice: Boolean) = {
       val h = builder.holes(name)
       remainingHoles -= name
@@ -256,6 +258,22 @@ class QuasiMacros(val c: whitebox.Context) {
         q"$base.$$(..$args)"
         
         
+      case t @ q"${Ident(tn: TermName)}?" => // better FV syntax; TODO migrate away old syntax
+        if (!isUnapply) {
+          holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
+        }
+        q"$base.$$$$(${Symbol(tn.toString)})"
+        
+      // Special case for when the question mark is stuck to a semicolon... as in ir"x?:Int"
+      // Unfortunately, there is not much we can soundly do as the argument has been parsed as a term, not a type.
+      // So we showCode it and reparse it as a type...
+      case t @ q"${id @ Ident(tn: TermName)} ?: $wannabeType" =>
+        hasStuckSemi = Some(tn)
+        try rec(c.parse(s"$tn ? : "+showCode(wannabeType))) catch {
+          case scala.reflect.macros.ParseException(pos, msg) => builder.parseError(msg)
+        }
+        
+        
       case t @ Ident(name: TermName) if name.decodedName.toString.startsWith("$") => // escaped unquote syntax
         //q"open(${name.toString})"
         val bareName = name.toString.tail
@@ -291,7 +309,15 @@ class QuasiMacros(val c: whitebox.Context) {
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, unquotedTypes, scrutinee, config)
+    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, unquotedTypes, scrutinee, config)
+    catch {
+      case e: EmbeddingException if hasStuckSemi.isDefined => 
+        c.warning(c.enclosingPosition, s"It seems you tried to annotate free variable `${hasStuckSemi.get}` with `:`, " +
+          "which may have been interpreted as operator `?:` -- " +
+          "use a space to remove this ambiguity.")
+        throw e
+        //???
+    }
     
     debug("Generated:\n"+showCode(res))
     
