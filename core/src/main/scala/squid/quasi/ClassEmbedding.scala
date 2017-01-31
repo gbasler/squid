@@ -17,6 +17,9 @@ import scala.collection.mutable
 class embed extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
 }
+class dbg_embed extends StaticAnnotation {
+  @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
+}
 
 class phase(name: Symbol) extends StaticAnnotation
 
@@ -24,12 +27,18 @@ import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
 /** TODO generate oublic accessor for private fields, so we can lower them...
-  * TODO don't generate vararg lambdas... which aren't valid Scala */
+  * TODO don't generate vararg lambdas... which aren't valid Scala
+  * TODO have a @reflects[] annot to provide bodies for existing classes
+  * TODO also facilities to convert object to a tuple of its fields while inlining methods -- if possible...
+  *   would be nice if the IR did some flow tracking to also specialize other parametrized things accordingle (like containers and functions) if they are known to only use objects that can be converted
+  * TODO use a fix combinator for recursive functions that are not polymorphically recursive */
 object ClassEmbedding {
   
   /** TODO catch excepts and properly abort */
   def embedImpl(c: whitebox.Context)(annottees: c.Tree*) = {
     import c.universe._
+    
+    val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
     
     object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
     import Helpers._
@@ -39,7 +48,7 @@ object ClassEmbedding {
       case (obj: ModuleDef) :: (cls: ClassDef) :: Nil => Some(cls) -> obj // Never actually happens -- if the object is annotated, the class doesn't get passed!
       case (cls: ClassDef) :: Nil => Some(cls) -> q"object ${cls.name.toTermName}"
       case (obj: ModuleDef) :: Nil =>
-        Some(ClassDef(Modifiers(), obj.name.toTypeName, Nil, Template(Nil, ValDef(Modifiers(), termNames.WILDCARD, EmptyTree, EmptyTree), Nil))) -> obj
+       Some(q"class ${obj.name.toTypeName}") -> obj
       case _ => throw EmbeddingException(s"Illegal annottee for @embed")
     }
     
@@ -129,7 +138,8 @@ object ClassEmbedding {
     
     val gen = q"${clsDefOpt getOrElse q""}; $newObjDef"
     
-    //println("Generated: "+showCode(gen))
+    //debug("Generated: "+(gen))
+    debug("Generated: "+showCode(gen))
     
     gen
   }
