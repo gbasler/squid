@@ -49,8 +49,8 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
           case ir"$$tup !" => ir"($a.!, $b.!)"
         }
         
-        val body3 = body2 subs 'tup -> ({
-          throw RewriteAbort(s"tup is still used! in: $body2")} : IR[tup.Typ,{}])
+        val body3 = body2 subs 'tup -> {
+          throw RewriteAbort(s"tup is still used! in: $body2")}
         ir" val isNull = Var(${Const(isInitializedWithNull)}); val a = Var(${nullValue[ta.Typ]});  val b = Var(${nullValue[tb.Typ]});  $body3 "
         
       } else {
@@ -66,9 +66,9 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         
         //show(body2)
         
-        val body3 = body2 subs 'tup -> ({
+        val body3 = body2 subs 'tup -> {
           //println(s"tup is still used! in: ${newBody rep}")
-          throw RewriteAbort(s"tup is still used! in: $body2")} : IR[tup.Typ,{}])
+          throw RewriteAbort(s"tup is still used! in: $body2")}
         
         ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $body3 "
         
@@ -84,7 +84,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         case ir"$$tup == null" => ir"false"
       }
       //val newwBody2 = newBody subs 'tup -> ir"($a,$b)"  // can't do that as otherwise the transformer would have no fixed point
-      val newwBody2 = newBody subs 'tup -> ({throw RewriteAbort()} : IR[tup.Typ,{}])
+      val newwBody2 = newBody subs 'tup -> (throw RewriteAbort())
       newwBody2
     
   }

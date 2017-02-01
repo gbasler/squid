@@ -241,11 +241,13 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         
         debug(s"PATTERN ALIAS: ${showCode(patAlias)}")
         
+        val exprRep = q"($expr:__b__.IR[_,_]).rep"
+        
         val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], ((__extr__ : $base.Extract) => ${
         //val r = q"$baseBinding; $trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${
           ((subPatterns zip patNames) :\ (
-              if (cond.isEmpty) q"..$patAlias; _root_.scala.Option($expr.rep).asInstanceOf[Option[$trans.base.Rep]]"
-              else q"..$patAlias; if ($cond) _root_.scala.Some($expr.rep) else _root_.scala.None") ) {
+              if (cond.isEmpty) q"..$patAlias; _root_.scala.Option($exprRep).asInstanceOf[Option[$trans.base.Rep]]"
+              else q"..$patAlias; if ($cond) _root_.scala.Some($exprRep) else _root_.scala.None") ) {
             
             case ((pat, (mapName @ TermName("_1"), name)), acc) =>
               patMat(q"__b__.`internal IR`(__extr__.$mapName($name))", pat, acc)

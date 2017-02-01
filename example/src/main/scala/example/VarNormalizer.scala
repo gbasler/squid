@@ -20,8 +20,8 @@ trait VarNormalizer extends SimpleRuleBasedTransformer { self =>
     // Removal of Var[Unit]
     case ir"var $v: Unit = (); $body: $t" => // Note that Unit <: AnyVal and cannot take value `null`
       //body subs 'v -> ir"()"  // No, wrong type! (Error:(22, 23) Cannot substitute free variable `v: squid.lib.Var[Unit]` with term of type `Unit`)
-      body rewrite { case ir"$$v.!" => ir"()" case ir"$$v:=(())" => ir"()" } subs 'v -> ({throw RewriteAbort()} : IR[Nothing,{}])
-    
+      body rewrite { case ir"$$v.!" => ir"()" case ir"$$v:=(())" => ir"()" } subs 'v -> {throw RewriteAbort()}
+      
   }
       
 }

@@ -25,7 +25,7 @@ class PowRewrites extends MyFunSuite {
         case ir"Math.pow($x, 2)" => ir"1.0 * $x * $x" // add `1.0 *` to reuse the same examples as for "Pow n"
       }
       
-      assertDoesNotCompile(""" rewrite { case ir"Math.pow($x, 2)" => ??? } """) // Error:(31, 46) This rewriting does not produce a scp.TestDSL.type.Quoted type as a return.
+      assertCompiles(""" rewrite { case ir"Math.pow($x, 2)" => ??? } """) // Now we also accept Nothing as the result type
       
       assertDoesNotCompile(""" rewrite { case _ => ir"42" } """) // Error:(31, 22) Could not determine extracted type for that case.
       

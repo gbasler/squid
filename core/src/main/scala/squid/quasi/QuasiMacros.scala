@@ -401,7 +401,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val sanitizedTerm = if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
     //val sanitizedTerm = term
-    val res = q"$base.`internal IR`[$typ,$outputCtx]($base.substituteLazy($quoted.rep, Map($name -> (() => $sanitizedTerm.rep))))"
+    val res = q"$base.`internal IR`[$typ,$outputCtx]($base.substituteLazy($quoted.rep, Map($name -> (() => ($sanitizedTerm:$base.IR[_,_]).rep))))"
     
     debug("Generated: "+showCode(res))
     

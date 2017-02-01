@@ -94,9 +94,9 @@ trait FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransfo
       
       //show(newBody)
       
-      val newwBody2 = newBody subs 'tup -> ({
+      val newwBody2 = newBody subs 'tup -> {
         //println("ABORT!! "+newBody)
-        throw RewriteAbort(s"tup is still used! in: $newBody")} : IR[tup.Typ,{}])
+        throw RewriteAbort(s"tup is still used! in: $newBody")}
       
       //val newwBody2 = newBody subs 'tup -> ir"Var($a.!,$b.!)" // not what we want! this can be an invalid position for a Var
       //val newwBody2 = newBody subs 'tup -> ir"???"
