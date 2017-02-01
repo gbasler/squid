@@ -57,12 +57,16 @@ package object utils {
      */
     @inline def <|: [B] (lhs: A => B): B = lhs(__self)
     
-    def withTypeOf[T >: A](x: T) = __self: T
+    def withTypeOf[T >: A](x: T): T = __self: T
     
-    @inline def If (cond: Bool) = if (cond) Some(__self) else None
-    @inline def If (cond: A => Bool) = if (cond(__self)) Some(__self) else None
-    @inline def IfNot (cond: Bool) = if (!cond) Some(__self) else None
-    @inline def IfNot (cond: A => Bool) = if (!cond(__self)) Some(__self) else None
+  }
+  
+  implicit final class LazyGenHelper[A](__self: => A) {
+    
+    @inline def If (cond: Bool): Option[A] = if (cond) Some(__self) else None
+    @inline def If (cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
+    @inline def IfNot (cond: Bool): Option[A] = if (!cond) Some(__self) else None
+    @inline def IfNot (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     
   }
   
