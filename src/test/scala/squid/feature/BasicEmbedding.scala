@@ -1,6 +1,8 @@
 package squid
 package feature
 
+import utils.Bool
+
 object BasicEmbedding {
   
   case class MC[A](x:Int)(syms: A*)
@@ -240,6 +242,24 @@ class BasicEmbedding extends MyFunSuite {
     assertDoesNotCompile(""" ir"import scala._" """) // Error:(234, 13) Embedding Error: Embedded tree has no type: import scala._
     
   }
+  
+  
+  test("Null/Default Values") {
+    
+    assert(nullValue[Unit] == ir"()")
+    assert(nullValue[Bool] == ir"false")
+    assert(nullValue[Char] == ir"'\u0000'")
+    assert(nullValue[Byte] == Const(0:Byte))
+    assert(nullValue[Short] == Const(0:Short))
+    assert(nullValue[Int] == ir"0")
+    assert(nullValue[Long] == ir"0L")
+    assert(nullValue[Float] == ir"0F")
+    assert(nullValue[Double] == ir"0D")
+    assert(nullValue[Null] == ir"null")
+    assert(nullValue[String] == ir"null")
+    
+  }
+  
   
 }
 

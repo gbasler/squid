@@ -7,6 +7,12 @@ import utils.Debug.show
 
 /**
   * Created by lptk on 15/09/16.
+  * 
+  * Assumptions:
+  *   Variables not initialized with null are assumed never to contain null. (arbitrary)
+  *     So if you intend for a variable to be assignable to null, instead of writing `var a = init`, write `var a: T = null; a = init`
+  *     Note: could instead use @Nullable annotation... (cleaner approach)
+  * 
   */
 trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
   import base.Predef._
@@ -23,33 +29,51 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       
       //show(body)
       
-      val a = ir"$$a: Var[$ta]"
-      val b = ir"$$b: Var[$tb]"
+      val a = ir"a? : Var[$ta]"
+      val b = ir"b? : Var[$tb]"
       
-      val newBody = body rewrite {
-        case ir"($$tup !)._1" => ir"$a !"
-        case ir"($$tup !)._2" => ir"$b !"
-        case ir"$$tup := ($va: $$ta, $vb: $$tb)" => ir"$a := $va; $b := $vb"
-        case ir"$$tup := $vab" => ir"$a := $vab._1; $b := $vab._2"
-        case ir"$$tup := null" =>
-          ir"$a := null; $b := null" // FIXME proper null boolean encoding
-        case ir"$$tup !" => ir"($a.!, $b.!)"
+      val isInitializedWithNull = init =~= ir"null"  // TODO more precise?
+      
+      if (isInitializedWithNull) {
+        
+        val isNull = ir"isNull? : Var[Bool]"
+        var hasNull = isInitializedWithNull
+        
+        val body2 = body rewrite {
+          case ir"($$tup !)._1" => ir"assert(!$isNull.!); $a !"
+          case ir"($$tup !)._2" => ir"assert(!$isNull.!); $b !"
+          case ir"($$tup !) == null" => ir"$isNull.!"
+          case ir"$$tup := ($va: $$ta, $vb: $$tb)" => ir"$a := $va; $b := $vb; $isNull := false"
+          case ir"$$tup := $vab" => ir"val n = $vab == null; if (!n) { $a := $vab._1; $b := $vab._2; $isNull := n }"
+          case ir"$$tup := null" => ir"$isNull := true"
+          case ir"$$tup !" => ir"($a.!, $b.!)"
+        }
+        
+        val body3 = body2 subs 'tup -> ({
+          throw RewriteAbort(s"tup is still used! in: $body2")} : IR[tup.Typ,{}])
+        ir" val isNull = Var(${Const(isInitializedWithNull)}); val a = Var(${nullValue[ta.Typ]});  val b = Var(${nullValue[tb.Typ]});  $body3 "
+        
+      } else {
+          
+        val body2 = body rewrite {
+          case ir"($$tup !)._1" => ir"$a !"
+          case ir"($$tup !)._2" => ir"$b !"
+          case ir"$$tup := ($va: $$ta, $vb: $$tb)" => ir"$a := $va; $b := $vb"
+          case ir"$$tup := $vab" => ir"$a := $vab._1; $b := $vab._2"
+          case ir"$$tup := null" => ???; ir"???" // FIXME proper error
+          case ir"$$tup !" => ir"($a.!, $b.!)"
+        }
+        
+        //show(body2)
+        
+        val body3 = body2 subs 'tup -> ({
+          //println(s"tup is still used! in: ${newBody rep}")
+          throw RewriteAbort(s"tup is still used! in: $body2")} : IR[tup.Typ,{}])
+        
+        ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $body3 "
+        
       }
       
-      //show(newBody)
-      
-      val newwBody2 = newBody subs 'tup -> ({
-        //println(s"tup is still used! in: ${newBody rep}")
-        throw RewriteAbort(s"tup is still used! in: $newBody")} : IR[tup.Typ,{}])
-      
-      
-      //val res = ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $newwBody2 "
-      // TODO use proper default value (not `null` for value types)
-      val res = if (init =~= ir"null") ir" val a = Var[$ta](null);  val b = Var[$tb](null);  $newwBody2 "
-      else ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $newwBody2 "
-      
-      //show(res)
-      res
       
       
     case ir"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, so that a/b are trivial
@@ -57,6 +81,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       val newBody = body rewrite {
         case ir"$$tup._1" => ir"$a"
         case ir"$$tup._2" => ir"$b"
+        case ir"$$tup == null" => ir"false"
       }
       //val newwBody2 = newBody subs 'tup -> ir"($a,$b)"  // can't do that as otherwise the transformer would have no fixed point
       val newwBody2 = newBody subs 'tup -> ({throw RewriteAbort()} : IR[tup.Typ,{}])

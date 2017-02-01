@@ -3,12 +3,15 @@ package example
 import org.scalatest.FunSuite
 import squid.MyFunSuite
 import squid.ir._
+import squid.lang.InspectableBase
+import squid.utils._
 
 object Code extends squid.ir.SimpleANF
 import Code.Predef._
+import Code.{SelfTransformer=>CST}
 
-object DeTup extends Code.SelfTransformer with TupleVarOptim with TopDownTransformer
-object Norm extends Code.SelfTransformer with VarNormalizer with TopDownTransformer
+object DeTup extends CST with TupleVarOptim with TopDownTransformer
+object Norm extends CST with VarNormalizer with LogicNormalizer with TopDownTransformer
 object DeTupFix extends Code.TransformerWrapper(DeTup) with FixPointTransformer
 object DeTupNormFix extends Code.TransformerWrapper(DeTup,Norm) with FixPointTransformer
 
@@ -41,9 +44,39 @@ class TupleVarTests extends MyFunSuite(Code) {
       println(a._1, a._2._1, a._2._2)
     """
     
-    println(c0 transformWith DeTupNormFix)
+    c0 transformWith DeTupNormFix eqt ir"""
+      var isNull_0: Bool = true
+      var a_1: Int = 0
+      var isNull_2: Bool = true
+      var a_3: String = null
+      a_1 = 1
+      a_3 = "ok"
+      isNull_2 = false
+      isNull_0 = false
+      val x_4 = isNull_0
+      val x_5 = !x_4
+      Predef.assert(x_5)
+      val x_6 = a_1
+      val x_7 = isNull_0
+      val x_8 = !x_7
+      Predef.assert(x_8)
+      val x_9 = isNull_2
+      val x_10 = !x_9
+      Predef.assert(x_10)
+      val x_11 = a_3
+      val x_12 = isNull_0
+      val x_13 = !x_12
+      Predef.assert(x_13)
+      val x_14 = isNull_2
+      val x_15 = !x_14
+      Predef.assert(x_15)
+      val x_16 = Tuple3.apply[Int, String, Unit](x_6, x_11, ())
+      println(x_16)
+    """
     
-    //// FIXME rm wrong assignments to null
+  }
+    
+    //// TODO normalize to this!
     //c0 transformWith DeTupNormFix eqt ir"""
     //  var a = 1
     //  var b = "ok"

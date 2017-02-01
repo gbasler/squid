@@ -3,6 +3,7 @@ package quasi
 
 import utils._
 import squid.lang.Base
+import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
 
@@ -59,6 +60,7 @@ self: Base =>
     
     /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
     def withContextOf[Ctx <: C](x: IR[Any, Ctx]) = this: IR[T,Ctx]
+    //def unsafeWithContextOf[Ctx](x: IR[Any, Ctx]) = this.asInstanceOf[IR[T,Ctx]]  // does not seem to be too useful...
     
     override def toString: String = {
       val repStr = showRep(rep)
@@ -105,6 +107,15 @@ self: Base =>
     
     implicit def anyContextIsEmptyContext[A](ir: IR[A,AnyRef]): IR[A,Any] = ir.asInstanceOf[IR[A,Any]]
     
+    def nullValue[T: IRType](implicit ev: base.type <:< (base.type with IntermediateBase)): IR[T,{}] = {
+      val b: base.type with IntermediateBase = ev(base)
+      //b.nullValue[T](irTypeOf[T]) // should work, but Scala doesn't like it
+      b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]])
+    }
+    // Unsafe version:
+    //def nullValue[T: IRType]: IR[T,{}] = {
+    //  val b = base.asInstanceOf[base.type with IntermediateBase]
+    //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
     import scala.language.experimental.macros
     

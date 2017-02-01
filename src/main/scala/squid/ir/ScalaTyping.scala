@@ -263,6 +263,41 @@ self: IntermediateBase => // for 'repType' TODO rm
   }
   
   
+  def nullValue[T: IRType]: IR[T,{}] = {
+    val tp = implicitly[IRType[T]].rep.tpe >>? {
+      case TypeHoleRep(name) => throw new IllegalArgumentException("Type hole has no known nullValue.")
+    }
+    IR[T,{}](const(
+      if (tp <:< sru.typeOf[Unit]) NULL_UNIT
+      else if (tp <:< sru.typeOf[Bool]) NULL_BOOL
+      else if (tp <:< sru.typeOf[Char]) NULL_CHAR
+      else if (tp <:< sru.typeOf[Byte]) NULL_BYTE
+      else if (tp <:< sru.typeOf[Short]) NULL_SHORT
+      else if (tp <:< sru.typeOf[Int]) NULL_INT
+      else if (tp <:< sru.typeOf[Long]) NULL_LONG
+      else if (tp <:< sru.typeOf[Float]) NULL_FLOAT
+      else if (tp <:< sru.typeOf[Double]) NULL_DOUBLE
+      else {
+        val N = sru.typeOf[Null]
+        assert(N <:< tp || tp <:< N, // second case is for the stupid literal type Null(null)
+          s"$tp is not nullable nor .")
+        NULL_NULL
+      }
+    ))
+  }
+  
+  private var NULL_UNIT: Unit = _
+  private var NULL_BOOL: Bool = _
+  private var NULL_CHAR: Char = _
+  private var NULL_BYTE: Byte = _
+  private var NULL_SHORT: Short = _
+  private var NULL_INT: Int = _
+  private var NULL_LONG: Long = _
+  private var NULL_FLOAT: Float = _
+  private var NULL_DOUBLE: Double = _
+  private var NULL_NULL: Null = _
+  
+  
 }
 
 
