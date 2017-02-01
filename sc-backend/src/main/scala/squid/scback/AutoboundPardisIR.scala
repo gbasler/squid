@@ -5,6 +5,7 @@ import ch.epfl.data.sc._
 import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefIRs.Println
 import ch.epfl.data.sc.pardis.deep.scalalib.ScalaPredefOps
 import ch.epfl.data.sc.pardis.ir.PardisFunArg
+import ch.epfl.data.sc.pardis.types.PardisType
 import pardis._
 import squid.utils._
 
@@ -183,6 +184,19 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     }
     
   }
+  
+  def nullValue[T: IRType]: IR[T,{}] = IR(const((implicitly[IRType[T]].rep:PardisType[_]) match {
+    case types.UnitType => ()
+    case types.BooleanType => false
+    case types.CharacterType => '\0'
+    case types.ByteType => 0:Byte
+    case types.ShortType => 0:Short
+    case types.IntType => 0
+    case types.LongType => 0L
+    case types.FloatType => 0F
+    case types.DoubleType => 0D
+    case _ => null
+  }))
   
 }
 
