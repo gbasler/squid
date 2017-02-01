@@ -34,7 +34,8 @@ trait FixPointTransformer extends Transformer {
       
     }
     
-    if (recNum == MAX_TRANSFORM_ITERATIONS) System.err.println(s"Rewrite rules did not converge after $MAX_TRANSFORM_ITERATIONS iterations.")
+    if (recNum == MAX_TRANSFORM_ITERATIONS) 
+      System.err.println(s"Rewrite rules did not converge after $MAX_TRANSFORM_ITERATIONS iterations.\nFor rep: ${currentRep|>showRep}")
     //debug(" --- END --- ")
     
     currentRep

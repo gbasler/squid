@@ -46,7 +46,7 @@ object CombinedOptimsTestsSimpleANF extends App {
     with TupleVarOptim
     //with BindingNormalizer
     with TopDownTransformer
-    with FixPointTransformer
+    with FixPointTransformer // Q: why not FixPointRuleBasedTransformer?
   
   var pgrm = ir{
     List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x))

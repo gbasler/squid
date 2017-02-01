@@ -13,7 +13,7 @@ trait Transformer extends Optimizer { self =>
   //lazy val TranformerDebug = new PublicTraceDebug{}
   
   /** Use `pipeline` to correctly apply a Transformer */
-  protected def transform(rep: Rep): Rep
+  protected[squid] def transform(rep: Rep): Rep
   final def transformTopDown(rep: Rep): Rep = (base topDown rep)(transform)
   final def transformBottomUp(rep: Rep): Rep = (base bottomUp rep)(transform)
   

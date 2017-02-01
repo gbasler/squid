@@ -332,8 +332,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           typ extract (d.typ, Covariant) flatMap { merge(_, (Map(name -> r), Map(), Map())) }
           
         case (BoundVal(n1), Hole(n2)) if n1 == n2 => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
-          Some(EmptyExtract)
-          //typ.extract(t.typ, Covariant) // I think the types cannot be wrong here (case for Abs checks parameter types)
+          //Some(EmptyExtract) // I thought the types could not be wrong here (case for Abs checks parameter types)
+          // But it turns out when we match an extracted binder this can cause a problem; there is a wider hygiene problem here to be solved
+          typ.extract(d.typ, Covariant)
           
         case (bv: BoundVal, h: Hole) if h.originalSymbol exists (_ === bv) => // This is needed when we match an extracted binder with a hole that comes from that binder
           Some(EmptyExtract)

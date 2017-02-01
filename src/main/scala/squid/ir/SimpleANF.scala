@@ -39,7 +39,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     //def isTrivial = dfn.isTrivial
     lazy val isTrivial: Bool = dfn match {
       case m: MethodApp => //println(m.sym.fullName)
-        m.sym.fullName startsWith "squid.lib.uncurried"
+        (m.sym.fullName startsWith "squid.lib.uncurried") || (m.sym.fullName == "scala.Any.asInstanceOf")
+        // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work
       case Module(pre, _, _) => pre.isTrivial
       case Ascribe(x, _) => x.isTrivial
       case _ => true

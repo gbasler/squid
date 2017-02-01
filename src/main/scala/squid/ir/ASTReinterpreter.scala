@@ -111,7 +111,8 @@ trait ASTReinterpreter { ast: AST =>
       override val ascribeBoundValsWhenNull = true
       
       //protected lazy val NothingType = Predef.implicitType[Nothing]
-      protected lazy val NullType = Predef.implicitType[Null] // Q: why doesn't `irTypeOf[Null]` work?
+      protected lazy val NullType = Predef.implicitType[Null] // Note: `irTypeOf[Null]` doesn't work because the implicit in Predef is not imported
+      protected lazy val AnyRef = Predef.implicitType[AnyRef]
       
       /** Remembers mutable variable bindings */
       val boundVars = collection.mutable.Map[BoundVal, TermName]()
@@ -175,6 +176,15 @@ trait ASTReinterpreter { ast: AST =>
             q"var $varName: ${rect(tv.rep/*.tpe.typeArgs.head*/)} = ${apply(init.rep)}; ..${
               boundVars += bv -> varName
               apply(body.rep)}" // Note: if subs took a partial function, we could avoid the need for a `boundVars` context
+            
+          // The rule above will not match if `tv` is not a subtype of AnyRef: value null will extract type Null that will not merge successfully
+          case ir"var ${v @ BV(bv)}: $tv = null; $body: $tb" =>
+            assert(!(tv <:< AnyRef))
+            System.err.println(s"Warning: variable `${v rep}` of type `${tv}` (not a subtype of `AnyRef`) is assigned `null`.")
+            val varName = newBase.freshName(bv.name IfNot (_ startsWith "$") Else "v")
+            q"var $varName: ${rect(tv.rep)} = null; ..${
+              boundVars += bv -> varName
+              apply(body.rep)}"
             
             
           /** Converts redexes to value bindings, nicer to the eye.

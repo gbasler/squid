@@ -18,6 +18,8 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
   rewrite {
     
     case ir"val $tup = Var($init: ($ta, $tb)); $body: $t" =>
+      //println((ta,tb)) // makes the rwr not compile -- FIXME
+      //println(ta->tb) // makes the rwr not compile
       
       //show(body)
       
@@ -28,6 +30,9 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         case ir"($$tup !)._1" => ir"$a !"
         case ir"($$tup !)._2" => ir"$b !"
         case ir"$$tup := ($va: $$ta, $vb: $$tb)" => ir"$a := $va; $b := $vb"
+        case ir"$$tup := $vab" => ir"$a := $vab._1; $b := $vab._2"
+        case ir"$$tup := null" =>
+          ir"$a := null; $b := null" // FIXME proper null boolean encoding
         case ir"$$tup !" => ir"($a.!, $b.!)"
       }
       
@@ -38,19 +43,22 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         throw RewriteAbort(s"tup is still used! in: $newBody")} : IR[tup.Typ,{}])
       
       
-      val res = ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $newwBody2 "
+      //val res = ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $newwBody2 "
+      // TODO use proper default value (not `null` for value types)
+      val res = if (init =~= ir"null") ir" val a = Var[$ta](null);  val b = Var[$tb](null);  $newwBody2 "
+      else ir" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $newwBody2 "
       
       //show(res)
       res
       
       
-    // Note: breaks the old CombinedOptimsTestsANF !
-    case ir"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, and that a/b are trivial
+    case ir"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, so that a/b are trivial
+      
       val newBody = body rewrite {
         case ir"$$tup._1" => ir"$a"
         case ir"$$tup._2" => ir"$b"
       }
-      //val newwBody2 = newBody subs 'tup -> ir"($a,$b)"  // can't do that as the transformer would have no fixed point
+      //val newwBody2 = newBody subs 'tup -> ir"($a,$b)"  // can't do that as otherwise the transformer would have no fixed point
       val newwBody2 = newBody subs 'tup -> ({throw RewriteAbort()} : IR[tup.Typ,{}])
       newwBody2
     

@@ -125,5 +125,10 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   trait SelfTransformer extends ir.Transformer {
     val base: baseSelf.type = baseSelf
   }
+  class TransformerWrapper(others: ir.Transformer{val base: baseSelf.type}*) extends SelfTransformer {
+    def transform(rep: Rep): Rep = {
+      others.foldLeft(rep)((r,t) => t transform r)
+    }
+  }
   
 }
