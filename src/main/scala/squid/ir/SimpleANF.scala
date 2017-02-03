@@ -66,6 +66,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   }
   
   
+  /** In ANF, we keep only one effect per Imperative call to make their inductive traversal more natural.
+    * Important for matching sequences of effects. */
+  def mkImperative(effects: Seq[Rep], res: Rep): Rep = {
+    effects.foldRight(res)((eff,acc) => Imperative(eff::Nil,acc) |> Rep) // Q: why not `rep`?
+  }
   /*
   
   TODO(?) remove pure effects from Imperative
@@ -109,7 +114,9 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     def construct(init: Rep) = statements.foldRight(init) {
       case (Left(v -> r), body) => 
         MethodApp(lambda(v::Nil, body), Function1ApplySymbol, Nil, Args(r)::Nil, dfn.typ) |> rep
-      case (Right(b), body) => if (b isEmpty) body else Imperative(b, body) |> Rep  // Q: why not `rep`?
+      case (Right(b), body) => if (b isEmpty) body 
+        //else Imperative(b, body) |> Rep  // don't construct multi-effect Imperative's
+        else mkImperative(b, body)
     }
     
     val normal = dfn match {
@@ -206,79 +213,78 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       * @param ex: current extraction artifact
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
       * @param xy: the current (extractor -> extracted) pair */
-    def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = /*println(s"rec $xy") before*/ identity(xy match {
-        
-      // Matching simple expressions (block returns)
-      case (Nil -> r0, Nil -> r1) =>
-        for {
-          e <- extract(r0, r1)
-          //() = println(e)
-          m <- merge(e, ex)
-          //() = println(m)
-          c <- code(m)
-        } yield c
-        
-      // Matching two effects
-      case ((Right(e0) :: es0) -> r0, (Right(e1) :: es1) -> r1) =>
-        extract(e0, e1) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
-        
-      // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})
-      case ((Left(b0 -> v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
-        for {
-          e <- extract(v0, v1)
-          (hExtr,h) = b1.toHole(b0)
-          //() = println(hExtr,h)
-          e <- merge(e, hExtr)
-          hr = rep(h)
-          //() = println(s"Extracting binder $b1: $hr")
-          es1i = es1 map {
-            case Right(r) => Right(inline(b1, r, hr))
-            case Left(b -> v) => Left(b -> inline(b1, v, hr))
+    def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = {
+      
+      def mkCode(ex: Extract): Option[Rep] = {
+        debug(s"${Console.BOLD}Constructing code with $ex${Console.RESET}")
+        val r = try code(ex) catch {
+          case e: Throwable =>
+            debug(s"${Console.RED}Construction did not complete.${Console.RESET} ($e)")
+            throw e
+        }
+        debug(s"${Console.GREEN}Constructed: ${r map showRep}${Console.RESET}")
+        r
+      }
+      
+      xy match {
+    
+        // Matching simple expressions (block returns)
+        case (Nil -> r0, Nil -> r1) =>
+          for {
+            e <- extract(r0, r1)
+            m <- merge(e, ex)
+            c <- mkCode(m)
+          } yield c
+    
+        // Matching two effects
+        case ((Right(e0) :: es0) -> r0, (Right(e1) :: es1) -> r1) =>
+          extract(e0, e1) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
+    
+        // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})
+        case ((Left(b0 -> v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
+          for {
+            e <- extract(v0, v1)
+            (hExtr,h) = b1.toHole(b0)
+            e <- merge(e, ex)
+            e <- merge(e, hExtr)
+            hr = rep(h)
+            //() = debug(s"Extracting binder $b1: $hr")
+            es1i = es1 map {
+              case Right(r) => Right(inline(b1, r, hr))
+              case Left(b -> v) => Left(b -> inline(b1, v, hr))
+            }
+            r1i = inline(b1, r1, hr)
+            r <- rec(e, b1 :: matchedVals)(es0 -> r0, es1i -> r1i)
+          } yield r
+    
+        // Matching a whole block with a hole
+        case (Nil -> r, bl) if r.isHole =>
+          // TODO specially handle SplicedHole?
+          // TODO also try eating less code? (backtracking)
+          extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap mkCode
+          
+        // Matching an arbitrary statement of a block with the last expression of an xtor
+        // -- rewriting can happen in the middle of a Block, and then we have to ensure later terms do not reference removed bindings
+        case (Nil -> r0, (stmt :: es) -> r1) =>
+          val (rep, rebuild) = stmt match {
+            case Left(b -> v) => v -> ((x:Rep) => Left(b -> x))
+            case Right(r) => r -> ((x:Rep) => Right(x))
           }
-          r1i = inline(b1, r1, hr)
-          r <- rec(e, b1 :: matchedVals)(es0 -> r0, es1i -> r1i)
-        } yield r
-        
-      // Matching a whole block with a hole
-      case (Nil -> r, bl) if r.isHole =>
-        // TODO specially handle SplicedHole?
-        // TODO also try eating less code? (backtracking)
-        extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap code
-        
-      // Matching an arbitrary expression of a block with the last expression of an xtor
-      // -- rewriting can happen in the middle of a Block, and then we have to ensure later terms do not reference removed bindings
-      case (Nil -> r0, (Left(b -> v) :: es) -> r1) =>
-        for {
-          e <- extract(r0, v)
-          e <- merge(e, ex)
-          c <- code(e) // FIXME properly handle if `code` returns early (propagate with correct body)
-          //c <- try code(e) catch {
-          //  case ReturnExc(rs,f) =>
-          //    ???
-          //}
-          r = constructBlock((Left(b -> c) :: es) -> r1)
-          if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
-        } yield r
-        
-      case (Nil -> r0, (Right(r) :: es) -> r1) => // TODO factor w/ above
-        for {
-          e <- extract(r0, r)
-          e <- merge(e, ex)
-          c <- code(e) // FIXME
-          //c <- try code(e) catch {
-          //  case ReturnExc(rs,f) =>
-          //    ???
-          //}
-          r = constructBlock((Right(c) :: es) -> r1)
-          if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
-        } yield r
-        
-      //case (es0 -> r0, es1 -> r1) =>
-      //  //???
-      //  None
-      case _ => None
-        
-    })
+          for {
+            e <- extract(r0, rep)
+            e <- merge(e, ex)
+            c <- try mkCode(e) catch {
+              case EarlyReturnExc(rs,f) =>
+                throw EarlyReturnExc(rs, f andThen (r => constructBlock(rebuild(r)::es, r1) ))
+            }
+            r = constructBlock((rebuild(c) :: es) -> r1)
+            if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
+          } yield r
+          
+        case _ => None
+    
+      }
+    }
     
     if (xtor.asBlock._1.isEmpty && xtee.asBlock._1.nonEmpty) return None
     // ^ TODO handle `{val r = expr; r}` as well as `expr`

@@ -94,7 +94,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def apply(_r: Rep): Rep = {
       //post(r |> mapDef(apply))
       try post(pre(_r) |> mapDef(apply)) catch { // Q: semantics if `post` throws??
-        case ReturnExc(rs,f) =>
+        case EarlyReturnExc(rs,f) =>
           val rs2 = rs map apply
           val r = f(rs2)
           debug(s"${Console.RED}Returned early:${Console.RESET} $rs -> $rs2 ==> $r")

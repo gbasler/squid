@@ -62,13 +62,21 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     
   }
   
-  test("Early Return in Middle of Block") { // FIXME
+  test("Early Return in Middle of Block") {
     
     val c0 = ir"print(1); print(2); print(3); print(4)"
-    println(c0 rewrite {
+    val c1 = c0 rewrite {
       case ir"print(2); print(3)" =>
         Return(ir"print(23)")
-    })
+    }
+    c1 eqt ir"print(1); print(23); print(4)"
+    
+    val a = ir"val aaa = readInt; val bbb = readDouble.toInt; (aaa+bbb).toDouble"
+    val b = a rewrite {
+      case ir"readDouble.toInt" =>
+        Return(ir"readInt")
+    }
+    b eqt ir"val aa = readInt; val bb = readInt; (aa+bb).toDouble"
     
   }
   

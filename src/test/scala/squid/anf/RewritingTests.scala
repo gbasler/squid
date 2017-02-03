@@ -5,6 +5,9 @@ import ir._
 
 /**
   * Created by lptk on 02/02/17.
+  * 
+  * TODO port some of the seq matching tests from scBackend
+  * 
   */
 class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
   import DSL.Predef._
@@ -30,20 +33,43 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     }
     b eqt ir"val aa = readInt; val bb = readInt; aa+bb"
     
+    {
+      val a = ir"val a = 11.toDouble; val b = 22.toDouble; val c = 33.toDouble; (a,b,c)"
+      val c = a rewrite {
+        case ir"val a = ($x:Int).toDouble; val b = ($y:Int).toDouble; $body: $bt" =>
+          ir"val a = ($x+$y).toDouble/2; val b = a; $body"
+      }
+      c eqt ir"val a = (11+${ir"22"}).toDouble/2; val c = 33.toDouble; (a,a,c)"
+      
+      /*
+      // TODO make this work like the one above
+      val d = a rewrite {
+        case ir"val a = ($x:Int).toDouble; ($y:Int).toDouble" =>
+          ir"($x+$y).toDouble/2"
+      }
+      println(d)
+      //d eqt ir"val a = (11+${ir"22"}).toDouble/2; val c = 33.toDouble; (a,a,c)"
+      */
+    }
+    
+    
   }
   
-  test("Rewriting Sequences of Effects") { // FIXME
+  test("Rewriting Sequences of Effects") {
     
     val c0 = ir"print(1); print(2); print(3); print(4)"
-    println(c0 rewrite {
+    
+    c0 rewrite {
       case ir"print(1); print(2)" => ir"print(12)"
-    })
-    println(c0 rewrite {
+    } eqt ir"print(12); print(3); print(4)"
+    
+    c0 rewrite {
       case ir"print(2); print(3)" => ir"print(23)"
-    })
-    println(c0 rewrite {
+    } eqt ir"print(1); print(23); print(4)"
+    
+    c0 rewrite {
       case ir"print(3); print(4)" => ir"print(34)"
-    })
+    } eqt ir"print(1); print(2); print(34)"
     
   }
   
