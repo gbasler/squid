@@ -206,7 +206,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       * @param ex: current extraction artifact
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
       * @param xy: the current (extractor -> extracted) pair */
-    def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = /*println(s"rec $xy") before*/ (xy match {
+    def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = /*println(s"rec $xy") before*/ identity(xy match {
         
       // Matching simple expressions (block returns)
       case (Nil -> r0, Nil -> r1) =>
@@ -251,7 +251,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         for {
           e <- extract(r0, v)
           e <- merge(e, ex)
-          c <- code(e)
+          c <- code(e) // FIXME properly handle if `code` returns early (propagate with correct body)
+          //c <- try code(e) catch {
+          //  case ReturnExc(rs,f) =>
+          //    ???
+          //}
           r = constructBlock((Left(b -> c) :: es) -> r1)
           if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
         } yield r
@@ -260,7 +264,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         for {
           e <- extract(r0, r)
           e <- merge(e, ex)
-          c <- code(e)
+          c <- code(e) // FIXME
+          //c <- try code(e) catch {
+          //  case ReturnExc(rs,f) =>
+          //    ???
+          //}
           r = constructBlock((Right(c) :: es) -> r1)
           if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
         } yield r
@@ -272,7 +280,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         
     })
     
-    rec(repExtract(SCRUTINEE_KEY -> xtee),Nil)(xtor.asBlock -> xtee.asBlock) //and (r => println(s"Ret: $r"))
+    if (xtor.asBlock._1.isEmpty && xtee.asBlock._1.nonEmpty) return None
+    // ^ TODO handle `{val r = expr; r}` as well as `expr`
+    
+    rec(repExtract(SCRUTINEE_KEY -> xtee),Nil)(xtor.asBlock -> xtee.asBlock) and_?
+      { case Some(r) => debug(s"${BOLD}=> Rewrote$RESET $r") }
     
   }
   

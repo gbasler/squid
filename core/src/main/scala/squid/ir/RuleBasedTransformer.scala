@@ -2,7 +2,10 @@ package squid
 package ir
 
 import squid.lang.Base
+import squid.lang.InspectableBase
+import squid.lang.RecRewrite
 import squid.quasi.EmbeddingException
+import squid.quasi.QuasiBase
 import squid.utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
 import utils._
 import utils.CollectionUtils._
@@ -47,9 +50,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     import c.universe._
     
     val (baseTree,termTree,typ,ctx) = c.macroApplication match {
-      case q"$base.InspectableIROps[$t,$c]($term).rewrite($_)" =>
-        (base, term, t.tpe, c.tpe)
-      case q"$base.InspectableIROps[$t,$c]($term).dbg_rewrite($_)" =>
+      case q"$base.InspectableIROps[$t,$c]($term).$_($_)" =>
         (base, term, t.tpe, c.tpe)
     }
     val base = baseTree
@@ -75,12 +76,16 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     
     debug("outputContext:",outputContext)
     
+    val recursive = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[RecRewrite])
+    val RuleBasedTrans = if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer"
+      else tq"_root_.squid.ir.SimpleRuleBasedTransformer"
+    
     //val $transName = new _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {
     //val $transName: _root_.scp.ir.Transformer{val base: ${base.tpe} } = new _root_.scp.ir.SimpleTransformer {
     //object $transName extends _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
     // TODO give possibility to chose transformer (w/ implicit?)
     val res = q""" 
-    object $transName extends _root_.squid.ir.FixPointRuleBasedTransformer with _root_.squid.ir.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
+    object $transName extends $RuleBasedTrans with _root_.squid.ir.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
       val base: ${base.tpe} = $base
     }
     ${rwTree}
@@ -106,6 +111,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     val trans = c.macroApplication match {
       case q"$trans.rewrite($_)" => trans
       case q"$trans.dbg_rewrite($_)" => trans
+      case q"$trans.rec_rewrite($_)" => trans
     }
     var base = c.typecheck(q"$trans.base")
     base = internal.setType(base, c.typecheck(tq"$trans.base.type", c.TYPEmode).tpe)
@@ -164,7 +170,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           case Block(_, r) => r.pos
           case _ => expr.pos
         }
-        val constructedCtx = expr.tpe.baseType(symbolOf[Base#IR[_, _]]) match {
+        var constructedCtx = expr.tpe.baseType(symbolOf[Base#IR[_, _]]) match {
           case tpe@TypeRef(tpbase, _, constructedType :: constructedCtx :: Nil) =>
             assert(tpbase =:= base.tpe, s"Base types `$tpbase` and `${base.tpe}` (type of ${showCode(base)}) are different.")
             
@@ -182,6 +188,32 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           case NoType =>
             c.abort(constructedPos, s"This rewriting does not produce a ${base.tpe}.IR[_,_] type as a return.")
             
+        }
+        
+        debug("Base CC:",constructedCtx)
+        
+        // Transforms calls to transformation-control ops Predef.Abort, Predef.Return and Predef.Return.transforming
+        // into their underlying impl and aggregates associated type and context info
+        // TODO also do it for pattern guard!
+        val newExpr = expr transform {
+          case t @ q"$b.Predef.Abort($msg)" if b.tpe <:< typeOf[QuasiBase] =>
+            q"$b.`internal abort`($msg)"
+          case t @ q"${r @ q"$b.Return"}.apply[$tp,$cx]($v)" if b.tpe <:< typeOf[InspectableBase] => // TODO also transforming overloads
+            debug("Found Return")
+            if (b.tpe =:= base.tpe) {
+              debug("Return introduces context "+cx.tpe)
+              constructedCtx = glb(constructedCtx :: cx.tpe :: Nil)
+              val constructedType = tp.tpe
+              if (constructedType <:< extractedType)
+                q"$b.Return.`internal apply`[$tp,$cx]($v)" // TODO not in object Return...
+              else {
+                c.abort(r.pos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType") // TODO factor w/ above
+              }
+            } else { // TODO test this
+              val bs = showCode(b)
+              c.warning(b.pos, s"`$bs.Return` is invoked where `$bs` may not be the same as ${showCode(base)}")
+              t
+            }
         }
         
         debug("XC",extractedCtx,"CC",constructedCtx)
@@ -241,7 +273,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         
         debug(s"PATTERN ALIAS: ${showCode(patAlias)}")
         
-        val exprRep = q"($expr:__b__.IR[_,_]).rep"
+        val exprRep = q"($newExpr:__b__.IR[_,_]).rep"
         
         val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], ((__extr__ : $base.Extract) => ${
         //val r = q"$baseBinding; $trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${

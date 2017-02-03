@@ -1,6 +1,7 @@
 package squid
 package quasi
 
+import squid.ir.RewriteAbort
 import utils._
 import squid.lang.Base
 import squid.lang.IntermediateBase
@@ -117,6 +118,8 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
+    def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Lol no")
+    
     import scala.language.experimental.macros
     
     implicit class QuasiContext(private val ctx: StringContext) extends self.Quasiquotes.QuasiContext(ctx)
@@ -128,6 +131,8 @@ self: Base =>
       @MacroSetting(debug = true) implicit def implicitType[T]: IRType[T] = macro QuasiBlackboxMacros.implicitTypeImpl[QC, T]
     }
   }
+  
+  def `internal abort`(msg: String): Nothing = throw RewriteAbort(msg)
   
   
   

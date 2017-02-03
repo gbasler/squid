@@ -23,6 +23,7 @@ package object utils {
   implicit final class Andable[T](private val self: T) extends AnyVal {
     
     @inline def and(f: T => Unit) = { f(self); self }
+    @inline def and_?(f: PartialFunction[T,Unit]) = { f.runWith(_=>())(self); self }
     
     @inline def oh_and(effect: Unit) = self
     

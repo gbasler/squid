@@ -82,8 +82,6 @@ class TupleVarTests extends MyFunSuite(Code) {
     //  var b = "ok"
     //  println(a,b,())
     //"""
-    
-  }
   
   test("Removal of Var[Unit]") {
     

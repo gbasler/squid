@@ -92,14 +92,26 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
     /* Optimized version that prevents recreating too many Rep's: */
     def apply(_r: Rep): Rep = {
-      val r = pre(_r)
-      post(r |> mapDef(apply))
+      //post(r |> mapDef(apply))
+      try post(pre(_r) |> mapDef(apply)) catch { // Q: semantics if `post` throws??
+        case ReturnExc(rs,f) =>
+          val rs2 = rs map apply
+          val r = f(rs2)
+          debug(s"${Console.RED}Returned early:${Console.RESET} $rs -> $rs2 ==> $r")
+          r
+      }
     }
     
     def apply(d: Def): Def = {
       //println(s"Traversing $r")
       val rec: Rep => Rep = apply
       val ret = d match {
+        // Special handling of redexes so that they are traversed argument-first (otherwise, it would be body-first)
+        case app @ Apply(a @ RepDef(_: Abs),v) => // This is so that let-bindings are traversed in the expected order...
+          val newV = rec(v)
+          val newA = rec(a)
+          val tp = app.typ
+          if (newA eq a) if (newV eq v) d else Apply(a,newV,tp) else Apply(newA,newV,tp)
         case a @ Abs(p, b) =>
           val newB = rec(b)
           if (newB eq b) d else Abs(p, newB)(a.typ) // Note: we do not transform the parameter; it could lead to surprising behaviors (esp. in case of erroneous transform)
@@ -263,7 +275,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def ptyp = param.typ
     //val typ = funType(ptyp, repType(body))
     
-    // FIXME handle multi-param Abs...
     def inline(arg: Rep) = bottomUpPartial(body) { //body withSymbol (param -> arg)
       case rep if dfn(rep) === `param` => arg
     }

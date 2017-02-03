@@ -52,6 +52,7 @@ trait ASTHelpers extends Base { self: AST =>
     def unapply(r: Rep): Option[Rep -> Rep] = unapply(dfn(r))
   }
   object LetIn {
+    def apply(p:Val,v:Rep,b:Rep): Def = Apply(rep(Abs(p,b)(b.typ)),v,b.typ)
     def unapply(d: Def): Option[(Val, Rep, Rep)] = d match {
       case Apply(RepDef(Abs(p,b)),v) => Some(p,v,b)
       case _ => None
