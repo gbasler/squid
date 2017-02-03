@@ -133,35 +133,28 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     }
   }
   
-  // TODO move to Predef
-  // TODO catch runaways
   private[squid] case class EarlyReturnExc(reps: List[Rep], cont: List[Rep] => Rep) extends Exception
-  object Return { // TODO rename rec "transforming"
-    private def dbg(x:Any) = debug(s"${Console.RED}EARLY RETURN!${Console.RESET} -- $x")
-    def apply[T,C](x: IR[T,C]): IR[T,C] = {
-      System.err.println("Lol no!")
-      x
-    }
-    def `internal apply`[T,C](x: IR[T,C]): IR[T,C] = {
-      dbg(x)
-      throw new EarlyReturnExc(Nil, _ => x.rep)
-    }
-    def transforming[A,CA,T,C](a: IR[A,CA])(f: IR[A,CA] => IR[T,C]): Nothing = {
-      dbg(a)
-      throw new EarlyReturnExc(a.rep::Nil, { case a::Nil => f(IR(a)).rep })
-    }
-    def transforming[A,CA,B,CB,T,C](a: IR[A,CA], b: IR[B,CB])(f: (IR[A,CA], IR[B,CB]) => IR[T,C]): Nothing = {
-      dbg(a,b)
-      throw new EarlyReturnExc(a.rep::b.rep::Nil, { case a::b::Nil => f(IR(a),IR(b)).rep })
-    }
-    def transforming[A,CA,B,CB,D,CD,T,C](a: IR[A,CA], b: IR[B,CB], d: IR[D,CD])(f: (IR[A,CA], IR[B,CB], IR[D,CD]) => IR[T,C]): Nothing = {
-      dbg(a,b,d)
-      throw new EarlyReturnExc(a.rep::b.rep::d.rep::Nil, { case a::b::d::Nil => f(IR(a),IR(b),IR(d)).rep })
-    }
-    def transforming[A,CA,T,C](as: List[IR[A,CA]])(f: List[IR[A,CA]] => IR[T,C]): Nothing = {
-      dbg(as)
-      throw new EarlyReturnExc(as map (_.rep), { as => f(as map (IR(_))).rep })
-    }
+  private def earlyReturnDebug(x: => Any) = debug(s"${Console.RED}EARLY RETURN!${Console.RESET} -- $x")
+  
+  def `internal return transforming`[A,CA,T,C](a: IR[A,CA])(f: IR[A,CA] => IR[T,C]): Nothing = {
+    earlyReturnDebug(a)
+    throw new EarlyReturnExc(a.rep::Nil, _ |>! { case a::Nil => f(IR(a)).rep })
+  }
+  def `internal return transforming`[A,CA,B,CB,T,C](a: IR[A,CA], b: IR[B,CB])(f: (IR[A,CA], IR[B,CB]) => IR[T,C]): Nothing = {
+    earlyReturnDebug(a,b)
+    throw new EarlyReturnExc(a.rep::b.rep::Nil, _ |>! { case a::b::Nil => f(IR(a),IR(b)).rep })
+  }
+  def `internal return transforming`[A,CA,B,CB,D,CD,T,C](a: IR[A,CA], b: IR[B,CB], d: IR[D,CD])(f: (IR[A,CA], IR[B,CB], IR[D,CD]) => IR[T,C]): Nothing = {
+    earlyReturnDebug(a,b,d)
+    throw new EarlyReturnExc(a.rep::b.rep::d.rep::Nil, _ |>! { case a::b::d::Nil => f(IR(a),IR(b),IR(d)).rep })
+  }
+  def `internal return transforming`[A,CA,T,C](as: List[IR[A,CA]])(f: List[IR[A,CA]] => IR[T,C]): Nothing = {
+    earlyReturnDebug(as)
+    throw new EarlyReturnExc(as map (_.rep), { as => f(as map (IR(_))).rep })
+  }
+  def `internal return`[T,C](x: IR[T,C]): IR[T,C] = {
+    earlyReturnDebug(x)
+    throw new EarlyReturnExc(Nil, _ => x.rep)
   }
   
 }

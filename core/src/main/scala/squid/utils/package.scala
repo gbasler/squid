@@ -41,6 +41,7 @@ package object utils {
     
     @inline def |> [B] (rhs: A => B): B = rhs(__self)
     @inline def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    @inline def |>! [B] (rhs: PartialFunction[A, B]): B = rhs(__self)
     
     @inline def >> (rhs: A => A): A = rhs(__self)
     @inline def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)

@@ -27,40 +27,128 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Predef.Return") {
     
-    // TODO
+    val a = ir"println(12.toDouble); println(identity(42)+1); 666"
+    val b = a rewrite {
+      case ir"($x:Int)+($y:Int)" =>
+        Return(ir"$x+$y")
+      case ir"(${Const(n)}:Int)" => Const(n+1)
+    }
+    
+    // The `1` constant has not been incremented because it was part of the early return (43 was let-bound outisde of it)
+    b eqt ir"println(13.toDouble); println(identity(43)+1); 667"
     
   }
   
-  test("Predef.Return.transforming") {
+  test("Predef.Return.transforming trivial expression") {
     
-    // TODO
+    def f(rep: IR[_,{}]) = rep rewrite {
+      case ir"ArrayBuffer($x:Int,$y:Int)" =>
+        Return.transforming(x)(x => ir"ArrayBuffer($x,$y)")
+      case ir"(${Const(n)}:Int)" => Const(n+1)
+    }
+    
+    f(ir"ArrayBuffer(50,60)") eqt ir"ArrayBuffer(51,60)"
+    f(ir"ArrayBuffer(50,60);println") eqt ir"ArrayBuffer(51,60);println"
+    f(ir"val a = ArrayBuffer(50,60);println(a)") eqt ir"val a = ArrayBuffer(51,60);println(a)"
+    
+     val a = ir"ArrayBuffer(50,60,70)" rewrite {
+      case ir"ArrayBuffer[Int]($x,$y,$z)" =>
+        Return.transforming(x,z)((x,z) => ir"ArrayBuffer($x,$x,$y,$y,$z,$z)")
+      case ir"(${Const(n)}:Int)" => Const(n+1)
+    }
+    a eqt ir"ArrayBuffer(51,51,60,60,71,71)"
     
   }
   
-  import base.Return // TODO in predef
-  
-  test("Bad Return Type") { // TODO test what should not compile
+  test("Predef.Return.transforming blocks") {
     
-    val a = ir"List[Int](readInt)"
-    println(a)
-    //val b = /*base debugFor*/ (a dbg_rewrite {
-    val b = (a rewrite {
+    {
+      val a = ir"println; println(if(true) println(42.toDouble) else println(666.toDouble))"
+      val b = a rewrite {
+        case ir"if($cond)$thn else $els: $t" =>
+          Return.transforming(els)(e => ir"if($cond)$thn else $e")
+        case ir"(${Const(n)}:Int)" => Const(n+1)
+      }
+      b eqt ir"println; println(if(true) println(42.toDouble) else println(667.toDouble))"
+    }
+    
+    // FIXME: seq rwr cancelled so the end of the block is not processed!
+    {
+      val a = ir"println; if(readInt>0) println(42.toDouble,true) else println(666.toDouble,true); println(true)"
+      val b = a rewrite {
+        case ir"true" => ir"false"
+        case ir"if(readInt>0)$thn else $els: $t" =>
+          Return.transforming(els)(e => ir"if(true) $e else $thn")
+        case ir"(${Const(n)}:Int)" => Const(n+1)
+      }
+      //println(a)
+      //println(b)
+      //b eqt ir"println; if(true) println(667.toDouble,false) else println(42.toDouble,true); println(false)"
+    }
+    // Simpler example:
+    {
+      val a = ir"print(true.toString); println(true)"
+      val b = /*base debugFor*/ (a rewrite {
+        case ir"true" => ir"false"
+        //case ir"print($x)" => // does not exhibit the problem
+        case ir"print(($x:Boolean).toString)" =>
+          Return.transforming(x)(x => ir"print($x)")
+      })
+      //println(a)
+      //println(b)
+      //b eqt ir"if(true) println(667.toDouble,false) else println(42.toDouble,true); println(false)"
+    }
+    
+  }
+  
+  
+  test("Context Enlargement") {
+    
+    var r = ir"lol?:Double; List[Int]()"
+    
+    r = ir"List[Int](readInt)" rewrite {
       case ir"readInt" =>
-        //Return(ir"'lol")
-        //Return(ir"lol? : Double") // fails to compile; good
-        //ir"(lol? : Double).toInt" // infers ctx extension
         Return(ir"(lol? : Double).toInt")
-    })
-    println(b)
-    //println(b:Int)
+        ir"???"
+    }
+    
+    assertDoesNotCompile("""
+    r = ir"List[Int](readInt)" rewrite {
+      case ir"readInt" =>
+        Return(ir"(nope? : Double).toInt")
+        ir"???"
+    }
+    """) // Error:(126, 32) type mismatch; found: squid.anf.SimpleANFTests.DSL.IR[List[Int],Any{val nope: Double}]; required: TransformationControlTests.this.DSL.IR[List[Int],Any{val lol: Double}]
+    
+    r eqt ir"List[Int]((lol? : Double).toInt)"
     
   }
   
-  test("Abort and Return in pattern guard") {
+  test("Bad Return Type") {
+    
+    assertDoesNotCompile("""
+    ir"List[Int](readInt)" rewrite { case ir"readInt" => Return(ir"readDouble"); ir"???" }
+    """) // Error:(140, 58) Cannot rewrite a term of type Int to a different type Double
+    
+  }
+  
+  
+  test("Abort and Return in pattern guard") { // FIXME
+    
+    /*
+    ir"List[Int](readInt)" rewrite {
+      case ir"readInt" if {Return(ir"42"); true} => ir"???"
+    } eqt ir"List[Int](42)"
+    
+    ir"List[Int](readInt)" rewrite {
+      case ir"readInt" if Abort() => ir"???"
+    } eqt ir"List[Int](readInt)"
+    */
     
     // TODO (test nested RwR)
     
   }
+  
   
   test("Early Return in Middle of Block") {
     

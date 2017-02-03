@@ -118,7 +118,31 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
-    def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Lol no")
+    def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Abort was called outside a rewrite rule!")
+    
+    object Return {
+      private def oops = System.err.println("Return was called outside a rewrite rule!")
+      def apply[T,C](x: IR[T,C]): IR[T,C] = {
+        oops
+        x
+      }
+      def transforming[A,CA,T,C](a: IR[A,CA])(f: IR[A,CA] => IR[T,C]): IR[T,C] = {
+        oops
+        f(a)
+      }
+      def transforming[A,CA,B,CB,T,C](a: IR[A,CA], b: IR[B,CB])(f: (IR[A,CA], IR[B,CB]) => IR[T,C]): IR[T,C] = {
+        oops
+        f(a,b)
+      }
+      def transforming[A,CA,B,CB,D,CD,T,C](a: IR[A,CA], b: IR[B,CB], d: IR[D,CD])(f: (IR[A,CA], IR[B,CB], IR[D,CD]) => IR[T,C]): IR[T,C] = {
+        oops
+        f(a,b,d)
+      }
+      def transforming[A,CA,T,C](as: List[IR[A,CA]])(f: List[IR[A,CA]] => IR[T,C]): IR[T,C] = {
+        oops
+        f(as)
+      }
+    }
     
     import scala.language.experimental.macros
     

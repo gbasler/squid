@@ -24,6 +24,7 @@ trait Lowering extends Transformer {
               val ruh = RuntimeUniverseHelpers
               base.rep(MethodApp(r, ruh.FunctionType.symbol(reps.size).toType member ruh.sru.TermName("apply") asMethod, Nil, Args(reps:_*)::Nil, Predef.implicitType[Nothing].rep)) // FIXME ret type!
             //case _ => ??? // TODO
+            case (r, args) => wth(s"$args")
           }
         case Left(Recursive) =>
           if (warnRecursiveEmbedding) System.err.println(s"Warning: Recursive value ${sym fullName} cannot be fully embedded.")

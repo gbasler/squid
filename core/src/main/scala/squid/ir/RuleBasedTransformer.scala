@@ -166,6 +166,9 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           case _ => false
         } getOrElse notFound("extracted type")).symbol.asType.typeSignature
         
+        def badType(constructedType: Type, constructedPos: Position) =
+          c.abort(constructedPos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType")
+        
         val constructedPos = expr match {
           case Block(_, r) => r.pos
           case _ => expr.pos
@@ -177,7 +180,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
             if (constructedType <:< extractedType) {
               //debug("Rewriting " + extractedType)
             } else {
-              c.abort(constructedPos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType")
+              badType(constructedType, constructedPos)
             }
             constructedCtx
             
@@ -192,28 +195,32 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         
         debug("Base CC:",constructedCtx)
         
-        // Transforms calls to transformation-control ops Predef.Abort, Predef.Return and Predef.Return.transforming
+        def processEarlyReturn(b:Tree,tp:Tree,cx:Tree,pos:Position) = {
+          if (b.tpe =:= base.tpe) {
+            debug("Return introduces context "+cx.tpe)
+            constructedCtx = glb(constructedCtx :: cx.tpe :: Nil)
+            val constructedType = tp.tpe
+            if (constructedType <:< extractedType) true
+            else badType(constructedType, pos)
+          } else { // TODO test this
+            val bs = showCode(b)
+            c.warning(b.pos, s"`$bs.Return` is invoked where `$bs` may not be the same as ${showCode(base)}")
+            false
+          }
+        }
+        
+        // Transforms calls to transformation-control operators Predef.Abort, Predef.Return and Predef.Return.transforming
         // into their underlying impl and aggregates associated type and context info
         // TODO also do it for pattern guard!
         val newExpr = expr transform {
           case t @ q"$b.Predef.Abort($msg)" if b.tpe <:< typeOf[QuasiBase] =>
             q"$b.`internal abort`($msg)"
-          case t @ q"${r @ q"$b.Return"}.apply[$tp,$cx]($v)" if b.tpe <:< typeOf[InspectableBase] => // TODO also transforming overloads
-            debug("Found Return")
-            if (b.tpe =:= base.tpe) {
-              debug("Return introduces context "+cx.tpe)
-              constructedCtx = glb(constructedCtx :: cx.tpe :: Nil)
-              val constructedType = tp.tpe
-              if (constructedType <:< extractedType)
-                q"$b.Return.`internal apply`[$tp,$cx]($v)" // TODO not in object Return...
-              else {
-                c.abort(r.pos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType") // TODO factor w/ above
-              }
-            } else { // TODO test this
-              val bs = showCode(b)
-              c.warning(b.pos, s"`$bs.Return` is invoked where `$bs` may not be the same as ${showCode(base)}")
-              t
-            }
+          case t @ q"${r @ q"$b.Predef.Return"}.apply[$tp,$cx]($v)" if b.tpe <:< typeOf[InspectableBase] =>
+            if (processEarlyReturn(b,tp,cx,r.pos)) q"$b.`internal return`[$tp,$cx]($v)" else t
+          case t @ q"${r @ q"$b.Predef.Return"}.transforming[..$ts](...$as)" if b.tpe <:< typeOf[InspectableBase] =>
+            val List(cx,tp,_ @ _*) = ts.reverse
+            if (processEarlyReturn(b,tp,cx,r.pos)) q"$b.`internal return transforming`[..$ts](...$as)" else t
+            
         }
         
         debug("XC",extractedCtx,"CC",constructedCtx)
