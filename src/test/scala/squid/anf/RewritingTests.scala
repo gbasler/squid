@@ -98,5 +98,19 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
   }
   
+  test("Named rewriting of effects") {
+    
+    def f(x: IR[_,{}]) = x rewrite { case ir"val n = readInt; $body: $bt" => ir"val n = ???; $body" }
+    ir"println; readInt; println" |> f eqt ir"println; val lol = ???; println"
+    //ir"println; readInt; println" |> f eqt ir"println; ???; println" // TODO allow this; make repEq use toBlock...?
+    
+    def g(x: IR[_,{val n:Int;val m:Int}]) = x rewrite { case ir"val n = readInt; n+1" => ir"readDouble.toInt" }
+    ir"println(readInt+1)" |> g eqt ir"println(readDouble.toInt)"
+    ir"readInt; (m?:Int)+1" |> (a => a |> g eqt a)
+    //println(ir"readInt; (n?:Int)+1" |> g) // FIXME important hygiene problem here
+    //println(ir"val x = readInt; (n?:Int)+1" |> g) // FIXME important hygiene problem here
+    
+  }
+  
   
 }

@@ -273,6 +273,13 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             r <- rec(e, b1 :: matchedVals)(es0 -> r0, es1 -> r1)
           } yield r
           
+        case ((Left(b0 -> v0) :: es0) -> r0, (Right(v1) :: es1) -> r1) => // Later, use more compact block repr and merge w/ above
+          for {
+            e <- extract(v0, v1)
+            e <- merge(e, ex)
+            r <- rec(e, matchedVals)(es0 -> r0, es1 -> r1)
+          } yield r
+          
         // Matching a whole block with a hole
         case (Nil -> r, bl) if r.isHole =>
           // TODO specially handle SplicedHole?
