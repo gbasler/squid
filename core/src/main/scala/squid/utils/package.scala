@@ -67,14 +67,23 @@ package object utils {
     
     @inline def If (cond: Bool): Option[A] = if (cond) Some(__self) else None
     @inline def If (cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
+    
     @inline def IfNot (cond: Bool): Option[A] = if (!cond) Some(__self) else None
     @inline def IfNot (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
+    // same as above, different name:
+    @inline def Unless (cond: Bool): Option[A] = if (!cond) Some(__self) else None
+    @inline def Unless (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     
   }
   
   
   implicit class OptionHelper[A](private val __self: Option[A]) extends AnyVal {
-    def Else[B >: A](x: => B) = __self getOrElse x
+    /** Like map */
+    @inline def Then[B](f: A => B): Option[B] = __self map f
+    /** Like getOrElse */
+    @inline def Else[B >: A](x: => B): B = __self getOrElse x
+    @inline def And(cond: => Bool): Option[A] = if (__self.isDefined && !cond) None else __self
+    @inline def AndNot(cond: => Bool): Option[A] = if (__self.isDefined && cond) None else __self
   }
   @inline def some[A](x: A): Option[A] = Some(x)
   @inline def none = None

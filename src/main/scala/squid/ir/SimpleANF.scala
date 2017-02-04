@@ -33,7 +33,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   
   
   //type Block = List[Either[Val -> Rep, Rep]] -> Def
-  type Block = List[Either[Val -> Rep, Rep]] -> Rep
+  type Block = List[Either[Val -> Rep, Rep]] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
   
   case class Rep(dfn: Def) { // FIXME status of lambdas? (and their curry encoding)
     //def isTrivial = dfn.isTrivial
@@ -208,11 +208,18 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       }
       res
     }
+    def freeVals(r: Rep) = {
+      val res = mutable.Set[Val]()
+      r |> traversePartial {
+        case RepDef(bv: BoundVal) => res += bv; false
+      }
+      res
+    }
     
     /** Backtracking rewriting block matcher
       * @param ex: current extraction artifact
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
-      * @param xy: the current (extractor -> extracted) pair */
+      * @param xy: the current (extractor -> extractee) pair */
     def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = {
       //debug(s"REC ex=$ex")
       
@@ -241,7 +248,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         case ((Right(e0) :: es0) -> r0, (Right(e1) :: es1) -> r1) =>
           extract(e0, e1) flatMap (merge(_, ex)) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
     
-        // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})  FIXME not actually doing that -- generalize?
+        // Matching an two let bindings (eg: {val a = readInt; ...} with {val x = readInt; $body: Int})
         case ((Left(b0 -> v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
           for {
             e <- extract(v0, v1)
@@ -257,7 +264,15 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             r1i = inline(b1, r1, hr)
             r <- rec(e, b1 :: matchedVals)(es0 -> r0, es1i -> r1i)
           } yield r
-    
+          
+        // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})
+        case ((Right(v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
+          for {
+            e <- extract(v0, v1)
+            e <- merge(e, ex)
+            r <- rec(e, b1 :: matchedVals)(es0 -> r0, es1 -> r1)
+          } yield r
+          
         // Matching a whole block with a hole
         case (Nil -> r, bl) if r.isHole =>
           // TODO specially handle SplicedHole?
@@ -271,6 +286,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             case Left(b -> v) => v -> ((x:Rep) => Left(b -> x))
             case Right(r) => r -> ((x:Rep) => Right(x))
           }
+          def checkRefs(r: Rep): Option[Rep] = {
+            val matchedValsSet = matchedVals.toSet
+            //r If (originalVals(r) & matchedValsSet isEmpty) And (freeVals(r) & matchedValsSet isEmpty)
+            r If ((originalVals(r) | freeVals(r)) & matchedValsSet isEmpty)
+          }
           for {
             e <- extract(r0, rep)
             e <- merge(e, ex)
@@ -279,15 +299,19 @@ class SimpleANF extends AST with CurryEncoding { anf =>
                 throw EarlyReturnAndContinueExc((trans) => {
                   val lhs = cont(trans)
                   //debug("LHS "+lhs)
-                  val newRest = trans(constructBlock(es->r1))
+                  val newRest = constructBlock(es->r1)
                   //debug("NR "+newRest)
-                  val res = constructBlock((rebuild(lhs)::Nil) -> newRest)
-                  //debug("R "+newRest)
-                  res
+                  newRest |> checkRefs |> {
+                    case Some(newRest) => constructBlock((rebuild(lhs)::Nil) -> trans(newRest))
+                    case None => // Continues to apply the current transformation on the next tree nested in xtee, if any. Note: assumes TopDown order!...
+                      xtee.asBlock match {
+                        case (st::sts) -> r => constructBlock((st::Nil) -> trans(sts -> r |> constructBlock))
+                        case Nil -> r => r
+                      }
+                  }
                 })
             }
-            r = constructBlock((rebuild(c) :: es) -> r1)
-            if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting
+            r <- constructBlock((rebuild(c) :: es) -> r1) |> checkRefs
           } yield r
           
         case _ => None

@@ -83,19 +83,18 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
   }
   
-  test("TODO rewriting named effects") {
+  test("Rewriting named effects") {
     
-    // FIXME make this one work...
-    println(ir"val n = readInt; val m = readInt; println" rewrite {
-      case ir"readInt; readInt" =>
-        ir"42"
-    })
+    def f(x: IR[_,{}]) = x rewrite { case ir"readInt; readInt" => ir"42" }
+    ir"val n = readInt; val m = readInt; println" |> f eqt ir"println"
+    ir"val n = readInt; val m = readInt; println(m)" |> f eqt ir"println(42)"
+    ir"val n = readInt; val m = readInt; println(m+n)" |> (a => a |> f eqt a)
     
-    // TODO should not apply
-    /*base debugFor*/ println(ir"val n = readInt; val m = readInt; print(n+m)" rewrite {
-      case ir"readInt; readInt" =>
-        Return(ir"42")
-    })
+    // Should also work with early return!
+    def g(x: IR[_,{}]) = x rewrite { case ir"readInt; readInt" => Return(ir"readInt; readInt+1") }
+    ir"val n = readInt; val m = readInt; print(n+m)" |> (a => a |> g eqt a)
+    ir"val n = readInt; val m = readInt; print(n+m); readInt; readInt" |> g eqt
+      ir"val n = readInt; val m = readInt; print(n+m); readInt; readInt+1"
     
   }
   
