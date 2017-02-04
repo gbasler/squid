@@ -118,6 +118,7 @@ trait ASTHelpers extends Base { self: AST =>
   
   /** Provides some useful debugging when a merge fails. */
   override protected def merge(a: Extract, b: Extract): Option[Extract] = {
+    //if (extractedKeys(a).nonEmpty && extractedKeys(b).nonEmpty) debug(s"Merging: ${a|>extractedKeys} with ${b|>extractedKeys}")
     val res = super.merge(a, b)
     if (res.isEmpty && isDebugEnabled) {
       debug(s"Could not merge Extract's:")

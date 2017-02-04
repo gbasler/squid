@@ -51,12 +51,20 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     f(ir"ArrayBuffer(50,60);println") eqt ir"ArrayBuffer(51,60);println"
     f(ir"val a = ArrayBuffer(50,60);println(a)") eqt ir"val a = ArrayBuffer(51,60);println(a)"
     
-     val a = ir"ArrayBuffer(50,60,70)" rewrite {
+     val a0 = ir"ArrayBuffer(50,60,70)" rewrite {
       case ir"ArrayBuffer[Int]($x,$y,$z)" =>
         Return.transforming(x,z)((x,z) => ir"ArrayBuffer($x,$x,$y,$y,$z,$z)")
       case ir"(${Const(n)}:Int)" => Const(n+1)
     }
-    a eqt ir"ArrayBuffer(51,51,60,60,71,71)"
+    a0 eqt ir"ArrayBuffer(51,51,60,60,71,71)"
+    
+     val a1 = ir"ArrayBuffer(50,60,70)" rewrite {
+      case ir"ArrayBuffer[Int]($x,$y,$z)" =>
+        //Return.transforming(x::z::Nil)(_ |>! {case x::z::Nil => ir"ArrayBuffer($x,$x,$y,$y,$z,$z)"}) // probably does not compile because of the patmat
+        Return.transforming(x::z::Nil){ls => val x = ls(0); val z = ls(1); ir"ArrayBuffer($x,$x,$y,$y,$z,$z)"}
+      case ir"(${Const(n)}:Int)" => Const(n+1)
+    }
+    a1 eqt ir"ArrayBuffer(51,51,60,60,71,71)"
     
   }
   
@@ -72,7 +80,6 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
       b eqt ir"println; println(if(true) println(42.toDouble) else println(667.toDouble))"
     }
     
-    // FIXME: seq rwr cancelled so the end of the block is not processed!
     {
       val a = ir"println; if(readInt>0) println(42.toDouble,true) else println(666.toDouble,true); println(true)"
       val b = a rewrite {
@@ -81,26 +88,37 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
           Return.transforming(els)(e => ir"if(true) $e else $thn")
         case ir"(${Const(n)}:Int)" => Const(n+1)
       }
-      //println(a)
-      //println(b)
-      //b eqt ir"println; if(true) println(667.toDouble,false) else println(42.toDouble,true); println(false)"
+      b eqt ir"println; if(true) println(667.toDouble,false) else println(42.toDouble,true); println(false)"
     }
+    
     // Simpler example:
     {
-      val a = ir"print(true.toString); println(true)"
-      val b = /*base debugFor*/ (a rewrite {
+      //val a = ir"readDouble; print(true.toString); readInt; println(true)"
+      val a = ir"readDouble; print(true.toString); val x = readInt; if (true) println(x)"
+      val b = a rewrite {
         case ir"true" => ir"false"
-        //case ir"print($x)" => // does not exhibit the problem
+        //case ir"print($x)" => // does not produce several statements, so does not trigger the case we're testing
         case ir"print(($x:Boolean).toString)" =>
           Return.transforming(x)(x => ir"print($x)")
-      })
-      //println(a)
-      //println(b)
-      //b eqt ir"if(true) println(667.toDouble,false) else println(42.toDouble,true); println(false)"
+      }
+      //b eqt ir"readDouble; print(false); readInt; println(false)"
+      b eqt ir"readDouble; print(false); val x = readInt; if (false) println(x)"
     }
     
   }
   
+  
+  test("Predef.Return.recursing") {
+    
+    val a = ir"readInt; val n = readInt; readInt; readInt; print(n)"
+    val b = a rewrite {
+      case ir"val x: Int = $init; readInt; $body: $bt" =>
+        Return.recursing { tr => val b = tr(body); ir"val x: Int = $init; readInt; $b" }
+      case ir"readInt" => ir"???"
+    }
+    b eqt ir"???; val n = readInt; readInt; ???; print(n)"
+    
+  }
   
   test("Context Enlargement") {
     

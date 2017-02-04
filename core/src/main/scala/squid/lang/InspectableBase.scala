@@ -3,6 +3,7 @@ package lang
 
 import utils._
 import ir.Variance
+import squid.ir.Transformer
 import squid.utils.TraceDebug
 
 import scala.annotation.StaticAnnotation
@@ -133,28 +134,33 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     }
   }
   
-  private[squid] case class EarlyReturnExc(reps: List[Rep], cont: List[Rep] => Rep) extends Exception
+  private[squid] case class EarlyReturnAndContinueExc(cont: (Rep => Rep) => Rep) extends Exception
+  
   private def earlyReturnDebug(x: => Any) = debug(s"${Console.RED}EARLY RETURN!${Console.RESET} -- $x")
   
+  def `internal return`[T,C](x: IR[T,C]): IR[T,C] = {
+    earlyReturnDebug(x)
+    throw new EarlyReturnAndContinueExc(_ => x.rep)
+  }
   def `internal return transforming`[A,CA,T,C](a: IR[A,CA])(f: IR[A,CA] => IR[T,C]): Nothing = {
     earlyReturnDebug(a)
-    throw new EarlyReturnExc(a.rep::Nil, _ |>! { case a::Nil => f(IR(a)).rep })
+    throw new EarlyReturnAndContinueExc(tr => f(IR(a.rep |> tr)).rep)
   }
   def `internal return transforming`[A,CA,B,CB,T,C](a: IR[A,CA], b: IR[B,CB])(f: (IR[A,CA], IR[B,CB]) => IR[T,C]): Nothing = {
     earlyReturnDebug(a,b)
-    throw new EarlyReturnExc(a.rep::b.rep::Nil, _ |>! { case a::b::Nil => f(IR(a),IR(b)).rep })
+    throw new EarlyReturnAndContinueExc(tr => f(IR(a.rep |> tr),IR(b.rep |> tr)).rep)
   }
   def `internal return transforming`[A,CA,B,CB,D,CD,T,C](a: IR[A,CA], b: IR[B,CB], d: IR[D,CD])(f: (IR[A,CA], IR[B,CB], IR[D,CD]) => IR[T,C]): Nothing = {
     earlyReturnDebug(a,b,d)
-    throw new EarlyReturnExc(a.rep::b.rep::d.rep::Nil, _ |>! { case a::b::d::Nil => f(IR(a),IR(b),IR(d)).rep })
+    throw new EarlyReturnAndContinueExc(tr => f(IR(a.rep |> tr),IR(b.rep |> tr),IR(d.rep |> tr)).rep)
   }
   def `internal return transforming`[A,CA,T,C](as: List[IR[A,CA]])(f: List[IR[A,CA]] => IR[T,C]): Nothing = {
     earlyReturnDebug(as)
-    throw new EarlyReturnExc(as map (_.rep), { as => f(as map (IR(_))).rep })
+    throw new EarlyReturnAndContinueExc(tr => f(as map (_.rep |> tr |> IR.apply)).rep)
   }
-  def `internal return`[T,C](x: IR[T,C]): IR[T,C] = {
-    earlyReturnDebug(x)
-    throw new EarlyReturnExc(Nil, _ => x.rep)
+  def `internal return recursing`[T,C](cont: Transformer{val base: baseSelf.type} => IR[T,C]): IR[T,C] = {
+    earlyReturnDebug(cont)
+    throw new EarlyReturnAndContinueExc(tr => cont(new SelfTransformer { def transform(rep: base.Rep) = tr(rep) }).rep)
   }
   
 }

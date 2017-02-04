@@ -220,7 +220,8 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           case t @ q"${r @ q"$b.Predef.Return"}.transforming[..$ts](...$as)" if b.tpe <:< typeOf[InspectableBase] =>
             val List(cx,tp,_ @ _*) = ts.reverse
             if (processEarlyReturn(b,tp,cx,r.pos)) q"$b.`internal return transforming`[..$ts](...$as)" else t
-            
+          case t @ q"${r @ q"$b.Predef.Return"}.recursing[$tp,$cx]($cont)" if b.tpe <:< typeOf[InspectableBase] =>
+            if (processEarlyReturn(b,tp,cx,r.pos)) q"$b.`internal return recursing`[$tp,$cx]($cont)" else t
         }
         
         debug("XC",extractedCtx,"CC",constructedCtx)

@@ -83,6 +83,21 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
   }
   
+  test("TODO rewriting named effects") {
+    
+    // FIXME make this one work...
+    println(ir"val n = readInt; val m = readInt; println" rewrite {
+      case ir"readInt; readInt" =>
+        ir"42"
+    })
+    
+    // TODO should not apply
+    /*base debugFor*/ println(ir"val n = readInt; val m = readInt; print(n+m)" rewrite {
+      case ir"readInt; readInt" =>
+        Return(ir"42")
+    })
+    
+  }
   
   
 }

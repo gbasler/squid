@@ -214,6 +214,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
       * @param xy: the current (extractor -> extracted) pair */
     def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = {
+      //debug(s"REC ex=$ex")
       
       def mkCode(ex: Extract): Option[Rep] = {
         debug(s"${Console.BOLD}Constructing code with $ex${Console.RESET}")
@@ -238,9 +239,9 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     
         // Matching two effects
         case ((Right(e0) :: es0) -> r0, (Right(e1) :: es1) -> r1) =>
-          extract(e0, e1) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
+          extract(e0, e1) flatMap (merge(_, ex)) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
     
-        // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})
+        // Matching an effect with a let binding (eg: {readInt; 42} with {val r = readInt; $body: Int})  FIXME not actually doing that -- generalize?
         case ((Left(b0 -> v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
           for {
             e <- extract(v0, v1)
@@ -274,8 +275,16 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             e <- extract(r0, rep)
             e <- merge(e, ex)
             c <- try mkCode(e) catch {
-              case EarlyReturnExc(rs,f) =>
-                throw EarlyReturnExc(rs, f andThen (r => constructBlock(rebuild(r)::es, r1) ))
+              case EarlyReturnAndContinueExc(cont) =>
+                throw EarlyReturnAndContinueExc((trans) => {
+                  val lhs = cont(trans)
+                  //debug("LHS "+lhs)
+                  val newRest = trans(constructBlock(es->r1))
+                  //debug("NR "+newRest)
+                  val res = constructBlock((rebuild(lhs)::Nil) -> newRest)
+                  //debug("R "+newRest)
+                  res
+                })
             }
             r = constructBlock((rebuild(c) :: es) -> r1)
             if !(originalVals(r) exists matchedVals.toSet) // abort if one of the Vals matched so far is still used in the result of the rewriting

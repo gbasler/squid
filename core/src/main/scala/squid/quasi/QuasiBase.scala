@@ -2,8 +2,10 @@ package squid
 package quasi
 
 import squid.ir.RewriteAbort
+import squid.ir.Transformer
 import utils._
 import squid.lang.Base
+import squid.lang.InspectableBase
 import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
@@ -142,6 +144,13 @@ self: Base =>
         oops
         f(as)
       }
+      def recursing[T,C](cont: Transformer{val base: self.type} => IR[T,C]): IR[T,C] = {
+        oops
+        cont(new Transformer { // Dummy transformer that doesn't do anything
+          override def transform(rep: base.Rep) = rep
+          override val base: self.type with InspectableBase = self.asInstanceOf[self.type with InspectableBase]
+        })
+      }
     }
     
     import scala.language.experimental.macros
@@ -163,10 +172,11 @@ self: Base =>
   /** Artifact of a term extraction: map from hole name to terms, types and spliced term lists */
   type Extract = (Map[String, Rep], Map[String, TypeRep], Map[String, Seq[Rep]])
   type Extract_? = Extract |> Option
-  final val EmptyExtract: Extract = (Map(), Map(), Map())
-  final val SomeEmptyExtract: Option[Extract] = EmptyExtract |> some
-  @inline final def mkExtract(rs: String -> Rep *)(ts: String -> TypeRep *)(srs: String -> Seq[Rep] *): Extract = (rs toMap, ts toMap, srs toMap)
-  @inline final def repExtract(rs: String -> Rep *): Extract = mkExtract(rs: _*)()()
+  protected final val EmptyExtract: Extract = (Map(), Map(), Map())
+  protected final val SomeEmptyExtract: Option[Extract] = EmptyExtract |> some
+  @inline protected final def mkExtract(rs: String -> Rep *)(ts: String -> TypeRep *)(srs: String -> Seq[Rep] *): Extract = (rs toMap, ts toMap, srs toMap)
+  @inline protected final def repExtract(rs: String -> Rep *): Extract = mkExtract(rs: _*)()()
+  protected def extractedKeys(e: Extract): Set[String] = e._1.keySet++e._2.keySet++e._3.keySet
   
   protected def mergeOpt(a: Option[Extract], b: => Option[Extract]): Option[Extract] = for { a <- a; b <- b; m <- merge(a,b) } yield m
   protected def merge(a: Extract, b: Extract): Option[Extract] = {

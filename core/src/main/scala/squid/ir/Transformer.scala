@@ -31,6 +31,8 @@ trait Transformer extends Optimizer { self =>
     def transform(rep: Rep): Rep = that transform self.transform(rep)
   }
   
+  final def apply[T,C](pgrm: IR[T,C]): IR[T,C] = `internal IR`[T,C](pipeline(pgrm.rep))
+  
 }
 
 trait TopDownTransformer extends Transformer { abstract override def transform(rep: base.Rep) = (base topDown rep)(super.transform) }
