@@ -110,13 +110,30 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Predef.Return.recursing") {
     
-    val a = ir"readInt; val n = readInt; readInt; readInt; print(n)"
-    val b = a rewrite {
-      case ir"val x: Int = $init; readInt; $body: $bt" =>
+    def f(x: IR[_,{}]) = x rewrite {
+      case ir"val x: Int = $init; readInt+1; $body: $bt" =>
         Return.recursing { tr => val b = tr(body); ir"val x: Int = $init; readInt; $b" }
       case ir"readInt" => ir"???"
     }
-    b eqt ir"???; val n = readInt; readInt; ???; print(n)"
+    ir"readInt; val n = readInt; readInt+1; readInt; print(n)" |> f eqt 
+      ir"???; val n = readInt; readInt; ???; print(n)"
+    
+    def g(x: IR[_,{}]) = x  rewrite {
+      case ir"val x: Int = $init; readInt; $body: $bt" =>
+        Return.recursing { tr => val b = tr(body); ir"val x: Int = $init; readDouble; $b" }
+      case ir"readInt" => ir"???"
+    }
+    
+    // What happens: first two readInt's are matched and the rest is transformed,
+    // BUT the result refers to the second readInt, which was not named, so that fails
+    // Instead, the second and third readInt are matched and transformed successfully
+    ir"readInt; val n = readInt; readInt; readInt; print(n)" |> g eqt
+      ir"readInt; val n = readInt; readDouble; ???; print(n)"
+    ir"readInt; val n = readInt; readInt; readInt; print(n); readInt" |> g eqt
+      ir"readInt; val n = readInt; readDouble; ???; print(n); ??? : Int"
+    
+    // FIXME the second `readInt` is printed... nasty subtle hygiene problem due to recursively matching with the same xtor binding!
+    //println(ir"val n = readInt; readInt; readInt; readInt; print(n); readInt" |> g)
     
   }
   

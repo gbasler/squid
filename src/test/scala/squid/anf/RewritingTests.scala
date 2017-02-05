@@ -106,9 +106,40 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
     def g(x: IR[_,{val n:Int;val m:Int}]) = x rewrite { case ir"val n = readInt; n+1" => ir"readDouble.toInt" }
     ir"println(readInt+1)" |> g eqt ir"println(readDouble.toInt)"
+    ir"val n = readInt; println(n+1)" |> g eqt ir"println(readDouble.toInt)"
     ir"readInt; (m?:Int)+1" |> (a => a |> g eqt a)
-    //println(ir"readInt; (n?:Int)+1" |> g) // FIXME important hygiene problem here
-    //println(ir"val x = readInt; (n?:Int)+1" |> g) // FIXME important hygiene problem here
+    ir"readInt; (n?:Int)+1" |> (a => a |> g eqt a)
+    ir"val x = readInt; (n?:Int)+1" |> (a => a |> g eqt a)
+    
+  }
+  
+  test("Soundly Swallowing Bindings or Not") {
+    
+    def f(x: IR[_,{}]) = x rewrite { case ir"readInt; $body: $bt" => body }
+    ir"readInt;1" |> f eqt ir"1"
+    ir"readInt+1" |> (a => a |> f eqt a)
+    
+    def fe(x: IR[_,{}]) = x rewrite { case ir"readInt; $body: $bt" => Return(body) }
+    ir"readInt;1" |> fe eqt ir"1"
+    ir"readInt+1" |> (a => a |> fe eqt a)
+    
+    def g(x: IR[_,{}]) = x rewrite { case ir"readInt; println($x)" => ir"print($x)" }
+    ir"val ri = readInt; println(ri); ri+1" |> (a => a |> g eqt a)
+    ir"val ri = readInt; println(ri); 42" |> (a => a |> g eqt a)
+    ir"val ri = readInt; println(123); 42" |> g eqt ir"print(123); 42"
+    ir"val ri = readInt; println(123)" |> g eqt ir"print(123)"
+    ir"val ri = readInt; println(ri)" |> (a => a |> g eqt a)
+    ir"readInt; println(0)" |> g eqt ir"print(0)"
+    ir"readInt; println(0); 1" |> g eqt ir"print(0); 1"
+    
+    def ge(x: IR[_,{}]) = x rewrite { case ir"readInt; println($x)" => Return(ir"print($x)") }
+    ir"val ri = readInt; println(ri); ri+1" |> (a => a |> ge eqt a)
+    ir"val ri = readInt; println(ri); 42" |> (a => a |> ge eqt a)
+    ir"val ri = readInt; println(123); 42" |> ge eqt ir"print(123); 42"
+    ir"val ri = readInt; println(123)" |> ge eqt ir"print(123)"
+    ir"val ri = readInt; println(ri)" |> (a => a |> ge eqt a)
+    ir"readInt; println(0)" |> ge eqt ir"print(0)"
+    ir"readInt; println(0); 1" |> ge eqt ir"print(0); 1"
     
   }
   

@@ -93,13 +93,21 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     /* Optimized version that prevents recreating too many Rep's: */
     def apply(_r: Rep): Rep = {
       //post(r |> mapDef(apply))
-      try post(pre(_r) |> mapDef(apply)) catch { // Q: semantics if `post` throws??
+      try post(pre(_r) |> mapDef(apply)) |> ascribeIfNot(_r.typ) catch { // Q: semantics if `post` throws??
         case EarlyReturnAndContinueExc(cont) =>
-          debug(s"${Console.RED}Returned early and continuing:${Console.RESET} $cont")
           val r = nestDbg(cont(apply))
-          debug(s"${Console.RED}Continued:${Console.RESET} $r")
+          debug(s"${Console.RED}Returned early and continued with:${Console.RESET} $r")
           r
       }
+    }
+    def ascribeIfNot(tp: TypeRep)(r: Rep) = {
+      val wtp = tp.tpe.widen     // It's okay to transform a term of type Int(42) to, say, Int(43).
+      val wrtp = r.typ.tpe.widen // This is because Scala's type system does not (yet?) treat these differently from Int (their widening)
+      // A better and more comprehensive approach would be to distinguish the (tightest) type of a term and the type at which it is used
+      // Currently the rewrite engine is unsound because one can match a term of type T1 with a hole typed Any and transform it to an unrelated T2 because T2 <: Any 
+      if (wrtp =:= wtp) r
+      else if (wrtp <:< wtp) ascribe(r,wtp)
+      else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a subtype.") before r
     }
     
     def apply(d: Def): Def = {
@@ -245,7 +253,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         //if (model.annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)) (Map(newName -> rep(this)),Map(),Map())
         if (model isExtractedBinder) (Map(newName -> readVal(this)),Map(),Map())
         else EmptyExtract
-      extr -> Hole(newName)(typ, Some(this))
+      extr -> Hole(newName)(typ, Some(this), Some(model))
     }
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
@@ -257,8 +265,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   * In ction, represents a free variable
   * TODO Q: should holes really be pure?
   */
-  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None) extends NonTrivialDef
-  case class SplicedHole(name: String)(val typ: TypeRep) extends NonTrivialDef
+  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef
+  case class SplicedHole(name: String)(val typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
   
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
@@ -342,9 +350,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)
           typ extract (d.typ, Covariant) flatMap { merge(_, (Map(name -> r), Map(), Map())) }
           
-        case (BoundVal(n1), Hole(n2)) if n1 == n2 => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
+        case (bv @ BoundVal(n1), h @ Hole(n2)) if n1 == n2 && h.matchedSymbol == Some(bv) => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
           //Some(EmptyExtract) // I thought the types could not be wrong here (case for Abs checks parameter types)
-          // But it turns out when we match an extracted binder this can cause a problem; there is a wider hygiene problem here to be solved
+          // Before we had `matchedSymbol`, matching extracted binders could cause problems if we did not check the type; it's probably not necessary anymore
           typ.extract(d.typ, Covariant)
           
         case (bv: BoundVal, h: Hole) if h.originalSymbol exists (_ === bv) => // This is needed when we match an extracted binder with a hole that comes from that binder

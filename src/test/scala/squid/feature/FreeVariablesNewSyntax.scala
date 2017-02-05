@@ -48,6 +48,16 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     
   }
   
+  test("Term Equivalence With Bindings And Free Variables") {
+    
+    ir"val x = readInt; x + (x?: Int)" eqt ir"val y = readInt; y+(x?: Int)"
+    ir"val x = readInt; x + (x?: Int)" neqt ir"val y = readInt; (x?: Int)+(x?: Int)"
+    ir"val x = readInt; (x?: Int) + (x?: Int)" eqt ir"val y = readInt; (x?: Int) + (x?: Int)"
+    ir"val x = readInt; (x?: Int) + (x?: Int)" neqt ir"val y = readInt; y+(x?: Int)"
+    ir"val x = readInt; (x?: Int) + (x?: Int)" neqt ir"val x = readInt; x+(x?: Int)"
+    
+  }
+  
   test("Ascription and Hole Types are Checked") {
     import base.hole
     

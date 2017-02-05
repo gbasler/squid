@@ -223,15 +223,34 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = {
       //debug(s"REC ex=$ex")
       
-      def mkCode(ex: Extract): Option[Rep] = {
+      def checkRefs(r: Rep): Option[Rep] = {
+        //debug("Checking refs in "+r)
+        val matchedValsSet = matchedVals.toSet
+        r If ((originalVals(r) | freeVals(r)) & matchedValsSet isEmpty) and_? {
+          case None => debug(s"${Console.RED}Rewritten term:${Console.RESET} $r ${Console.RED}contains references to original vals ${originalVals(r)} or free vals ${freeVals(r)} ${Console.RESET}")
+        }
+      }
+      
+      def mkCode(ex: Extract, pre: (Rep, Rep => Rep) => Rep = (r,t)=>r): Option[Rep] = {
         debug(s"${Console.BOLD}Constructing code with $ex${Console.RESET}")
-        val r = try code(ex) catch {
-          case e: Throwable =>
-            debug(s"${Console.RED}Construction did not complete.${Console.RESET} ($e)")
-            throw e
+        val r = try code(ex) catch { case e: Throwable =>
+          debug(s"${Console.RED}Construction did not complete. ($e)${Console.RESET}")
+          e match {
+            case EarlyReturnAndContinueExc(cont) =>
+              throw EarlyReturnAndContinueExc((trans) => {
+                trans |> cont |> (pre(_,trans)) |> checkRefs Else {
+                  // Continues to apply the current transformation on the next tree nested in xtee, if any. Note: assumes TopDown order!...
+                  xtee.asBlock match {
+                    case (st::sts) -> r => constructBlock((st::Nil) -> trans(sts -> r |> constructBlock))
+                    case Nil -> r => r
+                  }
+                }
+              })
+            case _ => throw e
+          }
         }
         debug(s"${Console.GREEN}Constructed: ${r map showRep}${Console.RESET}")
-        r
+        r flatMap checkRefs
       }
       
       xy match {
@@ -284,7 +303,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         case (Nil -> r, bl) if r.isHole =>
           // TODO specially handle SplicedHole?
           // TODO also try eating less code? (backtracking)
-          extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap mkCode
+          extract(r, bl |> constructBlock) flatMap (merge(_, ex)) flatMap (mkCode(_))
           
         // Matching an arbitrary statement of a block with the last expression of an xtor
         // -- rewriting can happen in the middle of a Block, and then we have to ensure later terms do not reference removed bindings
@@ -293,31 +312,15 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             case Left(b -> v) => v -> ((x:Rep) => Left(b -> x))
             case Right(r) => r -> ((x:Rep) => Right(x))
           }
-          def checkRefs(r: Rep): Option[Rep] = {
-            val matchedValsSet = matchedVals.toSet
-            //r If (originalVals(r) & matchedValsSet isEmpty) And (freeVals(r) & matchedValsSet isEmpty)
-            r If ((originalVals(r) | freeVals(r)) & matchedValsSet isEmpty)
-          }
           for {
             e <- extract(r0, rep)
             e <- merge(e, ex)
-            c <- try mkCode(e) catch {
-              case EarlyReturnAndContinueExc(cont) =>
-                throw EarlyReturnAndContinueExc((trans) => {
-                  val lhs = cont(trans)
-                  //debug("LHS "+lhs)
-                  val newRest = constructBlock(es->r1)
-                  //debug("NR "+newRest)
-                  newRest |> checkRefs |> {
-                    case Some(newRest) => constructBlock((rebuild(lhs)::Nil) -> trans(newRest))
-                    case None => // Continues to apply the current transformation on the next tree nested in xtee, if any. Note: assumes TopDown order!...
-                      xtee.asBlock match {
-                        case (st::sts) -> r => constructBlock((st::Nil) -> trans(sts -> r |> constructBlock))
-                        case Nil -> r => r
-                      }
-                  }
-                })
-            }
+            c <- mkCode(e, (lhs,trans) => {
+              //debug("LHS "+lhs)
+              val newRest = constructBlock(es->r1)
+              //debug("NR "+newRest)
+              constructBlock((rebuild(lhs)::Nil) -> trans(newRest))
+            })
             r <- constructBlock((rebuild(c) :: es) -> r1) |> checkRefs
           } yield r
           
