@@ -132,8 +132,17 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     ir"readInt; val n = readInt; readInt; readInt; print(n); readInt" |> g eqt
       ir"readInt; val n = readInt; readDouble; ???; print(n); ??? : Int"
     
-    // FIXME the second `readInt` is printed... nasty subtle hygiene problem due to recursively matching with the same xtor binding!
-    //println(ir"val n = readInt; readInt; readInt; readInt; print(n); readInt" |> g)
+    // Note: the second `readInt` is printed... because of a nasty subtle hygiene issue, due to recursively matching with the same xtor binding!
+    ir"val n = readInt; readInt; readInt; readInt; print(n); readInt" |> g eqt
+      ir"val n = readInt; readDouble; val m = readInt; readDouble; print(m); ??? : Int"
+    
+    // Shorter example:
+    ir"val a = readInt; val b = readInt; print(a)" rewrite { case ir"val x = readInt; $body: $bt" => Return.transforming(body)(body => ir"val x = readDouble.toInt; $body") } eqt
+    ir"val a = readDouble.toInt; val b = readDouble.toInt; print(b)"
+    
+    // While the version with implicit recursion does not have the problem: 
+    ir"val a = readInt; val b = readInt; print(a)" rewrite { case ir"val x = readInt; $body: $bt" => ir"val x = readDouble.toInt; $body" } eqt
+    ir"val a = readDouble.toInt; val b = readDouble.toInt; print(a)"
     
   }
   
