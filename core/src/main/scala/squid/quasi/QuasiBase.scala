@@ -42,7 +42,8 @@ self: Base =>
   /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
     substitute(r, defs.toMap)
   
-  sealed case class IR[+T, -C] private[quasi] (rep: Rep) extends TypeErased with ContextErased {
+  // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
+  /*sealed*/ case class IR[+T, -C] protected (rep: Rep) extends TypeErased with ContextErased {
     type Typ <: T
     type Ctx >: C
     
