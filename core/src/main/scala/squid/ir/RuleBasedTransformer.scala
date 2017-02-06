@@ -13,6 +13,8 @@ import utils.CollectionUtils._
 import scala.language.experimental.macros
 import utils.UnknownContext
 
+import scala.collection.mutable
+
 case class RewriteAbort(msg: String = "") extends Exception
 
 /** Type and context-safe interface for rewrite-rule-based program transformation.
@@ -270,7 +272,9 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
                   }
                 }}"
               }
-            case Bind(name: TermName, pq"_") => q"val $name = $scrut; ..$body"
+            //case Bind(name: TermName, pq"_") => q"val $name = $scrut; ..$body"
+            case b@Bind(name: TermName, pq"_") => // For some reason, this seems to be necessary for the gen0/gen phase below to work!! 
+              q"${internal.valDef(b.symbol,scrut)}; ..$body"
           }
         }
         
@@ -313,7 +317,48 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     //debug("Result: "+showCode(res))
     
     // Resets previously resolved identifier symbols; necessary since we're defining a new binding for __b__
-    val gen = TreeOps(res) transform { case Ident(name) => Ident(name) } // TODO properly fix owner chain corruptions
+    //val gen = TreeOps(res) transform { case Ident(name) => Ident(name) }
+    
+    // TODO properly fix owner chain corruptions
+    
+    
+    /* What follows is a crazy hack to prevent owner corruption crashes and type symbol mismatches. */
+    
+    val knownTrees = mutable.Map[Type,Tree]()
+    
+    val gen0 = TreeOps(res).transformRec(rec => {
+        
+      // Removes symbol references from identifiers, including those in type trees (see case below)
+      // Note: removing these just for terms is enough to avoid Scalac crashes
+      case id @ Ident(name) =>
+        //debug(s"Refreshing ident $id")
+        Ident(name)
+        
+      // Reverts types to their original tree if available, so they are retyped and lose old symbol references
+      case tt @ TypeTree() if tt.original =/= null =>
+        
+        //debug(s"Getting original of type $tt -> ${tt.original}")
+        val res = rec(tt.original)
+        if (tt.tpe =/= null) knownTrees += tt.tpe -> res
+        
+        //if (tt.tpe =/= null) knownTrees += tt.tpe.dealias -> res
+        /* ^ Dealiasing can break some transformers, as it can expose a bare extracted type as an identifier (eg change t.Typ to t),
+         * which is not in scope (note: maybe could add a new one in scope), but that would probably be even more of a mess. */
+        res
+        
+      //case ts @ Select(path,name) => Select(rec(path),name) // <- Not necessary
+    })
+     
+    val gen = gen0 transform {
+    
+      // Transforms remaining TypeTree's (that don't have an original tree) if we have tramsformed a TypeTree with the same type before!   
+      case tt @ TypeTree() if tt.tpe =/= null =>
+        //debug(s"REMAINING $tt ${tt.tpe} ${knownTrees isDefinedAt tt.tpe}")
+        knownTrees get tt.tpe getOrElse tt
+        
+        //knownTrees get tt.tpe.dealias getOrElse tt 
+    }
+    
     //val gen = res
     
     //debug("Typed: "+c.typecheck(gen))
