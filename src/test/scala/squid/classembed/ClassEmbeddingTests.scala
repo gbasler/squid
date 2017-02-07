@@ -167,6 +167,8 @@ class ClassEmbeddingTests extends MyFunSuite {
     Emb.Class.Defs.foo[Int] eqt ir"(_:MyGenClass[Int]).a"
     Emb.Class.Defs.bar[Int,String] eqt ir"(s:MyGenClass[Int]) => (_:Int=>String)(s.foo)"
     
+    //println(Emb.Class.Defs.ugh[Int]) // FIXME "object Class is not a type" because it tries to load toString from the type param symbol!!
+    
   }
   
   test("Generic Class Lowering") {

@@ -11,6 +11,8 @@ class MyGenClass[A](val a: A) {
   
   @phase('Sugar) def bar[B](f: A => B): B = f(foo)
   
+  @phase('Sugar) def ugh = a.toString
+  
 }
 object MyGenClass
 
