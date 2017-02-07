@@ -135,6 +135,10 @@ package object utils {
   def wtf = wth("Program reached and unexpected state.")
   def wth(msg: String) = throw new Exception(s"Internal Error: $msg")
   
+  /** Used to make Scala unexhaustivity warnings believed to be spurious go away */
+  def spuriousWarning = wth("Case was reached that was thought to be unreachable.")
+  
+  
   object oh {
     def wait(msg: String) = wth(msg)
   }

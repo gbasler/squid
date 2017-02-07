@@ -17,7 +17,8 @@ trait Lowering extends Transformer {
     case RepDef(ma @ MethodApp(self, sym, targs, argss, typ)) if ma.phase exists loweredPhases =>
       val fullArgss = if (sym.owner.isModuleClass) argss
         else Args(self)::argss
-      methodDef(sym, targs) match {
+      val fullTargs = (self.typ.tpe.typeArgs map (new TypeRep(_))) ++ targs
+      methodDef(sym, fullTargs) match {
         case Right(IR(r)) =>
           fullArgss.foldLeft(r) {
             case (r, Args(reps @ _*)) =>
@@ -32,6 +33,7 @@ trait Lowering extends Transformer {
         case Left(Missing) =>
           System.err.println(s"Warning: Could not find definition for lowered method: ${sym fullName}${sym typeSignature} @ phase ${ma.phase get}") // TODO B/W
           rep
+        case _ => spuriousWarning
       }
     case _ => rep
   }

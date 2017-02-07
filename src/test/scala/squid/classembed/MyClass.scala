@@ -47,6 +47,10 @@ object MyClass extends App with ir.SquidObject {
   
 }
 
+@embed
+object OrphanObject extends ir.SquidObject {
+  def test[A](a: A) = (a,a)
+}
 
 
 

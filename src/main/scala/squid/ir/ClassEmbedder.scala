@@ -12,14 +12,12 @@ import collection.mutable
 trait ClassEmbedder { baseSelf: InspectableBase =>
   
   protected[squid] var isEmbedding = false
-  protected val embeddedClasses = mutable.Buffer[EmbeddedClass[baseSelf.type]]() // useful? rm?
   def embed(cls: EmbeddedableClass*): Unit = cls map embed
   def embed(cls: EmbeddedableClass) = {
     assert(!isEmbedding)
     isEmbedding = true
     try {
       val ecls = cls.embedIn(baseSelf)
-      embeddedClasses += ecls
       methods ++= ecls.defs
       paramMethods ++= ecls.parametrizedDefs mapValues (new ParamMethod(_))
     } finally isEmbedding = false

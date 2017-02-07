@@ -26,7 +26,7 @@ class phase(name: Symbol) extends StaticAnnotation
 import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
-/** TODO generate oublic accessor for private fields, so we can lower them...
+/** TODO generate public accessor for private fields, so we can lower them...
   * TODO don't generate vararg lambdas... which aren't valid Scala
   * TODO have a @reflects[] annot to provide bodies for existing classes
   * TODO also facilities to convert object to a tuple of its fields while inlining methods -- if possible...
@@ -47,10 +47,10 @@ object ClassEmbedding {
       case (cls: ClassDef) :: (obj: ModuleDef) :: Nil => Some(cls) -> obj
       case (obj: ModuleDef) :: (cls: ClassDef) :: Nil => Some(cls) -> obj // Never actually happens -- if the object is annotated, the class doesn't get passed!
       case (cls: ClassDef) :: Nil => Some(cls) -> q"object ${cls.name.toTermName}"
-      case (obj: ModuleDef) :: Nil =>
-       Some(q"class ${obj.name.toTypeName}") -> obj
+      case (obj: ModuleDef) :: Nil => None -> obj
       case _ => throw EmbeddingException(s"Illegal annottee for @embed")
     }
+    val clsDef = clsDefOpt Else q"class ${objDef.name.toTypeName}"
     
     val objName = objDef.name
     val clsName = objName.toTypeName
@@ -66,6 +66,9 @@ object ClassEmbedding {
     val sru = q"_root_.scala.reflect.runtime.universe"
     
     val allDefs = (objDef.impl.body map (false -> _)) ++ (clsDefOpt.toList flatMap (_.impl.body map (true -> _)))
+    
+    def mkImplicits(tps: List[TypeDef], build: TypeName => Tree = tn => tq"__b__.IRType[$tn]") =
+      tps map (tp => q"val ${tp.name.toTermName}: ${tp.name|>build}")
     
     val (objDefs, objMirrorDefs, objRefs) = allDefs collect {
       case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR && rhs.nonEmpty => // TODO sthg about parameter accessors?
@@ -83,7 +86,7 @@ object ClassEmbedding {
         }"
         
         var fullVparams = vparamss
-        if (inClass) fullVparams = (q"val __self : ${objName.toTypeName}"::Nil) :: vparamss
+        if (inClass) fullVparams = (q"val __self : ${clsDef.name}[..${clsDef.tparams map (tp => tq"${tp.name}")}]"::Nil) :: vparamss
         
         val body = fullVparams.foldRight(cleanRhs){case (ps, acc) => q"(..$ps) => $acc" }
         
@@ -97,16 +100,19 @@ object ClassEmbedding {
         
         val typ = (fullVparams foldRight tpt){ (ps, acc) => tq"(..${ps map (_.tpt)}) => $acc" }  If  tpt.nonEmpty
         val irBody = q"__b__.Quasicodes.ir[..${typ toList}]{$body}"
-        val symbol = q"$parent.__typ__.decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
+        val symbol = q"$parent.__typ__[..${clsDef.tparams map (_ => tq"Any")}].decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
         
-        if (tparams isEmpty) (
+        var fullTparams = tparams
+        if (inClass) fullTparams = clsDef.tparams ++ fullTparams
+        
+        if (fullTparams isEmpty) (
           inClass -> q"val $mName = $squid.utils.Lazy($irBody)",
           inClass -> q"def $uniqueName = $ref",
           Left(q"$symbol -> $ref")
-        ) else { val implicits  = tparams map (tp => q"val ${tp.name.toTermName}: __b__.IRType[${tp.name}]"); (
-          inClass -> q"""def $mName[..$tparams](implicit ..$implicits) = $irBody""",
-          inClass -> q"def $uniqueName[..$tparams](implicit ..$implicits) = $ref(..${implicits map (_.name)})",
-          Right(q"$symbol -> ((tps: Seq[__b__.TypeRep]) => $ref(..${tparams.indices map (i => q"__b__.`internal IRType`(tps($i))")}))")
+        ) else { val implicits = mkImplicits(fullTparams); (
+          inClass -> q"""def $mName[..$fullTparams](implicit ..$implicits) = $irBody""",
+          inClass -> q"def $uniqueName[..$fullTparams](implicit ..$implicits) = $ref(..${implicits map (_.name)})",
+          Right(q"$symbol -> ((tps: Seq[__b__.TypeRep]) => $ref(..${fullTparams.indices map (i => q"__b__.`internal IRType`(tps($i))")}))")
         )}
     } unzip3;
     
@@ -121,7 +127,11 @@ object ClassEmbedding {
       import base.Predef.implicitType
       val __b__ : base.type = base
       object Class {
-        ..${if (clsDefOpt isDefined) q"val __typ__ = $sru.typeOf[${objName.toTypeName}]"::Nil else Nil}
+        ..${ if (clsDefOpt isEmpty) Nil else {
+          if (clsDef.tparams isEmpty) q"val __typ__ = $sru.typeOf[${objName.toTypeName}]"::Nil
+          else q"def __typ__[..${clsDef.tparams}](implicit ..${
+            mkImplicits(clsDef.tparams,tn=>tq"_root_.scala.reflect.runtime.universe.TypeTag[$tn]")
+          }) = $sru.typeOf[${objName.toTypeName}[..${clsDef.tparams map (tp => tq"${tp.name}")}]]"::Nil }}
         object __Defs__ {..$classDefs}
         object Defs { ..$classMirrorDefs }
       }
