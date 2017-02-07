@@ -70,6 +70,12 @@ object ClassEmbedding {
     def mkImplicits(tps: List[TypeDef], build: TypeName => Tree = tn => tq"__b__.IRType[$tn]") =
       tps map (tp => q"val ${tp.name.toTermName}: ${tp.name|>build}")
     
+    def stripVariance(tp: TypeDef) = TypeDef(Modifiers(), tp.name, tp.tparams, tp.rhs) // TODO keep other flags
+    val clsDefTparams = clsDef.tparams map (stripVariance(_))
+    
+    // Makes the parameters acceptable for being lambda parameters: removes the `rhs`
+    def fixValDef(vd: ValDef) = ValDef(vd.mods, vd.name, vd.tpt, EmptyTree) // TODO handle by-name and repeated
+    
     val (objDefs, objMirrorDefs, objRefs) = allDefs collect {
       case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR && rhs.nonEmpty => // TODO sthg about parameter accessors?
         val ind = {
@@ -88,7 +94,7 @@ object ClassEmbedding {
         var fullVparams = vparamss
         if (inClass) fullVparams = (q"val __self : ${clsDef.name}[..${clsDef.tparams map (tp => tq"${tp.name}")}]"::Nil) :: vparamss
         
-        val body = fullVparams.foldRight(cleanRhs){case (ps, acc) => q"(..$ps) => $acc" }
+        val body = (fullVparams map {_ map (fixValDef(_))}).foldRight(cleanRhs){case (ps, acc) => q"(..$ps) => $acc" }
         
         val mName = mangledName(name)
         val parent = if (inClass) q"Class" else q"Object"
@@ -100,10 +106,12 @@ object ClassEmbedding {
         
         val typ = (fullVparams foldRight tpt){ (ps, acc) => tq"(..${ps map (_.tpt)}) => $acc" }  If  tpt.nonEmpty
         val irBody = q"__b__.Quasicodes.ir[..${typ toList}]{$body}"
-        val symbol = q"$parent.__typ__[..${clsDef.tparams map (_ => tq"Any")}].decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
+        val symbol = q"$parent.__typ__[..${
+          (clsDefOpt And inClass).toList flatMap (_.tparams map (_ => tq"Any"))
+        }].decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
         
         var fullTparams = tparams
-        if (inClass) fullTparams = clsDef.tparams ++ fullTparams
+        if (inClass) fullTparams = clsDefTparams ++ fullTparams
         
         if (fullTparams isEmpty) (
           inClass -> q"val $mName = $squid.utils.Lazy($irBody)",
@@ -129,8 +137,8 @@ object ClassEmbedding {
       object Class {
         ..${ if (clsDefOpt isEmpty) Nil else {
           if (clsDef.tparams isEmpty) q"val __typ__ = $sru.typeOf[${objName.toTypeName}]"::Nil
-          else q"def __typ__[..${clsDef.tparams}](implicit ..${
-            mkImplicits(clsDef.tparams,tn=>tq"_root_.scala.reflect.runtime.universe.TypeTag[$tn]")
+          else q"def __typ__[..${clsDefTparams}](implicit ..${
+            mkImplicits(clsDefTparams,tn=>tq"_root_.scala.reflect.runtime.universe.TypeTag[$tn]")
           }) = $sru.typeOf[${objName.toTypeName}[..${clsDef.tparams map (tp => tq"${tp.name}")}]]"::Nil }}
         object __Defs__ {..$classDefs}
         object Defs { ..$classMirrorDefs }
