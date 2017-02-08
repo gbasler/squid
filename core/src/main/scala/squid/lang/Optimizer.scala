@@ -10,4 +10,7 @@ trait Optimizer {
     if (!(r eq pgrm)) substitute(r) else r  // only calls substitute if a transformation actually happened
   }
   final def optimize[T,C](pgrm: IR[T,C]): IR[T,C] = `internal IR`[T,C](optimizeRep(pgrm.rep))
+  
+  def wrapOptim[A](id: String)(code: => A) = code
+  
 }

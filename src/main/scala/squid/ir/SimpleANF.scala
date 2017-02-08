@@ -39,7 +39,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     //def isTrivial = dfn.isTrivial
     lazy val isTrivial: Bool = dfn match {
       case m: MethodApp => //println(m.sym.fullName)
-        (m.sym.fullName startsWith "squid.lib.uncurried") || (m.sym.fullName == "scala.Any.asInstanceOf")
+        (m.sym.fullName startsWith "squid.lib.uncurried") || (m.sym.fullName == "scala.Any.asInstanceOf") ||
+          (m.argss.forall(_.reps.isEmpty) && m.sym.isStatic)
         // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work
       case Module(pre, _, _) => pre.isTrivial
       case Ascribe(x, _) => x.isTrivial
@@ -69,7 +70,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   /** In ANF, we keep only one effect per Imperative call to make their inductive traversal more natural.
     * Important for matching sequences of effects. */
   def mkImperative(effects: Seq[Rep], res: Rep): Rep = {
-    effects.foldRight(res)((eff,acc) => Imperative(eff::Nil,acc) |> Rep) // Q: why not `rep`?
+    effects.foldRight(res)((eff,acc) => Imperative(eff::Nil,acc) |> Rep) // Q: `rep` here causes stack overflows
   }
   /*
   
@@ -113,7 +114,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     
     def construct(init: Rep) = statements.foldRight(init) {
       case (Left(v -> r), body) => 
-        MethodApp(lambda(v::Nil, body), Function1ApplySymbol, Nil, Args(r)::Nil, dfn.typ) |> rep
+        MethodApp(lambda(v::Nil, body), Function1ApplySymbol, Nil, Args(r)::Nil, body.typ) |> rep
       case (Right(b), body) => if (b isEmpty) body 
         //else Imperative(b, body) |> Rep  // don't construct multi-effect Imperative's
         else mkImperative(b, body)
@@ -153,6 +154,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
               }
               buf ++= es
               r
+            case LetIn(p, v, b) if v.isTrivial && !v.isHole =>
+              inline(p, b, v)
           }
         } 
         construct(init)

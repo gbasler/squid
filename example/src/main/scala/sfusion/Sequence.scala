@@ -23,7 +23,26 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   def bounded = size.isLeft || size == Right(true)
   
   @inline @phase('Impl)
+  def +: [B >: A] (e: B): Sequence[B] = new Sequence(() => impl.concat(impl.single(e), under()), size) // TODO fix size
+  
+  //@inline @phase('Impl)
+  //def ++ (xs: Sequence[A]): Sequence[A] = new Sequence(() => impl.map(under())(f), plus(size))
+  
+  @inline @phase('Impl)
   def map[B](f: A => B): Sequence[B] = new Sequence(() => impl.map(under())(f), size)
+  
+  @inline @phase('Impl)
+  def fold[B](z: B)(f: (B,A) => B): B = impl.fold(under())(z)(f)
+  
+  @inline @phase('Impl)
+  def filter(pred: A => Bool): Sequence[A] = new Sequence(() => impl.filter(under())(pred), size) // FIXME size
+  
+  @inline @phase('Impl)
+  def takeWhile(pred: A => Bool): Sequence[A] = new Sequence(() => impl.takeWhile(under())(pred), size) // FIXME size
+  
+  @inline @phase('Impl)
+  def forall(pred: A => Bool): Bool = impl.all(under())(pred)
+  
   
   @inline @phase('Impl)
   def zip[B](that: Sequence[B]): Sequence[(A,B)] = new Sequence(() => impl.zip(under(),that.under()), minSize(size,that.size))
@@ -70,6 +89,9 @@ object Sequence extends SquidObject {
   
   @phase('Sugar)
   def apply[A](xs: A*): Sequence[A] = Sequence.fromIndexed(xs.toIndexedSeq)
+  
+  @phase('Sugar)
+  def iterate[A](start: A)(next: A => A): Sequence[A] = new Sequence(() => impl.iterate(start)(next), Right(false))
   
   @phase('Sugar)
   def fromIndexed[A](is: IndexedSeq[A]): Sequence[A] = new Sequence(() => impl.fromIndexed(is), Left(is.size))

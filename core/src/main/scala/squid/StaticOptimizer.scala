@@ -86,7 +86,8 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       catch {
         case e: ClassCastException => c.abort(c.enclosingPosition, s"Type parameter `$Comp` passed to StaticOptimizer does not conform: "+e)
       }
-    }
+    }; Optim.wrapOptim(c.enclosingPosition.source.path) {
+    
     val Base: Optim.base.type = Optim.base
     
     val varRefs = collection.mutable.Buffer[(String, Tree)]()
@@ -134,7 +135,7 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     res: Tree
     //c.untypecheck(res)
     //c.parse(showCode(res))
-  }
+  }}
   
   
 }

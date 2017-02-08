@@ -7,7 +7,7 @@ import squid.utils._
 import scala.annotation.StaticAnnotation
 import scala.collection.mutable
 
-class inline extends StaticAnnotation
+//class inline extends StaticAnnotation //  shadow Scala inlining to debug more easily
 
 /**
   * Created by lptk on 07/02/17.
@@ -22,7 +22,25 @@ object `package` {
   // first bool for 'give me more'; last bool for 'terminated'
   type Producer[A] = (A => Bool) => Bool
   
-  @inline @inline @phase('Imperative)
+  @inline @phase('Imperative)
+  def single[A](v: A): Producer[A] = {
+    (k => {
+      k(v)
+      true
+    }) : Producer[A] // FIXME
+  }
+  
+  @inline @phase('Imperative)
+  def iterate[A](start: A)(next: A => A): Producer[A] = {
+    var cur = start
+    (k => {
+      //while ({val c = k(cur); cur = next(cur); c}) {}
+      while (if (k(cur)) {cur = next(cur); true} else false) {} // TODO fix and use &&
+      false
+    }) : Producer[A] // FIXME
+  }
+  
+  @inline @phase('Imperative)
   def fromIndexed[A](arr: IndexedSeq[A]): Producer[A] = {
     var i = 0
     val len = arr.length
@@ -57,6 +75,27 @@ object `package` {
     k => while(k(v)){}; false
   }
   
+  // TODO try using `k` less (generates lots of code!)
+  @inline @phase('Imperative)
+  def concat[A](lhs: Producer[A], rhs: Producer[A]): Producer[A] = {
+    var curIsLhs = true
+    var nextFromRhs = Option.empty[A]
+    k => {
+      if (curIsLhs) {
+        var cont = true
+        val lhsEnded = lhs { l => cont = k(l); cont }
+        if (lhsEnded) {
+          curIsLhs = false
+          rhs{e => if (cont) cont = k(e) else nextFromRhs = Some(e); cont}
+        } else false
+      }
+      else if (nextFromRhs.isEmpty) rhs(k) else {
+        nextFromRhs = None
+        k(nextFromRhs.get)
+      }
+    }
+  }
+  
   
   @inline @phase('Imperative)
   def foreach[A](s: Producer[A])(f: A => Unit): Bool = {
@@ -76,15 +115,15 @@ object `package` {
   }
   
   @inline @phase('Imperative)
-  def take[A](s: Producer[A])(n: Int): Producer[A] = { // TODO use takeWhile
+  def take[A](s: Producer[A])(n: Int): Producer[A] = { // Note: could use takeWhile
     var taken = 0
-    //k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n } // FIXME @embed types this as Boolean!!
-    (k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n }) : Producer[A]
+    k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n }
   }
   
   @inline @phase('Imperative)
   def takeWhile[A](s: Producer[A])(pred: A => Bool): Producer[A] = {
-    k => { s { a => if (pred(a)) { k(a) } else false } }
+    var stop = false
+    k => { s { a => if (pred(a)) { k(a) } else {stop = true; false} } || stop }
   }
   
   @inline @phase('Imperative)
