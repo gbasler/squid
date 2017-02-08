@@ -335,7 +335,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
             bv -> (p.symbol.asTerm -> bv)
         } unzip;
         
-        val body = rec(bo, typeIfNotNothing(bo.tpe) orElse expectedType flatMap FunctionType.unapply)(ctx ++ bindings)
+        val body = rec(bo, typeIfNotNothing(bo.tpe) orElse (expectedType flatMap FunctionType.unapply))(ctx ++ bindings)
         lambda(params, body)
         
         

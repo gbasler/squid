@@ -41,4 +41,17 @@ class TrickyTypes extends MyFunSuite {
   }
   
   
+  test("Lambda with Expected Type") {
+    import base.Quasicodes._
+    
+    val c1: IR[Int => Int => Bool => Bool,_] = ir{ (s:Int) =>
+      val n = 42
+      k => { b => b }
+    }
+    
+    eqt(c1.typ, irTypeOf[Int => Int => Bool => Bool])
+    
+  }
+  
+  
 }
