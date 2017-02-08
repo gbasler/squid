@@ -383,11 +383,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               super.liftTerm(x, parent, expectedType)
           }}
           
-          override def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): b.TypeRep = {
+          override def liftTypeUncached(tp: Type, wide: Boolean): b.TypeRep = {
             val tname = tp.typeSymbol.name
             typeSymbols get tname.toTypeName filter (_ === tp.typeSymbol) map { sym =>
               b.typeHole(tname.toString)
-            } getOrElse super.liftTypeUncached(tp, wide, deal)
+            } getOrElse super.liftTypeUncached(tp, wide)
           }
           
         }

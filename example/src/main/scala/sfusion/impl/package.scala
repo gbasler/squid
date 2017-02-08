@@ -26,12 +26,12 @@ object `package` {
   def fromIndexed[A](arr: IndexedSeq[A]): Producer[A] = {
     var i = 0
     val len = arr.length
-    k => {
+    (k => {
       //while (i < len && k{val a = arr(i); i += 1; a}) {} // FIXME doesn't seem to desugar right; array access still happens
       //while (if (i < len) {val a = arr(i); i += 1; k(a)} else false) {}
       while (and(i < len, {val a = arr(i); i += 1; k(a)})) {}
       i == len
-    }
+    }) : Producer[A] // FIXME
   }
   
   @inline @phase('Imperative)
@@ -78,7 +78,8 @@ object `package` {
   @inline @phase('Imperative)
   def take[A](s: Producer[A])(n: Int): Producer[A] = { // TODO use takeWhile
     var taken = 0
-    k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n }
+    //k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n } // FIXME @embed types this as Boolean!!
+    (k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n }) : Producer[A]
   }
   
   @inline @phase('Imperative)

@@ -37,6 +37,7 @@ trait RuntimeSymbols {
   type MtdSymbol = sru.MethodSymbol
   
   def loadTypSymbol(fullName: String): ScalaTypeSymbol = {
+    //debug(s"Loading type $fullName")
     val path = fullName.splitSane('#')
     val root = if (path.head endsWith "$") srum.staticModule(path.head.init) else srum.staticClass(path.head)
     val res = path.tail.foldLeft(root) {

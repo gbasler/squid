@@ -429,14 +429,25 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   
   /** wide/deal represent whether we have already tried to widened/dealias this type */
-  final def liftType(tp: Type, wide: Boolean = false, deal: Boolean = false): TypeRep = {
-    val dtp = tp//.dealias
-    typeCache.getOrElseUpdate(dtp, liftTypeUncached(dtp, wide, deal))
+  final def liftType(tp: Type, wide: Boolean = false): TypeRep = {
+    val dealiased = tp.dealias
+    lazy val dealiasedDifferent = dealiased =/= tp
+    typeCache.getOrElseUpdate(dealiased, try {
+      debug(s"Matching type $tp" + (if (dealiasedDifferent) s" ~> ${dealiased}" else ""))
+      liftTypeUncached(dealiased, wide)
+    } catch {
+      // This exists mainly to cope with the likes of scala.List.Coll, which is a CBF type alias containing an existential...
+      // TODO more robust type loading (esp. when cannot be dealiased) -- RuntimeSymbols uses ruh.runtimeClass to load the 
+      //   right type and apply its arguments, which is broken if the arguments are for an alias of the type that will be loaded!
+      case EmbeddingException.Unsupported(msg) if dealiasedDifferent =>
+        debug(s"Dealiased type $dealiased is not supported ($msg); trying the original version $tp instead.")
+        typeCache.getOrElseUpdate(tp, liftTypeUncached(tp, wide))
+    })
   }
   
   /** Note: we currently use `moduleType` for types that reside in packages and for objects used as modules...
     * Note: widening may change Int(0) to Int (wanted) but also make 'scala' (as in 'scala.Int') TypeRef-matchable !! */
-  def liftTypeUncached(tp: Type, wide: Boolean, deal: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, (debug(s"Matching type $tp")) before tp match {
+  def liftTypeUncached(tp: Type, wide: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, { tp match {
     //case _ if tp =:= Any =>
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
@@ -471,7 +482,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       dbg(s"TypeRef($prefix, $sym, $targs)")
       
       try {
-        val tsym = getTyp(tp.typeSymbol.asType) // may throw ClassNotFoundException
+        //val tsym = getTyp(tp.typeSymbol.asType) // this is wrong! `tp.typeSymbol` will be different than `sym` if the latter is an alias...
+        val tsym = getTyp(sym.asType)
         
         //val self = liftModule(prefix)
         //val self = liftType(prefix)
@@ -503,15 +515,12 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
     case _ => // TODO verify no holes in 'tp'! If holes, try widening first
       
-      (wide, deal) match { // Note: could also compare if the widened/dealiased is == (could be more efficient, cf less needless recursive calls)
-        case (false, _) => liftType(tp.widen, true, deal)
-        case (true, false) => liftType(tp.dealias, true, true)
-        case (true, true) =>
-          debug(s"Unknown type, falling back: $tp")
-          unknownTypefallBack(tp)
-      }
+      if (wide) {
+        debug(s"Unknown type, falling back: $tp")
+        unknownTypefallBack(tp)
+      } else liftType(tp.widen, true)
       
-  })
+  }})
   
   def liftStaticModule(tp: Type): Rep = tp.dealias match {
     case ThisType(sym) =>

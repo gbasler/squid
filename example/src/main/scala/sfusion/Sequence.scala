@@ -1,5 +1,6 @@
 package sfusion
 
+import squid.ir.SquidObject
 import squid.utils._
 
 import scala.collection.mutable
@@ -49,7 +50,8 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   })"
   
   @phase('Sugar)
-  override def toString: String = show()
+  //override def toString: String = show() // FIXME or at least warn!! -- used to work because we were not reconstructing lowered methodApp types
+  override def toString(): String = show()
   
   @phase('Impl)
   override def hashCode = size.hashCode // TODO use `scala.util.hashing.MurmurHash3.seqHash(seq)`
@@ -64,7 +66,7 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
     }
   }
 }
-object Sequence {
+object Sequence extends SquidObject {
   
   @phase('Sugar)
   def apply[A](xs: A*): Sequence[A] = Sequence.fromIndexed(xs.toIndexedSeq)
