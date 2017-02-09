@@ -55,6 +55,9 @@ trait ASTHelpers extends Base { self: AST =>
     def apply(p:Val,v:Rep,b:Rep): Def = Apply(rep(Abs(p,b)(b.typ)),v,b.typ)
     def unapply(d: Def): Option[(Val, Rep, Rep)] = d match {
       case Apply(RepDef(Abs(p,b)),v) => Some(p,v,b)
+      case Apply(RepDef(Ascribe(RepDef(Abs(p,b)),_)),v) =>
+        // Should probably propagate the info in the ascribed type by ascribing the body and the uses of `v` in the body...
+        Some(p,v,b)
       case _ => None
     }
     def unapply(r: Rep): Option[(Val, Rep, Rep)] = unapply(dfn(r))

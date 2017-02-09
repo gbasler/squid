@@ -74,7 +74,7 @@ object `package` {
     k => while(k(v)){}; false
   }
   
-  // TODO try using `k` less (generates lots of code!)
+  /*
   @inline @phase('Imperative)
   def concat[A](lhs: Producer[A], rhs: Producer[A]): Producer[A] = {
     var curIsLhs = true
@@ -92,6 +92,27 @@ object `package` {
         nextFromRhs = None
         k(nextFromRhs.get)
       }
+    }
+  }
+  */
+  // ^ Version above *may* be more efficient (especially in shallow mode), but uses `k` several times (which generates lots of code!)
+  // TODO quantify the performance difference...
+  @inline @phase('Imperative)
+  def concat[A](lhs: Producer[A], rhs: Producer[A]): Producer[A] = {
+    var curIsLhs = true
+    k => {
+      var cont = true
+      var finished = false
+      var next = Option.empty[A]
+      while (cont && !finished) {
+        if (curIsLhs) {
+          if (lhs { l => next = Some(l); false }) curIsLhs = false
+        } else {
+          rhs { r => next = Some(r); false }
+        }
+        next.fold(finished = true)(x => cont = k(x))
+      }
+      finished
     }
   }
   

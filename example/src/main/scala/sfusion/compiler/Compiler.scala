@@ -4,6 +4,7 @@ package compiler
 import java.io.File
 import java.io.PrintStream
 
+import example.LogicNormalizer
 import squid.utils._
 import squid.ir._
 import squid.lang._
@@ -37,6 +38,7 @@ class Compiler extends Optimizer {
   val Impl = new Code.Lowering('Impl) with TopDownTransformer
   val Imperative = new Code.Lowering('Imperative) with TopDownTransformer
   val DCE = new Code.SelfTransformer with squid.anf.transfo.DeadCodeElimination
+  val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with FixPointRuleBasedTransformer with BottomUpTransformer
   
   val CtorInline = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
     rewrite {
@@ -58,13 +60,15 @@ class Compiler extends Optimizer {
     println(code)
   }
   
-  import base.Rep
+  import Code.Rep
   
-  val phases = List(
+  val phases: List[String->(Rep=>Rep)] = List(
     "Impl" -> Impl.pipeline,
     "CtorInline" -> CtorInline.pipeline,
     //"DCE 0" -> DCE.pipeline,  // FIXME only remove effectless things
-    "Imperative" -> Imperative.pipeline
+    "Imperative" -> Imperative.pipeline,
+    "Low-Level Norm" -> LowLevelNorm.pipeline,
+    "ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)())
   )
   
   protected val SAME = "[Same]"
