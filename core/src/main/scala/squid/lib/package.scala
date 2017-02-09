@@ -10,6 +10,9 @@ package object lib {
   
   def Imperative[A](effects: Any*)(result: A): A = result
   
+  @inline def And(lhs: Boolean, rhs: => Boolean) = lhs && rhs
+  @inline def Or(lhs: Boolean, rhs: => Boolean) = lhs || rhs
+  
   
   final class ThunkParam private[lib]()
   private val ThunkParam = new ThunkParam

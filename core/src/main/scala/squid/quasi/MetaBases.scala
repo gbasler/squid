@@ -231,6 +231,9 @@ trait MetaBases {
     """
       //val ${bound._1}: ${if (ascribeValBindings) bound._2 else EmptyTree} = $value  // mks errors like Error:(65, 21) value + is not a member of <notype>
     
+    override def and(lhs: Rep, rhs: => Rep): Rep = q"$lhs && $rhs"
+    override def or(lhs: Rep, rhs: => Rep): Rep = q"$lhs || $rhs"
+    
     def newObject(tp: TypeRep): Rep = New(tp)
     def moduleObject(fullName: String, isPackage: Boolean): Rep = {
       val path = fullName.splitSane('.').toList

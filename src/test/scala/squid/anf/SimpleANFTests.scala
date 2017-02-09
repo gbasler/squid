@@ -358,4 +358,28 @@ class SimpleANFTests extends MyFunSuite(SimpleANFTests.DSL) {
   }
   
   
+  test("By-Name Behavior of Boolean && ||") {
+    
+    val c0 = ir"true && {println;true}"
+    assert(c0.rep.asBlock._1.isEmpty)
+    
+    c0 match {
+      case ir"($a:Boolean) && $b" =>
+        a eqt ir"true"
+        b eqt ir"println; true"
+    }
+    
+    val c1 = ir"true || {println;true}"
+    assert(c1.rep.asBlock._1.isEmpty)
+    
+    c1 match {
+      case ir"($a:Boolean) && $b" => fail
+      case ir"($a:Boolean) || $b" =>
+        a eqt ir"true"
+        b eqt ir"println; true"
+    }
+    
+  }
+  
+  
 }

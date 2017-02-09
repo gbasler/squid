@@ -243,6 +243,16 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
           module(rec(pre, Some(pre.tpe)), x.symbol.name.toString, liftType(x.tpe)) // TODO use expectedType?
         }
         
+      
+      /** --- --- --- BOOLEAN BY-NAME OPS --- --- --- */
+        
+      /* Boolean methods && and || in Scala have an inconsistent signature: they do not take their parameter by name.
+       * For consistency with the visible signature, we cannot just insert byName calls and use the original method, so
+       * there are special and/or methods in Base that default to calls to squid.lib.And/Or, which have the proper signature. */
+      case q"$lhs && $rhs" if lhs.tpe <:< Boolean => and(rec(lhs,Some(Boolean)),rec(rhs,Some(Boolean))|>byName)
+      case q"$lhs || $rhs" if lhs.tpe <:< Boolean => or(rec(lhs,Some(Boolean)),rec(rhs,Some(Boolean))|>byName)
+      
+        
       /** --- --- --- METHOD APPLICATIONS --- --- --- */
       case SelectMember(obj, f) =>
         
@@ -307,14 +317,6 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
             
             
             val args = (argss zip (f.tpe.paramLists map (_.toStream map (_ typeSignature)))) map processArgs(Nil)
-            /** Boolean methods && and || in Scala have an inconsistent signature: they do not take their parameter by name.
-              * One thing to do would be to insert byName calls here.
-              * For now, we do not do it for consistency with the visible signature, but it may be necessary in the future? */
-            //val args = method.fullName.toString match {
-            //  case "scala.Boolean.$amp$amp" | "scala.Boolean.$bar$bar" =>
-            //    Args(rec(argss.head.head, Some(Boolean)) |> byName)::Nil
-            //  case _ => (argss zip (f.tpe.paramLists map (_.toStream map (_ typeSignature)))) map processArgs(Nil)
-            //}
             
             methodApp(self, {refMtd}, targsTree, args, tp)
             

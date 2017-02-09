@@ -68,6 +68,15 @@ trait Base extends TypingBase with quasi.QuasiBase {
     app(lambda(bound::Nil, body), value)(bodyType)
   }
   
+  // TODO move all these into a Builtin object and remove `lazy`
+  protected lazy val squidLib = staticModule("squid.lib.package")
+  protected lazy val squidLibSym = loadTypSymbol("squid.lib.package$")
+  protected lazy val BooleanType = staticTypeApp(loadTypSymbol("scala.Boolean"),Nil)
+  protected lazy val BooleanAndSymbol = loadMtdSymbol(squidLibSym, "And")
+  protected lazy val BooleanOrSymbol = loadMtdSymbol(squidLibSym, "Or")
+  def and(lhs: Rep, rhs: => Rep) = methodApp(lhs,BooleanAndSymbol,Nil,Args(rhs)::Nil,BooleanType)
+  def or(lhs: Rep, rhs: => Rep) = methodApp(lhs,BooleanOrSymbol,Nil,Args(rhs)::Nil,BooleanType)
+  
   /** Override to give special meaning */
   def ascribe(self: Rep, typ: TypeRep): Rep = self
   
