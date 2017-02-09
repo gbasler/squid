@@ -102,7 +102,7 @@
   while ({
     val x_9 = i_6;
     val x_10 = x_9.<(len_7);
-    sfusion.impl.`package`.and(x_10, {
+    x_10.&&({
       val x_11 = i_6;
       val x_12 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_11);
       val x_13 = i_6;
@@ -110,62 +110,61 @@
       i_6 = x_14;
       val x_15 = taken_8;
       val x_16 = x_15.<(10);
-      if (x_16)
-        {
-          val x_17 = taken_8;
-          val x_18 = x_17.+(1);
-          taken_8 = x_18;
-          val x_23 = {
-            val a_19 = x_12;
-            val x_20 = sb_5.nonEmpty;
-            if (x_20)
-              sb_5.+=(',')
-            else
-              ();
-            val x_21 = scala.StringContext.apply("", "");
-            val x_22 = x_21.s(a_19);
-            sb_5.++=(x_22);
-            true
-          };
+      x_16.&&({
+        val x_17 = taken_8;
+        val x_18 = x_17.+(1);
+        taken_8 = x_18;
+        val x_23 = {
+          val a_19 = x_12;
+          val x_20 = sb_5.nonEmpty;
+          if (x_20)
+            sb_5.+=(',')
+          else
+            ();
+          val x_21 = scala.StringContext.apply("", "");
+          val x_22 = x_21.s(a_19);
+          sb_5.++=(x_22);
+          true
+        };
+        x_23.&&({
           val x_24 = taken_8;
-          val x_25 = x_24.<(10);
-          x_23.&&(x_25)
-        }
-      else
-        false
+          x_24.<(10)
+        })
+      })
     })
   }) 
     ()
   ;
-  val x_26 = i_6;
-  val x_27 = x_26.==(len_7);
-  val x_28 = taken_8;
-  val x_29 = x_28.==(10);
-  x_27.||(x_29);
-  var shorten_30: scala.Boolean = false;
+  val x_25 = i_6;
+  val x_26 = x_25.==(len_7);
+  x_26.||({
+    val x_27 = taken_8;
+    x_27.==(10)
+  });
+  var shorten_28: scala.Boolean = false;
   while ({
-    val x_31 = i_6;
-    val x_32 = x_31.<(len_7);
-    sfusion.impl.`package`.and(x_32, {
+    val x_29 = i_6;
+    val x_30 = x_29.<(len_7);
+    x_30.&&({
+      val x_31 = i_6;
+      val x_32 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_31);
       val x_33 = i_6;
-      val x_34 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_33);
-      val x_35 = i_6;
-      val x_36 = x_35.+(1);
-      i_6 = x_36;
-      val x$1_37 = x_34;
-      shorten_30 = true;
+      val x_34 = x_33.+(1);
+      i_6 = x_34;
+      val x$1_35 = x_32;
+      shorten_28 = true;
       false
     })
   }) 
     ()
   ;
-  val x_38 = i_6;
-  x_38.==(len_7);
-  val x_39 = shorten_30;
-  if (x_39)
+  val x_36 = i_6;
+  x_36.==(len_7);
+  val x_37 = shorten_28;
+  if (x_37)
     sb_5.++=(",...")
   else
     ();
-  val x_40 = sb_5.result();
-  x_4.s(x_40)
+  val x_38 = sb_5.result();
+  x_4.s(x_38)
 }

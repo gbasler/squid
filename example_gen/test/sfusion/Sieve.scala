@@ -132,37 +132,36 @@
   val x_2 = sfusion.`package`.minSize(((x_0): scala.util.Either[scala.Int, scala.Boolean]), x_1);
   var cur_3: scala.Int = 1;
   var curIsLhs_4: scala.Boolean = true;
-  var nextFromRhs_5: scala.Option[scala.Int] = scala.Option.empty[scala.Int];
-  var taken_6: scala.Int = 0;
-  var cur_7: scala.Int = 0;
-  val x_8 = curIsLhs_4;
-  val x_171 = if (x_8)
+  val x_5 = scala.Option.empty[scala.Int];
+  var v_6: scala.Option[scala.Int] = x_5;
+  var taken_7: scala.Int = 0;
+  var cur_8: scala.Int = 0;
+  val x_9 = curIsLhs_4;
+  val x_170 = if (x_9)
     {
-      var cont_9: scala.Boolean = true;
+      var cont_10: scala.Boolean = true;
       val lhsEnded_23 = {
-        val k_22 = ((l_10: scala.Int) => {
-          val x_11 = taken_6;
-          val x_12 = x_11.<(100);
-          val x_21 = if (x_12)
-            {
-              val x_13 = taken_6;
-              val x_14 = x_13.+(1);
-              taken_6 = x_14;
-              val x_18 = {
-                val a_15 = l_10;
-                val x_16 = cur_7;
-                val x_17 = x_16.+(a_15);
-                cur_7 = x_17;
-                true
-              };
-              val x_19 = taken_6;
-              val x_20 = x_19.<(100);
-              x_18.&&(x_20)
-            }
-          else
-            false;
-          cont_9 = x_21;
-          cont_9
+        val k_22 = ((l_11: scala.Int) => {
+          val x_12 = taken_7;
+          val x_13 = x_12.<(100);
+          val x_21 = x_13.&&({
+            val x_14 = taken_7;
+            val x_15 = x_14.+(1);
+            taken_7 = x_15;
+            val x_19 = {
+              val a_16 = l_11;
+              val x_17 = cur_8;
+              val x_18 = x_17.+(a_16);
+              cur_8 = x_18;
+              true
+            };
+            x_19.&&({
+              val x_20 = taken_7;
+              x_20.<(100)
+            })
+          });
+          cont_10 = x_21;
+          cont_10
         });
         k_22(2);
         true
@@ -178,72 +177,70 @@
             val x_29 = x_28.toInt;
             var cur_30: scala.Int = 1;
             var curIsLhs_31: scala.Boolean = true;
-            var nextFromRhs_32: scala.Option[scala.Int] = scala.Option.empty[scala.Int];
-            var stop_33: scala.Boolean = false;
-            val x_34 = curIsLhs_31;
-            val x_71 = if (x_34)
+            val x_32 = scala.Option.empty[scala.Int];
+            var v_33: scala.Option[scala.Int] = x_32;
+            var stop_34: scala.Boolean = false;
+            val x_35 = curIsLhs_31;
+            val x_72 = if (x_35)
               {
-                var cont_35: scala.Boolean = true;
-                val lhsEnded_41 = {
-                  val k_40 = ((l_36: scala.Int) => {
-                    val x_37 = l_36.<=(x_29);
-                    val x_39 = if (x_37)
+                var cont_36: scala.Boolean = true;
+                val lhsEnded_42 = {
+                  val k_41 = ((l_37: scala.Int) => {
+                    val x_38 = l_37.<=(x_29);
+                    val x_40 = if (x_38)
                       {
-                        val x_38 = a_24.%(l_36);
-                        x_38.!=(0)
+                        val x_39 = a_24.%(l_37);
+                        x_39.!=(0)
                       }
                     else
                       {
-                        stop_33 = true;
+                        stop_34 = true;
                         false
                       };
-                    cont_35 = x_39;
-                    cont_35
+                    cont_36 = x_40;
+                    cont_36
                   });
-                  k_40(2);
+                  k_41(2);
                   true
                 };
-                if (lhsEnded_41)
+                if (lhsEnded_42)
                   {
                     curIsLhs_31 = false;
-                    val k_50 = ((a_42: scala.Int) => {
-                      val x_43 = a_42.*(2);
-                      val x_44 = x_43.+(1);
-                      val x_45 = cont_35;
-                      if (x_45)
+                    val k_51 = ((a_43: scala.Int) => {
+                      val x_44 = a_43.*(2);
+                      val x_45 = x_44.+(1);
+                      val x_46 = cont_36;
+                      if (x_46)
                         {
-                          val x_46 = x_44.<=(x_29);
-                          val x_48 = if (x_46)
+                          val x_47 = x_45.<=(x_29);
+                          val x_49 = if (x_47)
                             {
-                              val x_47 = a_24.%(x_44);
-                              x_47.!=(0)
+                              val x_48 = a_24.%(x_45);
+                              x_48.!=(0)
                             }
                           else
                             {
-                              stop_33 = true;
+                              stop_34 = true;
                               false
                             };
-                          cont_35 = x_48
+                          cont_36 = x_49
                         }
                       else
                         {
-                          val x_49 = scala.Some.apply[scala.Int](x_44);
-                          nextFromRhs_32 = x_49
+                          val x_50 = scala.Some.apply[scala.Int](x_45);
+                          v_33 = x_50
                         };
-                      cont_35
+                      cont_36
                     });
                     while ({
-                      val x_51 = cur_30;
-                      val x_52 = k_50(x_51);
-                      if (x_52)
-                        {
-                          val x_53 = cur_30;
-                          val x_54 = x_53.+(1);
-                          cur_30 = x_54;
-                          true
-                        }
-                      else
-                        false
+                      val x_52 = cur_30;
+                      val x_53 = k_51(x_52);
+                      x_53.&&({
+                        val x_54 = cur_30;
+                        val x_55 = x_54.+(1);
+                        cur_30 = x_55;
+                        true
+                      })
                     }) 
                       ()
                     ;
@@ -254,37 +251,34 @@
               }
             else
               {
-                val x_55 = nextFromRhs_32;
-                val x_56 = x_55.isEmpty;
-                if (x_56)
+                val x_56 = v_33;
+                val x_57 = x_56.isEmpty;
+                if (x_57)
                   {
-                    val k_62 = ((a_57: scala.Int) => {
-                      val x_58 = a_57.*(2);
-                      val x_59 = x_58.+(1);
-                      val x_60 = x_59.<=(x_29);
-                      if (x_60)
+                    val k_63 = ((a_58: scala.Int) => {
+                      val x_59 = a_58.*(2);
+                      val x_60 = x_59.+(1);
+                      val x_61 = x_60.<=(x_29);
+                      if (x_61)
                         {
-                          val x_61 = a_24.%(x_59);
-                          x_61.!=(0)
+                          val x_62 = a_24.%(x_60);
+                          x_62.!=(0)
                         }
                       else
                         {
-                          stop_33 = true;
+                          stop_34 = true;
                           false
                         }
                     });
                     while ({
-                      val x_63 = cur_30;
-                      val x_64 = k_62(x_63);
-                      if (x_64)
-                        {
-                          val x_65 = cur_30;
-                          val x_66 = x_65.+(1);
-                          cur_30 = x_66;
-                          true
-                        }
-                      else
-                        false
+                      val x_64 = cur_30;
+                      val x_65 = k_63(x_64);
+                      x_65.&&({
+                        val x_66 = cur_30;
+                        val x_67 = x_66.+(1);
+                        cur_30 = x_67;
+                        true
+                      })
                     }) 
                       ()
                     ;
@@ -292,73 +286,65 @@
                   }
                 else
                   {
-                    nextFromRhs_32 = scala.None;
-                    val x_67 = nextFromRhs_32;
-                    val x_68 = x_67.get;
-                    val x_69 = x_68.<=(x_29);
-                    if (x_69)
+                    v_33 = scala.None;
+                    val x_68 = v_33;
+                    val x_69 = x_68.get;
+                    val x_70 = x_69.<=(x_29);
+                    if (x_70)
                       {
-                        val x_70 = a_24.%(x_68);
-                        x_70.!=(0)
+                        val x_71 = a_24.%(x_69);
+                        x_71.!=(0)
                       }
                     else
                       {
-                        stop_33 = true;
+                        stop_34 = true;
                         false
                       }
                   }
               };
-            val x_72 = stop_33;
-            val x_73 = x_71.||(x_72);
-            if (x_73)
-              {
-                val x_74 = cont_9;
-                if (x_74)
-                  {
-                    val x_75 = taken_6;
-                    val x_76 = x_75.<(100);
-                    val x_85 = if (x_76)
-                      {
-                        val x_77 = taken_6;
-                        val x_78 = x_77.+(1);
-                        taken_6 = x_78;
-                        val x_82 = {
-                          val a_79 = a_24;
-                          val x_80 = cur_7;
-                          val x_81 = x_80.+(a_79);
-                          cur_7 = x_81;
-                          true
-                        };
-                        val x_83 = taken_6;
-                        val x_84 = x_83.<(100);
-                        x_82.&&(x_84)
-                      }
-                    else
-                      false;
-                    cont_9 = x_85
-                  }
-                else
-                  {
-                    val x_86 = scala.Some.apply[scala.Int](a_24);
-                    nextFromRhs_5 = x_86
-                  };
-                cont_9
-              }
-            else
-              true
+            val x_73 = x_72.||(stop_34);
+            val x_74 = x_73.`unary_!`;
+            x_74.||({
+              val x_75 = cont_10;
+              if (x_75)
+                {
+                  val x_76 = taken_7;
+                  val x_77 = x_76.<(100);
+                  val x_85 = x_77.&&({
+                    val x_78 = taken_7;
+                    val x_79 = x_78.+(1);
+                    taken_7 = x_79;
+                    val x_83 = {
+                      val a_80 = a_24;
+                      val x_81 = cur_8;
+                      val x_82 = x_81.+(a_80);
+                      cur_8 = x_82;
+                      true
+                    };
+                    x_83.&&({
+                      val x_84 = taken_7;
+                      x_84.<(100)
+                    })
+                  });
+                  cont_10 = x_85
+                }
+              else
+                {
+                  val x_86 = scala.Some.apply[scala.Int](a_24);
+                  v_6 = x_86
+                };
+              cont_10
+            })
           });
           while ({
             val x_88 = cur_3;
             val x_89 = k_87(x_88);
-            if (x_89)
-              {
-                val x_90 = cur_3;
-                val x_91 = x_90.+(1);
-                cur_3 = x_91;
-                true
-              }
-            else
-              false
+            x_89.&&({
+              val x_90 = cur_3;
+              val x_91 = x_90.+(1);
+              cur_3 = x_91;
+              true
+            })
           }) 
             ()
           ;
@@ -369,7 +355,7 @@
     }
   else
     {
-      val x_92 = nextFromRhs_5;
+      val x_92 = v_6;
       val x_93 = x_92.isEmpty;
       if (x_93)
         {
@@ -381,72 +367,70 @@
             val x_99 = x_98.toInt;
             var cur_100: scala.Int = 1;
             var curIsLhs_101: scala.Boolean = true;
-            var nextFromRhs_102: scala.Option[scala.Int] = scala.Option.empty[scala.Int];
-            var stop_103: scala.Boolean = false;
-            val x_104 = curIsLhs_101;
-            val x_141 = if (x_104)
+            val x_102 = scala.Option.empty[scala.Int];
+            var v_103: scala.Option[scala.Int] = x_102;
+            var stop_104: scala.Boolean = false;
+            val x_105 = curIsLhs_101;
+            val x_142 = if (x_105)
               {
-                var cont_105: scala.Boolean = true;
-                val lhsEnded_111 = {
-                  val k_110 = ((l_106: scala.Int) => {
-                    val x_107 = l_106.<=(x_99);
-                    val x_109 = if (x_107)
+                var cont_106: scala.Boolean = true;
+                val lhsEnded_112 = {
+                  val k_111 = ((l_107: scala.Int) => {
+                    val x_108 = l_107.<=(x_99);
+                    val x_110 = if (x_108)
                       {
-                        val x_108 = a_94.%(l_106);
-                        x_108.!=(0)
+                        val x_109 = a_94.%(l_107);
+                        x_109.!=(0)
                       }
                     else
                       {
-                        stop_103 = true;
+                        stop_104 = true;
                         false
                       };
-                    cont_105 = x_109;
-                    cont_105
+                    cont_106 = x_110;
+                    cont_106
                   });
-                  k_110(2);
+                  k_111(2);
                   true
                 };
-                if (lhsEnded_111)
+                if (lhsEnded_112)
                   {
                     curIsLhs_101 = false;
-                    val k_120 = ((a_112: scala.Int) => {
-                      val x_113 = a_112.*(2);
-                      val x_114 = x_113.+(1);
-                      val x_115 = cont_105;
-                      if (x_115)
+                    val k_121 = ((a_113: scala.Int) => {
+                      val x_114 = a_113.*(2);
+                      val x_115 = x_114.+(1);
+                      val x_116 = cont_106;
+                      if (x_116)
                         {
-                          val x_116 = x_114.<=(x_99);
-                          val x_118 = if (x_116)
+                          val x_117 = x_115.<=(x_99);
+                          val x_119 = if (x_117)
                             {
-                              val x_117 = a_94.%(x_114);
-                              x_117.!=(0)
+                              val x_118 = a_94.%(x_115);
+                              x_118.!=(0)
                             }
                           else
                             {
-                              stop_103 = true;
+                              stop_104 = true;
                               false
                             };
-                          cont_105 = x_118
+                          cont_106 = x_119
                         }
                       else
                         {
-                          val x_119 = scala.Some.apply[scala.Int](x_114);
-                          nextFromRhs_102 = x_119
+                          val x_120 = scala.Some.apply[scala.Int](x_115);
+                          v_103 = x_120
                         };
-                      cont_105
+                      cont_106
                     });
                     while ({
-                      val x_121 = cur_100;
-                      val x_122 = k_120(x_121);
-                      if (x_122)
-                        {
-                          val x_123 = cur_100;
-                          val x_124 = x_123.+(1);
-                          cur_100 = x_124;
-                          true
-                        }
-                      else
-                        false
+                      val x_122 = cur_100;
+                      val x_123 = k_121(x_122);
+                      x_123.&&({
+                        val x_124 = cur_100;
+                        val x_125 = x_124.+(1);
+                        cur_100 = x_125;
+                        true
+                      })
                     }) 
                       ()
                     ;
@@ -457,37 +441,34 @@
               }
             else
               {
-                val x_125 = nextFromRhs_102;
-                val x_126 = x_125.isEmpty;
-                if (x_126)
+                val x_126 = v_103;
+                val x_127 = x_126.isEmpty;
+                if (x_127)
                   {
-                    val k_132 = ((a_127: scala.Int) => {
-                      val x_128 = a_127.*(2);
-                      val x_129 = x_128.+(1);
-                      val x_130 = x_129.<=(x_99);
-                      if (x_130)
+                    val k_133 = ((a_128: scala.Int) => {
+                      val x_129 = a_128.*(2);
+                      val x_130 = x_129.+(1);
+                      val x_131 = x_130.<=(x_99);
+                      if (x_131)
                         {
-                          val x_131 = a_94.%(x_129);
-                          x_131.!=(0)
+                          val x_132 = a_94.%(x_130);
+                          x_132.!=(0)
                         }
                       else
                         {
-                          stop_103 = true;
+                          stop_104 = true;
                           false
                         }
                     });
                     while ({
-                      val x_133 = cur_100;
-                      val x_134 = k_132(x_133);
-                      if (x_134)
-                        {
-                          val x_135 = cur_100;
-                          val x_136 = x_135.+(1);
-                          cur_100 = x_136;
-                          true
-                        }
-                      else
-                        false
+                      val x_134 = cur_100;
+                      val x_135 = k_133(x_134);
+                      x_135.&&({
+                        val x_136 = cur_100;
+                        val x_137 = x_136.+(1);
+                        cur_100 = x_137;
+                        true
+                      })
                     }) 
                       ()
                     ;
@@ -495,62 +476,54 @@
                   }
                 else
                   {
-                    nextFromRhs_102 = scala.None;
-                    val x_137 = nextFromRhs_102;
-                    val x_138 = x_137.get;
-                    val x_139 = x_138.<=(x_99);
-                    if (x_139)
+                    v_103 = scala.None;
+                    val x_138 = v_103;
+                    val x_139 = x_138.get;
+                    val x_140 = x_139.<=(x_99);
+                    if (x_140)
                       {
-                        val x_140 = a_94.%(x_138);
-                        x_140.!=(0)
+                        val x_141 = a_94.%(x_139);
+                        x_141.!=(0)
                       }
                     else
                       {
-                        stop_103 = true;
+                        stop_104 = true;
                         false
                       }
                   }
               };
-            val x_142 = stop_103;
-            val x_143 = x_141.||(x_142);
-            if (x_143)
-              {
-                val x_144 = taken_6;
-                val x_145 = x_144.<(100);
-                if (x_145)
-                  {
-                    val x_146 = taken_6;
-                    val x_147 = x_146.+(1);
-                    taken_6 = x_147;
-                    val x_151 = {
-                      val a_148 = a_94;
-                      val x_149 = cur_7;
-                      val x_150 = x_149.+(a_148);
-                      cur_7 = x_150;
-                      true
-                    };
-                    val x_152 = taken_6;
-                    val x_153 = x_152.<(100);
-                    x_151.&&(x_153)
-                  }
-                else
-                  false
-              }
-            else
-              true
+            val x_143 = x_142.||(stop_104);
+            val x_144 = x_143.`unary_!`;
+            x_144.||({
+              val x_145 = taken_7;
+              val x_146 = x_145.<(100);
+              x_146.&&({
+                val x_147 = taken_7;
+                val x_148 = x_147.+(1);
+                taken_7 = x_148;
+                val x_152 = {
+                  val a_149 = a_94;
+                  val x_150 = cur_8;
+                  val x_151 = x_150.+(a_149);
+                  cur_8 = x_151;
+                  true
+                };
+                x_152.&&({
+                  val x_153 = taken_7;
+                  x_153.<(100)
+                })
+              })
+            })
           });
           while ({
             val x_155 = cur_3;
             val x_156 = k_154(x_155);
-            if (x_156)
-              {
-                val x_157 = cur_3;
-                val x_158 = x_157.+(1);
-                cur_3 = x_158;
-                true
-              }
-            else
-              false
+            x_156.&&({
+              val x_157 = cur_3;
+              val x_158 = x_157.+(1);
+              cur_3 = x_158;
+              true
+            })
           }) 
             ()
           ;
@@ -558,33 +531,32 @@
         }
       else
         {
-          nextFromRhs_5 = scala.None;
-          val x_159 = nextFromRhs_5;
+          v_6 = scala.None;
+          val x_159 = v_6;
           val x_160 = x_159.get;
-          val x_161 = taken_6;
+          val x_161 = taken_7;
           val x_162 = x_161.<(100);
-          if (x_162)
-            {
-              val x_163 = taken_6;
-              val x_164 = x_163.+(1);
-              taken_6 = x_164;
-              val x_168 = {
-                val a_165 = x_160;
-                val x_166 = cur_7;
-                val x_167 = x_166.+(a_165);
-                cur_7 = x_167;
-                true
-              };
-              val x_169 = taken_6;
-              val x_170 = x_169.<(100);
-              x_168.&&(x_170)
-            }
-          else
-            false
+          x_162.&&({
+            val x_163 = taken_7;
+            val x_164 = x_163.+(1);
+            taken_7 = x_164;
+            val x_168 = {
+              val a_165 = x_160;
+              val x_166 = cur_8;
+              val x_167 = x_166.+(a_165);
+              cur_8 = x_167;
+              true
+            };
+            x_168.&&({
+              val x_169 = taken_7;
+              x_169.<(100)
+            })
+          })
         }
     };
-  val x_172 = taken_6;
-  val x_173 = x_172.==(100);
-  x_171.||(x_173);
-  cur_7
+  x_170.||({
+    val x_171 = taken_7;
+    x_171.==(100)
+  });
+  cur_8
 }

@@ -24,32 +24,31 @@ object `package` {
   
   @inline @phase('Imperative)
   def single[A](v: A): Producer[A] = {
-    (k => {
+    k => {
       k(v)
       true
-    }) : Producer[A] // FIXME
+    }
   }
   
   @inline @phase('Imperative)
   def iterate[A](start: A)(next: A => A): Producer[A] = {
     var cur = start
-    (k => {
-      //while ({val c = k(cur); cur = next(cur); c}) {}
-      while (if (k(cur)) {cur = next(cur); true} else false) {} // TODO fix and use &&
+    k => {
+      //while (if (k(cur)) {cur = next(cur); true} else false) {}
+      // Equivalent:
+      while (k(cur) && {cur = next(cur); true}) {}
       false
-    }) : Producer[A] // FIXME
+    }
   }
   
   @inline @phase('Imperative)
   def fromIndexed[A](arr: IndexedSeq[A]): Producer[A] = {
     var i = 0
     val len = arr.length
-    (k => {
-      //while (i < len && k{val a = arr(i); i += 1; a}) {} // FIXME doesn't seem to desugar right; array access still happens
-      //while (if (i < len) {val a = arr(i); i += 1; k(a)} else false) {}
-      while (and(i < len, {val a = arr(i); i += 1; k(a)})) {}
+    k => {
+      while (i < len && {val a = arr(i); i += 1; k(a)}) {}
       i == len
-    }) : Producer[A] // FIXME
+    }
   }
   
   @inline @phase('Imperative)
@@ -117,7 +116,7 @@ object `package` {
   @inline @phase('Imperative)
   def take[A](s: Producer[A])(n: Int): Producer[A] = { // Note: could use takeWhile
     var taken = 0
-    k => { s { a => if (taken < n) { taken += 1; k(a) && (taken < n) } else false } || taken == n }
+    k => { s { a => taken < n && { taken += 1; k(a) && (taken < n) } } || taken == n }
   }
   
   @inline @phase('Imperative)
@@ -148,7 +147,7 @@ object `package` {
   
   @inline @phase('Imperative)
   def filter[A](s: Producer[A])(p: A => Bool): Producer[A] = {
-    k => s { a => if (p(a)) k(a) else true }
+    k => s { a => !p(a) || k(a) }
   }
   
   @inline @phase('Imperative)
@@ -182,8 +181,6 @@ object `package` {
   }
   
   
-  @inline 
-  def and(b0: Bool, b1: => Bool) = b0 && b1
   
 }
 
