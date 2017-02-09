@@ -47,8 +47,41 @@ class ImplTests extends FunSuite {
       assert(!r{a => b += a;false})
     }
     assert(r{a => b += a;false})
+    assert(r{a => fail})
     
     assert(b.mkString == "1234")
+    
+  }
+  
+  
+  test("Concat") {
+    
+    def s0 = fromIndexed(1 to 3)
+    def s1 = fromIndexed(10 to 15)
+    val r0 = concat(s0,s1)
+    
+    val b = mutable.Buffer[Int]()
+    
+    for (i <- 1 to 5) {
+      assert(!r0{a => b += a;false})
+    }
+    assert(b.mkString == "1231011")
+    assert(r0{a => b += a;true})
+    assert(r0{a => fail})
+    assert(b.mkString == "123101112131415")
+    
+    b.clear
+    
+    val r1 = concat(s0,s1)
+    for (i <- 1 to 8) assert(!r1{a => b += a;false})
+    assert(r1{a => b += a;false})
+    assert(b.mkString == "123101112131415")
+    
+    b.clear
+    
+    val r2 = concat(fromIndexed(1 until 1),s0)
+    assert(!r2{a => b += a;false})
+    assert(b.mkString == "1")
     
   }
   

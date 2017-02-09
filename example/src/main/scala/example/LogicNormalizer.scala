@@ -20,10 +20,15 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"!true" => ir"false"
     case ir"!false" => ir"true"
     case ir"!(!($x:Bool))" => ir"$x"
+      
     case ir"($x:Bool) || false" => ir"$x"
     case ir"($x:Bool) || true" => ir"true"
     case ir"($x:Bool) && false" => ir"false"
     case ir"($x:Bool) && true" => ir"$x"
+    case ir"false || ($x:Bool)" => ir"$x"
+    case ir"true || ($x:Bool)" => ir"true"
+    case ir"false && ($x:Bool)" => ir"false"
+    case ir"true && ($x:Bool)" => ir"$x"
       
     case ir"if (true) $x else $y : $t" => ir"$x"
     case ir"if (false) $x else $y : $t" => ir"$y"
@@ -32,7 +37,8 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"require(true)" => ir"()"
     case ir"($x:$xt) ensuring true" => ir"$x"
       
-    
+      // TODO while({$stmts; false}) and the like
+      
   }
   
 }

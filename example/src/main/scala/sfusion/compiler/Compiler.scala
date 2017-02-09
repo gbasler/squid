@@ -11,6 +11,12 @@ import squid.lang._
 
 /**
   * Created by lptk on 08/02/17.
+  * 
+  * TODO loop optims... can we match the pattern where the first iteration of the loop can be moved out?
+  *   (a var starting true, set to false, with a comparison)
+  *   as arises when concatenating a unary seq w/ another seq
+  *   or just catch these earlier (convert `concat(single(.),.)` to `prepend(.,.)`) <- cleaner approach!
+  * 
   */
 class Compiler extends Optimizer {
   

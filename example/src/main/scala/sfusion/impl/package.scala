@@ -11,6 +11,18 @@ import scala.collection.mutable
 
 /**
   * Created by lptk on 07/02/17.
+  * 
+  * Laws that the implementations should follow:
+  *   - if a producer returns `false`, it is guaranteed to produce at least another value
+  *   - the values returned successively by a producer should only be a sequence of 0 to n `true` and then continually `false`
+  *   - an empty producer (returned false before) should not call the consuming function at all, if asked to produce again
+  *   - a producer should call the consumer at most once and then only as long as it last returned `true`
+  *   - if a producer did not call its consumer, it should return `true`
+  *   - if a producer's consumer last returned `true` but is not called again, the producer should return `true`
+  * 
+  * More a convention than a law:
+  *   - a producer that has produced its last element should return true
+  *   
   */
 
 //package object impl {  // <- cannot be annotated!
@@ -103,12 +115,13 @@ object `package` {
     k => {
       var cont = true
       var finished = false
-      var next = Option.empty[A]
       while (cont && !finished) {
+        var next: Option[A] = None
         if (curIsLhs) {
           if (lhs { l => next = Some(l); false }) curIsLhs = false
-        } else {
-          rhs { r => next = Some(r); false }
+        }
+        if (next.isEmpty) {
+          if (rhs { r => next = Some(r); false }) finished = true
         }
         next.fold(finished = true)(x => cont = k(x))
       }
