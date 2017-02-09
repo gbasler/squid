@@ -37,10 +37,10 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   
   case class Rep(dfn: Def) { // FIXME status of lambdas? (and their curry encoding)
     //def isTrivial = dfn.isTrivial
-    lazy val isTrivial: Bool = dfn match {
+    lazy val isTrivial: Bool = dfn match { // cache these in a map from symbol to properties?
       case m: MethodApp => //println(m.sym.fullName)
         (m.sym.fullName startsWith "squid.lib.uncurried") || (m.sym.fullName == "scala.Any.asInstanceOf") ||
-          (m.argss.forall(_.reps.isEmpty) && m.sym.isStatic)
+          (m.sym.isAccessor && {val rst = m.sym.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass })
         // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work
       case Module(pre, _, _) => pre.isTrivial
       case Ascribe(x, _) => x.isTrivial
