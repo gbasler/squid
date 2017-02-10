@@ -126,6 +126,14 @@ class SimpleANF extends AST with CurryEncoding { anf =>
         //println(s"Inl $p as $v in $b")
         inline(p, b, v)
         
+      // Tail binding normalization:
+      case LetIn(p, v, b) if b.dfn === p => v
+      case LetIn(p, v, RepDef(Ascribe(b,tp))) if b.dfn === p => ascribe(v,tp)
+        
+      // Unit value normalization:
+      case LetIn(p, v, b) if p.typ <:< UnitType && !(p.typ <:< NothingType) => Imperative(v)(inline(p, b, () |> const))
+      case Imperative(Seq(e),r) if r.isPure && (e.typ <:< UnitType) && (e.typ <:< r.typ) => e
+        
       case Imperative(effs, ret) =>
         //effs foreach { e => e |> makeStmtIfNecessary(false) and (r => statements += Right(r)) }
         effs foreach makeStmtIfNecessary(false)
@@ -154,7 +162,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
               }
               buf ++= es
               r
-            case LetIn(p, v, b) if v.isTrivial && !v.isHole =>
+            case LetIn(p, v, b) if v.isPure =>
               inline(p, b, v)
           }
         } 
@@ -257,7 +265,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       }
       
       xy match {
-    
+          
         // Matching simple expressions (block returns)
         case (Nil -> r0, Nil -> r1) =>
           for {

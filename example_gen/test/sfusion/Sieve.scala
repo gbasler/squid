@@ -322,91 +322,85 @@
       val x_14 = next_11;
       val x_15 = x_14.isEmpty;
       if (x_15)
-        {
+        while ({
+          val x_16 = cur_3;
+          val x_17 = x_16.toDouble;
+          val x_18 = scala.math.`package`.sqrt(x_17);
+          val x_19 = scala.Predef.doubleWrapper(x_18);
+          val x_20 = x_19.ceil;
+          val x_21 = x_20.toInt;
+          var cur_22: scala.Int = 1;
+          var curIsLhs_23: scala.Boolean = true;
+          var stop_24: scala.Boolean = false;
+          var cont_25: scala.Boolean = true;
+          var finished_26: scala.Boolean = false;
           while ({
-            val x_16 = cur_3;
-            val x_17 = x_16.toDouble;
-            val x_18 = scala.math.`package`.sqrt(x_17);
-            val x_19 = scala.Predef.doubleWrapper(x_18);
-            val x_20 = x_19.ceil;
-            val x_21 = x_20.toInt;
-            var cur_22: scala.Int = 1;
-            var curIsLhs_23: scala.Boolean = true;
-            var stop_24: scala.Boolean = false;
-            var cont_25: scala.Boolean = true;
-            var finished_26: scala.Boolean = false;
-            while ({
-              val x_27 = cont_25;
-              x_27.&&({
-                val x_28 = finished_26;
-                x_28.`unary_!`
-              })
-            }) 
-              {
-                var next_29: scala.Option[scala.Int] = scala.None;
-                val x_30 = curIsLhs_23;
-                if (x_30)
-                  {
-                    val x_31 = scala.Some.apply[scala.Int](2);
-                    next_29 = x_31;
-                    curIsLhs_23 = false
-                  }
-                else
-                  ();
-                val x_32 = next_29;
-                val x_33 = x_32.isEmpty;
-                if (x_33)
-                  {
-                    while ({
-                      val x_34 = cur_22;
-                      val x_35 = x_34.*(2);
-                      val x_36 = x_35.+(1);
-                      val x_37 = scala.Some.apply[scala.Int](x_36);
-                      next_29 = x_37;
-                      false
-                    }) 
-                      ()
-                    ;
-                    ()
-                  }
-                else
-                  ();
-                val x_38 = next_29;
-                x_38.fold[scala.Unit](finished_26 = true)(((x_39: scala.Int) => {
-                  val x_40 = x_39.<=(x_21);
-                  val x_42 = if (x_40)
-                    {
-                      val x_41 = x_16.%(x_39);
-                      x_41.!=(0)
-                    }
-                  else
-                    {
-                      stop_24 = true;
-                      false
-                    };
-                  cont_25 = x_42
-                }))
-              }
-            ;
-            val x_43 = finished_26;
-            val x_44 = x_43.||(stop_24);
-            val x_45 = x_44.`unary_!`;
-            val x_47 = x_45.||({
-              val x_46 = scala.Some.apply[scala.Int](x_16);
-              next_11 = x_46;
-              false
-            });
-            x_47.&&({
-              val x_48 = cur_3;
-              val x_49 = x_48.+(1);
-              cur_3 = x_49;
-              true
+            val x_27 = cont_25;
+            x_27.&&({
+              val x_28 = finished_26;
+              x_28.`unary_!`
             })
           }) 
-            ()
+            {
+              var next_29: scala.Option[scala.Int] = scala.None;
+              val x_30 = curIsLhs_23;
+              if (x_30)
+                {
+                  val x_31 = scala.Some.apply[scala.Int](2);
+                  next_29 = x_31;
+                  curIsLhs_23 = false
+                }
+              else
+                ();
+              val x_32 = next_29;
+              val x_33 = x_32.isEmpty;
+              if (x_33)
+                while ({
+                  val x_34 = cur_22;
+                  val x_35 = x_34.*(2);
+                  val x_36 = x_35.+(1);
+                  val x_37 = scala.Some.apply[scala.Int](x_36);
+                  next_29 = x_37;
+                  false
+                }) 
+                  ()
+                
+              else
+                ();
+              val x_38 = next_29;
+              x_38.fold[scala.Unit](finished_26 = true)(((x_39: scala.Int) => {
+                val x_40 = x_39.<=(x_21);
+                val x_42 = if (x_40)
+                  {
+                    val x_41 = x_16.%(x_39);
+                    x_41.!=(0)
+                  }
+                else
+                  {
+                    stop_24 = true;
+                    false
+                  };
+                cont_25 = x_42
+              }))
+            }
           ;
+          val x_43 = finished_26;
+          val x_44 = x_43.||(stop_24);
+          val x_45 = x_44.`unary_!`;
+          val x_47 = x_45.||({
+            val x_46 = scala.Some.apply[scala.Int](x_16);
+            next_11 = x_46;
+            false
+          });
+          x_47.&&({
+            val x_48 = cur_3;
+            val x_49 = x_48.+(1);
+            cur_3 = x_49;
+            true
+          })
+        }) 
           ()
-        }
+        
       else
         ();
       val x_50 = next_11;

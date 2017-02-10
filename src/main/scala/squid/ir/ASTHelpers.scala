@@ -89,6 +89,12 @@ trait ASTHelpers extends Base { self: AST =>
     object ColonEqual { val Symbol = loadMtdSymbol(ClassSymbol, "$colon$eq", None) }
   }
   
+  
+  // TODO move these into a Builtin object
+  lazy val UnitType = staticTypeApp(loadTypSymbol("scala.Unit"),Nil)
+  lazy val NothingType = staticTypeApp(loadTypSymbol("scala.Nothing"),Nil)
+  
+  
   // Q: use a reinterpreter? (cf: would facilitate the work for Args)
   def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter {
