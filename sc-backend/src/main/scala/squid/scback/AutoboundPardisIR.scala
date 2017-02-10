@@ -48,15 +48,24 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   protected val Function2ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function2"), "apply", None)
   protected val Function3ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function3"), "apply", None)
   
+  protected val BooleanAnd = loadMtdSymbol(loadTypSymbol("scala.Boolean"), "$amp$amp", None)
+  protected val BooleanOr = loadMtdSymbol(loadTypSymbol("scala.Boolean"), "$bar$bar", None)
+  
   /** Note: we have to wrap every method call (and corresponding statements) inside a Block.
     * It would work to simply let all expressions reify themselves in the enclosing block, but then we lose original
     * names (let-binding gets a symbol as the value and has to withSubs(bound -> sym)).
     * And original names are currently important for `rewriteRep` to distinguish explicitly-bound variables.
     * This is why we put everything in a block, and then in `letin` rewrites blocks that return a symbol use the value
     * bound in the let-in instead of that symbol. */
-  def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
+  def methodApp(self: Rep, mtd0: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println("METHOD "+mtd.name+" in "+mtd.owner)
     assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialized.")
+    
+    val mtd = mtd0.fullName match {
+      case "squid.lib.And" => BooleanAnd
+      case "squid.lib.Or" => BooleanOr
+      case _ => mtd0
+    }
     
     mtd match {
         
@@ -188,7 +197,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
   def nullValue[T: IRType]: IR[T,{}] = IR(const((implicitly[IRType[T]].rep:PardisType[_]) match {
     case types.UnitType => ()
     case types.BooleanType => false
-    case types.CharacterType => '\0'
+    case types.CharacterType => '\u0000'
     case types.ByteType => 0:Byte
     case types.ShortType => 0:Short
     case types.IntType => 0
