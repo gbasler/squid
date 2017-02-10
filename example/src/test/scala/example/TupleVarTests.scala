@@ -6,7 +6,7 @@ import squid.ir._
 import squid.lang.InspectableBase
 import squid.utils._
 
-object Code extends squid.ir.SimpleANF
+object Code extends squid.ir.SimpleANF with squid.anf.analysis.BlockHelpers
 import Code.Predef._
 import Code.{SelfTransformer=>CST}
 

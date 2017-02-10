@@ -33,7 +33,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   
   
   //type Block = List[Either[Val -> Rep, Rep]] -> Def
-  type Block = List[Either[Val -> Rep, Rep]] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
+  type BlockRep = List[Either[Val -> Rep, Rep]] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
   
   case class Rep(dfn: Def) { // FIXME status of lambdas? (and their curry encoding)
     //def isTrivial = dfn.isTrivial
@@ -56,7 +56,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
     final def isImpure = !isPure
     
-    lazy val asBlock: Block = dfn match {
+    lazy val asBlock: BlockRep = dfn match {
       case LetIn(p,v,b) => b.asBlock >> { case es -> r => (Left(p -> v) :: es) -> r }
       case Imperative(effs,ret) => ret.asBlock >> { case es -> r => ((effs map (e => Right(e)) toList) ++ es) -> r }
       //case MethodApp(s,m,ts,ass,t) => 
@@ -191,7 +191,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   
   /** From the ANF Block repr to corresponding AST node 
     * Note: could optimize: build a Rep with the ANF built in to avoid having it recomputed later */
-  protected def constructBlock(b: Block) = {
+  protected def constructBlock(b: BlockRep) = {
     val (es, r) = b
     es.foldRight(r) {
       case Left(p -> v) -> b => letin(p, v, b, r.typ)
@@ -231,7 +231,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       * @param ex: current extraction artifact
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
       * @param xy: the current (extractor -> extractee) pair */
-    def rec(ex: Extract, matchedVals: List[Val])(xy: Block -> Block): Option[Rep] = {
+    def rec(ex: Extract, matchedVals: List[Val])(xy: BlockRep -> BlockRep): Option[Rep] = {
       //debug(s"REC ex=$ex")
       
       def checkRefs(r: Rep): Option[Rep] = {
@@ -273,11 +273,14 @@ class SimpleANF extends AST with CurryEncoding { anf =>
             m <- merge(e, ex)
             c <- mkCode(m)
           } yield c
-    
+          
+        //// TODO allow extraction of several statements with a hole in effect position? Or a bound hole? (to preserve context soundness) 
+        //case (sts0 -> r0, (Right(e1) :: es1) -> r1) if e1.isHole =>
+          
         // Matching two effects
         case ((Right(e0) :: es0) -> r0, (Right(e1) :: es1) -> r1) =>
           extract(e0, e1) flatMap (merge(_, ex)) flatMap (rec(_, matchedVals)(es0 -> r0, es1 -> r1))
-    
+          
         // Matching an two let bindings (eg: {val a = readInt; ...} with {val x = readInt; $body: Int})
         case ((Left(b0 -> v0) :: es0) -> r0, (Left(b1 -> v1) :: es1) -> r1) =>
           for {

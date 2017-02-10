@@ -8,6 +8,7 @@ import example.LogicNormalizer
 import squid.utils._
 import squid.ir._
 import squid.lang._
+import squid.anf.analysis
 
 /**
   * Created by lptk on 08/02/17.
@@ -29,7 +30,7 @@ class Compiler extends Optimizer {
   */
   
   val base: Code.type = Code
-  object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer {
+  object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers {
     object Desug extends Desugaring //with TopDownTransformer
     object Norm extends SelfTransformer with CurryEncoding.ApplicationNormalizer //with FixPointRuleBasedTransformer
     def pipeline = Desug.pipeline andThen Norm.pipeline

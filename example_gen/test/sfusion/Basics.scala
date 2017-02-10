@@ -213,10 +213,10 @@
     x_25.==(10)
   });
   var shorten_26: scala.Boolean = false;
-  while ({
-    val x_27 = i_6;
-    val x_28 = x_27.<(len_7);
-    x_28.&&({
+  val x_27 = i_6;
+  val x_28 = x_27.<(len_7);
+  if (x_28)
+    {
       val x_29 = i_6;
       val x_30 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_29);
       val x_31 = i_6;
@@ -224,10 +224,9 @@
       i_6 = x_32;
       shorten_26 = true;
       false
-    })
-  }) 
-    ()
-  ;
+    }
+  else
+    ();
   val x_33 = i_6;
   x_33.==(len_7);
   val x_34 = shorten_26;
@@ -288,10 +287,10 @@
     x_25.==(10)
   });
   var shorten_26: scala.Boolean = false;
-  while ({
-    val x_27 = i_6;
-    val x_28 = x_27.<(len_7);
-    x_28.&&({
+  val x_27 = i_6;
+  val x_28 = x_27.<(len_7);
+  if (x_28)
+    {
       val x_29 = i_6;
       val x_30 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_29);
       val x_31 = i_6;
@@ -299,10 +298,9 @@
       i_6 = x_32;
       shorten_26 = true;
       false
-    })
-  }) 
-    ()
-  ;
+    }
+  else
+    ();
   val x_33 = i_6;
   x_33.==(len_7);
   val x_34 = shorten_26;
