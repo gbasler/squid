@@ -77,7 +77,7 @@ trait ASTReinterpreter { ast: AST =>
     }
     //protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ), bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}) and (bound += bv -> _)
     protected def recv(bv: BoundVal) = newBase.bindVal(
-      bv.name IfNot (_ startsWith "$") Else "x",
+      bv.name IfNot (_ startsWith "$") Else "x", // bound variables starting with '$' are those that were not named explicitly in the source programs
       rect(bv.typ),
       bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}
     ) and (bound += bv -> _)

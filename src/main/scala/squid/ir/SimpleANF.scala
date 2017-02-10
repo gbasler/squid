@@ -63,6 +63,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
       case _ => Nil -> this
     }
     
+    lazy val boundVals: Set[Val] = anf.boundVals(this)
+    
     override def toString = s"$dfn"
   }
   
@@ -87,7 +89,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     def makeStmtIfNecessary(letBound: Bool)(r: Rep): Rep = /*println(s"mkStmt $r") before*/ r match {
       case _ if r.isTrivial && (!r.isHole || !isImperativeCall) => r
       case LetIn(p, v, b) =>
-        // TODO check not already bound in body
+        //assert(!b.boundVals(p),s"$p bound in $b") // should not fail; disabled for perf
         statements += Left(p -> v)
         b |> makeStmtIfNecessary(false)
       case Imperative(effs, ret) =>
@@ -113,7 +115,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
     
     def construct(init: Rep) = statements.foldRight(init) {
-      case (Left(v -> r), body) => 
+      case (Left(v -> r), body0) => 
+        //println(s"Binding $v in $body0")
+        val vr = v|>rep
+        val body = if (body0.boundVals(v)) inline(v, body0, vr) else body0
+        // ^ inlining v to itself in the body will renew inner bindings of that param, avoiding future conflicts
         MethodApp(lambda(v::Nil, body), Function1ApplySymbol, Nil, Args(r)::Nil, body.typ) |> rep
       case (Right(b), body) => if (b isEmpty) body 
         //else Imperative(b, body) |> Rep  // don't construct multi-effect Imperative's
@@ -185,9 +191,33 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   //override protected def freshNameImpl(n: Int) = "$"
   
   
+  /** ANF does tricky stuff with bindings internally, so we need to make sure inlining a value that contains references 
+    * to a binding won't see these references captured by existing bindings in the body. */
+  override def inline(param: BoundVal, body: Rep, arg: Rep) = {
+    val refs = arg |> allValRefs  // `freeVals` not sufficient here as shadowing is not okay (it is mostly okay, but messes with term equivalence)
+    require(!arg.boundVals(param))
+    //require(!body.boundVals(param))  // too strong; can be useful to do that (cf. `inline(v, body0, v|>rep)` above)
+    transformRep(body)(if (body.boundVals & refs isEmpty) identity else {
+      // while going down the tree, renew conflicting bound vals:
+      case RepDef(a @ Abs(p0,b)) if refs(p0) =>
+        val p = p0.renew
+        Abs(p, a.inline(p |> rep))(a.typ) |> rep
+      case r => r
+    }, {
+      // while going up the tree, inline the `arg` value:
+      case RepDef(`param`) => arg
+      case r => r
+    })
+  }
   
   
-  protected def boundVals(r: Rep): Set[Val] = ???
+  protected def boundVals(r: Rep): Set[Val] = {
+    val res = mutable.Set[Val]()
+    r |> traversePartial {
+      case RepDef(Abs(p,b)) => res += p; true
+    }
+    res.toSet
+  }
   
   /** From the ANF Block repr to corresponding AST node 
     * Note: could optimize: build a Rep with the ANF built in to avoid having it recomputed later */
@@ -200,6 +230,27 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
   }
   
+  
+  // When extracting the body of a lambda or let binding, the bound Val is replaced with a Hole that remembers this original Val (in field `originalSymbol`)
+  // Here we aggregate all Val references originally present instead of the extraction holes
+  protected def originalVals(r: Rep) = {
+    val res = mutable.Set[Val]()
+    r |> traversePartial {
+      case RepDef(h: Hole) => h.originalSymbol foreach (res += _); false
+      //case h: SplicedHole => h.originalSymbol
+    }
+    res
+  }
+  protected def allValRefs(r: Rep) = {
+    val res = mutable.Set[Val]()
+    r |> traversePartial {
+      case RepDef(bv: BoundVal) => res += bv; false
+    }
+    res
+  }
+  // ^ TODO cache these, like for `boundVals`
+  
+  
   /* TODO flexible spliced holes
    * TODO consecutive mutable statement matching like in PardisIR */
   /** Rewrites a Rep by applying a rewriting on the corresponding ANF block;
@@ -209,24 +260,6 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     debug(s"${BOLD}Rewriting$RESET $xtee ${BOLD}with$RESET $xtor")
     //nestDbg(extract(xtor, xtee)) and (res => debug(s"${BOLD}Result:$RESET $res"))
     
-    // When extracting the body of a lambda or let binding, the bound Val is replaced with a Hole that remembers this original Val (in field `originalSymbol`)
-    // Here we aggregate all Val references originally present instead of the extraction holes
-    def originalVals(r: Rep) = {
-      val res = mutable.Set[Val]()
-      r |> traversePartial {
-        case RepDef(h: Hole) => h.originalSymbol foreach (res += _); false
-        //case h: SplicedHole => h.originalSymbol
-      }
-      res
-    }
-    def freeVals(r: Rep) = {
-      val res = mutable.Set[Val]()
-      r |> traversePartial {
-        case RepDef(bv: BoundVal) => res += bv; false
-      }
-      res
-    }
-    
     /** Backtracking rewriting block matcher
       * @param ex: current extraction artifact
       * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
@@ -234,11 +267,11 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     def rec(ex: Extract, matchedVals: List[Val])(xy: BlockRep -> BlockRep): Option[Rep] = {
       //debug(s"REC ex=$ex")
       
-      def checkRefs(r: Rep): Option[Rep] = {
+      def checkRefs(r: Rep): Option[Rep] = { // Q: is it sufficient to use `freeVals` instead of `allValRefs` here?
         //debug("Checking refs in "+r)
         val matchedValsSet = matchedVals.toSet
-        r If ((originalVals(r) | freeVals(r)) & matchedValsSet isEmpty) and_? {
-          case None => debug(s"${Console.RED}Rewritten term:${Console.RESET} $r ${Console.RED}contains references to original vals ${originalVals(r)} or free vals ${freeVals(r)} ${Console.RESET}")
+        r If ((originalVals(r) | allValRefs(r)) & matchedValsSet isEmpty) and_? {
+          case None => debug(s"${Console.RED}Rewritten term:${Console.RESET} $r ${Console.RED}contains references to original vals ${originalVals(r)} or free vals ${allValRefs(r)} ${Console.RESET}")
         }
       }
       

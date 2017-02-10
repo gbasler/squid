@@ -98,8 +98,11 @@ trait ASTHelpers extends Base { self: AST =>
   // Q: use a reinterpreter? (cf: would facilitate the work for Args)
   def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter {
+    
     val showReturnTypes = false
     val showMtdReturnType = showReturnTypes
+    val showHoleInfo = false
+    
     var ident = 0
     def apply(r: Rep): String = apply(dfn(r))
     def apply(d: Def): String = d match {
@@ -117,7 +120,8 @@ trait ASTHelpers extends Base { self: AST =>
       case Module(pre, nam, tp) => s"${apply(pre)}.$nam"
       case StaticModule(fnam) => fnam
       case Ascribe(r,t) => s"${apply(r)}: ${t |> apply}"
-      case Typed(h @ Hole(name), typ) => s"$$$name<:${typ |> apply}" //+ (h.originalSymbol getOrElse "")
+      case Typed(h @ Hole(name), typ) => s"$$$name<:${typ |> apply}" + (if (showHoleInfo) 
+        (h.originalSymbol map (os => s"(o=$os)") getOrElse "") + (h.matchedSymbol map (m => s"(m=$m)") getOrElse "") else "")
       case Typed(SplicedHole(name), typ) => s"$$$name<:${typ |> apply}*"
     }
     def apply(typ: TypeRep) =

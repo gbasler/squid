@@ -244,8 +244,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   lazy val ExtractedBinderSym = loadTypSymbol(ruh.encodedTypeSymbol(ruh.sru.typeOf[squid.lib.ExtractedBinder].typeSymbol.asType))
   
   type Val = BoundVal
+  // To do later: refactor this class for more convenience -- use a unique id in addition to the name
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
+    def renew = new BoundVal(name+freshName)(typ,annots) oh_and (varCount += 1)
     
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name

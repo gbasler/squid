@@ -99,7 +99,7 @@
   val x_1 = scala.`package`.Left.apply[scala.Int, Nothing](100);
   val x_2 = sfusion.`package`.minSize(((x_0): scala.util.Either[scala.Int, scala.Boolean]), x_1);
   val x_3 = sfusion.impl.`package`.single[scala.Int](2);
-  val x_5 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_4: scala.Int) => x$1_4.+(1)));
+  val x_5 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$81_4: scala.Int) => x$1$81_4.+(1)));
   val x_23 = sfusion.impl.`package`.filter[scala.Int](x_5)(((n_6: scala.Int) => {
     val x_7 = n_6.toDouble;
     val x_8 = scala.math.`package`.sqrt(x_7);

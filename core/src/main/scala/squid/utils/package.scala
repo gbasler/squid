@@ -61,6 +61,9 @@ package object utils {
     
     def withTypeOf[T >: A](x: T): T = __self: T
     
+    @inline def IfNot (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
+    @inline def Unless (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
+    
   }
   
   implicit final class LazyGenHelper[A](__self: => A) {
@@ -69,10 +72,8 @@ package object utils {
     @inline def If (cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
     
     @inline def IfNot (cond: Bool): Option[A] = if (!cond) Some(__self) else None
-    @inline def IfNot (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     // same as above, different name:
     @inline def Unless (cond: Bool): Option[A] = if (!cond) Some(__self) else None
-    @inline def Unless (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     
   }
   
