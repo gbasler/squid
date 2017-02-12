@@ -63,7 +63,7 @@ class Compiler extends Optimizer {
     }
   }
   
-  def dumpPhase(name: String, code: => String) = {
+  def dumpPhase(name: String, code: => String, time: Long) = {
     println(s"\n === $name ===\n")
     println(code)
   }
@@ -83,11 +83,13 @@ class Compiler extends Optimizer {
   
   def pipeline = (r: Rep) => {
     
-    dumpPhase("Init", base.showRep(r))
+    dumpPhase("Init", base.showRep(r), 0)
     
     phases.foldLeft(r) { case (r0, name -> f) =>
+      val t0 = System.nanoTime()
       val r1 = f(r0)
-      dumpPhase(name, if (r1 =~= r0) SAME else base.showRep(r1))
+      val t1 = System.nanoTime()
+      dumpPhase(name, if (r1 =~= r0) SAME else base.showRep(r1), t1-t0)
       r1
     }
     

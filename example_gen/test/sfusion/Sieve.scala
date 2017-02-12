@@ -2,6 +2,8 @@
 
 // === Init ===
 
+// Transfo time: 0ms  Stringifying time: 179ms
+
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
   val x_2 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_1: scala.Int) => x$1_1.+(1)))), x_0);
@@ -28,6 +30,8 @@
 }
 
 // === Impl ===
+
+// Transfo time: 19ms  Stringifying time: 343ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -94,6 +98,8 @@
 
 // === CtorInline ===
 
+// Transfo time: 18ms  Stringifying time: 206ms
+
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
   val x_1 = scala.`package`.Left.apply[scala.Int, Nothing](100);
@@ -125,6 +131,8 @@
 }
 
 // === Imperative ===
+
+// Transfo time: 71ms  Stringifying time: 414ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -293,6 +301,8 @@
 
 // === Low-Level Norm ===
 
+// Transfo time: 52ms  Stringifying time: 371ms
+
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
   val x_1 = scala.`package`.Left.apply[scala.Int, Nothing](100);
@@ -445,5 +455,7 @@
 }
 
 // === ReNorm (should be the same) ===
+
+// Transfo time: 16ms  Stringifying time: 22ms
 
 // Same as above.
