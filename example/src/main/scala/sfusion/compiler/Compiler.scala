@@ -9,6 +9,7 @@ import squid.utils._
 import squid.ir._
 import squid.lang._
 import squid.anf.analysis
+import squid.anf.transfo
 
 /**
   * Created by lptk on 08/02/17.
@@ -32,7 +33,7 @@ class Compiler extends Optimizer {
   val base: Code.type = Code
   object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers {
     object Desug extends Desugaring //with TopDownTransformer
-    object Norm extends SelfTransformer with CurryEncoding.ApplicationNormalizer //with FixPointRuleBasedTransformer
+    object Norm extends SelfTransformer with CurryEncoding.ApplicationNormalizer with transfo.OptionNormalizer //with FixPointRuleBasedTransformer
     def pipeline = Desug.pipeline andThen Norm.pipeline
     
     embed(Sequence)
@@ -45,7 +46,7 @@ class Compiler extends Optimizer {
   val Impl = new Code.Lowering('Impl) with TopDownTransformer
   val Imperative = new Code.Lowering('Imperative) with TopDownTransformer
   val DCE = new Code.SelfTransformer with squid.anf.transfo.DeadCodeElimination
-  val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with FixPointRuleBasedTransformer with BottomUpTransformer
+  val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with transfo.VarInliner with FixPointRuleBasedTransformer with BottomUpTransformer
   
   val CtorInline = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
     rewrite {

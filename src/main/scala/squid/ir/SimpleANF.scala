@@ -36,12 +36,22 @@ class SimpleANF extends AST with CurryEncoding { anf =>
   type BlockRep = List[Either[Val -> Rep, Rep]] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
   
   case class Rep(dfn: Def) { // FIXME status of lambdas? (and their curry encoding)
+    
     //def isTrivial = dfn.isTrivial
     lazy val isTrivial: Bool = dfn match { // cache these in a map from symbol to properties?
-      case m: MethodApp => //println(m.sym.fullName)
-        (m.sym.fullName startsWith "squid.lib.uncurried") || (m.sym.fullName == "scala.Any.asInstanceOf") ||
-          (m.sym.isAccessor && {val rst = m.sym.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass })
+      case m: MethodApp => // println(m.sym.fullName)
+        
+        // TODO use a real effect system; be sound with things like effectful functions passed to combinators like `map`
+        (
+          (m.sym.fullName startsWith "squid.lib.uncurried")
+          || (m.sym.fullName == "scala.Any.asInstanceOf")
+          || m.sym.isAccessor && {val rst = m.sym.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass }
+          || (m.sym.fullName startsWith "scala.Option") || (m.sym.fullName startsWith "scala.Some") || (m.sym.fullName startsWith "scala.None")
+          || (m.sym.fullName startsWith "scala.Function") && !(m.sym.fullName endsWith ".apply") 
+          //|| (m.sym.fullName startsWith "scala.Predef.$conforms")
+        )
         // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work
+        
       case Module(pre, _, _) => pre.isTrivial
       case Ascribe(x, _) => x.isTrivial
       case _ => true
@@ -64,6 +74,8 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     }
     
     lazy val boundVals: Set[Val] = anf.boundVals(this)
+    
+    def unapply(that: Rep) = extract(this, that)
     
     override def toString = s"$dfn"
   }

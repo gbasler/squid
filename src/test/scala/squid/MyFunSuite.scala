@@ -5,6 +5,8 @@ import squid.ir.AST
 import squid.lang.InspectableBase
 import utils.meta.RuntimeUniverseHelpers.sru
 
+import utils.GenHelper
+
 class MyFunSuite[DSL <: AST](override val DSL: DSL = TestDSL) extends MyFunSuiteBase[DSL](DSL) { funs =>
   import DSL._
   
@@ -35,10 +37,18 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
     def apply [B: sru.TypeTag] = { sameScalaType[A,B]; self }
   }
   
+  private def showBest(x:Any) = x match {
+    case r: DSL.Rep => r|>DSL.showRep
+    case _ => x.toString
+  }
+  
   def same[T](a: T, b: T) = assert(a == b)
   def eqtBy[T](a: T, b: T, truth: Boolean = true)(r: (T,T) => Boolean) =
     //assert(r(a, b), s"=> $a and $b are not equivalent")
-    if (r(a, b) != truth) fail(s"$a and $b are ${if (truth) "not " else ""}equivalent")
+    if (r(a, b) != truth) {
+      System.err.println(s"FAILURE: ${a|>showBest} and ${b|>showBest}")
+      fail(s"$a and $b are ${if (truth) "not " else ""}equivalent")
+    }
   
   
   def subt(a: IRType[_], b: IRType[_]) = eqtBy(a,b)(_ <:< _)
