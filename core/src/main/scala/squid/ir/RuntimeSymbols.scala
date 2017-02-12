@@ -6,14 +6,18 @@ import meta.RuntimeUniverseHelpers._
 
 import collection.mutable
 
-object RuntimeSymbols extends RuntimeSymbols with PublicTraceDebug { // TODO move this to general helpers
-  
-  private val typSymbolCache = mutable.HashMap[String, ScalaTypeSymbol]() // FIXME not used???
+object RuntimeSymbols extends RuntimeSymbols with PublicTraceDebug {
   
 }
 //trait RuntimeSymbols extends TraceDebug {
 trait RuntimeSymbols {
   import RuntimeSymbols._
+  
+  
+  private[this] val symbolCache = mutable.HashMap.empty[(ScalaTypeSymbol,String), MtdSymbol]
+  private[this] val overloadedSymbolCache = mutable.HashMap.empty[(ScalaTypeSymbol,String,Int), MtdSymbol]
+  private[this] lazy val typSymbolCache = mutable.HashMap.empty[String, ScalaTypeSymbol] // FIXME lazy...
+  
   
   /*
   // TODO migrate to use these instead
@@ -37,6 +41,9 @@ trait RuntimeSymbols {
   type MtdSymbol = sru.MethodSymbol
   
   def loadTypSymbol(fullName: String): ScalaTypeSymbol = {
+    typSymbolCache getOrElseUpdate (fullName, loadTypSymbolImpl(fullName))
+  }
+  def loadTypSymbolImpl(fullName: String): ScalaTypeSymbol = {
     //debug(s"Loading type $fullName")
     val path = fullName.splitSane('#')
     val root = if (path.head endsWith "$") srum.staticModule(path.head.init) else srum.staticClass(path.head)
@@ -53,7 +60,14 @@ trait RuntimeSymbols {
     (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) and (x => debug(s"Loaded: $x"))
   }
   
-  def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = { // TODO cache!!
+  def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
+    // Q: is it okay not to include `static` in the caching key?!
+    if (index.isDefined)
+      overloadedSymbolCache getOrElseUpdate ((typ, symName, index.get), loadMtdSymbolImpl(typ, symName, index, static))
+    else symbolCache getOrElseUpdate ((typ, symName), loadMtdSymbolImpl(typ, symName, index, static))
+  }
+  // Note: `static` as in "Java static"
+  private def loadMtdSymbolImpl(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean): MtdSymbol = { // TODOne cache!!
     debug(s"Loading method $symName from $typ"+(if (static) " (static)" else ""))
     
     /** Because of a 2-ways caching problem in the impl of JavaMirror,
