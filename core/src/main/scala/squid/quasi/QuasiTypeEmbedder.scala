@@ -15,6 +15,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
   
   class Impl extends ModularEmbedding[c.universe.type, B](c.universe, base, debug) {
     
+    def insertTypeEvidence(ev: base.TypeRep): base.TypeRep = ev
+    
     override def unknownTypefallBack(tp: Type): base.TypeRep = {
       
       debug(s"Lifting unknown type $tp (${tp.widen.dealias})")
@@ -32,7 +34,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
         case EmptyTree =>
         case impt =>
           debug(s"Found: "+showCode(impt))
-          return q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
+          return (q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
+            |> insertTypeEvidence)
       }
       
       val vals = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain.flatMap {
@@ -52,7 +55,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       vals foreach {
         case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= baseTree.tpe =>
           debug("FOUND QUOTED TYPE "+sym)
-          return q"$sym.rep".asInstanceOf[base.TypeRep] // FIXME
+          return (q"$sym.rep".asInstanceOf[base.TypeRep] // FIXME
+            |> insertTypeEvidence)
         case _ =>
       }
       
@@ -77,9 +81,18 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
             
           case impt =>
             
+            // We used to do the following, which helped to let-bind (using the caching mechanism of `ModularEmbedding`,
+            // since this would call the base's `uninterpretedType`). However, now `uninterpretedType` is overridden and
+            // inserted types are aggregated and named, so that caching can index on them, so this is no more necessary:
+            /*
+            // Note: not using `impt`! cf. below... (we just ensure it exists to give the better error message above)
             super.unknownTypefallBack(tp) // unnecessary, as it just generates a call to uninterpretedType without the implicit resolved
             // ^ actually useful to cache the tag!
+            */
             
+            q"$baseTree.uninterpretedType($impt)".asInstanceOf[base.TypeRep] |> insertTypeEvidence
+            
+            // Older:
             /* Does not help, as it bypasses the underlying base:
              * although the tree creation is cached, it will NOT get let-bound, and will be duplicated all over the place */
             //return typeCache.getOrElseUpdate(tp, q"$baseTree.uninterpretedType[$tp]($impt)".asInstanceOf[base.TypeRep])

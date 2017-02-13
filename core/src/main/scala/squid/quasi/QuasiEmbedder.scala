@@ -203,6 +203,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     val tree = rawTree
     
     
+    val insertedTermTrees = mutable.ArrayBuffer[Tree]() // currently only used to disable caching if non-empty
+    val insertedTypeTrees = mutable.Map[TermName,Tree]()
+    
+    
     /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
       * program go through an arbitrary base before ending up as Scala mirror code! */
     val codeTree = config.embed(c)(Base, new BaseUser[c.type](c) {
@@ -218,6 +222,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         /** Special-cases the default modular embedding with quasiquote-specific details */
         object ME extends QTE.Impl {
+          
+          override def insertTypeEvidence(ev: base.TypeRep): base.TypeRep = if (unapply.isEmpty) ev else {
+            val tn = c.freshName(TermName("insertedEv"))
+            //debug(s"INS $tn -> $ev")
+            insertedTypeTrees += tn -> ev.asInstanceOf[Tree]//FIXME
+            Ident(tn).asInstanceOf[base.TypeRep]//FIXME
+          }
           
           def holeName(nameTree: Tree, in: Tree) = nameTree match {
             case q"scala.Symbol.apply(${Literal(Constant(str: String))})" => str
@@ -278,6 +289,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               * In the default quasi config case, this will be the trees representing the inserted elements. */
             case q"$baseTree.$$[$tpt,$scp](..$idts)" => // TODO check baseTree:  //if base.tpe == Base.tpe => // TODO make that an xtor  // note: 'base equalsStructure Base' is too restrictive/syntactic
               //debug("UNQUOTE",idts)
+              
+              insertedTermTrees ++= idts
               
               val (bases, vars) = bases_variables(scp.tpe)
               
@@ -496,6 +509,30 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val contextInfo = q"type $$ExtractedContext$$ = ${termScope.last}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
         //val contextInfo = q"type $$ExtractedContext$$ = ${glb(termScope)}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
         
+        
+        // TODO also cache constructed reps?
+        val wrappedRep = if (insertedTermTrees.isEmpty) {
+          
+          val uuid = java.util.UUID.randomUUID().toString()
+          debug(s"Caching UUID: $uuid")
+          debug(s"Inserted Types: $insertedTypeTrees")
+          
+          def fun = q"(..${ insertedTypeTrees map {case tn->tree => q"val $tn: $shortBaseName.TypeRep"} }) => $res"
+          
+          val gen = q"$Base.wrapExtract($shortBaseName.cacheRep($uuid,(..${
+            insertedTypeTrees.unzip._2
+          }), ${insertedTypeTrees.size match {
+            case 0 => q"(_:Unit)=>$res"
+            case 1 => fun
+            case n => q"$fun.tupled"
+          }}))"
+          
+          //debug("GEN "+gen)
+          gen
+          
+        } else q"$Base.wrapExtract{..${ insertedTypeTrees map {case tn->tree => q"val $tn: $shortBaseName.TypeRep = $tree"} }; $res}"
+        
+        
         if (extrTyps.isEmpty) { // A particular case, where we have to make Scala understand we extract nothing at all
           
           q"""{
@@ -505,7 +542,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             $contextInfo
             def unapply(_t_ : $termType): Boolean = {
               //val $$shortBaseName = $$baseTree
-              val _term_ = $Base.wrapExtract($res)
+              val _term_ = $wrappedRep
               $Base.extractRep(_term_, _t_.rep) match {
                 case Some((vs, ts, fvs)) if vs.isEmpty && ts.isEmpty && fvs.isEmpty => true
                 case Some((vs, ts, fvs)) => assert(false, "Expected no extracted objects, got values "+vs+", types "+ts+" and spliced values "+fvs); ???
@@ -529,7 +566,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             $typeInfo
             $contextInfo
             def unapply(_t_ : $termType): $scal.Option[$extrTuple] = {
-              val _term_ = $Base.wrapExtract($res)
+              val _term_ = $wrappedRep
               $Base.extractRep(_term_, _t_.rep) map { _maps_0_ =>
                 val _maps_ = $Base.`internal checkExtract`(${showPosition(c.enclosingPosition)}, _maps_0_)(..$valKeys)(..$typKeys)(..$splicedValKeys)
                 (..$tupleConv)

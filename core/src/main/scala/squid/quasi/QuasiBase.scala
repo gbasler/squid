@@ -9,6 +9,8 @@ import squid.lang.InspectableBase
 import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
+import scala.collection.mutable
+
 
 /** Maybe QQ/QC should be accessible to all bases (with necessary feature restrictions)?
   *   Would make Liftable instances nicer since we'd be able to assume QQ/QC can be used on all bases */
@@ -274,6 +276,13 @@ self: Base =>
   }
   object Quasicodes extends Quasicodes[DefaultQuasiConfig]
   object Quasiquotes extends Quasiquotes[DefaultQuasiConfig]
+  
+  // Note: could optimize cases with no key (currently encoded usign Unit) -- pur in a `mutable.HashMap[String,Rep]()`
+  private val caches = mutable.HashMap[String,mutable.HashMap[Any,Rep]]()
+  def cacheRep[K](id: String, key: K, mk: K => Rep): Rep = {
+    caches.getOrElseUpdate(id,mutable.HashMap[Any,Rep]()).getOrElseUpdate(key,mk(key))
+    //mk(key)  // toggle comment to see the effect of NOT caching
+  }
   
 }
 

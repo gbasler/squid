@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 135ms
+// Transfo time: 0ms  Stringifying time: 26ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -31,7 +31,7 @@
 
 // === Impl ===
 
-// Transfo time: 23ms  Stringifying time: 299ms
+// Transfo time: 27ms  Stringifying time: 65ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -98,7 +98,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 17ms  Stringifying time: 160ms
+// Transfo time: 31ms  Stringifying time: 32ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -132,7 +132,7 @@
 
 // === Imperative ===
 
-// Transfo time: 67ms  Stringifying time: 387ms
+// Transfo time: 83ms  Stringifying time: 82ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -301,7 +301,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 45ms  Stringifying time: 327ms
+// Transfo time: 112ms  Stringifying time: 79ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -456,6 +456,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 14ms  Stringifying time: 23ms
+// Transfo time: 26ms  Stringifying time: 44ms
 
 // Same as above.

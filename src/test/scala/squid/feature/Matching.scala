@@ -187,6 +187,34 @@ class Matching extends MyFunSuite {
     
   }
   
+  
+  test("Extractor Caching Indexes on Types Properly") {
+    
+    def matchTyp[T:IRType](x:IR[Any,{}]) = {
+      val t = implicitly[IRType[T]]
+      x match {
+        case ir"$x:Nothing" => fail
+        case ir"($x:Nothing,$y:Nothing)" => fail
+        case ir"$x:T" => 1
+        case ir"$x:$$t" => 2 
+        case ir"($x:T,$y:T)" => 3
+        case ir"$x:Any" => 4
+      }
+    }
+    
+    assert(matchTyp[Int](ir"42") == 1)
+    assert(matchTyp[Symbol](ir"'ko") == 1)
+    assert(matchTyp[Symbol](ir"42") == 4)
+    assert(matchTyp[Symbol](ir".5") == 4)
+    assert(matchTyp[Symbol](ir"'ko") == 1)
+    assert(matchTyp[Double](ir".5") == 1)
+    assert(matchTyp[Int](ir"(1,2)") == 3)
+    assert(matchTyp[Boolean](ir"(1,2)") == 4)
+    assert(matchTyp[Boolean](ir"(true,false)") == 3)
+    
+  }
+  
+  
 }
 
 

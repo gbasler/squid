@@ -147,17 +147,13 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   def transformer(rec_pf: (Tree => Tree) => PartialFunction[Tree, Tree]) = {
     new Transformer {
       val pf: PartialFunction[Tree, Tree] = rec_pf(transform)
-      override def transform(x: Tree) =
-        if (pf isDefinedAt x) pf(x)
-        else super.transform(x)
+      override def transform(x: Tree) = pf.applyOrElse(x, super.transform)
     } transform _
   }
   def analyser(rec_pf: (Tree => Unit) => PartialFunction[Tree, Unit]) = {
     new Traverser {
       val pf: PartialFunction[Tree, Unit] = rec_pf(traverse)
-      override def traverse(x: Tree) =
-        if (pf isDefinedAt x) pf(x)
-        else super.traverse(x)
+      override def traverse(x: Tree) = pf.applyOrElse(x, super.traverse)
     } traverse _
   }
   
