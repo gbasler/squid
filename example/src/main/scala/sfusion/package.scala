@@ -15,9 +15,17 @@ package object sfusion {
     case Left(n) -> Left(m) => Left(n min m)
     case Left(n) -> _ => Left(n)
     case _ -> Left(n) => Left(n)
-    case Right(true) -> _ => Right(true)
-    case _ -> Right(true) => Right(true)
-    case _ => Right(false)
+    case Right(a) -> Right(b) => Right(a || b)
+  }
+  def addToSize(lhs: SizeInfo, rhs: Int): SizeInfo = lhs match {
+    case Left(n) => Left(n+rhs)
+    case x => x
+  }
+  def addSizes(lhs: SizeInfo, rhs: SizeInfo): SizeInfo = lhs -> rhs match {
+    case Left(n) -> Left(m) => Left(n + m)
+    case Left(n) -> x => x
+    case x -> Left(n) => x
+    case Right(a) -> Right(b) => Right(a && b)
   }
   
 }

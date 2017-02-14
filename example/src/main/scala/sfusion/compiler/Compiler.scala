@@ -14,6 +14,10 @@ import squid.anf.transfo
 /**
   * Created by lptk on 08/02/17.
   * 
+  * TODO high-level optims such as map.map->map and map.flatten->flatMap; applying on the level of Sequence defs
+  *   to work well this requires an effect system that accounts for latent effects,
+  *     such that `s.map(a => a+readInt)` is pure but `s.map(a => a+readInt).fold(...)` is impure
+  * 
   * TODO loop optims... can we match the pattern where the first iteration of the loop can be moved out?
   *   (a var starting true, set to false, with a comparison)
   *   as arises when concatenating a unary seq w/ another seq
@@ -63,6 +67,34 @@ class Compiler extends Optimizer {
     }
   }
   
+  val ImplOptim = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+    import impl._
+    
+    // Q: works with hygienic context polym?!
+    // TODO generalize for any associative binop;
+    // Note: this would be best achieved by simply re-associating to the right all associative binops
+    /** Extracts the right-hand side of some string addition starting with free variable `acc?:String`.
+      * This is useful because currently pattern `acc + $x` cannot match something like `(acc + a) + b`. */
+    object StringAccAdd {
+      val Acc = ir"acc?:String"
+      // ^ Note: inline `${ir"acc?:String"}` in the pattern is mistaken for an xtion hole (see github.com/LPTK/Squid/issues/11)
+      def unapply[C](x:IR[Any,C]): Option[IR[Any,C]] = x match {
+        case ir"($Acc:String) + $rest" => Some(rest)
+        case ir"($lhs:String) + $rhs" => unapply(lhs) map (x => ir"$x.toString + $rhs") orElse (unapply(rhs) map (x => ir"$lhs + $x"))
+        case _ => None
+      }
+    }
+    
+    rewrite {
+      case ir"fold[String,String]($s)($z)((acc,s) => ${StringAccAdd(body)})" => // TODO generalize... (statements?!)
+        val strAcc = ir"strAcc? : StringBuilder"
+        val body2 = body subs 'acc -> ir"$strAcc.result"
+        val zadd =  // FIXME does not compile when inserted in-line... why?
+        ir"val strAcc = new StringBuilder; $zadd; foreach($s){ s => strAcc ++= $body2.toString }; strAcc.result"
+    }
+  }
+  
+  
   def dumpPhase(name: String, code: => String, time: Long) = {
     println(s"\n === $name ===\n")
     println(code)
@@ -73,7 +105,8 @@ class Compiler extends Optimizer {
   val phases: List[String->(Rep=>Rep)] = List(
     "Impl" -> Impl.pipeline,
     "CtorInline" -> CtorInline.pipeline,
-    //"DCE 0" -> DCE.pipeline,  // FIXME only remove effectless things
+    //"DCE 0" -> DCE.pipeline,  // FIXME only remove effectless/just-read things
+    "ImplOptim" -> ImplOptim.pipeline,
     "Imperative" -> Imperative.pipeline,
     "Low-Level Norm" -> LowLevelNorm.pipeline,
     "ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)())

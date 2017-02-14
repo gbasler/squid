@@ -23,13 +23,21 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   def bounded = size.isLeft || size == Right(true)
   
   @inline @phase('Impl)
-  def +: [B >: A] (e: B): Sequence[B] = new Sequence(() => impl.concat(impl.single(e), under()), size) // TODO fix size
+  def +: [B >: A] (e: B): Sequence[B] = new Sequence(() => impl.concat(impl.single(e), under()), addToSize(size,1)) // TODO impl and use prepend/append
+  
+  @inline @phase('Impl)
+  def ++ [B >: A] (that: Sequence[B]): Sequence[B] = new Sequence(() => impl.concat(under(), that.under()), addSizes(size,that.size))
   
   //@inline @phase('Impl)
   //def ++ (xs: Sequence[A]): Sequence[A] = new Sequence(() => impl.map(under())(f), plus(size))
   
+  
   @inline @phase('Impl)
   def map[B](f: A => B): Sequence[B] = new Sequence(() => impl.map(under())(f), size)
+  
+  @inline @phase('Impl)
+  def flatMap[B](f: A => Sequence[B]): Sequence[B] = new Sequence(() => impl.flatMap(under())(f andThen (_.under())), Right(true))
+  
   
   @inline @phase('Impl)
   def fold[B](z: B)(f: (B,A) => B): B = impl.fold(under())(z)(f)
@@ -49,6 +57,9 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   
   @inline @phase('Impl)
   def take(num: Int): Sequence[A] = new Sequence(() => impl.take(under())(num), minSize(size,Left(num)))
+  
+  @inline @phase('Impl)
+  def drop(num: Int): Sequence[A] = new Sequence(() => impl.drop(under())(num), minSize(size,Left(num)))
   
   @phase('Impl)
   def show(maxPrinted: Int = 10): String = s"Sequence(${
@@ -97,7 +108,8 @@ object Sequence extends SquidObject {
   def fromIndexed[A](is: IndexedSeq[A]): Sequence[A] = new Sequence(() => impl.fromIndexed(is), Left(is.size))
   
   @phase('Sugar)
-  def fromIterable[A](ite: Iterable[A]): Sequence[A] = ??? // TODO
+  // Note: could also make fromLinearImpl use impl.fromIterator ... well in fact could even remove them
+  def fromIterable[A](ite: Iterable[A]): Sequence[A] = new Sequence(() => impl.fromIterator(ite.iterator), Right(false))
   
   @phase('Sugar)
   private def fromLinearImpl[A](xs: LinearSeq[A]) = impl.unfold(xs)(xs => xs.headOption map (h => (h,xs.tail)))

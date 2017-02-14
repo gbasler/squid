@@ -48,6 +48,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
           || m.sym.isAccessor && {val rst = m.sym.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass }
           || (m.sym.fullName startsWith "scala.Option") || (m.sym.fullName startsWith "scala.Some") || (m.sym.fullName startsWith "scala.None")
           || (m.sym.fullName startsWith "scala.Function") && !(m.sym.fullName endsWith ".apply") 
+          || (m.sym.fullName startsWith "java.lang.String")
           //|| (m.sym.fullName startsWith "scala.Predef.$conforms")
         )
         // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work

@@ -64,6 +64,14 @@ object `package` {
   }
   
   @inline @phase('Imperative)
+  def fromIterator[A](ite: Iterator[A]): Producer[A] = {
+    k => {
+      while (ite.hasNext && k(ite.next)) {}
+      !ite.hasNext
+    }
+  }
+  
+  @inline @phase('Imperative)
   def unfold[A,B](start: B)(f: B => Option[(A,B)]): Producer[A] = {
     var b = start
     var isEmpty = false
@@ -157,6 +165,12 @@ object `package` {
   def takeWhile[A](s: Producer[A])(pred: A => Bool): Producer[A] = {
     var stop = false
     k => { s { a => if (pred(a)) { k(a) } else {stop = true; false} } || stop }
+  }
+  
+  @inline @phase('Imperative)
+  def drop[A](s: Producer[A])(n: Int): Producer[A] = {
+    var dropped = 0
+    k => { s { a => if (dropped < n) { dropped += 1; true } else { k(a) } } }
   }
   
   @inline @phase('Imperative)
