@@ -89,7 +89,7 @@ class Compiler extends Optimizer {
       case ir"fold[String,String]($s)($z)((acc,s) => ${StringAccAdd(body)})" => // TODO generalize... (statements?!)
         val strAcc = ir"strAcc? : StringBuilder"
         val body2 = body subs 'acc -> ir"$strAcc.result"
-        val zadd =  // FIXME does not compile when inserted in-line... why?
+        val zadd = if (z =~= ir{""}) ir"()" else ir"$strAcc ++= $z" // FIXME does not compile when inserted in-line... why?
         ir"val strAcc = new StringBuilder; $zadd; foreach($s){ s => strAcc ++= $body2.toString }; strAcc.result"
     }
   }
