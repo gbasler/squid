@@ -31,7 +31,7 @@
 
 // === Impl ===
 
-// Transfo time: 21ms  Stringifying time: 42ms
+// Transfo time: 24ms  Stringifying time: 62ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -100,7 +100,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 27ms  Stringifying time: 27ms
+// Transfo time: 36ms  Stringifying time: 41ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -109,7 +109,7 @@
   val x_3 = scala.`package`.Left.apply[scala.Int, Nothing](100);
   val x_4 = sfusion.`package`.minSize(x_2, x_3);
   val x_5 = sfusion.impl.`package`.single[scala.Int](2);
-  val x_7 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$83_6: scala.Int) => x$1$83_6.+(1)));
+  val x_7 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$87_6: scala.Int) => x$1$87_6.+(1)));
   val x_25 = sfusion.impl.`package`.filter[scala.Int](x_7)(((n_8: scala.Int) => {
     val x_9 = n_8.toDouble;
     val x_10 = scala.math.`package`.sqrt(x_9);
@@ -136,13 +136,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 8ms
+// Transfo time: 0ms  Stringifying time: 17ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 84ms  Stringifying time: 82ms
+// Transfo time: 127ms  Stringifying time: 174ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -313,7 +313,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 97ms  Stringifying time: 86ms
+// Transfo time: 109ms  Stringifying time: 112ms
 
 {
   val x_0 = scala.`package`.Right.apply[Nothing, scala.Boolean](false);
@@ -470,6 +470,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 26ms  Stringifying time: 57ms
+// Transfo time: 23ms  Stringifying time: 33ms
 
 // Same as above.

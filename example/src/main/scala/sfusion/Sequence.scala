@@ -14,6 +14,10 @@ import scala.collection.LinearSeq
   * Q: are the underlying producers supposed to be referentially-transparent? If one use gives size `n`,
   *    will the next use give the same size? (could be used to update size info)
   * 
+  * Note: for the library to behave well, `under()` should be "pseudo-referentially transparent" in the sense that all
+  * calls to `under()` and subsequent uses of the result (which may close over state) should behave independently of 
+  * when they happen.
+  * 
   */
 //@dbg_embed
 @embed
@@ -33,11 +37,21 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   
   
   @inline @phase('Impl)
+  def count: Int = impl.fold(under())(0)((acc,_) => acc+1)
+  
+  @inline @phase('Impl)
   def map[B](f: A => B): Sequence[B] = new Sequence(() => impl.map(under())(f), size)
   
   @inline @phase('Impl)
   def flatMap[B](f: A => Sequence[B]): Sequence[B] = new Sequence(() => impl.flatMap(under())(f andThen (_.under())), Right(true))
   
+  @inline @phase('Impl)
+  def foreach(f: A => Unit): Unit = impl.foreach(under())(f)
+  
+  def buffer = {
+    val buf = impl.toBuffer(under())
+    new Sequence(() => impl.fromIndexed(buf), Left(buf.size))
+  }
   
   @inline @phase('Impl)
   def fold[B](z: B)(f: (B,A) => B): B = impl.fold(under())(z)(f)
@@ -47,6 +61,21 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   
   @inline @phase('Impl)
   def takeWhile(pred: A => Bool): Sequence[A] = new Sequence(() => impl.takeWhile(under())(pred), size) // FIXME size
+  
+  @inline @phase('Impl)
+  def takeUntil[B >: A](xs: B*): Sequence[A] = {
+    val xSet = xs.toSet
+    takeWhile(!xSet(_))
+  }
+  
+  @inline @phase('Impl)
+  def dropWhile(pred: A => Bool): Sequence[A] = new Sequence(() => impl.dropWhile(under())(pred), size) // FIXME size
+  
+  @inline @phase('Impl)
+  def dropElems[B >: A](xs: B*): Sequence[A] = {
+    val xSet = xs.toSet
+    dropWhile(xSet)
+  }
   
   @inline @phase('Impl)
   def forall(pred: A => Bool): Bool = impl.all(under())(pred)
@@ -62,25 +91,22 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   def drop(num: Int): Sequence[A] = new Sequence(() => impl.drop(under())(num), minSize(size,Left(num)))
   
   @phase('Impl)
+  // TODO compare perf with old impl (cf commit b18e142b79baee6c48ed09425cc5b062cf036c82)
   def show(maxPrinted: Int = 10): String = s"Sequence(${
-    val sb = new StringBuilder
-    
-    val p = under()
-    impl.foreach(impl.take(p)(maxPrinted)){ e => if (sb.nonEmpty) sb += ','; 
-      sb ++= s"$e" }
-      //sb ++= e.toString }
-    // ^ FIXME @embedded code tries to access toString from `__b__.loadTypSymbol("sfusion.Sequence.EmbeddedIn#Class$#__Defs__$#_4_#A")`! see below
-    
-    var shorten = false
-    p{_ => shorten = true; false}
-    // ^ if `p` has at least one element left, we need to use a shortening mark (append "...")
-    
-    if (shorten) sb ++= ",..."
-    sb.result
+    val sep = ","
+    var truncated = true
+    val u = impl.onFinish(under())(() => truncated = false)
+    val withSep = impl.mapHeadTail(u)(a => s"$a")(a => s",$a")
+    val withTrunc = impl.take(withSep)(maxPrinted)
+    val flat = impl.fold(withTrunc)("")(_ + _)
+    if (truncated) flat+",..." else flat
   })"
   
   @phase('Sugar)
-  //override def toString: String = show() // FIXME or at least warn!! -- used to work because we were not reconstructing lowered methodApp types
+  def showAll: String = show(Int.MaxValue)
+  
+  @phase('Sugar)
+  //override def toString: String = show() // FIXME or at least warn!! (cf. lack of `()`) -- used to work because we were not reconstructing lowered methodApp types
   override def toString(): String = show()
   
   @phase('Impl)
@@ -108,17 +134,16 @@ object Sequence extends SquidObject {
   def fromIndexed[A](is: IndexedSeq[A]): Sequence[A] = new Sequence(() => impl.fromIndexed(is), Left(is.size))
   
   @phase('Sugar)
-  // Note: could also make fromLinearImpl use impl.fromIterator ... well in fact could even remove them
+  // Note: could pattern-match and use more specialized constructs when possible, eg for `List`s
   def fromIterable[A](ite: Iterable[A]): Sequence[A] = new Sequence(() => impl.fromIterator(ite.iterator), Right(false))
   
   @phase('Sugar)
-  private def fromLinearImpl[A](xs: LinearSeq[A]) = impl.unfold(xs)(xs => xs.headOption map (h => (h,xs.tail)))
+  def fromStream[A](xs: Stream[A]): Sequence[A] =
+    if (xs.hasDefiniteSize) new Sequence(() => impl.fromIterator(xs.iterator), Left(xs.size)) // Note: this is inefficient... probably not even needed/wanted
+    else fromIterable(xs)
+  
   @phase('Sugar)
-  def fromLinear[A](xs: LinearSeq[A]): Sequence[A] = new Sequence(() => fromLinearImpl(xs), Right(xs.hasDefiniteSize))
-  @phase('Sugar)
-  def fromStream[A](xs: Stream[A]): Sequence[A] = fromLinear(xs)
-  @phase('Sugar)
-  def fromList[A](xs: List[A]): Sequence[A] = new Sequence(() => fromLinearImpl(xs), Left(xs.size)) // could factor with above...
+  def fromList[A](xs: List[A]): Sequence[A] = new Sequence(() => impl.fromIterator(xs.iterator), Left(xs.size)) // could factor with above...
   
 }
 

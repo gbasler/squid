@@ -37,7 +37,12 @@ class Compiler extends Optimizer {
   val base: Code.type = Code
   object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers {
     object Desug extends Desugaring //with TopDownTransformer
-    object Norm extends SelfTransformer with CurryEncoding.ApplicationNormalizer with transfo.OptionNormalizer //with FixPointRuleBasedTransformer
+    object Norm extends SelfTransformer
+      with CurryEncoding.ApplicationNormalizer
+      with transfo.OptionNormalizer
+      with transfo.TupleNormalizer 
+      with transfo.FunctionNormalizer 
+      //with FixPointRuleBasedTransformer
     def pipeline = Desug.pipeline andThen Norm.pipeline
     
     embed(Sequence)

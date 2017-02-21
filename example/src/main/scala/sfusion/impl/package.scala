@@ -23,6 +23,8 @@ import scala.collection.mutable
   * More a convention than a law:
   *   - a producer that has produced its last element should return true
   *   
+  * TODO: the consumer returns how many elements to skip and -1 to stop; the producer returns how many elements are left and -1 if unknown
+  * 
   */
 
 //package object impl {  // <- cannot be annotated!
@@ -31,13 +33,23 @@ import scala.collection.mutable
 @embed
 object `package` {
   
-  // first bool for 'give me more'; last bool for 'terminated'
-  type Producer[A] = (A => Bool) => Bool
+  /** Returned boolean stands for 'give me more' */
+  type Consumer[A] = A => Bool
+  /** Returned boolean stands for 'no more elements available' */
+  type Producer[A] = Consumer[A] => Bool
   
   @inline @phase('Imperative)
   def single[A](v: A): Producer[A] = {
     k => {
       k(v)
+      true
+    }
+  }
+  
+  @inline @phase('Imperative)
+  def singleOpt[A](v: Option[A]): Producer[A] = {
+    k => {
+      v.foreach(k)
       true
     }
   }
@@ -54,14 +66,15 @@ object `package` {
   }
   
   @inline @phase('Imperative)
-  def fromIndexed[A](arr: IndexedSeq[A]): Producer[A] = {
-    var i = 0
-    val len = arr.length
+  def fromIndexedSlice[A](arr: IndexedSeq[A])(from: Int, until: Int): Producer[A] = {
+    var i = from
     k => {
-      while (i < len && {val a = arr(i); i += 1; k(a)}) {}
-      i == len
+      while (i < until && {val a = arr(i); i += 1; k(a)}) {}
+      i == until
     }
   }
+  @inline @phase('Imperative)
+  def fromIndexed[A](arr: IndexedSeq[A]): Producer[A] = fromIndexedSlice(arr)(0, arr.length)
   
   @inline @phase('Imperative)
   def fromIterator[A](ite: Iterator[A]): Producer[A] = {
@@ -71,6 +84,7 @@ object `package` {
     }
   }
   
+  // FIXME this Producer violates Producer laws as it can return false but not produce any more element!
   @inline @phase('Imperative)
   def unfold[A,B](start: B)(f: B => Option[(A,B)]): Producer[A] = {
     var b = start
@@ -137,10 +151,34 @@ object `package` {
     }
   }
   
+  // The following is really just a simplification of the above; (don't see how to simplify further...)
+  // This simplification should be achievable with simple expansion and normalization, so it is not really useful here,
+  // unless maybe for shallow (unoptimized) performance.
+  /*
+  @inline @phase('Imperative)
+  def prependOpt[A](lhs: Option[A], rhs: Producer[A]): Producer[A] = {
+    var curIsLhs = lhs.isDefined
+    k => {
+      var cont = true
+      var finished = false
+      while (cont && !finished) {
+        var next: Option[A] = None
+        if (curIsLhs) {
+          // assert(lhs.isDefined)  // should hold
+          next = lhs
+        } else if (next.isEmpty) {
+          if (rhs { r => next = Some(r); false }) finished = true
+        }
+        next.fold(finished = true)(x => cont = k(x))
+      }
+      finished
+    }
+  }
+  */
   
   @inline @phase('Imperative)
   def foreach[A](s: Producer[A])(f: A => Unit): Bool = {
-    s { a => f(a); true }
+    s { a => f(a); true }  // Note: should always return true! (cf Producer law) 
   }
   
   @inline @phase('Imperative)
@@ -153,6 +191,33 @@ object `package` {
   @inline @phase('Imperative)
   def map[A,B](s: Producer[A])(f: A => B): Producer[B] = {
     k => s { a => k(f(a)) }
+  }
+  
+  @inline @phase('Imperative)
+  def mapHeadTail[A,B](s: Producer[A])(fh: A => B)(ft: A => B): Producer[B] = {
+    var first = true
+    k => s { a => k(if (first) {first = false; fh(a)} else ft(a)) }
+  }
+  
+  @inline @phase('Imperative)
+  def mapEffect[A](s: Producer[A])(f: A => Unit): Producer[A] = {
+    k => s { a => f(a); k(a) }
+  }
+  
+  @inline @phase('Imperative)
+  //def onFinish[A](s: Producer[A])(action: => Unit): Producer[A] = { // FIXME automatic @embedding of by-name params
+  def onFinish[A](s: Producer[A])(action: () => Unit): Producer[A] = {
+    k => { val completed = s(k); if (completed) action(); completed }
+  }
+  
+  @inline @phase('Imperative)
+  def splitConsume[A,B](s: Producer[A])(c: Consumer[A]): Unit = {
+    while({s(c)}){}
+  }
+  
+  @inline @phase('Imperative)
+  def unzip[A,B,C](s: Producer[A])(f: A => (B,C))(c: Consumer[C]): Producer[B] = {
+    ??? // TODO
   }
   
   @inline @phase('Imperative)
@@ -171,6 +236,12 @@ object `package` {
   def drop[A](s: Producer[A])(n: Int): Producer[A] = {
     var dropped = 0
     k => { s { a => if (dropped < n) { dropped += 1; true } else { k(a) } } }
+  }
+  
+  @inline @phase('Imperative)
+  def dropWhile[A](s: Producer[A])(pred: A => Bool): Producer[A] = {
+    var dropping = true
+    k => { s { a => if (dropping && pred(a)) true else {dropping = false; k(a)} } }
   }
   
   @inline @phase('Imperative)
@@ -222,7 +293,7 @@ object `package` {
   }
   
   @inline @phase('Imperative)
-  def toBuffer[A](xs: Producer[A]): mutable.Buffer[A] = {
+  def toBuffer[A](xs: Producer[A]): mutable.ArrayBuffer[A] = {
     val res = mutable.ArrayBuffer[A]()
     xs { a => res += a; true }
     res

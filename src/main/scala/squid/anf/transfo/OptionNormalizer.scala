@@ -46,3 +46,34 @@ trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
   }
   
 }
+
+trait TupleNormalizer extends SimpleRuleBasedTransformer { self =>
+  import base.Predef._
+  import self.base.InspectableIROps
+  import self.base.IntermediateIROps
+  
+  rewrite {
+      
+    case ir"($a:$ta) -> ($b:$tb)" => ir"($a,$b)"
+    case ir"($a:$ta,$b:$tb)._1" => ir"$a"
+    case ir"($a:$ta,$b:$tb)._2" => ir"$b"
+    case ir"($a:$ta,$b:$tb).swap" => ir"($b,$a)"
+    case ir"($a:$ta,$b:$tb).copy($va:$tc,$vb:$td)" => ir"($va,$vb)"
+      
+  }
+  
+}
+
+trait FunctionNormalizer extends SimpleRuleBasedTransformer { self =>
+  import base.Predef._
+  import self.base.InspectableIROps
+  import self.base.IntermediateIROps
+  
+  rewrite {
+      
+    case ir"($f:$ta=>$tb).andThen[$tc]($g)" => ir"(x:$ta) => $g($f(x))"
+      
+  }
+  
+}
+

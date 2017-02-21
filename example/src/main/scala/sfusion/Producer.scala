@@ -145,7 +145,7 @@ object Producer {
   val UnknownBound = Int.MaxValue
   //lazy val PayForIt = ???
   
-  def fromIndexed[A](as: IndexedSeq[A]): SizedProducer[A] = new SizedProducerImpl[A](impl.fromIndexed(as)(), as.size)
+  def fromIndexed[A](as: IndexedSeq[A]): SizedProducer[A] = new SizedProducerImpl[A](impl.fromIndexed(as), as.size)
   
 }
 import Producer._

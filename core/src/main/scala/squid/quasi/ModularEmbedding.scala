@@ -468,6 +468,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       System.err.println(s"Warning: Erased existential `$tp` to `$etp`")
       liftType(etp)
       */
+      
+    case AnnotatedType(annotations, underlying) =>
+      liftType(underlying)
 
     case SingleType(pre, sym) if sym.isStatic && sym.isModule => // TODO understand diffce with ThisType 
       staticModuleType(sym.fullName)

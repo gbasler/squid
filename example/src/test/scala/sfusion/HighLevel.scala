@@ -7,6 +7,7 @@ import squid.ir.ClassEmbedder
   * Created by lptk on 07/02/17.
   */
 class HighLevel extends FunSuite {
+  import Sequence._
   
   val s123 = Sequence(1,2,3)
   val strm123 = Sequence.fromStream(Stream(1,2,3))
@@ -53,13 +54,20 @@ class HighLevel extends FunSuite {
     assert(strmNat.zip(s123) == z0.map(_.swap))
     
     val strm = Stream.iterate(0)(_+1).map(a => (a,0)).take(10)
-    val z1 = Sequence.fromStream(strm.force) // `force` is to get a definiteSize so `equals` does not immediately bail out...
+    val z1 = Sequence.fromStream(strm.force)
+    // ^ `force` is to get a definiteSize so `equals` does not immediately bail out... Note that without this the comparison is not even attempted!
     val z2 = Sequence.fromList(strm.toList)
     val s = strmNat zip strmInf0 take 10
     assert(s == z1)
     assert(z1 == s)
     assert(s == z2)
     assert(z2 == s)
+    
+  }
+  
+  test("FlatMap") {
+    
+    assert(Sequence("abc","def","","ghijk").flatMap(fromIndexed(_)) == Sequence('a','b','c','d','e','f','g','h','i','j','k'))
     
   }
   

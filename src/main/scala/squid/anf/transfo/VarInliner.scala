@@ -54,7 +54,7 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
         case ir"$$v := None" => ir"$isDefined := false"
         case ir"$$v := Some($x:$$t)" => ir"$optVal := $x; $isDefined := true"
         case ir"$$v := $x" =>
-          Abort() // TODO reqrite to if-then-else rebuilding the option -- note this may be tricky if options are not 
+          Abort() // TODO rewrite to if-then-else rebuilding the option -- note this may be tricky if options are not
           // normalized online, as it could lead to transforming `opt.isEmpty` into the ite before it is rewritten to
           // `!opt.isDefined` and handled properly by this transformer...
       }
@@ -73,6 +73,32 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
         val optVal = Var($init getOrElse ${nullValue[t.Typ]})
         $body3
       """
+      
+      
+    // Removal of Var[Tuple2[_]]
+    case ir"var $v: ($ta,$tb) = $init; $body: $bt" =>
+      val lhs = ir"lhs? : Var[$ta]"
+      val rhs = ir"rhs? : Var[$tb]"
+      
+      val body2 = body rewrite {
+        case ir"val $x = $$v.! ; $sbody: $bt" =>
+          val sbody2 = sbody rewrite {
+            case ir"$$x._1" => ir"$lhs.!"
+            case ir"$$x._2" => ir"$rhs.!"
+          }
+          sbody2 subs 'x -> Abort()
+        case ir"$$v := ($a:$$ta,$b:$$tb)" => ir"$lhs := $a; $rhs := $b"
+        case ir"$$v := $x" => Abort() // TODO?
+      }
+      
+      val body3 = body2 subs 'v -> Abort()
+      
+      ir"""
+        val lhs = Var($init._1)
+        val rhs = Var($init._2)
+        $body3
+      """
+      
       
       
   }

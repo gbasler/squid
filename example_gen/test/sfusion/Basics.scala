@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 71ms
+// Transfo time: 0ms  Stringifying time: 87ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -16,7 +16,7 @@
 
 // === Impl ===
 
-// Transfo time: 22ms  Stringifying time: 50ms
+// Transfo time: 34ms  Stringifying time: 64ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -26,38 +26,30 @@
   val x_4 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](((x_1): scala.collection.IndexedSeq[scala.Int]))), x_3);
   val x_5 = x_4.show$default$1;
   val x_6 = scala.StringContext.apply("Sequence(", ")");
-  val sb_7 = new scala.collection.mutable.StringBuilder();
+  var truncated_7: scala.Boolean = true;
   val x_8 = x_4.under;
   val x_9 = x_8.apply();
-  val x_10 = sfusion.impl.`package`.take[scala.Int](x_9)(x_5);
-  sfusion.impl.`package`.foreach[scala.Int](x_10)(((e_11: scala.Int) => {
-    val x_12 = sb_7.nonEmpty;
-    if (x_12)
-      sb_7.+=(',')
-    else
-      ();
-    val x_13 = scala.StringContext.apply("", "");
-    val x_14 = x_13.s(e_11);
-    sb_7.++=(x_14);
-    ()
+  val x_10 = sfusion.impl.`package`.onFinish[scala.Int](x_9)((() => truncated_7 = false));
+  val withSep_15 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_10)(((a_11: scala.Int) => {
+    val x_12 = scala.StringContext.apply("", "");
+    x_12.s(a_11)
+  }))(((a_13: scala.Int) => {
+    val x_14 = scala.StringContext.apply(",", "");
+    x_14.s(a_13)
   }));
-  var shorten_15: scala.Boolean = false;
-  x_9(((x$2_16: scala.Int) => {
-    shorten_15 = true;
-    false
-  }));
-  val x_17 = shorten_15;
-  if (x_17)
-    sb_7.++=(",...")
+  val withTrunc_16 = sfusion.impl.`package`.take[java.lang.String](withSep_15)(x_5);
+  val flat_19 = sfusion.impl.`package`.fold[java.lang.String, java.lang.String](withTrunc_16)("")(((x$4_17: java.lang.String, x$5_18: java.lang.String) => x$4_17.+(x$5_18)));
+  val x_20 = truncated_7;
+  val x_21 = if (x_20)
+    flat_19.+(",...")
   else
-    ();
-  val x_18 = sb_7.result();
-  x_6.s(x_18)
+    flat_19;
+  x_6.s(x_21)
 }
 
 // === CtorInline ===
 
-// Transfo time: 22ms  Stringifying time: 28ms
+// Transfo time: 23ms  Stringifying time: 39ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -65,43 +57,29 @@
   val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
   val x_3 = scala.`package`.Left.apply[scala.Int, Nothing](x_2);
   val x_4 = scala.StringContext.apply("Sequence(", ")");
-  val sb_5 = new scala.collection.mutable.StringBuilder();
+  var truncated_5: scala.Boolean = true;
   val x_6 = sfusion.impl.`package`.fromIndexed[scala.Int](((x_1): scala.collection.IndexedSeq[scala.Int]));
-  val x_7 = sfusion.impl.`package`.take[scala.Int](x_6)(10);
-  sfusion.impl.`package`.foreach[scala.Int](x_7)(((e_8: scala.Int) => {
-    val x_9 = sb_5.nonEmpty;
-    if (x_9)
-      sb_5.+=(',')
-    else
-      ();
-    val x_10 = scala.StringContext.apply("", "");
-    val x_11 = x_10.s(e_8);
-    sb_5.++=(x_11);
-    ()
+  val x_7 = sfusion.impl.`package`.onFinish[scala.Int](x_6)((() => truncated_5 = false));
+  val withSep_12 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_7)(((a_8: scala.Int) => {
+    val x_9 = scala.StringContext.apply("", "");
+    x_9.s(a_8)
+  }))(((a_10: scala.Int) => {
+    val x_11 = scala.StringContext.apply(",", "");
+    x_11.s(a_10)
   }));
-  var shorten_12: scala.Boolean = false;
-  x_6(((x$2_13: scala.Int) => {
-    shorten_12 = true;
-    false
-  }));
-  val x_14 = shorten_12;
-  if (x_14)
-    sb_5.++=(",...")
+  val withTrunc_13 = sfusion.impl.`package`.take[java.lang.String](withSep_12)(10);
+  val flat_16 = sfusion.impl.`package`.fold[java.lang.String, java.lang.String](withTrunc_13)("")(((x$4_14: java.lang.String, x$5_15: java.lang.String) => x$4_14.+(x$5_15)));
+  val x_17 = truncated_5;
+  val x_18 = if (x_17)
+    flat_16.+(",...")
   else
-    ();
-  val x_15 = sb_5.result();
-  x_4.s(x_15)
+    flat_16;
+  x_4.s(x_18)
 }
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 19ms
-
-// Same as above.
-
-// === Imperative ===
-
-// Transfo time: 24ms  Stringifying time: 65ms
+// Transfo time: 15ms  Stringifying time: 46ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -109,78 +87,108 @@
   val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
   val x_3 = scala.`package`.Left.apply[scala.Int, Nothing](x_2);
   val x_4 = scala.StringContext.apply("Sequence(", ")");
-  val sb_5 = new scala.collection.mutable.StringBuilder();
-  var i_6: scala.Int = 0;
-  val len_7 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
-  var taken_8: scala.Int = 0;
+  var truncated_5: scala.Boolean = true;
+  val x_6 = sfusion.impl.`package`.fromIndexed[scala.Int](((x_1): scala.collection.IndexedSeq[scala.Int]));
+  val x_7 = sfusion.impl.`package`.onFinish[scala.Int](x_6)((() => truncated_5 = false));
+  val withSep_12 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_7)(((a_8: scala.Int) => {
+    val x_9 = scala.StringContext.apply("", "");
+    x_9.s(a_8)
+  }))(((a_10: scala.Int) => {
+    val x_11 = scala.StringContext.apply(",", "");
+    x_11.s(a_10)
+  }));
+  val withTrunc_13 = sfusion.impl.`package`.take[java.lang.String](withSep_12)(10);
+  val strAcc_14 = new scala.collection.mutable.StringBuilder();
+  sfusion.impl.`package`.foreach[java.lang.String](withTrunc_13)(((s_15: java.lang.String) => {
+    val x_16 = s_15.toString();
+    strAcc_14.++=(x_16);
+    ()
+  }));
+  val x_17 = strAcc_14.result();
+  val x_18 = truncated_5;
+  val x_19 = if (x_18)
+    x_17.+(",...")
+  else
+    x_17;
+  x_4.s(x_19)
+}
+
+// === Imperative ===
+
+// Transfo time: 48ms  Stringifying time: 76ms
+
+{
+  val x_0 = scala.Predef.intWrapper(1);
+  val x_1 = x_0.to(10);
+  val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
+  val x_3 = scala.`package`.Left.apply[scala.Int, Nothing](x_2);
+  val x_4 = scala.StringContext.apply("Sequence(", ")");
+  var truncated_5: scala.Boolean = true;
+  val x_6 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
+  var i_7: scala.Int = 0;
+  var first_8: scala.Boolean = true;
+  var taken_9: scala.Int = 0;
+  val strAcc_10 = new scala.collection.mutable.StringBuilder();
   while ({
-    val x_9 = i_6;
-    val x_10 = x_9.<(len_7);
-    x_10.&&({
-      val x_11 = i_6;
-      val x_12 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_11);
-      val x_13 = i_6;
-      val x_14 = x_13.+(1);
-      i_6 = x_14;
-      val x_15 = taken_8;
-      val x_16 = x_15.<(10);
-      x_16.&&({
-        val x_17 = taken_8;
-        val x_18 = x_17.+(1);
-        taken_8 = x_18;
-        val x_19 = sb_5.nonEmpty;
-        if (x_19)
-          sb_5.+=(',')
-        else
-          ();
-        val x_20 = scala.StringContext.apply("", "");
-        val x_21 = x_20.s(x_12);
-        sb_5.++=(x_21);
+    val x_11 = i_7;
+    val x_12 = x_11.<(x_6);
+    x_12.&&({
+      val x_13 = i_7;
+      val x_14 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_13);
+      val x_15 = i_7;
+      val x_16 = x_15.+(1);
+      i_7 = x_16;
+      val x_17 = first_8;
+      val x_20 = if (x_17)
+        {
+          first_8 = false;
+          val x_18 = scala.StringContext.apply("", "");
+          x_18.s(x_14)
+        }
+      else
+        {
+          val x_19 = scala.StringContext.apply(",", "");
+          x_19.s(x_14)
+        };
+      val x_21 = taken_9;
+      val x_22 = x_21.<(10);
+      x_22.&&({
+        val x_23 = taken_9;
+        val x_24 = x_23.+(1);
+        taken_9 = x_24;
+        val x_25 = x_20.toString();
+        strAcc_10.++=(x_25);
         true.&&({
-          val x_22 = taken_8;
-          x_22.<(10)
+          val x_26 = taken_9;
+          x_26.<(10)
         })
       })
     })
   }) 
     ()
   ;
-  val x_23 = i_6;
-  val x_24 = x_23.==(len_7);
-  x_24.||({
-    val x_25 = taken_8;
-    x_25.==(10)
-  });
-  var shorten_26: scala.Boolean = false;
-  while ({
-    val x_27 = i_6;
-    val x_28 = x_27.<(len_7);
-    x_28.&&({
-      val x_29 = i_6;
-      val x_30 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_29);
-      val x_31 = i_6;
-      val x_32 = x_31.+(1);
-      i_6 = x_32;
-      shorten_26 = true;
-      false
-    })
-  }) 
-    ()
-  ;
-  val x_33 = i_6;
-  x_33.==(len_7);
-  val x_34 = shorten_26;
-  if (x_34)
-    sb_5.++=(",...")
+  val x_27 = i_7;
+  val x_28 = x_27.==(x_6);
+  if (x_28)
+    truncated_5 = false
   else
     ();
-  val x_35 = sb_5.result();
-  x_4.s(x_35)
+  x_28.||({
+    val x_29 = taken_9;
+    x_29.==(10)
+  });
+  val x_30 = strAcc_10.result();
+  val x_31 = truncated_5;
+  val x_32 = if (x_31)
+    x_30.+(",...")
+  else
+    x_30;
+  x_4.s(x_32)
 }
 
 // === Low-Level Norm ===
 
-// Transfo time: 39ms  Stringifying time: 65ms
+// Transfo time: 30ms  Stringifying time: 99ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -188,74 +196,69 @@
   val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
   val x_3 = scala.`package`.Left.apply[scala.Int, Nothing](x_2);
   val x_4 = scala.StringContext.apply("Sequence(", ")");
-  val sb_5 = new scala.collection.mutable.StringBuilder();
-  var i_6: scala.Int = 0;
-  val len_7 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
-  var taken_8: scala.Int = 0;
+  var truncated_5: scala.Boolean = true;
+  val x_6 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
+  var i_7: scala.Int = 0;
+  var first_8: scala.Boolean = true;
+  var taken_9: scala.Int = 0;
+  val strAcc_10 = new scala.collection.mutable.StringBuilder();
   while ({
-    val x_9 = i_6;
-    val x_10 = x_9.<(len_7);
-    x_10.&&({
-      val x_11 = i_6;
-      val x_12 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_11);
-      val x_13 = i_6;
-      val x_14 = x_13.+(1);
-      i_6 = x_14;
-      val x_15 = taken_8;
-      val x_16 = x_15.<(10);
-      x_16.&&({
-        val x_17 = taken_8;
-        val x_18 = x_17.+(1);
-        taken_8 = x_18;
-        val x_19 = sb_5.nonEmpty;
-        if (x_19)
-          sb_5.+=(',')
-        else
-          ();
-        val x_20 = scala.StringContext.apply("", "");
-        val x_21 = x_20.s(x_12);
-        sb_5.++=(x_21);
-        val x_22 = taken_8;
-        x_22.<(10)
+    val x_11 = i_7;
+    val x_12 = x_11.<(x_6);
+    x_12.&&({
+      val x_13 = i_7;
+      val x_14 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_13);
+      val x_15 = i_7;
+      val x_16 = x_15.+(1);
+      i_7 = x_16;
+      val x_17 = first_8;
+      val x_20 = if (x_17)
+        {
+          first_8 = false;
+          val x_18 = scala.StringContext.apply("", "");
+          x_18.s(x_14)
+        }
+      else
+        {
+          val x_19 = scala.StringContext.apply(",", "");
+          x_19.s(x_14)
+        };
+      val x_21 = taken_9;
+      val x_22 = x_21.<(10);
+      x_22.&&({
+        val x_23 = taken_9;
+        val x_24 = x_23.+(1);
+        taken_9 = x_24;
+        val x_25 = x_20.toString();
+        strAcc_10.++=(x_25);
+        val x_26 = taken_9;
+        x_26.<(10)
       })
     })
   }) 
     ()
   ;
-  val x_23 = i_6;
-  val x_24 = x_23.==(len_7);
-  x_24.||({
-    val x_25 = taken_8;
-    x_25.==(10)
-  });
-  var shorten_26: scala.Boolean = false;
-  val x_27 = i_6;
-  val x_28 = x_27.<(len_7);
+  val x_27 = i_7;
+  val x_28 = x_27.==(x_6);
   if (x_28)
-    {
-      val x_29 = i_6;
-      val x_30 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_29);
-      val x_31 = i_6;
-      val x_32 = x_31.+(1);
-      i_6 = x_32;
-      shorten_26 = true;
-      false
-    }
+    truncated_5 = false
   else
     ();
-  val x_33 = i_6;
-  x_33.==(len_7);
-  val x_34 = shorten_26;
-  if (x_34)
-    sb_5.++=(",...")
+  x_28.||({
+    val x_29 = taken_9;
+    x_29.==(10)
+  });
+  val x_30 = strAcc_10.result();
+  val x_31 = truncated_5;
+  val x_32 = if (x_31)
+    x_30.+(",...")
   else
-    ();
-  val x_35 = sb_5.result();
-  x_4.s(x_35)
+    x_30;
+  x_4.s(x_32)
 }
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 19ms  Stringifying time: 24ms
+// Transfo time: 18ms  Stringifying time: 31ms
 
 // Same as above.
