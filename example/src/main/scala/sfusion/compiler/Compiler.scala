@@ -37,12 +37,7 @@ class Compiler extends Optimizer {
   val base: Code.type = Code
   object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects {
     object Desug extends Desugaring //with TopDownTransformer
-    object Norm extends SelfTransformer
-      with CurryEncoding.ApplicationNormalizer
-      with transfo.OptionNormalizer
-      with transfo.TupleNormalizer 
-      with transfo.FunctionNormalizer 
-      //with FixPointRuleBasedTransformer
+    object Norm extends SelfTransformer with transfo.StandardNormalizer //with FixPointRuleBasedTransformer
     def pipeline = Desug.pipeline andThen Norm.pipeline
     
     embed(Sequence)
@@ -119,6 +114,7 @@ class Compiler extends Optimizer {
     "Imperative" -> Imperative.pipeline,
     "Low-Level Norm" -> LowLevelNorm.pipeline,
     "ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)())
+    //"ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)().asInstanceOf[base.Rep] |> base.Norm.pipeline)
   )
   
   protected val SAME = "[Same]"

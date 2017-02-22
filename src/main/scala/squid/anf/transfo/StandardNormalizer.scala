@@ -5,6 +5,15 @@ import utils._
 import ir._
 import utils.Debug.show
 
+
+trait StandardNormalizer extends SimpleRuleBasedTransformer 
+  with CurryEncoding.ApplicationNormalizer 
+  with OptionNormalizer 
+  with TupleNormalizer
+  with FunctionNormalizer
+  with IdiomsNormalizer
+
+
 /**
   * Created by lptk on 11/02/17.
   * 
@@ -72,6 +81,19 @@ trait FunctionNormalizer extends SimpleRuleBasedTransformer { self =>
   rewrite {
       
     case ir"($f:$ta=>$tb).andThen[$tc]($g)" => ir"(x:$ta) => $g($f(x))"
+      
+  }
+  
+}
+
+trait IdiomsNormalizer extends SimpleRuleBasedTransformer { self =>
+  import base.Predef._
+  import self.base.InspectableIROps
+  import self.base.IntermediateIROps
+  
+  rewrite {
+      
+    case ir"($str:String).toString" => ir"$str"
       
   }
   

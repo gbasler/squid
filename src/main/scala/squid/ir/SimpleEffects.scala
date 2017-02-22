@@ -23,6 +23,8 @@ import collection.mutable
   * referential transparency of their arguments.
   * 
   * TODO add @read effects: can be dead-code removed, but not moved around
+  *   also, a @read method applied to an immutable (transparent) type can be considered transparent! (cf. can solve `size` problem below)
+  * TODO in the same vein, have semi-transparent/self-contained types
   * 
   * TODO a mechanism to add special quasiquote-based rules for purity; for example for `scala.collection.SeqLike.size`, which is not always pure!
   */

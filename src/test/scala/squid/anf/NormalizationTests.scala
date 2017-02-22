@@ -1,6 +1,7 @@
 package squid
 package anf
 
+import utils._
 import ir._
 
 /**
@@ -43,6 +44,16 @@ class NormalizationTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     // FIXME: assertion failed; at squid.ir.RuntimeSymbols$$anonfun$1.apply(RuntimeSymbols.scala:55)
     //ir"Option('ok)" transformWith ONorm eqt 
     //  ir"if ('ok == null) None else Some('ok)"
+    
+  }
+  
+  object INorm extends DSL.SelfTransformer with transfo.IdiomsNormalizer with TopDownTransformer
+  
+  test("Misc Normalizations") {
+    
+    ir"42.toString.toString" transformWith INorm eqt ir"42.toString"
+    
+    ir""" (("a":String)+"b").toString.toString |> println """ transformWith INorm eqt ir""" (("a":String)+"b").toString |> println """
     
   }
   

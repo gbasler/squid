@@ -56,6 +56,11 @@ class OptimTests extends FunSuite {
     assert((ls |> c0.run) == r0)
     
     Compiler.wrapOptim("JoinLines") {
+      
+      // Note: for some reason, `transfo.IdiomsNormalizer` does not seem to eliminate extra `toString` calls,
+      // despite that transformer working well on simple examples as in `NormalizationTests`.
+      // This might indicate a subtle typing problem, to investigate...
+      
       val r = Compiler.optimize(c0)
       assert((ls |> r.run) == r0)
       // ^ Note: when not inlined completely, `run` throws: scala.ScalaReflectionException: expected a member of class Boolean, you provided method squid.lib.And
