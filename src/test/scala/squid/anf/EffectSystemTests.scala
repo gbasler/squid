@@ -13,6 +13,9 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
   import EffectSystemTests._
   import SimpleEffect._
   
+  def stmts(q: IR[Any,Nothing]) = q.rep.asBlock._1
+  def stmtsNumIs(n: Int)(q: IR[Any,Nothing]) = assert(stmts(q).size == n)
+  
   test("Basics") {
     
     assert(ir"42".rep.effect == Pure)
@@ -78,13 +81,16 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     
   }
   
-  test("From Annotations") { // TODO
+  test("From Annotations") {
     
-    //println(ir"foo + foo")
-    
-    //println(ir"myId((x:Int) => x+foo)")
-    //println(ir"myId((x:Int) => x+foo)(foo)")
-    //println(ir"myId((x:Int) => {print(x);x})")
+    ir"foo + foo" |> stmtsNumIs(0)
+    ir"myId((x:Int) => x+foo)" |> stmtsNumIs(0)
+    ir"myId((x:Int) => x+foo)(foo)" |> stmtsNumIs(0)
+    ir"myId((x:Int) => x+foo)(readInt)" |> stmtsNumIs(1)
+    ir"myId((x:Int) => {print(x);x})" |> stmtsNumIs(0) // returned expression is impure
+    ir"myId((x:Int) => {print(x);x}); 42" eqt ir"42"   // expr with latent effect is ignored
+    ir"val mid = myId((x:Int) => {print(x);x}); mid(42)" |> stmtsNumIs(0)
+    ir"val mid = myId((x:Int) => {print(x);x}); mid(readInt)" |> stmtsNumIs(1)
     
   }
   

@@ -1,7 +1,10 @@
 package squid
 package ir
 
+import squid.lib.transparencyPropagating
+import squid.lib.transparent
 import utils._
+
 import collection.mutable
 
 /** Rudimentary (simplistic?) effect system for AST.
@@ -16,6 +19,9 @@ import collection.mutable
   * Referentially-transparent types are (immutable) types that own only referentially-transparent methods (except those
   * registered explicitly in `opaqueMtds`).
   * 
+  * Finally, "referential-transparency-propagating" methods are referentially-transparent methods that propagate the
+  * referential transparency of their arguments.
+  * 
   * TODO add @read effects: can be dead-code removed, but not moved around
   * 
   * TODO a mechanism to add special quasiquote-based rules for purity; for example for `scala.collection.SeqLike.size`, which is not always pure!
@@ -28,10 +34,20 @@ trait SimpleEffects extends AST {
   protected val transparentTyps = mutable.Set[TypSymbol]()
   
   protected val transparencyPropagatingMtds = mutable.Set[MtdSymbol]()
+  protected val nonTransparencyPropagatingMtds = mutable.Set[MtdSymbol]()
+  def isTransparencyPropagatingMethod(m: MtdSymbol): Bool = {
+    transparencyPropagatingMtds(m) || !nonTransparencyPropagatingMtds(m) && {
+      val r = m.annotations.exists(_.tree.tpe <:< TranspPropagAnnotType)
+      (if (r) transparencyPropagatingMtds else nonTransparencyPropagatingMtds) += m
+      r
+    }
+  }
   
   def isTransparentMethod(m: MtdSymbol): Bool = {
     transparentMtds(m) || !opaqueMtds(m) && {
-      val r = ((transparentTyps(m.owner.asType) If (m.owner.isType) Else false) 
+      val r = (
+        m.annotations.exists(_.tree.tpe <:< TranspAnnotType)
+        || (transparentTyps(m.owner.asType) If (m.owner.isType) Else false) 
         || (m.overrides exists (s => s.isMethod && isTransparentMethod(s.asMethod)))
         || m.isAccessor && {val rst = m.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass }
       )
@@ -47,7 +63,7 @@ trait SimpleEffects extends AST {
   def effect(r: Rep): SimpleEffect = dfn(r) match {
     case Abs(p,b) => (b|>effectCached).prev
     case MethodApp(s,m,ts,pss,rt) =>
-      val propag = m |> transparencyPropagatingMtds
+      val propag = m |> isTransparencyPropagatingMethod
       if (propag || (m |> isTransparentMethod)) {
         val e = (s +: pss.flatMap(_.reps)).map(effectCached).fold(SimpleEffect.Pure)(_ | _)
         if (propag) e else e.next
@@ -57,9 +73,15 @@ trait SimpleEffects extends AST {
     case Constant(_) | _: BoundVal | StaticModule(_) | NewObject(_) | RecordGet(_,_,_) | _:Hole | _:SplicedHole => SimpleEffect.Pure
   }
   
+  
   import scala.reflect.runtime.{universe=>sru}
+  
   // This one not in `StandardEffects` because it can be viewed as a fundamental implementation detail of the curry encoding: 
-  transparencyPropagatingMtds ++= sru.typeOf[squid.lib.`package`.type].members.filter(_.name.toString startsWith "uncurried").map(_.asMethod)
+  //transparencyPropagatingMtds ++= sru.typeOf[squid.lib.`package`.type].members.filter(_.name.toString startsWith "uncurried").map(_.asMethod)
+  // ^ it is no more necessary because now the methods are annotated directly!
+  
+  val TranspAnnotType = sru.typeOf[transparent]
+  val TranspPropagAnnotType = sru.typeOf[transparencyPropagating]
   
 }
 
@@ -97,7 +119,8 @@ trait StandardEffects extends SimpleEffects {
     r.asMethod
   }
   
-  transparentTyps += sru.typeOf[squid.lib.`package`.type].typeSymbol.asType
+  //transparentTyps += sru.typeOf[squid.lib.`package`.type].typeSymbol.asType
+  // ^ no more necessary; methods are now annotated
   
   transparentTyps += typeSymbol[Int]
   transparentTyps += typeSymbol[Bool]
