@@ -17,6 +17,8 @@ import collection.mutable
   * registered explicitly in `opaqueMtds`).
   * 
   * TODO add @read effects: can be dead-code removed, but not moved around
+  * 
+  * TODO a mechanism to add special quasiquote-based rules for purity; for example for `scala.collection.SeqLike.size`, which is not always pure!
   */
 trait SimpleEffects extends AST {
   
@@ -25,7 +27,7 @@ trait SimpleEffects extends AST {
   protected val opaqueMtds = mutable.Set[MtdSymbol]()
   protected val transparentTyps = mutable.Set[TypSymbol]()
   
-  protected val purityPropagatingMtds = mutable.Set[MtdSymbol]()
+  protected val transparencyPropagatingMtds = mutable.Set[MtdSymbol]()
   
   def isTransparentMethod(m: MtdSymbol): Bool = {
     transparentMtds(m) || !opaqueMtds(m) && {
@@ -45,7 +47,7 @@ trait SimpleEffects extends AST {
   def effect(r: Rep): SimpleEffect = dfn(r) match {
     case Abs(p,b) => (b|>effectCached).prev
     case MethodApp(s,m,ts,pss,rt) =>
-      val propag = m |> purityPropagatingMtds
+      val propag = m |> transparencyPropagatingMtds
       if (propag || (m |> isTransparentMethod)) {
         val e = (s +: pss.flatMap(_.reps)).map(effectCached).fold(SimpleEffect.Pure)(_ | _)
         if (propag) e else e.next
@@ -57,7 +59,7 @@ trait SimpleEffects extends AST {
   
   import scala.reflect.runtime.{universe=>sru}
   // This one not in `StandardEffects` because it can be viewed as a fundamental implementation detail of the curry encoding: 
-  purityPropagatingMtds ++= sru.typeOf[squid.lib.`package`.type].members.filter(_.name.toString startsWith "uncurried").map(_.asMethod)
+  transparencyPropagatingMtds ++= sru.typeOf[squid.lib.`package`.type].members.filter(_.name.toString startsWith "uncurried").map(_.asMethod)
   
 }
 
@@ -66,11 +68,12 @@ case class SimpleEffect(immediate: Bool, latent: Bool) {
   def | (that: SimpleEffect) = SimpleEffect(immediate || that.immediate, latent || that.latent)
   def isBoth = immediate && latent
   def next = SimpleEffect(immediate || latent, latent)
-  def prev = SimpleEffect(false, immediate)
+  def prev = SimpleEffect(false, immediate || latent)
 }
 object SimpleEffect {
   val Pure = SimpleEffect(false,false)
   val Impure = SimpleEffect(true,true)
+  val Latent = SimpleEffect(false,true)
 }
 
 
@@ -118,7 +121,7 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[scala.collection.immutable.Traversable[Any]]
   transparentTyps += typeSymbol[scala.collection.immutable.Seq[Any]]
   transparentTyps += typeSymbol[scala.collection.immutable.Seq.type]
-  //pureTyps += typeSymbol[scala.collection.immutable.List[Any]].typeSymbol.asType // 
+  //transparentTyps += typeSymbol[scala.collection.immutable.List[Any]] // Q: useful?
   transparentTyps += typeSymbol[scala.collection.immutable.List.type]
   
   transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods
@@ -143,5 +146,7 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Either[Any,Any]]
   transparentTyps += typeSymbol[Left.type]
   transparentTyps += typeSymbol[Right.type]
+  
+  transparencyPropagatingMtds += methodSymbol[scala.Predef.type]("identity")
   
 }
