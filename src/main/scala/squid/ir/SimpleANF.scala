@@ -27,40 +27,26 @@ import collection.mutable
   *   if we make holes not _.isTrivial, we get a SOF in the pretty-printing (which replaces bound vals by holes)
   * 
   */
-class SimpleANF extends AST with CurryEncoding { anf =>
+class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   
   object ANFDebug extends PublicTraceDebug
   
   
-  //type Block = List[Either[Val -> Rep, Rep]] -> Def
-  type BlockRep = List[Either[Val -> Rep, Rep]] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
+  def effectCached(r: Rep) = r.effect
   
-  case class Rep(dfn: Def) { // FIXME status of lambdas? (and their curry encoding)
+  type StmtRep = Either[Val -> Rep, Rep]
+  type BlockRep = List[StmtRep] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
+  
+  case class Rep(dfn: Def) {
     
-    //def isTrivial = dfn.isTrivial
-    lazy val isTrivial: Bool = dfn match { // cache these in a map from symbol to properties?
-      case m: MethodApp => // println(m.sym.fullName)
-        
-        // TODO use a real effect system; be sound with things like effectful functions passed to combinators like `map`
-        (
-          (m.sym.fullName startsWith "squid.lib.uncurried")
-          || (m.sym.fullName == "scala.Any.asInstanceOf")
-          || m.sym.isAccessor && {val rst = m.sym.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass }
-          || (m.sym.fullName startsWith "scala.Option") || (m.sym.fullName startsWith "scala.Some") || (m.sym.fullName startsWith "scala.None")
-          || (m.sym.fullName startsWith "scala.Function") && !(m.sym.fullName endsWith ".apply") 
-          || (m.sym.fullName startsWith "java.lang.String")
-          //|| (m.sym.fullName startsWith "scala.Tuple")
-          //|| (m.sym.fullName startsWith "scala.Predef.$conforms")
-        )
-        // Note: should NOT make "squid.lib.Var.apply" trivial since it has to be let-bound for code-gen to work
-        
-      case Module(pre, _, _) => pre.isTrivial
-      case Ascribe(x, _) => x.isTrivial
-      case _ => true
-    }
+    def isTrivial = !effect.immediate
     
-    def isPure = isTrivial && !isHole // TODO refine
-    //def isHole = dfn.isInstanceOf[Hole] || dfn.isInstanceOf[SplicedHole]
+    lazy val hasHoles = anf.hasHoles(this)
+    
+    lazy val effect = anf.effect(this)
+    
+    def isPure = isTrivial && !hasHoles
+    
     lazy val isHole: Bool = dfn match {
       case Hole(_) | SplicedHole(_) => true
       case Ascribe(x, _) => x.isHole
@@ -101,7 +87,9 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     val statements = mutable.Buffer[Either[Val -> Rep, mutable.Buffer[Rep]]]()
     
     def makeStmtIfNecessary(letBound: Bool)(r: Rep): Rep = /*println(s"mkStmt $r") before*/ r match {
-      case _ if r.isTrivial && (!r.isHole || !isImperativeCall) => r
+      case _ if r.isTrivial && !(r.hasHoles && isImperativeCall) => r  // Note: not sure between `r.hasHoles` and `r.isHole` here (used to be `r.isHole`)
+      // ^ Reason for the `!r.hasHoles` test is that we don't want to have holes disappear from patterns (provokes extractor crashes)
+      // A better solution would be to have aggregated usage info in `r` and inline a term containing holes only when the term is used at least once in the body.
       case LetIn(p, v, b) =>
         //assert(!b.boundVals(p),s"$p bound in $b") // should not fail; disabled for perf
         statements += Left(p -> v)
@@ -142,7 +130,7 @@ class SimpleANF extends AST with CurryEncoding { anf =>
     
     val normal = dfn match {
       //case Apply(f,a) => Apply(f,a,dfn.typ) |> Rep
-      case LetIn(p, v, b) if v.isPure && !hasHoles(b) =>
+      case LetIn(p, v, b) if v.isPure && !b.hasHoles =>
         //println(s"Inl $p as $v in $b")
         inline(p, b, v)
         

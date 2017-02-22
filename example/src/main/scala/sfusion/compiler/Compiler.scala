@@ -35,7 +35,7 @@ class Compiler extends Optimizer {
   */
   
   val base: Code.type = Code
-  object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers {
+  object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects {
     object Desug extends Desugaring //with TopDownTransformer
     object Norm extends SelfTransformer
       with CurryEncoding.ApplicationNormalizer
@@ -48,12 +48,16 @@ class Compiler extends Optimizer {
     embed(Sequence)
     embed(impl.`package`)
     
+    import squid.utils.meta.RuntimeUniverseHelpers.sru
+    transparentTyps += sru.typeOf[sfusion.`package`.type].typeSymbol.asType // for minSize, addToSize & co.
+    
   }
   import Code.Predef._
   import Code.Quasicodes._
   
   val Impl = new Code.Lowering('Impl) with TopDownTransformer
-  val Imperative = new Code.Lowering('Imperative) with TopDownTransformer
+  val Imperative = new Code.Lowering('Imperative) with FixPointTransformer with TopDownTransformer
+    // ^ Note: needs fixed point because `fromIndexed` is implemented in terms of a direct call to `fromIndexedSlice`
   val DCE = new Code.SelfTransformer with squid.anf.transfo.DeadCodeElimination
   val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with transfo.VarInliner with FixPointRuleBasedTransformer with BottomUpTransformer
   

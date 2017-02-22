@@ -75,7 +75,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       }
       
       
-      
+    // Note: this should be moved to another class; it is useless when tuple ops are viewed by ANF as trivial (then one wants TupleNormalization instead)
     case ir"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, so that a/b are trivial
       
       val newBody = body rewrite {

@@ -58,6 +58,7 @@ class OptimTests extends FunSuite {
     Compiler.wrapOptim("JoinLines") {
       val r = Compiler.optimize(c0)
       assert((ls |> r.run) == r0)
+      // ^ Note: when not inlined completely, `run` throws: scala.ScalaReflectionException: expected a member of class Boolean, you provided method squid.lib.And
     }
     
     val c1 = ir{algo.joinLinesComplex(_:Iterable[String])}

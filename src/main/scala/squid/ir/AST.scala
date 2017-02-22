@@ -315,20 +315,13 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //case class Record(fields: List[(String, Rep)]) extends Def { // TODO
   //  val typ = RecordType
   //}
-  case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Def
+  case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Def  // TODO rm
   
-  def isPure(d: Def) = d match {
-    case _: MethodApp => false
-    case Hole(_)|SplicedHole(_) => false
-    case _ => true
-  }
   
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
-    
-    lazy val isPureDef = self.isPure(this)  // TODO rename to isPure
     
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")

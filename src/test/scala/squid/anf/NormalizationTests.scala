@@ -6,7 +6,7 @@ import ir._
 /**
   * Created by lptk on 03/02/17.
   */
-class NormalizationTests extends MyFunSuite(SimpleANFTests.DSL) {
+class NormalizationTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
   import DSL.Predef._
   
   test("Normalization of Tail Bindings") {

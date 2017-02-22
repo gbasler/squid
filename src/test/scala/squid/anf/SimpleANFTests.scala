@@ -4,9 +4,12 @@ package anf
 import ir._
 
 object SimpleANFTests {
-
+  
   object DSL extends SimpleANF
-
+    // with StandardEffects  // commented because some tests currently rely on things like Int ops to be effectful...
+  
+  object DSLWithEffects extends SimpleANF with StandardEffects
+  
 }
 /**
   * TODO test `rewriteRep` with real term rewriting tests!
