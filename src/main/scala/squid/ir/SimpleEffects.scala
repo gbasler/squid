@@ -124,8 +124,9 @@ trait StandardEffects extends SimpleEffects {
   //transparentTyps += sru.typeOf[squid.lib.`package`.type].typeSymbol.asType
   // ^ no more necessary; methods are now annotated
   
-  transparentTyps += typeSymbol[Int]
   transparentTyps += typeSymbol[Bool]
+  transparentTyps += typeSymbol[Int]
+  transparentTyps += typeSymbol[Double]
   transparentTyps += typeSymbol[String]
   
   // TODO should make these @read but not pure:
@@ -141,6 +142,20 @@ trait StandardEffects extends SimpleEffects {
     addFunTyp(sru.typeOf[Function1[Any,Any]])
     addFunTyp(sru.typeOf[Function2[Any,Any,Any]])
     addFunTyp(sru.typeOf[Function3[Any,Any,Any,Any]])
+  }
+  
+  def allTranspPropag(typ: sru.Type) = typ.members.foreach { t =>
+    if (t.isMethod || t.alternatives.size > 1) t.alternatives foreach { a =>
+      if (a.isMethod) transparencyPropagatingMtds += a.asMethod
+    }
+  }
+  
+  transparentTyps += typeSymbol[Unit]
+  sru.rootMirror.staticPackage("scala").typeSignature.members.foreach { s =>
+    if (s.name.toString startsWith "Tuple") {
+      if (s.isType) s.asType.toType |> allTranspPropag
+      else if (s.isModule) s.typeSignature |> allTranspPropag
+    }
   }
   
   transparentTyps += typeSymbol[scala.collection.immutable.Traversable[Any]]

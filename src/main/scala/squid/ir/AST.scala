@@ -291,7 +291,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
   }
   
-  case class Ascribe(self: Rep, typ: TypeRep) extends Def
+  case class Ascribe(self: Rep, typ: TypeRep) extends Def {
+    require(!(self.typ =:= typ))
+  }
   
   case class NewObject(typ: TypeRep) extends NonTrivialDef
   

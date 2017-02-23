@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 88ms
+// Transfo time: 0ms  Stringifying time: 75ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -15,7 +15,7 @@
 
 // === Impl ===
 
-// Transfo time: 23ms  Stringifying time: 47ms
+// Transfo time: 23ms  Stringifying time: 55ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -46,7 +46,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 12ms  Stringifying time: 24ms
+// Transfo time: 29ms  Stringifying time: 33ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -74,7 +74,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 9ms  Stringifying time: 35ms
+// Transfo time: 18ms  Stringifying time: 42ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -108,7 +108,7 @@
 
 // === Imperative ===
 
-// Transfo time: 35ms  Stringifying time: 47ms
+// Transfo time: 56ms  Stringifying time: 86ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -174,7 +174,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 23ms  Stringifying time: 62ms
+// Transfo time: 36ms  Stringifying time: 86ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -238,6 +238,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 18ms  Stringifying time: 30ms
+// Transfo time: 22ms  Stringifying time: 31ms
 
 // Same as above.

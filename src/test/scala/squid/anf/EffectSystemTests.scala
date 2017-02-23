@@ -81,6 +81,14 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     
   }
   
+  test("Tuples") {
+    
+    ir"(1,2).swap._1" |> stmtsNumIs(0)
+    ir"(1,(x:Int)=>print(x)).swap._1" |> stmtsNumIs(0)
+    ir"(1,(x:Int)=>print(x)).copy(_1 = readInt)._1" |> stmtsNumIs(1)
+    
+  }
+  
   test("From Annotations") {
     
     ir"foo + foo" |> stmtsNumIs(0)

@@ -55,6 +55,17 @@ class NormalizationTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     
     ir""" (("a":String)+"b").toString.toString |> println """ transformWith INorm eqt ir""" (("a":String)+"b").toString |> println """
     
+    ir"42.asInstanceOf[Int]" transformWith INorm eqt ir"42" // Note: actually produces ir"42:Int" 
+    ir"(if (true) 42 else 43).asInstanceOf[Int]" transformWith INorm eqt ir"if (true) 42 else 43"
+    
+    val x = ir"???.asInstanceOf[Int]" transformWith INorm
+    x eqt ir"???"
+    x.rep.dfn.isInstanceOf[base.Ascribe]
+    
+    // Q: why ascription not removed? in:
+    //println(ir"val envVar = (42:Any).asInstanceOf[Int]; println(envVar)")
+    //println(ir"var a: Int = 0; a = (readInt:Any).asInstanceOf[Int]; println(a)")
+    
   }
   
 }
