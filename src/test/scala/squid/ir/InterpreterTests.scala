@@ -100,6 +100,19 @@ class InterpreterTests extends FunSuite {
     
   }}
   
+  test("Method asInstanceOf") {
+    import b.Predef._
+    
+    runSame(ir"(42:Any).asInstanceOf[Int]+1".rep -> 43)
+    
+    runSame(ir"('ok:AnyRef).asInstanceOf[Symbol].name".rep -> "ok")
+    
+    runSame(ir"(1::Nil:Seq[Int]).asInstanceOf[List[Int]].isEmpty".rep -> false)
+    
+    // Prints a warning -- cannot interpret `isInstanceOf` directly
+    //runSame(ir"(1::Nil:Seq[Int]).isInstanceOf[List[Int]]".rep -> true)
+    
+  }
   
   
 }

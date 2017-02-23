@@ -137,9 +137,14 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
       
       javaMtd.invoke(null, args: _*)
       
-    } else if (self == null && mtd.fullName=="scala.Any.asInstanceOf") {
+    } else if (mtd.fullName=="scala.Any.asInstanceOf") { // scala.ScalaReflectionException: Any.asInstanceOf requires a type argument, it cannot be invoked with mirrors
       
-      null
+      self
+      
+    } else if (mtd.fullName=="scala.Any.isInstanceOf") { // scala.ScalaReflectionException: Any.isInstanceOf requires a type argument, it cannot be invoked with mirrors
+      
+      System.err.println("Dynamic interpreter cannot execute `isInstanceOf` directly -- returning `true` instead.")
+      true
       
     } else {
       

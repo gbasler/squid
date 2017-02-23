@@ -52,7 +52,7 @@ trait RuntimeSymbols {
       case (s, name) => 
         if (s.isType) s.asType.toType.member(sru.TypeName(name))
         else {
-          assert(s.isModule)
+          assert(s.isModule, s"$s is not a module (while loading $fullName)")
           // If `s` is an object, look at its type signature...
           s.typeSignature.member(sru.TypeName(name))
         }
