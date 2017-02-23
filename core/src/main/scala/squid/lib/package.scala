@@ -56,6 +56,18 @@ package object lib {
     (x1, x2, x3, x4, x5) => f(x1)(x2)(x3)(x4)(x5)
   
   
+  @transparent def nullValue[T] = null.asInstanceOf[T]
+  
+  /** Communicates the intention that this null value is never checked; mainly used to initialize variables with a value
+    * that is never supposed to be accessed. */
+  @transparent def uncheckedNullValue[T] = null.asInstanceOf[T]
+  
+  
+  /** A dummy function to be used by internal compiler passes to hold temporary code; mainly used to avoid hygiene
+    * problems arising from recursive extrusion (until hygienic context polymorphism is implemented). */
+  @transparencyPropagating def placeHolder[T](id: String): T =
+    throw new AssertionError(s"Tried to execute `$id` placeholder, which was not supposed to be compiled into final program.")
+  
   
   final class DummyRecord
   

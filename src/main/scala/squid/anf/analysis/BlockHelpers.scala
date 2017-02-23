@@ -37,4 +37,79 @@ trait BlockHelpers extends SimpleANF {
     def unapply[T,C](b: Block[T,C]): Some[Block[T,C] -> IR[T,b.C0]] = Some(b->b.res)
   }
   
+  
+  /** A thing of beauty: no unsafe casts, @unchecked patterns or low-level hacks; just plain typeticool Squid quasiquotes. */
+  object Closure {
+    import Predef.QuasiContext
+    import Predef.implicitType
+    import squid.anf.analysis.BlockHelpers.placeHolder
+    
+    private var uid = 0
+    
+    //def unapply[A,C](x: IR[A,C]): Option[Closure[A,C with AnyRef]] = {
+    def unapply[A:IRType,C](x: IR[A,C]): Option[Closure[A, C with AnyRef]] = {
+    // ^ `C with AnyRef` necessary because we do `C{x:xt} – {x} == C{} == C with AnyRef`...
+      
+      //println("CLOSREC: "+x.rep)
+      
+      x match {
+          
+        case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
+          Some(new ClosureImpl[A,C,Unit](ir"()",ir"(_:Unit)=>$x"))
+          
+        case ir"val x: $xt = $v; $body: A" =>
+          
+          // Cannot do the following, as it would confuse the matched bindings `x` -- TODO why does it not make a compile error? (probably because of unchecked patmat below)
+          //val rec = unapply(body)
+          
+          // TODO a fixpoint combinator to help recursive binder extrusion
+          
+          // Note: the trick will become unneeded once proper context polymorphism hygiene is implemented (see `doc/internal/design/future/Hygienic Context Polymorphism.md`)
+          
+          val curid = uid oh_and (uid += 1)
+          val closedBody = body subs 'x -> ir"placeHolder[$xt](${Const(curid)})"
+          val rec = unapply(closedBody)
+          def reopen[T,C](q: IR[T,C]): IR[T,C{val x:xt.Typ}] = q rewrite {
+            //case dbg_ir"squid.lib.placeHolder[$$xt](${Const(Curid)})" => ir"x?:$xt"  // FIXME `Curid` pat-mat...
+            case ir"placeHolder[$$xt](${Const(id)})" if id == curid => ir"x?:$xt"
+          }
+          
+          rec match {
+              
+            case Some(cls) if cls.env =~= ir"()" =>
+              import cls.{typA => _, _}
+              Some(new ClosureImpl(v, ir"(x:$xt) => ${reopen(fun)}(${reopen(env)})")) // type: ClosureImpl[A,C with AnyRef,xt.Typ]
+              
+            case Some(cls) =>
+              import cls.{typA => _, _}
+              Some(new ClosureImpl(  // type: ClosureImpl[A, C with AnyRef, (xt.Typ,cls.E)]
+                ir"val x = $v; (x,${reopen(env)})",
+                ir"{ (env:($xt,${typE})) => val x = env._1; ${reopen(fun)}(env._2) }"))
+              
+            case None => None
+          }
+        case _ =>
+          None
+      }
+    }
+    
+  }
+  abstract class Closure[A,-C] {
+    type E
+    val env: IR[E,C]
+    val fun: IR[E => A,C]
+    implicit val typA: IRType[A]
+    implicit val typE: IRType[E]
+  }
+  private case class ClosureImpl[A,C,TE](env: IR[TE,C], fun: IR[TE => A,C])(implicit val typA: IRType[A], val typE: IRType[TE])
+    extends Closure[A,C] { type E = TE }
+  
+  
 }
+object BlockHelpers {
+  import squid.lib.transparencyPropagating
+  /** Making it `private` ensures that an end program which would still (erroneously) contain it would not be able to compile.
+    * Note: using an implicit-based scheme could even give a more helpful compile-time error message. */
+  @transparencyPropagating private def placeHolder[T](id: Int): T = squid.lib.placeHolder("Closure")
+}
+
