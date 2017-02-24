@@ -111,6 +111,7 @@ trait ASTReinterpreter { ast: AST =>
       def apply(r: Rep) = apply(dfn(r))
       
       override val ascribeBoundValsWhenNull = true
+      val warnOnEscapingVars = false
       
       //protected lazy val NothingType = Predef.implicitType[Nothing]
       protected lazy val NullType = Predef.implicitType[Null] // Note: `irTypeOf[Null]` doesn't work because the implicit in Predef is not imported
@@ -133,17 +134,8 @@ trait ASTReinterpreter { ast: AST =>
           case _ => None }}
         
         object ScalaVar { def unapply(r: IR[lib.Var[_],_]): Option[Ident] = r match {
-          case ir"($v: squid.lib.Var[$tv])" => apply(v.rep) match {
-            case id @ Ident(_) => Some(id)
-            case v =>
-              //throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
-              
-              // <!!!> TODO handle gracefully instead of crashing -- maintain expected semantics of Var objects!
-              
-              //System.err.println(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
-              
-              None
-          }
+          case IR(RepDef(h: Hole)) if h.originalSymbol exists (boundVars isDefinedAt _) =>
+            Some(Ident(boundVars(h.originalSymbol.get)))
           case _ => None }}
         
         //`internal IR`[Any,Nothing](ast.rep(d)) match {
@@ -161,21 +153,12 @@ trait ASTReinterpreter { ast: AST =>
           case ir"if ($cond) $thn else $els : $t" => q"if (${apply(cond rep)}) ${apply(thn rep)} else ${apply(els rep)}"
     
           case ir"while ($cond) $body" => q"while(${apply(cond rep)}) ${apply(body rep)}"
-    
-          case IR(RepDef(h: Hole)) =>
-            h.originalSymbol flatMap (os => boundVars get os) map (n => Ident(n)) getOrElse super.apply(d)
-    
+            
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) !" => id
-          case ir"$v: squid.lib.Var[$tv]" if !(v.typ <:< NullType) =>
-            
-            // <!!!> TODO handle gracefully
-            
-            //System.err.println(s"Virtualized variable `${v rep}` of type `${tv}` escapes its defining scope!")
-            
-            val r = super.apply(dfn(v rep))
-            //System.err.println("Note: "+showCode(r))
-            r
+          case ir"${ScalaVar(id)}: squid.lib.Var[$tv]" =>
+            if (warnOnEscapingVars) System.err.println(s"Virtualized variable `${id}` of type `${tv}` escapes its defining scope!")
+            q"new squid.lib.VarProxy[${rect(tv.rep)}]($id, a => $id = a)"
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
           case ir"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>

@@ -22,9 +22,23 @@ package object lib {
   def ThunkArg: ThunkParam = ThunkParam
   
   
-  case class Var[A](var value: A) {
-    def := (that: A) = value = that
-    def ! = value
+  abstract class Var[A] {
+    def := (that: A) : Unit
+    def ! : A
+    override def toString = s"Var(${this!})"
+  }
+  object Var {
+    def apply[A](init: A): Var[A] = new Var[A] {
+      private[this] var cur = init
+      def := (that: A) = cur = that
+      def ! = cur
+    }
+  }
+  
+  /** Used in ReinterpreterToScala when a local variable "escapes", to preserve the validity and semantics of the program. */
+  class VarProxy[A](get: => A, set: A => Unit) extends Var[A] {
+    def := (that: A) = set(that)
+    def ! = get
   }
   
   // More confusing than useful, especially since it seems to be automatically imported along with Var:
