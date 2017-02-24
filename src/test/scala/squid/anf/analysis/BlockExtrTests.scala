@@ -67,7 +67,7 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
       
       //case ir"($opt:Option[$ta]).flatMap($f)" => ???  // FIXME why no warning?!
       //case ir"($opt:Option[$ta]).map[$tb => $tc](x => ${Closure(cls)})" => // FIXME: current hygiene problem!! name 'x' is used in the `Closure` extractor and is confused!
-      case ir"($opt:Option[Int]).map[$tb => $tc]($xyz => ${Closure(cls)})" =>
+      case ir"($opt:Option[Int]).map[$tb => $tc](xyz => ${Closure(cls)})" =>
         
         assert(cls.env =~= ir"Nil.size" || cls.env =~= ir"(Nil.size, readDouble)")
         

@@ -10,14 +10,16 @@ import utils.Debug.show
   * 
   * Transforms option variables into a pair of variables (one boolean and oen containing the value if any).
   * This transformation will not successfully apply if the code is not normal w.r.t `OptionNormalizer`.
+  * Also removes `Var[Unit]`, `Var[Tuple2[_]]` and some instances of `Var[Var[_]]`.
   * 
   */
-trait VarInliner extends SimpleRuleBasedTransformer { self =>
+trait VarFlattening extends SimpleRuleBasedTransformer { self =>
   import base.Predef._
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
   
   import squid.lib.Var
+  import squid.lib.uncheckedNullValue
   
   rewrite {
     
@@ -67,10 +69,15 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
       //  Abort()}
       
       // FIXME make the `var` syntax work in:
-      // TODO use `uncheckableValue`
+      // TODOne use `uncheckableValue`
+      //ir"""
+      //  val isDefined = Var($init.isDefined)
+      //  val optVal = Var($init getOrElse ${nullValue[t.Typ]})
+      //  $body3
+      //"""
       ir"""
         val isDefined = Var($init.isDefined)
-        val optVal = Var($init getOrElse ${nullValue[t.Typ]})
+        val optVal = Var($init getOrElse uncheckedNullValue[$t])
         $body3
       """
       
@@ -85,6 +92,8 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
           val sbody2 = sbody rewrite {
             case ir"$$x._1" => ir"$lhs.!"
             case ir"$$x._2" => ir"$rhs.!"
+            //case ir"($$x:Any) == ($y:$t)" =>
+              //ir"$lhs.! == $y._1 && "
           }
           sbody2 subs 'x -> Abort()
         case ir"$$v := ($a:$$ta,$b:$$tb)" => ir"$lhs := $a; $rhs := $b"
@@ -93,6 +102,9 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
       
       val body3 = body2 subs 'v -> Abort()
       
+      if (init =~= ir"uncheckedNullValue[($ta,$tb)]")
+        ir" val lhs = Var(uncheckedNullValue[$ta]);  val rhs = Var(uncheckedNullValue[$tb]);  $body3 "
+      else
       ir"""
         val lhs = Var($init._1)
         val rhs = Var($init._2)
@@ -100,6 +112,24 @@ trait VarInliner extends SimpleRuleBasedTransformer { self =>
       """
       
       
+    // Removal of Var[Var[_]] in some special cases
+    case ir"var $v: Var[$t] = $init; $body: $bt" =>
+      val flatVar = ir"flatVar? : Var[$t]"
+      
+      val body2 = body rewrite {
+        case ir"$$v.!.!" => ir"$flatVar.!" // TODO genlze?
+        case ir"$$v := $x" => ir"$flatVar := $x.!"
+        case ir"$$v.! := $x" => ir"$flatVar := $x"
+      }
+      
+      val body3 = body2 subs 'v -> Abort()
+      //val body3 = body2 subs 'v -> {
+      //  System.err.println(s"Variable v=$v still in $body2")
+      //  Abort()}
+      
+      if (init =~= ir"uncheckedNullValue[Var[$t]]")
+        ir"val flatVar = Var(uncheckedNullValue[$t]); $body3"
+      else ir"val flatVar = Var($init.!); $body3"
       
   }
       

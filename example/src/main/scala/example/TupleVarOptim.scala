@@ -42,7 +42,11 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         val body2 = body rewrite {
           case ir"($$tup !)._1" => ir"assert(!$isNull.!); $a !"
           case ir"($$tup !)._2" => ir"assert(!$isNull.!); $b !"
-          case ir"($$tup !) == null" => ir"$isNull.!"
+            
+          case ir"($$tup !) == null" => ??? // ir"$isNull.!"
+          // ^ For some reason, this (and other variants) never seems to match! Only the following does:
+          case ir"($x:Any) == null" if x =~= ir"v? : ($ta,$tb)" => ir"$isNull.!"
+            
           case ir"$$tup := ($va: $$ta, $vb: $$tb)" => ir"$a := $va; $b := $vb; $isNull := false"
           case ir"$$tup := $vab" => ir"val n = $vab == null; if (!n) { $a := $vab._1; $b := $vab._2; $isNull := n }"
           case ir"$$tup := null" => ir"$isNull := true"

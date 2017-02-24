@@ -51,10 +51,27 @@ class Compiler extends Optimizer {
   import Code.Quasicodes._
   
   val Impl = new Code.Lowering('Impl) with TopDownTransformer
+  
   val Imperative = new Code.Lowering('Imperative) with FixPointTransformer with TopDownTransformer
     // ^ Note: needs fixed point because `fromIndexed` is implemented in terms of a direct call to `fromIndexedSlice`
+  
+  val LateImperative = new Code.Lowering('LateImperative) with TopDownTransformer
+  
   val DCE = new Code.SelfTransformer with squid.anf.transfo.DeadCodeElimination
-  val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with transfo.VarInliner with FixPointRuleBasedTransformer with BottomUpTransformer
+  
+  val VarFlattening = new Code.SelfTransformer with transfo.VarFlattening with TopDownTransformer
+  
+  //val LowLevelNorm = new Code.SelfTransformer with LogicNormalizer with transfo.VarInliner with FixPointRuleBasedTransformer with BottomUpTransformer
+  // ^ Some optimizations are missed even in fixedPoint and bottomUp order, if we don't make several passes:
+  val LowLevelNorm = new Code.TransformerWrapper(
+    // TODO var simplification here,
+    new Code.SelfTransformer 
+      with LogicNormalizer 
+      with FixPointRuleBasedTransformer 
+      with BottomUpTransformer { rewrite {
+        case ir"squid.lib.uncheckedNullValue[$t]" => nullValue[t.Typ]
+      }}
+  ) with FixPointTransformer
   
   val CtorInline = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
     rewrite {
@@ -98,6 +115,47 @@ class Compiler extends Optimizer {
     }
   }
   
+  val FlatMapFusion = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+    import impl._
+    import Code.Closure
+    
+    rewrite {
+      case ir"flatMap[$ta,$tb]($s)(a => ${Closure(clos)})" =>
+        //println("CLOS: "+clos)
+        import clos._
+        
+        val fun2 = fun subs 'a -> Abort()
+        // ^ TODO could save the 'a' along with the environment...
+        // ... when more methods are pure/trivial, it may often happen (eg `stringWrapper` that makes String an IndexedSeq)
+        
+        // Reimplementation of flatMap but using a variable for the Producer state and _not_ for the Producer, so it can be inlined.
+        // Note: would probably be simpler to implement it in shallow as syntax sugar to use from here.
+        val res = ir"""
+          val s = $s
+          var envVar: Option[E] = None
+          (k => {
+            var completed = false
+            var continue = false
+            while({
+              if (envVar.isEmpty) s { a => envVar = Some($env); false }
+              if (envVar.isEmpty) completed = true
+              else {
+                if ($fun2(envVar.get) { b => continue = k(b); continue }) envVar = None
+              }
+              !completed && continue
+            }){}
+            completed
+          }) : Producer[${tb}]
+        """
+        
+        // cleanup could be done here, but will be done in next `VarFlattening` phase anyways
+        //val res2 = res transformWith (new Code.SelfTransformer with transfo.VarFlattening with TopDownTransformer)
+        
+        res
+        
+    }
+  }
+  
   
   def dumpPhase(name: String, code: => String, time: Long) = {
     println(s"\n === $name ===\n")
@@ -112,6 +170,9 @@ class Compiler extends Optimizer {
     //"DCE 0" -> DCE.pipeline,  // FIXME only remove effectless/just-read things
     "ImplOptim" -> ImplOptim.pipeline,
     "Imperative" -> Imperative.pipeline,
+    "FlatMapFusion" -> FlatMapFusion.pipeline,
+    "LateImperative" -> LateImperative.pipeline,
+    "VarFlattening" -> VarFlattening.pipeline,
     "Low-Level Norm" -> LowLevelNorm.pipeline,
     "ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)())
     //"ReNorm (should be the same)" -> ((r:Rep) => base.reinterpret(r, base)().asInstanceOf[base.Rep] |> base.Norm.pipeline)

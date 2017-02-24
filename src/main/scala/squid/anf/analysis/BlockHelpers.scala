@@ -47,17 +47,17 @@ trait BlockHelpers extends SimpleANF {
     private var uid = 0
     
     //def unapply[A,C](x: IR[A,C]): Option[Closure[A,C with AnyRef]] = {
-    def unapply[A:IRType,C](x: IR[A,C]): Option[Closure[A, C with AnyRef]] = {
+    def unapply[A:IRType,C](term: IR[A,C]): Option[Closure[A, C with AnyRef]] = {
     // ^ `C with AnyRef` necessary because we do `C{x:xt} – {x} == C{} == C with AnyRef`...
       
       //println("CLOSREC: "+x.rep)
       
-      x match {
+      term match {
           
         case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
-          Some(new ClosureImpl[A,C,Unit](ir"()",ir"(_:Unit)=>$x"))
+          Some(new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term"))
           
-        case ir"val x: $xt = $v; $body: A" =>
+        case ir"val ClosureVar: $xt = $v; $body: A" =>
           
           // Cannot do the following, as it would confuse the matched bindings `x` -- TODO why does it not make a compile error? (probably because of unchecked patmat below)
           //val rec = unapply(body)
@@ -67,24 +67,24 @@ trait BlockHelpers extends SimpleANF {
           // Note: the trick will become unneeded once proper context polymorphism hygiene is implemented (see `doc/internal/design/future/Hygienic Context Polymorphism.md`)
           
           val curid = uid oh_and (uid += 1)
-          val closedBody = body subs 'x -> ir"placeHolder[$xt](${Const(curid)})"
+          val closedBody = body subs 'ClosureVar -> ir"placeHolder[$xt](${Const(curid)})"
           val rec = unapply(closedBody)
-          def reopen[T,C](q: IR[T,C]): IR[T,C{val x:xt.Typ}] = q rewrite {
+          def reopen[T,C](q: IR[T,C]): IR[T,C{val ClosureVar:xt.Typ}] = q rewrite {
             //case dbg_ir"squid.lib.placeHolder[$$xt](${Const(Curid)})" => ir"x?:$xt"  // FIXME `Curid` pat-mat...
-            case ir"placeHolder[$$xt](${Const(id)})" if id == curid => ir"x?:$xt"
+            case ir"placeHolder[$$xt](${Const(id)})" if id == curid => ir"ClosureVar?:$xt"
           }
           
           rec match {
               
             case Some(cls) if cls.env =~= ir"()" =>
               import cls.{typA => _, _}
-              Some(new ClosureImpl(v, ir"(x:$xt) => ${reopen(fun)}(${reopen(env)})")) // type: ClosureImpl[A,C with AnyRef,xt.Typ]
+              Some(new ClosureImpl(v, ir"(ClosureVar:$xt) => ${reopen(fun)}(${reopen(env)})")) // type: ClosureImpl[A,C with AnyRef,xt.Typ]
               
             case Some(cls) =>
               import cls.{typA => _, _}
               Some(new ClosureImpl(  // type: ClosureImpl[A, C with AnyRef, (xt.Typ,cls.E)]
-                ir"val x = $v; (x,${reopen(env)})",
-                ir"{ (env:($xt,${typE})) => val x = env._1; ${reopen(fun)}(env._2) }"))
+                ir"val ClosureVar = $v; (ClosureVar,${reopen(env)})",
+                ir"{ (env:($xt,${typE})) => val ClosureVar = env._1; ${reopen(fun)}(env._2) }"))
               
             case None => None
           }

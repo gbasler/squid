@@ -136,8 +136,13 @@ trait ASTReinterpreter { ast: AST =>
           case ir"($v: squid.lib.Var[$tv])" => apply(v.rep) match {
             case id @ Ident(_) => Some(id)
             case v =>
-              // TODO handle gracefully? (by implementing the expected semantics?)
-              throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
+              //throw IRException(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
+              
+              // <!!!> TODO handle gracefully instead of crashing -- maintain expected semantics of Var objects!
+              
+              //System.err.println(s"Cannot de-virtualize usage of Var not associated with a local identifier: $d")
+              
+              None
           }
           case _ => None }}
         
@@ -163,7 +168,11 @@ trait ASTReinterpreter { ast: AST =>
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) !" => id
           case ir"$v: squid.lib.Var[$tv]" if !(v.typ <:< NullType) =>
-            System.err.println(s"Virtualized variable `${v rep}` of type `${tv}` escapes its defining scope!")
+            
+            // <!!!> TODO handle gracefully
+            
+            //System.err.println(s"Virtualized variable `${v rep}` of type `${tv}` escapes its defining scope!")
+            
             val r = super.apply(dfn(v rep))
             //System.err.println("Note: "+showCode(r))
             r

@@ -244,7 +244,7 @@ object `package` {
     k => { s { a => if (dropping && pred(a)) true else {dropping = false; k(a)} } }
   }
   
-  @inline @phase('Imperative)
+  @inline @phase('LateImperative)
   def flatMap[A,B](s: Producer[A])(f: A => Producer[B]): Producer[B] = {
     var cur_s: Producer[B] = null
     k => {
