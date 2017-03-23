@@ -1,5 +1,7 @@
 package squid
 
+import utils._
+
 package object lib {
   
   @transparent
@@ -25,6 +27,7 @@ package object lib {
   abstract class Var[A] {
     def := (that: A) : Unit
     def ! : A
+    override def equals(that: Any) = that |>? { case v: Var[_] => this.! == v.! } Else false
     override def toString = s"Var(${this!})"
   }
   object Var {
