@@ -8,6 +8,19 @@ import scala.collection.mutable.ListBuffer
 
 /**
   * Created by lptk on 18/02/17.
+  * 
+  * Example use case: a prompt with bounded history
+  * {{{
+  *   Producer.continually(readLine).map(_.stripMargins).takeUntil("exit").run(c => for {
+  *     history <- c.takeRight(10).buffer  // uses circular buffer; TODO compile efficiently with takeRight
+  *     () <- c.foreach { /* compute and print result, possibly using history */ }
+  *   } yield ())
+  * }}}
+  * 
+  * Note: we could also use `run` to do some dataflow programming -- here we'd really need a compiler passs to analyse
+  * how many values need to be retained (as opposed to all of them or a fixed number specified by the user).
+  * See also: http://tomasp.net/coeffects/
+  * 
   */
 abstract class Producer[+A](underFun: => impl.Producer[A]) { prodSelf =>
   def under = underFun
@@ -36,6 +49,7 @@ abstract class Producer[+A](underFun: => impl.Producer[A]) { prodSelf =>
     def fold[S](z:S)(s:(S,R)=>S): Aggr[S]
     def build[S,T](z:S)(s:(S,R)=>Unit)(mk: S => T): Aggr[T]
     def map[S](f: R => S): Consumer[S]
+    //def map[S](f: (=>R) => S): Consumer[S]  // does not seem to make any significant change
     def flatMap[S](f: (=> R) => Aggr[S]): Aggr[S]
     def withFilter(pred: R => Bool) = filter(pred)
     def filter(pred: R => Bool): Consumer[Option[R]]
@@ -54,6 +68,7 @@ abstract class Producer[+A](underFun: => impl.Producer[A]) { prodSelf =>
   }
   trait Aggr[+R] extends Consumer[R] {
     def map[S](f: R => S): Aggr[S]
+    //def map[S](f: (=>R) => S): Aggr[S]
     def filter(pred: R => Bool): Aggr[Option[R]]
   }
   
@@ -61,6 +76,7 @@ abstract class Producer[+A](underFun: => impl.Producer[A]) { prodSelf =>
     * Use a size-limiting method such as `take` first, or make your finiteness assumption explicit with `assumeBounded`. */
   protected def run[R](k: Consumer[A] => Aggr[R]): R
   
+  /** Related to coflatmap/extend from comonads */
   def repeat[R](k: Consumer[A] => Aggr[R]): Producer[R] = ???
   
   def asSized = this |>? { case self: SizedProducer[A] with this.type => self }
@@ -84,7 +100,7 @@ private abstract class AbstractProducer[A](under: => impl.Producer[A]) extends P
     ag.get
   }
   
-  /** TODO zip,take,drop,etc. */
+  /** TODO zip,take,drop,etc. most importantly: collect */
   abstract class Consumer[+R] extends super.Consumer[R] {
     def iter: A => Unit
     def get: R
@@ -99,6 +115,7 @@ private abstract class AbstractProducer[A](under: => impl.Producer[A]) extends P
     }
 
     def map[S](f: R => S): Aggr[S] = new Aggr(iter,f(get))
+    //def map[S](f: (=>R) => S): Aggr[S] = new Aggr(iter,f(get))
     def flatMap[S](f: (=> R) => AbstractProducer.super.Aggr[S]): Aggr[S] = {
       var cell = null.asInstanceOf[R]
       val newAggr = f(cell).asInstanceOf[Aggr[S]]
@@ -251,13 +268,14 @@ object Test extends App {
   ///*
   val r = p.run(p => for {
     a <- p
-    //() = println(p) // TODO B/E
+    //() = println(p) // TODO B/E -- note: interestingly, this works if it's outside the `for`
+    //() = println(a) // TODO B/E
     n <- p.count
-    //() = println(n)
+    //() = println(n) // nope -- but should be made to work
     s <- p.sum
     //s2 <- p.map(_+1).sum
     ls1 <- p.toList
-    ls2 <- p.map(_+n).toList
+    ls2 <- p.map(_+n).toList  // note: uses Consumer.map -- showing it's a useful method, although it can currently be used in an unsafe way
 
     //b <- p.toBuffer
     b <- p.toBufferOf[Int]

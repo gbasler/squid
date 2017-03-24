@@ -187,6 +187,16 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Left.type]
   transparentTyps += typeSymbol[Right.type]
   
+  
+  // Not enabled because it currently makes the closure depend on the input in the tests' flatMap fusion -- case not yet handled
+  //transparentMtds += methodSymbol[scala.Predef.type]("wrapString")
+  // TODO
+  //sru.rootMirror.staticModule("scala.Predef").typeSignature.members.foreach { s =>
+  //  if (s.isMethod && (s.name.toString startsWith "wrap")) {
+  //    transparentMtds += s.asMethod
+  //  }
+  //}
+  
   transparencyPropagatingMtds += methodSymbol[scala.Predef.type]("identity")
   
 }

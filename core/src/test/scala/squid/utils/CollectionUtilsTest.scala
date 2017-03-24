@@ -44,6 +44,18 @@ class CollectionUtilsTest extends FunSuite {
     assert((es: String) == "EOOEE")
     assert((rest: String) == "l tr furt")
     
+    val (as,bs) = "Asi es el Toro Fuerte" mapSplit {
+      case c if c.isUpper => Left(c)
+      case c => Right(c)
+    }
+    assert(as == "ATF" && bs == "si es el oro uerte")
+    
+    val (as0,bs0) = Map(1 -> "ok", 2 -> "ko") mapSplit {
+      case kv if kv._1 % 2 == 0 => Right(kv)
+      case kv => Left(kv)
+    }
+    assert(as0 == Map(1 -> "ok"))
+    
   }
   
   
@@ -71,6 +83,8 @@ class CollectionUtilsTest extends FunSuite {
   test("Zip and") {
     
     assert( (List(1,2,3) zipAnd List(0,1,2))(_ + _) == List(1,3,5) )
+    // in fact, similar to:
+    assert( (List(1,2,3), List(0,1,2)).zipped.map(_ + _) == List(1,3,5) )
     
   }
   

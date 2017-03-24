@@ -80,6 +80,40 @@ class OptimTests extends FunSuite {
   }
   
   
+  /* // TODO
+  test("Avg Words") {
+    
+    val txt = "Hello there. This is a sentence. This is another, longer one."
+    val res = 11.0/3
+    
+    val c0 = ir{algo.avgWordsPerSentence _}
+    val r0 = algo.avgWordsPerSentence(txt)
+    //println(r0)
+    //println(c0)
+    
+    assert(r0 == res)
+    assert((txt |> c0.run) == r0)
+    
+    Compiler.wrapOptim("AvgWords") {
+      val r = Compiler.optimize(c0)
+      //assert((txt |> r.run) == r0)
+    }
+    
+  }
+  */
+  
+  
+  /*
+  test("WAT") {
+    
+    val c0 = ir{algo.wat}
+    println(c0)
+    Compiler.wrapOptim("Wat") {
+      val r = Compiler.optimize(c0)
+    }
+    
+  }
+  */
   
 }
 

@@ -43,12 +43,9 @@ object `package` {
   
   
   // TODO
-  def avgWordsPerSentence(text: String) = {
-    //fromIndexed(text).
-    ???
-  }
-  
-  
+  @phase('Sugar)
+  def avgWordsPerSentence(text: String) = ???
+  // cf. old-split-consume-attempts
   
 }
 
