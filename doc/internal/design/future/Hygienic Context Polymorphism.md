@@ -7,24 +7,119 @@ Better compositionality of context-polymorphic functions while enforcing hygiene
 Assumption:
 we can do better than context disjointness implicits `A <> B`.
 
-This should translate to transformers, that are currently only sound to apply on closed terms
+This should translate to transformers, that are currently only sound to apply on closed terms in general
 (including in the `Return.recursing` pattern, which limits it greatly).
-This is so that the free variables a transformer extrudes are not mixed with the ones already present in the term.
+This is so that the free variables a transformer extrudes are not mixed with the ones already present in the term but unknown to the transformer.
 
 
-## Mechanisms
 
-Pass around context evidence created on the spot that account for:
- * what part of the context was known by the caller (statically-known)
- * what the context actually contains (dynamically-known)
+## Problems with Erased Weakening
 
-When a FV is introduced, if the dynamic base context already contains the same name,
-we take a fresh name (for example appending a prime `'`).
+It turns out that the main problem in coming up with a sound scheme for context polymorphism is _erased weakening_,
+coming from the fact that `IR[Typ,Ctx]` is contravariant in `Ctx`, so that `IR[T,A] <: IR[T,B]` as long as `A :> B`.
 
-On every usage of a quoted term (e.g., `subs` or `$`-insertion),
-require a context implicit;
-if previously-hidden variables are now public,
-we can unify the renamed variables with the original variables, as this unicity is known statically.
+The need for reified weakening can be seen as there are two valid abstraction paths from `{x:Int}` to `C & {x:Int}`,
+direct and indirect:
+
+```
+{x:Int} -> C{x:Int}       where C == {}
+{x:Int} -> C -> C{x:Int}  where C == {x:Int}
+```
+
+Say we start with simple term `ir"x?:Int" : IR[Int,{x:Int}]`, 
+and by either weakening path end up calling
+a function:
+```scala
+def foo[C](q:IR[Int,C{x:Int}]): IR[Int,C] = q subs 'x -> ir"0"`.
+```
+The function should behave differently depending on which path was taken.
+Indeed:
+ * if it _does not_ substitute `x`, the direct caller sees the result type as `IR[Int,C]` and `C` may be `{}`, in which case there is an unsoundness (closed term is not really closed).
+ * if it _does_ substitute `x`, the indirect caller ends up in a paradoxical state, particularly evident if the free variable hidden in `C` was `ir"x?:String"` instead of `ir"x?:Int"`,
+ in which case we have an obvious type unsoundness.
+ It is not acceptable to use intensional type analysis to do the substitution only if the types align, 
+ as it means transformers will behave non-parametrically depending on the names and types contained in abstract contexts.
+
+Therefore, we probably need to drop the contravariance of `IR[Typ,_]` 
+and use implicit conversions instead, 
+which does have several downsides (no more general subtyping relations that extend to variant containers).
+
+
+## Proposed Scheme
+
+### Idea
+
+Context "brands" are used at runtime to tag free variable with the
+abstract contexts that are supposed to contain them,
+therefore hiding them from operations that affect visible free variables 
+(such as capture and substitution).
+
+
+Following is a simple example of why reified weakening is needed:
+
+```scala
+def foo[C:Ctx](a:IR[Int,C]):IR[Int,C{x:Int}] = a  // weakening happens here
+def bar[C:Ctx](a:IR[Int,C]) = foo(a) subs 'x -> ir"42"
+val q = ir"x?:String"  // problem: FV x is not tagged at this point; need reified weakening to tag it!
+foo(q) 
+```
+
+Note: if `a` in `foo` is otherwise used, it will get its FVs tagged without a problem:
+
+```scala
+def foo[C:Ctx](a:IR[Int,C]):IR[Int,C{x:Int}] = ir"$a + (x?:Int)"
+// ^ the FV `x:String` in `a` is tagged before `a` is used here!
+```
+
+
+
+
+### Mechanism
+
+Generate fresh "brands" as context implicits for ground contexts.
+Intersection types aggregate the brands of their components (set union).
+When a term with context `A_i & ... & {x_i:T_i}` is used (including when simply weakened!), 
+statically require its context evidence ,
+and brand all its FVs that are not yet branded and are not statically known to be in the term (not an `x_i`), 
+with the brand of the abstract context bases (all `A_i`).
+Additionally, remove FV brands that are no longer associated with any `A_i`.
+
+
+
+### More Examples
+
+
+#### Notation
+
+```scala
+def foo[C:Ctx,D:Ctx](a:IR[Int,C{x:Int}],b:IR[Int,D]): IR[Int,C & D] = ir"${a subs 'x -> ir"42"} + $b"
+```
+
+Is denoted by:
+
+```
+foo: [C,D] C{x:Int} -> D -> C & D = "${_ subs 'x -> ""} + $_"
+```
+
+
+
+#### Substitution Leaves Abstracted/Hidden FVs untouched
+
+```
+foo: [C,D] C -> D -> C & D = ir"$_ + $_"
+bar0: [C] C -> C = q -> foo(q,q)
+bar1: [C] C -> C{x} = q -> foo(q,"x?")
+
+bar1("(x?:String).length"): {x:String & Int} == "(x?:String).length + x?" 
+
+bar2 [C] C -> C = q -> foo(q,"x?") subs 'x -> ""
+
+bar2("(x?:String).length"): {x:String} == "(x?:String).length + 42"
+```
+
+
+
+
 
 
 ## Example
