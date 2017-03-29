@@ -4,7 +4,7 @@ import utils._
 
 package object lib {
   
-  @transparent
+  @transparent // Note: `IfThenElse` is NOT @transparencyPropagating as it executes the closures it is passed
   def IfThenElse[A](cond: Boolean, thn: => A, els: => A): A =
     if (cond) thn else els
   

@@ -5,7 +5,7 @@ import utils._
 import lang._
 import squid.lang.InspectableBase
 
-/** Transformer that applies the rewrite rules repeatedly until a fixed point is reached or `MAX_TRANSFORM_ITERATIONS` is exceeded.
+/** Transformer that applies the rewrite rules repeatedly until a fixed point is reached or `MAX_RULE_BASED_TRANSFORM_ITERATIONS` is exceeded.
   * Note: this shares a lot of similar code as `FixPointTransformer`; they are not merged mainly for performance reasons. */
 trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
   val base: InspectableBase
@@ -14,7 +14,12 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
   //override lazy val TranformerDebug = base.asInstanceOf[PublicTraceDebug]
   import TranformerDebug.debug
   
-  val MAX_TRANSFORM_ITERATIONS = 8
+  /** Note: renamed from `MAX_TRANSFORM_ITERATIONS` to make `FixPointRuleBasedTransformer` compatible with
+    * `FixPointTransformer`, so one can mit it as in:
+    *   {{{ ... with FixPointRuleBasedTransformer with TopDownTransformer with FixPointTransformer }}} 
+    *  which is transforms each expressions until a fixed point is reached, in a top-down manner that is itself applied
+    *  over and over until a fixed point is reached. */
+  protected val MAX_RULE_BASED_TRANSFORM_ITERATIONS = 8
   
   override def transform(rep: Rep) = {
   //abstract override def transform(rep: Rep) = {
@@ -23,7 +28,7 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
     var currentRep = rep
     var recNum = 0
     
-    while (matched && recNum < MAX_TRANSFORM_ITERATIONS) {
+    while (matched && recNum < MAX_RULE_BASED_TRANSFORM_ITERATIONS) {
       //debug(s" --- ($recNum) --- ")
       
       recNum += 1
@@ -53,8 +58,8 @@ trait FixPointRuleBasedTransformer extends SimpleRuleBasedTransformer {
       }
     }
     
-    if (recNum == MAX_TRANSFORM_ITERATIONS)
-      System.err.println(s"Rewrite rules did not converge after $MAX_TRANSFORM_ITERATIONS iterations.\nFor rep: ${currentRep|>showRep}")
+    if (recNum == MAX_RULE_BASED_TRANSFORM_ITERATIONS)
+      System.err.println(s"Rewrite rules did not converge after $MAX_RULE_BASED_TRANSFORM_ITERATIONS iterations.\nFor rep: ${currentRep|>showRep}")
     //debug(" --- END --- ")
     
     currentRep
