@@ -11,7 +11,7 @@ import Code.Predef._
 import Code.{SelfTransformer=>CST}
 
 object DeTup extends CST with TupleVarOptim with TopDownTransformer
-object Norm extends CST with VarNormalizer with LogicNormalizer with TopDownTransformer
+object Norm extends CST with VarNormalizer with squid.anf.transfo.LogicNormalizer with TopDownTransformer
 object DeTupFix extends Code.TransformerWrapper(DeTup) with FixPointTransformer
 object DeTupNormFix extends Code.TransformerWrapper(DeTup,Norm) with FixPointTransformer
 

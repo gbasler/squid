@@ -4,7 +4,6 @@ package compiler
 import java.io.File
 import java.io.PrintStream
 
-import example.LogicNormalizer
 import squid.utils._
 import squid.ir._
 import squid.lang._
@@ -66,7 +65,7 @@ class Compiler extends Optimizer {
   val LowLevelNorm = new Code.TransformerWrapper(
     // TODO var simplification here,
     new Code.SelfTransformer 
-      with LogicNormalizer 
+      with transfo.LogicNormalizer 
       with FixPointRuleBasedTransformer 
       with BottomUpTransformer { rewrite {
         case ir"squid.lib.uncheckedNullValue[$t]" => nullValue[t.Typ]
