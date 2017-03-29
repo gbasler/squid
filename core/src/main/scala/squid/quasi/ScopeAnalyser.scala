@@ -48,7 +48,9 @@ trait ScopeAnalyser[U <: scala.reflect.api.Universe] extends UniverseHelpers[U] 
   }
   
   def mkContext(bases: List[Type], vars: List[(TermName, Type)]): Tree = {
-    tq"(${glb(bases)}){ ..${ mergeVars(vars) map { case(na,tp) => q"val $na: $tp" } } }"
+    //println(s"MK CTX $bases ${glb(bases)}")
+    val newBases = bases filter (b => !(b =:= AnyRef))
+    tq"(${glb(newBases)}){ ..${ mergeVars(vars) map { case(na,tp) => q"val $na: $tp" } } }"
   }
   
   

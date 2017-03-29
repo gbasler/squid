@@ -47,7 +47,7 @@ trait BlockHelpers extends SimpleANF {
     private var uid = 0
     
     //def unapply[A,C](x: IR[A,C]): Option[Closure[A,C with AnyRef]] = {
-    def unapply[A:IRType,C](term: IR[A,C]): Option[Closure[A, C with AnyRef]] = {
+    def unapply[A:IRType,C](term: IR[A,C]): Option[Closure[A, C]] = {
     // ^ `C with AnyRef` necessary because we do `C{x:xt} – {x} == C{} == C with AnyRef`...
       
       //println("CLOSREC: "+x.rep)

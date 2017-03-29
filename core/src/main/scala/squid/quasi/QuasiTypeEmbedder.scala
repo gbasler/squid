@@ -24,7 +24,9 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       if (tp.widen =:= typeOf[QuasiBase.`<extruded type>`] || tp.widen.contains(symbolOf[QuasiBase.`<extruded type>`])) {
         debug(s"Detected widened type hole: ${tp.widen}")
         val purged = tp.toString.replaceAll(typeOf[QuasiBase.`<extruded type>`].toString, "<extruded type>")
-        throw EmbeddingException(s"Precise info for extracted type was lost, possibly because it was extruded from its defining scope, in: $purged")
+        throw EmbeddingException(s"Precise info for extracted type was lost, " +
+          s"possibly because it was extruded from its defining scope" +
+          s"or because the least upper bound was obtained from two extracted types, in: $purged")
       }
       
       
