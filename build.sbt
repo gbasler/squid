@@ -1,6 +1,6 @@
 val paradiseVersion = "2.1.0"
 val boilerlessVersion = "0.1-SNAPSHOT"
-val squidVersion = "0.1-SNAPSHOT"
+val squidVersion = "0.1.1-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(
@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
-  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
+  //addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   libraryDependencies ++= Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
