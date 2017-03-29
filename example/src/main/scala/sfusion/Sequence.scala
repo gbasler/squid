@@ -130,6 +130,10 @@ object Sequence extends SquidObject {
   @phase('Sugar)
   def iterate[A](start: A)(next: A => A): Sequence[A] = new Sequence(() => impl.iterate(start)(next), Right(false))
   
+  // TODO use a by-name param (currently not well supported by @embed)
+  @phase('Sugar)
+  def continually[A](computation: () => A): Sequence[A] = new Sequence(() => impl.continually(computation), Right(false))
+  
   @phase('Sugar)
   def fromIndexed[A](is: IndexedSeq[A]): Sequence[A] = new Sequence(() => impl.fromIndexed(is), Left(is.size))
   

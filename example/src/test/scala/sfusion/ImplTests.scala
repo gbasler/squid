@@ -33,7 +33,7 @@ class ImplTests extends FunSuite {
     //println(take(s)(30)(a => println(a) before true))
     //println(take(s)(30)(a => true))
     
-    assert((take(continually(0))(10) |> toBuffer) == Seq.fill(10)(0))
+    assert((take(continually(() => 0))(10) |> toBuffer) == Seq.fill(10)(0))
     
   }
   

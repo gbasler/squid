@@ -104,8 +104,8 @@ object `package` {
   }
   
   @inline @phase('Imperative)
-  def continually[A](v: A): Producer[A] = {
-    k => while(k(v)){}; false
+  def continually[A](v: () => A): Producer[A] = {
+    k => while(k(v())){}; false
   }
   
   /*
