@@ -300,6 +300,115 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
       }
       
       xy match {
+          ///*
+        // Pure Expression Rewriting -- when the result is pure and could thus appear later (after some more statements) in the matched body
+        //case (es0 -> r0, Nil -> r1) if r1.isPure =>
+        case (Nil -> r0, es1 -> r1) if r0.isPure => // TODO make it resilient to early return
+          //println(r0,es1,r1)
+          //???
+          //var res: Option[Rep] = None
+          //var res: Option[Extract] = None
+          //var res: Option[Val] = None
+          
+          //var res: Option[Val -> Rep] = None
+          //var res: Option[Either[Val -> BlockRep, List[StmtRep]]] = None
+          var res: Option[Either[Val -> Rep, List[StmtRep]]] = None
+          
+          //val resVal = freshBoundVal()
+          def process(r:Rep) = 
+            topDown(r) { // TODO a case for when res.exists(_.isRight), checking extract and splicing pure term
+              //case a @ r0(extr) if res.isEmpty =>
+              //case a @ r0((extr @ (_,_,_))) if res.isEmpty =>   // may make the code twice?
+              case a @ r0((extr @ (_,_,_))) if res.isEmpty =>   // may make the code twice?
+                //res = Some(extr)
+                //extr:Int
+                //merge(ex, extr):Int
+                //merge(ex, extr) flatMap (mkCode(_)) map (c => 
+                //    freshBoundVal(c.typ) and (v => res = Some(v -> c))
+                //  )
+                val b = for {
+                  ex <- merge(ex, extr)
+                  c <- mkCode(ex)
+                } yield 
+                  //if (c.isPure) c else {freshBoundVal(c.typ) and (v => res = Some(v -> c))} |> rep
+                  {
+                    val stmts -> ret = c.asBlock
+                    if (ret.isPure) {
+                      res = Some(Right(stmts))
+                      ret
+                    } else {
+                      val bv = freshBoundVal(c.typ)
+                      //println(s"FRESH $bv")
+                      //res = Some(Left(bv -> (stmts -> r)))
+                      res = Some(Left(bv -> c))
+                      bv |> rep
+                    }
+                  }
+                b getOrElse a
+              case r => r
+            }
+          /*
+          var es = es1
+          while(es.nonEmpty && res.isEmpty) {
+            val e = es.head
+            //topDown(e) {
+            //  case r0(extr) if res.isEmpty =>
+            //    //res = Some(extr)
+            //    for {
+            //      ex <- merge(ex, extr)
+            //      c <- mkCode(ex)
+            //    } yield freshBoundVal(c.typ) and (v => res = Some(_ -> c))
+            //  case r => r
+            //}
+            e |> process
+            es = es.tail
+          }
+          */
+          //es1.head.left.map(vr => vr._1 -> process(vr._2)).
+          val es2 = es1.mapConserve(_.left.map(vr => vr._1 -> process(vr._2)).right.map(process))
+          //res.getOrElse(r1 |> process)
+          val r2 = if (res.isDefined) r1 else r1 |> process  // may make the code twice?!  // TODO flexible case for pure
+          //println(res)
+          //???
+          
+          //res map ({ res =>
+          //  println(s"MAKING BLOCK ${(Left(res) :: es2) -> r2}")
+          //  constructBlock((Left(res) :: es2) -> r2)
+          //}) and println
+          
+          lazy val boundLater = es2.iterator collect { case Left(v->_) => v } toSet;
+          //def checkRefs(r: Rep) = r If (r|>allValRefs) & boundLater isEmpty;
+          def checkFwdRefs(r: Rep) = (r|>allValRefs) & boundLater isEmpty;
+          
+          //res map ({
+          res flatMap ({
+            case Left(res) => // println("L")
+            //case Left(v -> res) =>  println("L")
+              //println(s"MAKING BLOCK ${(Left(res) :: es2) -> r2}")
+              //constructBlock((Left(res) :: es2) -> r2)
+              constructBlock((Left(res) :: es2) -> r2) If checkFwdRefs(res._2)
+            case Right(stmts) => // println("R")
+              //constructBlock((stmts ++ es2) -> r2)
+              constructBlock((stmts ++ es2) -> r2) If (stmts forall (_.fold(_._2|>checkFwdRefs,checkFwdRefs)))
+          //}) // and println
+          }) flatMap checkRefs // and_? {case Some(x)=>println(x)}
+          
+          // res has to be rescheduled at the right place
+          // ?
+          
+          //res map {
+          //  case resV -> resR =>
+          //    //val resBlock = resR.toB
+          //    val stmts -> ret = resR.asBlock
+          //    println(ret,ret.isPure)
+          //    ???
+          //}
+          
+          //getOrElse()
+          //res.fold()
+          
+          // TODO check no extrusion in block -- ret of transfo, if pure, may move to its uses so we really need to check after constructBlock 
+          //*/
           
         // Matching simple expressions (block returns)
         case (Nil -> r0, Nil -> r1) =>

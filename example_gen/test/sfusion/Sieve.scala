@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 17ms
+// Transfo time: 0ms  Stringifying time: 15ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -22,7 +22,7 @@
 
 // === Impl ===
 
-// Transfo time: 24ms  Stringifying time: 45ms
+// Transfo time: 21ms  Stringifying time: 37ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -78,7 +78,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 35ms  Stringifying time: 20ms
+// Transfo time: 25ms  Stringifying time: 14ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
@@ -101,13 +101,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 9ms
+// Transfo time: 0ms  Stringifying time: 4ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 105ms  Stringifying time: 84ms
+// Transfo time: 158ms  Stringifying time: 104ms
 
 {
   var cur_0: scala.Int = 1;
@@ -257,19 +257,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 1ms  Stringifying time: 57ms
+// Transfo time: 0ms  Stringifying time: 45ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 68ms
+// Transfo time: 0ms  Stringifying time: 43ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 44ms  Stringifying time: 94ms
+// Transfo time: 70ms  Stringifying time: 190ms
 
 {
   var cur_0: scala.Int = 1;
@@ -357,15 +357,13 @@
                   }
                 else
                   ();
-                val x_29 = isDefined_23;
-                if (x_29)
+                val x_29 = optVal_24;
+                val x_30 = optVal_24;
+                val x_31 = isDefined_23;
+                if (x_31)
                   {
-                    val x_30 = optVal_24;
                     val x_32 = if (x_30.<=(x_15.toInt))
-                      {
-                        val x_31 = optVal_24;
-                        x_12.%(x_31).!=(0)
-                      }
+                      x_12.%(x_29).!=(0)
                     else
                       {
                         stop_18 = true;
@@ -399,16 +397,16 @@
         }
       else
         ();
-      val x_37 = isDefined_8;
-      if (x_37)
+      val x_37 = optVal_9;
+      val x_38 = isDefined_8;
+      if (x_38)
         {
-          val x_38 = taken_2;
-          val x_43 = x_38.<(100).&&({
-            val x_39 = taken_2;
-            taken_2 = x_39.+(1);
-            val x_40 = cur_3;
-            val x_41 = optVal_9;
-            cur_3 = x_40.+(x_41);
+          val x_39 = taken_2;
+          val x_43 = x_39.<(100).&&({
+            val x_40 = taken_2;
+            taken_2 = x_40.+(1);
+            val x_41 = cur_3;
+            cur_3 = x_41.+(x_37);
             true.&&({
               val x_42 = taken_2;
               x_42.<(100)
@@ -430,7 +428,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 64ms  Stringifying time: 72ms
+// Transfo time: 102ms  Stringifying time: 98ms
 
 {
   var cur_0: scala.Int = 1;
@@ -500,15 +498,13 @@
                   optVal_24 = x_27.*(2).+(1);
                   isDefined_23 = true
                 };
-              val x_28 = isDefined_23;
-              if (x_28)
+              val x_28 = optVal_24;
+              val x_29 = optVal_24;
+              val x_30 = isDefined_23;
+              if (x_30)
                 {
-                  val x_29 = optVal_24;
                   val x_31 = if (x_29.<=(x_15.toInt))
-                    {
-                      val x_30 = optVal_24;
-                      x_12.%(x_30).!=(0)
-                    }
+                    x_12.%(x_28).!=(0)
                   else
                     {
                       stop_18 = true;
@@ -542,16 +538,16 @@
         }) 
           ()
         ;
-      val x_35 = isDefined_8;
-      if (x_35)
+      val x_35 = optVal_9;
+      val x_36 = isDefined_8;
+      if (x_36)
         {
-          val x_36 = taken_2;
-          val x_41 = x_36.<(100).&&({
-            val x_37 = taken_2;
-            taken_2 = x_37.+(1);
-            val x_38 = cur_3;
-            val x_39 = optVal_9;
-            cur_3 = x_38.+(x_39);
+          val x_37 = taken_2;
+          val x_41 = x_37.<(100).&&({
+            val x_38 = taken_2;
+            taken_2 = x_38.+(1);
+            val x_39 = cur_3;
+            cur_3 = x_39.+(x_35);
             val x_40 = taken_2;
             x_40.<(100)
           });
@@ -571,7 +567,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 17ms  Stringifying time: 81ms
+// Transfo time: 42ms  Stringifying time: 111ms
 
 {
   var cur_0: scala.Int = 1;
@@ -641,15 +637,13 @@
                   optVal_24 = x_27.*(2).+(1);
                   isDefined_23 = true
                 };
-              val x_28 = isDefined_23;
-              if (x_28)
+              val x_28 = optVal_24;
+              val x_29 = optVal_24;
+              val x_30 = isDefined_23;
+              if (x_30)
                 {
-                  val x_29 = optVal_24;
                   val x_31 = if (x_29.<=(x_15.toInt))
-                    {
-                      val x_30 = optVal_24;
-                      x_12.%(x_30).!=(0)
-                    }
+                    x_12.%(x_28).!=(0)
                   else
                     {
                       stop_18 = true;
@@ -683,16 +677,16 @@
         }) 
           ()
         ;
-      val x_35 = isDefined_8;
-      if (x_35)
+      val x_35 = optVal_9;
+      val x_36 = isDefined_8;
+      if (x_36)
         {
-          val x_36 = taken_2;
-          val x_41 = x_36.<(100).&&({
-            val x_37 = taken_2;
-            taken_2 = x_37.+(1);
-            val x_38 = cur_3;
-            val x_39 = optVal_9;
-            cur_3 = x_38.+(x_39);
+          val x_37 = taken_2;
+          val x_41 = x_37.<(100).&&({
+            val x_38 = taken_2;
+            taken_2 = x_38.+(1);
+            val x_39 = cur_3;
+            cur_3 = x_39.+(x_35);
             val x_40 = taken_2;
             x_40.<(100)
           });

@@ -1,6 +1,7 @@
 package squid
 package anf
 
+import utils._
 import ir._
 
 /**
@@ -143,5 +144,144 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
   }
   
+  
+  ///*
+  test("Pure Expression Rewriting") {
+    
+    def f(r: IR[Any,{}]) = r rewrite {
+      case ir"($v:squid.lib.Var[Option[$t]]).!.isDefined" => 
+        ir"$v.!.nonEmpty"
+    }
+    
+    /*
+    // The difficulty is since `isDefined` is pure, we end up with `val x = s.! ; println(x.isDefined)`,
+    // which the pattern cannot not match without some magic behind the scenes.
+    
+    ir"var s: Option[Int] = None; println(s.isDefined)" |> f eqt
+      ir"var s: Option[Int] = None; println(s.nonEmpty)"
+    
+    ir"var s: Option[Int] = None; println(s.isDefined); s" |> f eqt
+      ir"var s: Option[Int] = None; println(s.nonEmpty); s"
+    
+    ir"var s: Option[Int] = None; println(s.isDefined); println(s.isDefined)" |> f eqt
+      ir"var s: Option[Int] = None; println(s.nonEmpty); println(s.nonEmpty)"
+    */
+    
+    // TODO try interleaving
+    //println(ir"var s: Option[Int] = None; println(s); println(s.isDefined)" |> f)
+    ir"var s: Option[Int] = None; println(s); println(s.isDefined)" |> f eqt
+      ir"var s: Option[Int] = None; println(s); println(s.nonEmpty)"
+    //println(ir"var s: Option[Int] = None; println(s); s = Some(42); println(s.isDefined)" |> f)
+    ir"var s: Option[Int] = None; println(s); s = Some(42); println(s.isDefined)" |> f eqt
+      ir"var s: Option[Int] = None; println(s); s = Some(42); println(s.nonEmpty)"
+    
+    def g(r: IR[Any,{}]) = r rewrite {
+      case ir"($v:squid.lib.Var[Option[$t]]).!.fold($d)(identity)" => 
+        ir"$v.!.getOrElse($d)"
+    }
+    
+    //println(ir"var s: Option[Int] = None; println(s.fold(42)(identity))" |> g)
+    
+    // by name, so no problem:
+    //println(ir"var s: Option[Int] = None; println(s.fold(readInt)(identity))" |> g)
+    
+    //def h(r: IR[Any,{}]) = r rewrite {
+    def h(r: IR[_,{}]) = r rewrite {
+      //case ir"($v:squid.lib.Var[Option[$t]]).!.map($f).flatten" =>  // FIXME no "inferred `Nothing`" warning? 
+      //case ir"($v:squid.lib.Var[Option[$t]]).!.map[Option[$mt]]($f).flatten" => 
+      //case ir"($v:squid.lib.Var[Option[$t]]).!.map[$mt]($f).flatten($ev)" => // FIXME no warning
+      case ir"($v:squid.lib.Var[Option[$t]]).!.map[$mt]($f).flatten[$ft]($ev)" => // FIXME no warning
+        //ir"$v.!.flatMap($f)"
+        ir"$v.!.flatMap($f andThen $ev)"
+    }
+    
+    //base debugFor 
+    //println(ir"var s: Option[Int] = None; println(s.map(Some(_)).flatten)" |> h)
+    
+    //println(ir"var s: Option[Int] = None; println(s.map(Some(_)).flatten[Int])" |> h)
+    ir"var s: Option[Int] = None; println(s.map(Some(_)).flatten)" |> h eqt  // Q: or `flatten[Int]` ?
+      ir"var s: Option[Int] = None; println(s.flatMap( (Some(_:Int)).andThen[Option[Any]](scala.Predef.$$conforms[Some[Int]]) ))"
+    // ^ FIXME (I thin kthis used to work at some point...)
+    
+    ir"var s: Option[Int] = None; println(s.map(Option(_)).flatten[Int])" |> h eqt  // Q: or `flatten[Int]` ?
+      //ir"var s: Option[Int] = None; println(s.flatMap( (Option(_:Int)) andThen scala.Predef.$$conforms[Some[Int]] ))"
+      ir"var s: Option[Int] = None; println(s.flatMap( (Option(_:Int)) andThen scala.Predef.$$conforms[Option[Int]] ))"
+    
+    //println(ir"var s: Option[Int] = None; println(s.map(??? : Int => Option[Int]).flatten[Int])" |> h)
+    //ir"var s: Option[Int] = None; println(s.map(??? : Int => Option[Int]).flatten[Int])" |> h eqt
+    //  ir"var s: Option[Int] = None; println(s.flatMap( (??? : Int => Option[Int]) andThen scala.Predef.$$conforms[Option[Int]] ))"
+    
+    val a = ir"var s: Option[Int] = None; println(s.map(??? : Int => Option[Int]).flatten[Int])" |> h
+    val b = ir"var s: Option[Int] = None; println(s.flatMap( (??? : Int => Option[Int]) andThen scala.Predef.$$conforms[Option[Int]] ))"
+    // FIXME: currently fail! because of ??? matching and extraction of covariant function parameter type...
+    //base debugFor (a eqt a)
+    //base debugFor (a eqt b)
+    //base debugFor (b eqt b)
+    
+    ir"var s: Option[Int] = None; println(s.map( genie[Int => Option[Int]] ).flatten[Int])" |> h eqt
+      ir"var s: Option[Int] = None; println(s.flatMap( genie[Int => Option[Int]] andThen scala.Predef.$$conforms[Option[Int]] ))"
+    
+    //println(ir"var s: Option[Int] = None; println(s.map(Some(_)))" |> h)
+    
+    
+    // TODO ^ try with effectful andThen ...
+    
+    // TODO ^ try several calls with difft params
+    
+    
+    def i(r: IR[_,{}]) = r rewrite {
+      case ir"($v:squid.lib.Var[Option[$t]]).!.map[$mt]($f)" =>
+        //ir"None"
+        ir"None map $f"
+      case ir"($v:squid.lib.Var[Option[$t]]).!.filter($f)" =>
+        ir"println($f); None"
+      case ir"($v:squid.lib.Var[Option[$t]]).!.foreach[$ft]($f)" =>
+        ir"println($f)"
+      case ir"($v:squid.lib.Var[Option[Int]]).!.get" => ir"42"
+    }
+    //println(ir"var s: Option[Int] = None; println(s.map(_+1)); println(s.map(_+2))" |> i)
+    ir"var s: Option[Int] = None; println(s.map(_+1)); println(s.map(_+2))" |> i eqt
+      ir"var s: Option[Int] = None; println(None.map((_:Int)+1)); println(None.map((_:Int)+2))"
+    
+    // FIXedME
+    /*println*/(ir"var s: Option[Int] = None; println(s.filter(genie[Int=>Bool]))" |> i)
+    /*println*/(ir"var s: Option[Int] = None; println(s.foreach(genie[Int=>Bool]))" |> i)
+    
+    println(ir"var s: Option[Int] = None; val x = s; x.get + x.get" |> i)
+    
+    
+    
+  }
+  
+  test("Dang") {
+    import squid.lib.Var
+    
+    //val c = ir"var s: Option[Int] = None; val x = s; x.get + x.get"
+    //println(c rewrite {
+    def f(c: IR[Any,{}]) = c rewrite {
+      case ir"val $x = ($v:Var[Option[Int]]).! ; $body: $bt" =>
+        val body2 = body rewrite {
+          //case ir"($$x).get" => ir"$v.!.getOrElse(???)"
+          //case ir"($$x).get" => ir"$x.getOrElse(???)"  // nope
+          case ir"($$x).get" => ir"(x? : Option[Int]).getOrElse(???)"  // nope
+        } //subs
+        ir"val x = $v.!; $body2"
+        
+    }
+    //}) 
+    
+    ir"var s: Option[Int] = None; val x = s; x.get + x.get" |> f |> println
+    ir"var s: Option[Int] = None; val x = s; x.get + x.size" |> f |> println
+    
+    
+    // FIXME this should rewrite, introducing a FV `y` ...
+    /*
+    println(ir"val x = readInt; x+1" rewrite {
+      case ir"val y = readInt; $body: $bt" => body
+    })
+    */
+    
+  }
+  //*/
   
 }
