@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 15ms
+// Transfo time: 0ms  Stringifying time: 12ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -22,7 +22,7 @@
 
 // === Impl ===
 
-// Transfo time: 19ms  Stringifying time: 44ms
+// Transfo time: 24ms  Stringifying time: 41ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -78,7 +78,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 36ms  Stringifying time: 22ms
+// Transfo time: 31ms  Stringifying time: 18ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
@@ -101,13 +101,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 9ms
+// Transfo time: 0ms  Stringifying time: 8ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 93ms  Stringifying time: 80ms
+// Transfo time: 94ms  Stringifying time: 83ms
 
 {
   var cur_0: scala.Int = 1;
@@ -257,19 +257,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 1ms  Stringifying time: 65ms
+// Transfo time: 0ms  Stringifying time: 54ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 64ms
+// Transfo time: 0ms  Stringifying time: 50ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 44ms  Stringifying time: 125ms
+// Transfo time: 38ms  Stringifying time: 82ms
 
 {
   var cur_0: scala.Int = 1;
@@ -430,7 +430,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 36ms  Stringifying time: 47ms
+// Transfo time: 94ms  Stringifying time: 80ms
 
 {
   var cur_0: scala.Int = 1;
@@ -571,7 +571,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 29ms  Stringifying time: 138ms
+// Transfo time: 27ms  Stringifying time: 75ms
 
 {
   var cur_0: scala.Int = 1;

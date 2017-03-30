@@ -35,7 +35,7 @@ trait BinOpBase extends InspectableBase {
     
   }
   
-  class Addition[T,C](val lhs: IR[T,C], val rhs: IR[T,C])(val rebuild: Rebuild[T,C]) extends IR[T,C](rebuild(lhs,rhs).rep) with BinOp[T,C] {
+  class Addition[T,C](val lhs: IR[T,C], val rhs: IR[T,C])(val rebuild: Rebuild[T,C]) extends WrappingIR[T,C](rebuild(lhs,rhs).rep) with BinOp[T,C] {
     //println(s"New addition $lhs $rhs")
     override def commutes: Bool = true
     // TODO other properties...

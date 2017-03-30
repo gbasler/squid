@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 17ms
+// Transfo time: 0ms  Stringifying time: 15ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -29,7 +29,7 @@
 
 // === Impl ===
 
-// Transfo time: 10ms  Stringifying time: 34ms
+// Transfo time: 10ms  Stringifying time: 28ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -77,7 +77,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 14ms  Stringifying time: 18ms
+// Transfo time: 6ms  Stringifying time: 10ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -102,13 +102,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 4ms
+// Transfo time: 0ms  Stringifying time: 3ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 24ms  Stringifying time: 92ms
+// Transfo time: 13ms  Stringifying time: 57ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -233,7 +233,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 143ms  Stringifying time: 167ms
+// Transfo time: 132ms  Stringifying time: 198ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -380,13 +380,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 70ms
+// Transfo time: 0ms  Stringifying time: 65ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 501ms  Stringifying time: 129ms
+// Transfo time: 491ms  Stringifying time: 76ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -563,7 +563,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 58ms  Stringifying time: 145ms
+// Transfo time: 20ms  Stringifying time: 72ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -737,6 +737,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 19ms  Stringifying time: 58ms
+// Transfo time: 16ms  Stringifying time: 57ms
 
 // Same as above.

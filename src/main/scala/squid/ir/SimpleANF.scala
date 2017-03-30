@@ -37,7 +37,9 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   type StmtRep = Either[Val -> Rep, Rep]
   type BlockRep = List[StmtRep] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
   
-  case class Rep(dfn: Def) {
+  override protected def mkIR[T,C](r: Rep): IR[T,C] = r.asInstanceOf[IR[T,C]]
+  case class Rep(dfn: Def) extends IR[Any,Nothing] {
+    val rep = this
     
     def isTrivial = !effect.immediate
     

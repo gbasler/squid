@@ -22,7 +22,7 @@ trait ControlFlowBase extends InspectableBase {
     val alt: IR[T,C1]
     val rebuild: (IR[T,C0],IR[T,C1]) => IR[T,C]
   }
-  class OneOfUniform[T,C](val main: IR[T,C], val alt: IR[T,C])(val rebuild: (IR[T,C],IR[T,C]) => IR[T,C]) extends IR[T,C](rebuild(main,alt).rep) with OneOf[T,C] {
+  class OneOfUniform[T,C](val main: IR[T,C], val alt: IR[T,C])(val rebuild: (IR[T,C],IR[T,C]) => IR[T,C]) extends WrappingIR[T,C](rebuild(main,alt).rep) with OneOf[T,C] {
     type C0 = C
     type C1 = C
   }
@@ -37,7 +37,7 @@ trait ControlFlowBase extends InspectableBase {
       
     case ir"($opt:Option[$to]).fold[$tf]($ifEmpty)(x => $body)" =>
       val rebuild_f = (ifEmpty:IR[tf.Typ,C],body:IR[tf.Typ,C{val x: to.Typ}]) => ir"$opt.fold($ifEmpty)(x => $body)"
-      Some(new IR[tf.Typ,C](rebuild_f(ifEmpty,body).rep) with OneOf[tf.Typ,C] {
+      Some(new WrappingIR[tf.Typ,C](rebuild_f(ifEmpty,body).rep) with OneOf[tf.Typ,C] {
         type C0 = C
         type C1 = C{val x: to.Typ}
         val main = ifEmpty
