@@ -30,7 +30,7 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
     
     c match {
       case Block(b) =>
-        b eqt c
+        b.original eqt c
         b.res eqt ir"42"
     }
     c match {
@@ -39,7 +39,7 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
     }
     
     def f(q:IR[_,{}]) = q rewrite {
-      case ir"while(${Block(b)}){}" => ir"val c = $b; while(c){}"  // Stupid rewriting just to test the feature
+      case ir"while(${Block(b)}){}" => ir"val c = ${b.original}; while(c){}"  // Stupid rewriting just to test the feature
     }
     ir"while(readInt>0){}" |> f eqt ir"val c = readInt>0; while(c){}"
     

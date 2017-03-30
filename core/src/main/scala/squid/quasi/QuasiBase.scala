@@ -44,14 +44,11 @@ self: Base =>
   /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
     substitute(r, defs.toMap)
   
-  protected def mkIR[T,C](r: Rep): IR[T,C] = WrappingIR(r)
+  protected def mkIR[T,C](r: Rep): IR[T,C] = new IR[T,C] { val rep = r }
   object IR {
     def apply[T,C](rep: Rep): IR[T,C] = mkIR(rep)
     def unapply[T,C](ir: IR[T,C]): Option[Rep] = Some(ir.rep)
   }
-  
-  protected case class WrappingIR[+T, -C] protected (rep: Rep) extends IR[T,C]
-  // ^ TODO it might be better to remove this and change its users to make sure the JVM doesn't have to deal with heterogeneous IR objects 
   
   // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
   abstract class IR[+T, -C] protected () extends TypeErased with ContextErased {

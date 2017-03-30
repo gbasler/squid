@@ -10,7 +10,7 @@ import utils._
   */
 trait BlockHelpers extends SimpleANF {
   
-  trait Block[T,C] extends IR[T,C] {
+  abstract class Block[T,C](val original: IR[T,C]) {
     type C0 <: C
     val stmts: List[IR[_,C0]]
     val res: IR[T,C0]
@@ -27,7 +27,7 @@ trait BlockHelpers extends SimpleANF {
     val bl = q.rep.asBlock
     // Q: is it okay to extract single expressions with this extractor?
     /*if (bl._1.isEmpty) None
-    else*/ Some(new WrappingIR[T,C](q.rep) with Block[T,C]{
+    else*/ Some(new Block[T,C](q) {
       val stmts: List[IR[_,C0]] = bl._1 map (_.fold(_._2, identity) |> IR.apply[T,C0])
       val res: IR[T,C0] = IR(bl._2)
     })

@@ -19,8 +19,7 @@ trait BinOpBase extends InspectableBase {
   
   type Rebuild[T,C] = (IR[T,C],IR[T,C]) => IR[T,C]
   
-  trait BinOp[T,C] extends IR[T,C] {
-  //class BinOp[T,C] extends IR[T,C](???) {
+  abstract class BinOp[T,C](val original: IR[T,C]) {
     
     def lhs: IR[T,C]
     def rhs: IR[T,C]
@@ -35,7 +34,7 @@ trait BinOpBase extends InspectableBase {
     
   }
   
-  class Addition[T,C](val lhs: IR[T,C], val rhs: IR[T,C])(val rebuild: Rebuild[T,C]) extends WrappingIR[T,C](rebuild(lhs,rhs).rep) with BinOp[T,C] {
+  class Addition[T,C](original: IR[T,C], val lhs: IR[T,C], val rhs: IR[T,C])(val rebuild: Rebuild[T,C]) extends BinOp[T,C](original) {
     //println(s"New addition $lhs $rhs")
     override def commutes: Bool = true
     // TODO other properties...
@@ -45,11 +44,14 @@ trait BinOpBase extends InspectableBase {
   object BinOp {
     def unapply[T,C](q: IR[T,C]): Option[BinOp[T,C]] = unapplyBinOp[T,C](q)
   }
-  def unapplyBinOp[T,C](q: IR[T,C]): Option[BinOp[T,C]] = q match {
-    case ir"($lhs:Int)+($rhs:Int)" => Some(new Addition(lhs,rhs)((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
-    case ir"($lhs:Int)+($rhs:Short)" => Some(new Addition(lhs,ir"$rhs.toInt")((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
-    case ir"($lhs:Int)-($rhs:Int)" => Some(new Addition(lhs,ir"-$rhs")((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
-    case _ => None
+  def unapplyBinOp[T,C](q: IR[T,C]): Option[BinOp[T,C]] = {
+    val intq = q.asInstanceOf[IR[Int,C]]
+    q match {
+      case ir"($lhs:Int)+($rhs:Int)"   => Some(new Addition(intq,lhs,rhs)((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
+      case ir"($lhs:Int)+($rhs:Short)" => Some(new Addition(intq,lhs,ir"$rhs.toInt")((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
+      case ir"($lhs:Int)-($rhs:Int)"   => Some(new Addition(intq,lhs,ir"-$rhs")((lhs,rhs) => ir"$lhs+$rhs").asInstanceOf[Addition[T,C]])
+      case _ => None
+    }
   }
   
   

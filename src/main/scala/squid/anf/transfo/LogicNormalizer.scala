@@ -31,10 +31,10 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"true && ($x:Bool)" => ir"$x"
       
     // Generalization of the above (first half) for blocks. The above are kept because they do not generate useless if-statements.
-    case ir"($x:Bool) && ${Block(WithResult(b, ir"false"))}" => ir"if ($x) $b; false"
-    case ir"($x:Bool) && ${Block(WithResult(b, ir"true"))}" => ir"if ($x) $b; $x"
-    case ir"($x:Bool) || ${Block(WithResult(b, ir"false"))}" => ir"if (!$x) $b; $x"
-    case ir"($x:Bool) || ${Block(WithResult(b, ir"true"))}" => ir"if (!$x) $b; true"
+    case ir"($x:Bool) && ${Block(WithResult(b, ir"false"))}" => ir"if ($x) ${b.original}; false"
+    case ir"($x:Bool) && ${Block(WithResult(b, ir"true"))}" => ir"if ($x) ${b.original}; $x"
+    case ir"($x:Bool) || ${Block(WithResult(b, ir"false"))}" => ir"if (!$x) ${b.original}; $x"
+    case ir"($x:Bool) || ${Block(WithResult(b, ir"true"))}" => ir"if (!$x) ${b.original}; true"
       
     case ir"if (true) $x else $y : $t" => ir"$x"
     case ir"if (false) $x else $y : $t" => ir"$y"
@@ -45,8 +45,8 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"($x:$xt) ensuring true" => ir"$x"
       
     // Equivalent to `case ir"while(${Block(b)}){$body}" if b.ret =~= ir"true" => ...`
-    case ir"while(${Block(WithResult(b, ir"true" ))}) $body" => ir"$b; $body"
-    case ir"while(${Block(WithResult(b, ir"false"))}) $body" => ir"$b; ()"
+    case ir"while(${Block(WithResult(b, ir"true" ))}) $body" => ir"${b.original}; $body"
+    case ir"while(${Block(WithResult(b, ir"false"))}) $body" => ir"${b.original}; ()"
       
       
   }

@@ -22,7 +22,7 @@
 
 // === Impl ===
 
-// Transfo time: 24ms  Stringifying time: 41ms
+// Transfo time: 21ms  Stringifying time: 34ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -78,7 +78,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 31ms  Stringifying time: 18ms
+// Transfo time: 28ms  Stringifying time: 16ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
@@ -101,13 +101,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 8ms
+// Transfo time: 0ms  Stringifying time: 10ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 94ms  Stringifying time: 83ms
+// Transfo time: 80ms  Stringifying time: 47ms
 
 {
   var cur_0: scala.Int = 1;
@@ -257,19 +257,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 0ms  Stringifying time: 54ms
+// Transfo time: 0ms  Stringifying time: 55ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 50ms
+// Transfo time: 0ms  Stringifying time: 31ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 38ms  Stringifying time: 82ms
+// Transfo time: 40ms  Stringifying time: 82ms
 
 {
   var cur_0: scala.Int = 1;
@@ -430,7 +430,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 94ms  Stringifying time: 80ms
+// Transfo time: 45ms  Stringifying time: 41ms
 
 {
   var cur_0: scala.Int = 1;
@@ -571,7 +571,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 27ms  Stringifying time: 75ms
+// Transfo time: 25ms  Stringifying time: 136ms
 
 {
   var cur_0: scala.Int = 1;
