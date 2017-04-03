@@ -67,4 +67,9 @@ Pair by 3, dropping first one: `p.repeat(_ take 3 drop 1)`
 
 
 
+## See Also
+
+[fs2](https://github.com/functional-streams-for-scala/fs2): Compositional, streaming I/O library for Scala
+
+Akka Streams, and "streamz: A library that supports the conversion of Akka Stream Sources, Flows and Sinks to and from FS2 Streams, Pipes and Sinks, respectively. It also supports the usage of Apache Camel endpoints in FS2 Streams and Akka Stream Sources, Flows and SubFlows."
 
