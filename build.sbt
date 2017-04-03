@@ -103,6 +103,9 @@ lazy val scBackend = (project in file("sc-backend")).
 
 lazy val example = (project in file("example")).
   settings(commonSettings: _*).
+  settings(
+    parallelExecution in Test := false
+  ).
   dependsOn(main).
   dependsOn(main % "test->test")
 
