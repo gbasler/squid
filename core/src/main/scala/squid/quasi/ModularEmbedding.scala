@@ -67,7 +67,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   def staticModuleType(fullName: String): TypeRep = staticTypeApp(loadTypSymbol(fullName+"$"), Nil)
   
   
-  def getTyp(tsym: TypeSymbol): TypSymbol = {
+  def getTypSym(tsym: TypeSymbol): TypSymbol = {
     val cls = encodedTypeSymbol(tsym) // Maybe cache this more somehow? (e.g. per compilation unit)
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
@@ -262,7 +262,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         
         //debug("OBJ "+obj.tpe.typeSymbol)
         
-        def refMtd = getMtd(getTyp(obj.tpe.typeSymbol.asType), method)
+        def refMtd = getMtd(method.owner.typeSignature.typeSymbol.asType |> getTypSym, method)
         
         val tp = liftType(x.tpe)
         val self = liftTerm(obj, x, Some(obj.tpe))
@@ -488,7 +488,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
       try {
         //val tsym = getTyp(tp.typeSymbol.asType) // this is wrong! `tp.typeSymbol` will be different than `sym` if the latter is an alias...
-        val tsym = getTyp(sym.asType)
+        val tsym = getTypSym(sym.asType)
         
         //val self = liftModule(prefix)
         //val self = liftType(prefix)

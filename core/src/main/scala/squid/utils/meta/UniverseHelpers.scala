@@ -167,6 +167,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     * This encodes Symbol paths using a static prefix, then #-separated names, where the name has '$' appended if it
     * refers to a term. */
   def encodedTypeSymbol(tsym: TypeSymbol) = {
+    assert(!tsym.isParameter, s"cannot encode static reference to parameter $tsym")
     def rec(sym: Symbol): String =
       (if (sym.isStatic) sym.fullName
       else rec(sym.owner)+"#"+sym.name)+(if (sym.isModuleClass) "$" else "")

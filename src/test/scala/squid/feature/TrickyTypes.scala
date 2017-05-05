@@ -54,4 +54,12 @@ class TrickyTypes extends MyFunSuite {
   }
   
   
+  def foo[T](x:IR[T,{}]) = ir"$x==0"
+  
+  test("Any method called on type parameter") {
+    foo(ir"42") eqt ir"${ir"42:Any"} == 0"
+    foo(ir"42") neqt ir"${ir"42"} == 0" // Note: Int.== and Any.== have two different method symbols!!
+  }
+  
+  
 }
