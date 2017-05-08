@@ -82,3 +82,106 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
   
 }
 
+/** Traverses a program and its expressions, accumulating what is known to be true or false if the current code is being
+  * executed. For example, will rewrite {{{n > 0 && {assert(m != 0); (n > 0)} && m != 0 }}} to {{{n > 0 && {assert(m != 0); true} && true }}}.
+  * Best used along with LogicNormalizer because this only deals with `. && .` and `!.` but not with `. || .`.
+  * Only supposed to work in ANF or any other IR where by-value conditions (eg to an IF-THEN-ELSE) are guaranteed to be pure. */
+trait LogicFlowNormalizer extends IRTransformer { self =>
+  
+  val base: anf.analysis.BlockHelpers
+  import base.Predef._
+  import base.InspectableIROps
+  import base.{AsBlock,WithResult,MethodApplication}
+  
+  object Tab extends squid.utils.algo.Tableaux {
+    type Symbol = IR[Bool,Nothing]
+    override def equal(s0: Symbol, s1: Symbol): Bool = s0 =~= s1
+  }
+  import Tab.{Formula,Formulas,Atom,Trivial}
+  
+  def transform[T0,C0](code: IR[T0,C0]): IR[T0,C0] = {
+    
+    // Returns the transformed code along with what the code implies as true (for example because of a call to `assert`), 
+    // and what this code implies as true if it returns true (in case it's of type Bool).
+    // For example, `q = code"{assert(n > 0); !(m > 0)}"` should return `q -> (code"n > 0" -> ¬code"m > 0")`
+    def rec[T,C](code: IR[T,C])(known: Formula): IR[T,C] -> (Formula -> Formula) = code match {
+        
+      case ir"!($c:Bool)" =>
+        val (c0,(s1,e1)) = rec(c)(known)
+        ir"!$c0".asInstanceOf[IR[T,C]] -> (s1,!e1)
+        
+      case ir"($c:Bool) && $d" =>
+        val (c0,(s1,e1)) = rec(c)(known)
+        val k2 = known ∧ s1 ∧ e1
+        val (d0,(s2,e2)) = rec(d)(k2)
+        ir"$c0 && $d0".asInstanceOf[IR[T,C]] -> (s1 ∧ s2, e1 ∧ e2)
+        
+      case AsBlock(b) if b.stmts.nonEmpty => // TODO move down
+        println("Block with "+known)
+        var ks: Formula = Trivial
+        var ke: Formula = Trivial
+        val b0 = b.rebuild(
+        new base.SelfTransformer with IRTransformer {
+          def transform[T1,C1](code: IR[T1,C1]): IR[T1,C1] = {
+            val (c,(s,e)) = rec(code)(known ∧ ks)
+            ks = ks ∧ s
+            c
+          }
+        }, 
+        new base.SelfTransformer with IRTransformer {
+          def transform[T1,C1](code: IR[T1,C1]): IR[T1,C1] = {
+            val (c,(s,e)) = rec(code)(known ∧ ks)
+            ks = ks ∧ s
+            ke = e
+            c
+          }
+        })
+        b0 -> (ks -> ke)
+        
+      case ir"assert($e)" => // TODO generalize
+        //println(s"Assert: $e")
+        code -> ((Atom(e), Trivial))
+        
+      case ir"if ($cond) $thn else $els : $t" => // TODO generalize, use Cflow.Xor
+        println(s"ITE($cond) with "+known)
+        val (cond0,(s0,e0)) = rec(cond)(known)
+        val (thn0,(s01,e01)) = rec(thn)(known ∧ s0 ∧ e0)
+        println(s"s0 "+s0)
+        println(s"e0 "+e0)
+        val (els0,(s02,e02)) = rec(els)(known ∧ s0 ∧ !e0)
+        ir"if ($cond0) $thn0 else $els0".asInstanceOf[IR[T,C]] -> ((s0 ∧ (s01 ∨ s02), e01 ∨ e02))
+        
+      case ir"$e:Bool" =>
+        //println(s"Bool($e) with "+known)
+        val a = Atom(e)
+        if (!Formulas.isSatisfiable(!a ∧ known)) ir"true".asInstanceOf[IR[T,C]] -> (Trivial -> Trivial)
+        else if (Formulas.isValid(!(a ∧ known))) ir"false".asInstanceOf[IR[T,C]] -> (Trivial -> Trivial)
+        else {
+          println(s"Assume: $e")
+          code -> ((Trivial, Atom(e)))
+        }
+        
+      case MethodApplication(ma) =>
+        //println(s"MethodApplication(${ma.symbol}) with "+known)
+        var ks: Formula = Trivial
+        ma.rebuild(new base.SelfIRTransformer { // TODO extract and make common with above
+          def transform[T1,C1](code: IR[T1,C1]): IR[T1,C1] = {
+            val (c,(s,e)) = rec(code)(known ∧ ks)
+            ks = ks ∧ s
+            c
+          }
+        }) -> ((ks,Trivial))
+        
+      // FIXME add case for traversing lambdas...
+      // TODO add special case for while
+        
+      case e =>
+        println(s"Default: $e")
+        e -> (Trivial -> Trivial)
+      
+    }
+    
+    rec(code)(Trivial)._1
+  }
+  
+}
