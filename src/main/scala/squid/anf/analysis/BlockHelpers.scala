@@ -8,33 +8,71 @@ import utils._
 /**
   * Created by lptk on 10/02/17.
   */
-trait BlockHelpers extends SimpleANF {
+trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixin...
   
-  abstract class Block[T,C](val original: IR[T,C]) {
+  
+  object MethodApplication {
+    def unapply[T,C](q: IR[T,C]): Option[MethodApplication[T,C]] = unapplyMethodApplication[T,C](q)
+  }
+  def unapplyMethodApplication[T,C](q: IR[T,C], tp: Option[TypeRep] = None): Option[MethodApplication[T,C]] = {
+    q.rep.dfn match {
+      case app: MethodApp => Some(new MethodApplication(app,tp))
+      case Ascribe(e,t) => unapplyMethodApplication(IR(e),tp orElse Some(t))
+      case _ => None
+    }
+  }
+  class MethodApplication[T,C](private val ma: MethodApp, private val asc: Option[TypeRep]) {
+    val symbol = ma.sym
+    val args: Seq[Seq[IR[Any,C]]] = List(IR(ma.self)) :: ma.argss.map(_.reps.map(IR.apply[Any,C] _))
+    def rebuild(argsTransfo: SelfTransformer): IR[T,C] = {
+      val res = rep(MethodApp(
+        ma.self |> argsTransfo.pipeline,
+        ma.sym,
+        ma.targs,
+        ma.argss.map(_.map(self)(argsTransfo.pipeline)),
+        ma.typ
+      ))
+      IR(asc map (Ascribe(res, _) |> rep) getOrElse res)
+    }
+    override def toString: String = s"${Rep(ma)}"
+  }
+  
+  
+  abstract class AsBlock[T,C](val original: IR[T,C]) {
     type C0 <: C
     val stmts: List[IR[_,C0]]
     val res: IR[T,C0]
     
     // TODO methods for hygienically and safely performing statements manipulations, such as filtering statements based
     // on whether they depend on some context, etc.
-    //def splitDependent[D:Ctx]: (List[_,D],List[_,C0]) -- or ((Block[Unit,C] => Block[Unit,C]) => Block[T,D]) 
+    //def splitDependent[D:Ctx]: (List[_,D],List[_,C0]) -- or ((Block[Unit,C] => Block[Unit,C]) => Block[T,D])
+    
+    def statements(take: Int = stmts.size): IR[Unit,C] = 
+      IR(constructBlock(original.rep.asBlock._1.take(take), () |> const))
+    
+    def rebuild(stmtTransfo: SelfTransformer, resultTransfo: SelfTransformer): IR[T,C]
+    
   }
   
-  object Block {
-    def unapply[T,C](q: IR[T,C]): Option[Block[T,C]] = unapplyBlock[T,C](q)
+  object AsBlock {
+    def unapply[T,C](q: IR[T,C]): Some[AsBlock[T,C]] = unapplyBlock[T,C](q)
   }
-  def unapplyBlock[T,C](q: IR[T,C]): Option[Block[T,C]] = {
+  def unapplyBlock[T,C](q: IR[T,C]): Some[AsBlock[T,C]] = {
     val bl = q.rep.asBlock
     // Q: is it okay to extract single expressions with this extractor?
     /*if (bl._1.isEmpty) None
-    else*/ Some(new Block[T,C](q) {
+    else*/ Some(new AsBlock[T,C](q) {
       val stmts: List[IR[_,C0]] = bl._1 map (_.fold(_._2, identity) |> IR.apply[T,C0])
       val res: IR[T,C0] = IR(bl._2)
+      def rebuild(stmtTransfo: SelfTransformer, resultTransfo: SelfTransformer): IR[T,C] = IR(constructBlock((
+        bl._1 map { case Left((v,r)) => Left(v,r |> stmtTransfo.pipeline) case Right(r) => Right(r |> stmtTransfo.pipeline) },
+        bl._2 |> resultTransfo.pipeline
+      )))
     })
   }
   
   object WithResult {
-    def unapply[T,C](b: Block[T,C]): Some[Block[T,C] -> IR[T,b.C0]] = Some(b->b.res)
+    def unapply[T,C](b: AsBlock[T,C]): Some[AsBlock[T,C] -> IR[T,b.C0]] = Some(b->b.res)
   }
   
   

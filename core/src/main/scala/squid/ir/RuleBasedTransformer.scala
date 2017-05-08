@@ -157,8 +157,12 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         n += 1
         debug(s" --- CASE #$n --- ")
         
-        def notFound(obj: String) = c.abort(cas.pos, s"Could not determine $obj for that case.")
+        def notFound(obj: String) = c.abort(cas.pos, s"Could not determine $obj for that case: ${showCode(pat)}")
         
+        // Note: there is not much we can do in case the pattern is NOT a quasiquote (eg: a single `case e =>`, since 
+        // that pattern will have been typed with UnknownContext, and it's too late to change that at this point – or
+        // perhaps not, but it would introduce even more complexity to this macro.
+        // // pat |>? { case t @ Bind(name, Ident(TermName("_"))) => ... } getOrElse (...
         val extractedType = (pat.find {
           case td@TypeDef(_, TypeName("$ExtractedType$"), _, _) => true
           case _ => false
@@ -166,7 +170,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         val extractedCtx = (pat.find {
           case td@TypeDef(_, TypeName("$ExtractedContext$"), _, _) => true
           case _ => false
-        } getOrElse notFound("extracted type")).symbol.asType.typeSignature
+        } getOrElse notFound("extracted context")).symbol.asType.typeSignature
         
         def badType(constructedType: Type, constructedPos: Position) =
           c.abort(constructedPos, s"Cannot rewrite a term of type $extractedType to a different type $constructedType")
@@ -275,6 +279,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
             //case Bind(name: TermName, pq"_") => q"val $name = $scrut; ..$body"
             case b@Bind(name: TermName, pq"_") => // For some reason, this seems to be necessary for the gen0/gen phase below to work!! 
               q"${internal.valDef(b.symbol,scrut)}; ..$body"
+            case p => throw EmbeddingException(s"Pattern shape not yet supported: ${showCode(p)} :-(")
           }
         }
         

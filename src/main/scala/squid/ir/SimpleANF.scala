@@ -67,7 +67,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     
     def unapply(that: Rep) = extract(this, that)
     
-    override def toString = s"$dfn"
+    //override def toString = s"$dfn"  // Now that Rep extends IR (for performance), it's a bad idea to override toString
   }
   
   

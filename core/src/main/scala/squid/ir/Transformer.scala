@@ -14,6 +14,7 @@ trait Transformer extends Optimizer { self =>
   
   /** Use `pipeline` to correctly apply a Transformer */
   protected[squid] def transform(rep: Rep): Rep
+  
   final def transformTopDown(rep: Rep): Rep = (base topDown rep)(transform)
   final def transformBottomUp(rep: Rep): Rep = (base bottomUp rep)(transform)
   
@@ -37,4 +38,14 @@ trait Transformer extends Optimizer { self =>
 
 trait TopDownTransformer extends Transformer { abstract override def transform(rep: base.Rep) = (base topDown rep)(super.transform) }
 trait BottomUpTransformer extends Transformer { abstract override def transform(rep: base.Rep) = (base bottomUp rep)(super.transform) }
+
+
+/** Used in high-level interfaces that require an IR node transformer that is generic over type and context. */
+trait IRTransformer extends Transformer { self =>
+  import base._
+  def transform[T,C](code: IR[T,C]): IR[T,C]
+  final protected[squid] def transform(rep: Rep): Rep = transform(`internal IR`(rep)).rep // not nice
+}
+trait IdentityTransformer extends Transformer { def transform(rep: base.Rep): base.Rep = rep }
+
 

@@ -7,6 +7,7 @@ package object utils {
   
   import scala.language.existentials
   type ? = t forSome{type t}
+  type ! = Nothing
   
   /** Tag type to be interpreted by quasiquotes as an existential named [Unknown Context],
     * useful to ensure rewrite rules are fully parametric in the context of the terms they match */

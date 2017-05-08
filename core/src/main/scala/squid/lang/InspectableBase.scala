@@ -133,6 +133,8 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
       others.foldLeft(rep)((r,t) => t transform r)
     }
   }
+  object IdentityTransformer extends SelfTransformer with ir.IdentityTransformer
+  trait SelfIRTransformer extends SelfTransformer with ir.IRTransformer
   
   private[squid] case class EarlyReturnAndContinueExc(cont: (Rep => Rep) => Rep) extends Exception
   
