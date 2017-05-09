@@ -74,8 +74,8 @@ trait Base extends TypingBase with quasi.QuasiBase {
   protected lazy val BooleanType = staticTypeApp(loadTypSymbol("scala.Boolean"),Nil)
   protected lazy val BooleanAndSymbol = loadMtdSymbol(squidLibSym, "And")
   protected lazy val BooleanOrSymbol = loadMtdSymbol(squidLibSym, "Or")
-  def and(lhs: Rep, rhs: => Rep) = methodApp(lhs,BooleanAndSymbol,Nil,Args(rhs)::Nil,BooleanType)
-  def or(lhs: Rep, rhs: => Rep) = methodApp(lhs,BooleanOrSymbol,Nil,Args(rhs)::Nil,BooleanType)
+  def and(lhs: Rep, rhs: => Rep) = methodApp(squidLib,BooleanAndSymbol,Nil,Args(lhs,rhs)::Nil,BooleanType)
+  def or(lhs: Rep, rhs: => Rep) = methodApp(squidLib,BooleanOrSymbol,Nil,Args(lhs,rhs)::Nil,BooleanType)
   
   /** Override to give special meaning */
   def ascribe(self: Rep, typ: TypeRep): Rep = self

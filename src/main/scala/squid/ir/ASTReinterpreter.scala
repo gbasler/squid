@@ -51,8 +51,8 @@ trait ASTReinterpreter { ast: AST =>
           case _ =>
             newBase.lambda({ recv(bv)::Nil }, apply(body))
         }
-      case MethodApp(lhs, BooleanAndSymbol, Nil, Args(rhs)::Nil, _) => newBase.and(lhs|>apply,rhs|>apply)
-      case MethodApp(lhs, BooleanOrSymbol, Nil, Args(rhs)::Nil, _) => newBase.or(lhs|>apply,rhs|>apply)
+      case MethodApp(_, BooleanAndSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.and(lhs|>apply,rhs|>apply)
+      case MethodApp(_, BooleanOrSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.or(lhs|>apply,rhs|>apply)
       case MethodApp(self, mtd, targs, argss, tp) =>
         val typ = newBase.loadTypSymbol(ruh.encodedTypeSymbol(mtd.owner.asType))
         val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
