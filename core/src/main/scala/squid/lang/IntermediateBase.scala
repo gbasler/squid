@@ -4,6 +4,7 @@ package lang
 import squid.utils.meta.RuntimeUniverseHelpers._
 import squid.utils.MacroUtils.MacroSetting
 import squid.quasi.MetaBases
+import utils._
 
 trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
@@ -47,6 +48,13 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
       reinterpret(self.rep, Inter)().asInstanceOf[Typ]
     }
     
+    def compile(implicit ev: {} <:< Ctx): Typ = {
+      // TODO make `compile` a macro that can capture surrounding vars!!
+      val s = scalaTree(self.rep,hideCtors0 = false) // note ctor
+      System.err.println("Compiling tree: "+sru.showCode(s))
+      IntermediateBase.toolBox.eval(s).asInstanceOf[Typ]
+    }
+    
     def showScala: String = ibase.showScala(self rep)
     
   }
@@ -60,8 +68,15 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   final def scalaTreeInWTFScala[MBM <: MetaBases](MBM: MBM)(SRB: MBM#ScalaReflectionBase, rep: Rep, extrudedHandle: (BoundVal => MBM#U#Tree) = DefaultExtrudedHandler): MBM#U#Tree =
     scalaTreeIn(MBM)(SRB.asInstanceOf[MBM.ScalaReflectionBase], rep, extrudedHandle.asInstanceOf[BoundVal => MBM.u.Tree])
   
-  final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler): sru.Tree =
-    scalaTreeIn(quasi.MetaBases.Runtime)(new ScalaReflectionBaseWithOwnNames, rep, extrudedHandle)
+  final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler, hideCtors0: Bool = false): sru.Tree =
+    scalaTreeIn(quasi.MetaBases.Runtime)(new ScalaReflectionBaseWithOwnNames {
+      override val hideCtors: Boolean = hideCtors0
+    }, rep, extrudedHandle)
   
   
+}
+
+object IntermediateBase {
+  import scala.tools.reflect.ToolBox
+  private lazy val toolBox = sru.runtimeMirror(getClass.getClassLoader).mkToolBox() // Q: necessary 'lazy'? (objects are already lazy)
 }

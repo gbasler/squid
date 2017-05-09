@@ -189,6 +189,9 @@ trait MetaBases {
     //val ascribeValBindings = true
     val ascribeValBindings = false
     
+    //val hideCtors = true
+    val hideCtors = false // showCode hides them anyways!
+    
     val startPathsFromRoot = false
     
     type Rep = Tree
@@ -245,7 +248,7 @@ trait MetaBases {
     }
     def module(prefix: Rep, name: String, typ: TypeRep): Rep = q"$prefix.${TermName(name)}"
     def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
-      val pref = if (mtd == termNames.CONSTRUCTOR) q"$self" else q"$self.$mtd"
+      val pref = if (hideCtors && mtd == termNames.CONSTRUCTOR) q"$self" else q"$self.$mtd"
       q"$pref[..$targs](...${
         def quote(argl: ArgList): Seq[Tree] = argl match {
           case Args(reps @ _*) => reps

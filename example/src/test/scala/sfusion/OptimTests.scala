@@ -21,12 +21,15 @@ class OptimTests extends FunSuite {
     
     val c0 = ir"Sequence.fromIndexed(1 to 10).toString"
     
-    //println(Compiler.optimize(c0))
-    Compiler.wrapOptim("Basics") {
+    val res = "Sequence(1,2,3,4,5,6,7,8,9,10)"
+    assert(c0.run == res)
+    
+    val c1 = Compiler.wrapOptim("Basics") {
       Compiler.optimize(c0)
     }
     
-    
+    //assert(c1.run == res) // the hacky InterpreterBase has problems with by-name parameters due to Scala reflexion limitations... (here affecting squid.lib.And)
+    assert(c1.compile == res)
     
   }
   
