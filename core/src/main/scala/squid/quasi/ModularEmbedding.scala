@@ -67,8 +67,14 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   def staticModuleType(fullName: String): TypeRep = staticTypeApp(loadTypSymbol(fullName+"$"), Nil)
   
   
+  val ObjectSym = typeOf[Object].typeSymbol
+  
   def getTypSym(tsym: TypeSymbol): TypSymbol = {
-    val cls = encodedTypeSymbol(tsym) // Maybe cache this more somehow? (e.g. per compilation unit)
+    // Maybe cache this more somehow? (e.g. per compilation unit):
+    val cls = if (tsym == ObjectSym) "scala.Any" // scala is inconsistent in what version of == it uses -- for unrefined
+                                                 // types it's Any.== and for type parameters it's Object.== (ugly...)
+      else encodedTypeSymbol(tsym)
+    
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
   }

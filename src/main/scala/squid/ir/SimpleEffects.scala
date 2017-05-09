@@ -146,7 +146,8 @@ trait StandardEffects extends SimpleEffects {
   }
   
   private[this] val notTransp = Set(methodSymbol[Object]("equals"),methodSymbol[Object]("hashCode"),methodSymbol[Object]("$eq$eq"),methodSymbol[Object]("$hash$hash"))
-  // ^ These should not be included by the following function, as they can be arbitrarily overridden, thereby becoming opaque (eg: equals for a mutable object) 
+  // ^ These should not be included by the following function, as they can be arbitrarily overridden, thereby becoming opaque (eg: equals for a mutable object)
+  // ^ Note that this is not really necessary anymore, as ModularEmbedding now doesn't load methods from Object anymore (instead preferring Any)
   def allTranspPropag(typ: sru.Type) = typ.members.foreach { t =>
     if (t.isMethod || t.alternatives.size > 1) t.alternatives foreach { a =>
       if (a.isMethod && !notTransp(a.asMethod)) transparencyPropagatingMtds += a.asMethod
