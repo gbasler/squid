@@ -54,6 +54,9 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
     
   }
   
+  object Block {
+    def unapply[T,C](q: IR[T,C]): Option[AsBlock[T,C]] = unapplyBlock[T,C](q).get If (_.stmts.nonEmpty)
+  }
   object AsBlock {
     def unapply[T,C](q: IR[T,C]): Some[AsBlock[T,C]] = unapplyBlock[T,C](q)
   }

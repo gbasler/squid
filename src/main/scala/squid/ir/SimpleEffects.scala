@@ -111,8 +111,9 @@ trait StandardEffects extends SimpleEffects {
   
   def typeSymbol[T:TypeTag] = implicitly[TypeTag[T]].tpe.typeSymbol.asType
   def methodSymbol[T:TypeTag](name: String, index: Int = -1) = {
-    val alts = implicitly[TypeTag[T]].tpe.member(sru.TermName(name)).alternatives.filter(_.isMethod)
-    val r = if (alts.isEmpty) throw new IllegalArgumentException
+    val tpe = implicitly[TypeTag[T]].tpe
+    val alts = tpe.member(sru.TermName(name)).alternatives.filter(_.isMethod)
+    val r = if (alts.isEmpty) throw new IllegalArgumentException(s"No $name method in $tpe")
       else if (alts.size == 1) alts.head
       else {
         require(index >= 0)
@@ -144,9 +145,11 @@ trait StandardEffects extends SimpleEffects {
     addFunTyp(sru.typeOf[Function3[Any,Any,Any,Any]])
   }
   
+  private[this] val notTransp = Set(methodSymbol[Object]("equals"),methodSymbol[Object]("hashCode"),methodSymbol[Object]("$eq$eq"),methodSymbol[Object]("$hash$hash"))
+  // ^ These should not be included by the following function, as they can be arbitrarily overridden, thereby becoming opaque (eg: equals for a mutable object) 
   def allTranspPropag(typ: sru.Type) = typ.members.foreach { t =>
     if (t.isMethod || t.alternatives.size > 1) t.alternatives foreach { a =>
-      if (a.isMethod) transparencyPropagatingMtds += a.asMethod
+      if (a.isMethod && !notTransp(a.asMethod)) transparencyPropagatingMtds += a.asMethod
     }
   }
   
