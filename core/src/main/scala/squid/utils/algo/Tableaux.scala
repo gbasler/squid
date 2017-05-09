@@ -104,10 +104,10 @@ class Tableaux {
     
     def isValid(f: Formula): Boolean = {
       //println("Valid? "+f)
-      semanticTableau(¬(f)) forall isClosedLeaf  and (r => println(s"Valid? $f  =>  $r"))
+      semanticTableau(¬(f)) forall isClosedLeaf  //and (r => println(s"Valid? $f  =>  $r"))
     }
     
-    def isSatisfiable(f: Formula): Boolean = semanticTableau(f) exists isOpenLeaf  and (r => println(s"Sat? $f  =>  $r"))
+    def isSatisfiable(f: Formula): Boolean = semanticTableau(f) exists isOpenLeaf  //and (r => println(s"Sat? $f  =>  $r"))
     
   }
   

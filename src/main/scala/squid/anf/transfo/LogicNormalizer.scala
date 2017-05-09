@@ -117,7 +117,7 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
         ir"$c0 && $d0".asInstanceOf[IR[T,C]] -> (s1 ∧ s2, e1 ∧ e2)
         
       case AsBlock(b) if b.stmts.nonEmpty => // TODO move down
-        println("Block with "+known)
+        //println("Block with "+known)
         var ks: Formula = Trivial
         var ke: Formula = Trivial
         val b0 = b.rebuild(
@@ -143,11 +143,9 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
         code -> ((Atom(e), Trivial))
         
       case ir"if ($cond) $thn else $els : $t" => // TODO generalize, use Cflow.Xor
-        println(s"ITE($cond) with "+known)
+        //println(s"ITE($cond) with "+known)
         val (cond0,(s0,e0)) = rec(cond)(known)
         val (thn0,(s01,e01)) = rec(thn)(known ∧ s0 ∧ e0)
-        println(s"s0 "+s0)
-        println(s"e0 "+e0)
         val (els0,(s02,e02)) = rec(els)(known ∧ s0 ∧ !e0)
         ir"if ($cond0) $thn0 else $els0".asInstanceOf[IR[T,C]] -> ((s0 ∧ (s01 ∨ s02), e01 ∨ e02))
         
@@ -157,7 +155,7 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
         if (!Formulas.isSatisfiable(!a ∧ known)) ir"true".asInstanceOf[IR[T,C]] -> (Trivial -> Trivial)
         else if (Formulas.isValid(!(a ∧ known))) ir"false".asInstanceOf[IR[T,C]] -> (Trivial -> Trivial)
         else {
-          println(s"Assume: $e")
+          //println(s"Assume: $e")
           code -> ((Trivial, Atom(e)))
         }
         
@@ -176,7 +174,7 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
       // TODO add special case for while
         
       case e =>
-        println(s"Default: $e")
+        //println(s"Default: $e")
         e -> (Trivial -> Trivial)
       
     }
