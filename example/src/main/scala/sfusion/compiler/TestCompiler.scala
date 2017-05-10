@@ -12,17 +12,23 @@ import squid.lang._
   */
 class TestCompiler extends Compiler {
   
-  override def dumpPhase(name: String, code: => String, time: Long) = {
+  val debug = false
+  //val debug = true
+  
+  override def dumpPhase(name: String, mkCode: => String, time: Long) = {
     
     val p = curPrinter.get
     p.println(s"\n// === $name ===\n")
+    if (debug) println(s"\n// === $name ===\n")
     val t0 = System.nanoTime()
-    val str = code
+    if (debug) println("--- PRINTING")
+    val str = mkCode
     val t1 = System.nanoTime()
     val M = 1000*1000
     p.println(s"// Transfo time: ${time/M}ms  Stringifying time: ${(t1-t0)/M}ms\n")
     if (str == SAME) p.println("// Same as above.")
-    else p.println(code)
+    else p.println(str)
+    if (debug) println(s"$str\n--- DONE")
     
   }
   

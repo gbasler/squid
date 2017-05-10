@@ -26,6 +26,11 @@ import collection.mutable
   * Implem. Notes
   *   if we make holes not _.isTrivial, we get a SOF in the pretty-printing (which replaces bound vals by holes)
   * 
+  * TODO: replace the "early return with transfo" pattern to just recursive transformer calls... (ie: Return.transforming is unnecessary)
+  * 
+  * TODO optim transformers based on object identity?
+  *   make AST's RepTransformer cache what it has applied to and reuse previous results...
+  * 
   */
 class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   
@@ -38,6 +43,14 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   type BlockRep = List[StmtRep] -> Rep // Note: perhaps a repr easier to handle would be: List[Option[Val] -> Rep] -> Rep
   
   override protected def mkIR[T,C](r: Rep): IR[T,C] = r.asInstanceOf[IR[T,C]]
+  
+  type Occurrence = Range
+  object Occurrence {
+    val Never = 0 to 0
+    val Once = 1 to 1
+    val Unknown = 0 to Int.MaxValue
+  }
+  
   case class Rep(dfn: Def) extends IR[Any,Nothing] {
     val rep = this
     
@@ -68,6 +81,32 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     def unapply(that: Rep) = extract(this, that)
     
     //override def toString = s"$dfn"  // Now that Rep extends IR (for performance), it's a bad idea to override toString
+    override def toString = if (isShowing) s"<currently-showing>$dfn" else super.toString
+    
+    type OccMap = Map[Rep,Occurrence]
+    
+    /** Number of times each interesting-to-factor subexpression appears in this tree, including the top-level expression. */
+    lazy val occurrences: OccMap = {
+      import Occurrence._
+      def merge(xs:OccMap, ys:OccMap) = xs ++ (ys map { kv => (xs get kv._1) match {
+          case Some(v) => kv._1 -> (kv._2.start + v.start to kv._2.end + v.end)
+          case _ => kv
+      }})
+      dfn match {
+        case LetIn(p,v,b) => merge(v.occurrences, b.occurrences filterKeys (!_.dfn.unboundVals(p)))
+        case Abs(p,b) => (b.occurrences filterKeys (!_.dfn.unboundVals(p)) mapValues (_ => Unknown)) + (this -> Once)
+        // ^ note we add `(this -> Once)` with `+` and not `merge` because we know the node should not contain itself!
+        case Module(pre,_,_) => pre.occurrences
+        case (_:MethodApp)|(_:Ascribe) => merge(
+          if (!effect.immediate) Map(this -> Once) else Map.empty,
+          dfn.children.foldLeft(Map.empty:OccMap){ (a,b) => merge(a,b.occurrences) }
+        )
+        // only factor constants of String type:
+        case Constant(_:String) => Map(this -> Once)
+        case (_:Constant) | (_:Hole) | (_:SplicedHole) | (_:NewObject) | (_:BoundVal) | (_:StaticModule) => Map.empty
+      }
+    }
+    
   }
   
   

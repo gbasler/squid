@@ -57,8 +57,8 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     //// more general, but too complex (would need crazy bindings manip):
     //case ir"if ($cond) ${Block(b0)} else ${Block(b1)} : $t" if b0.res == b1.res  =>  ir"if ($cond) ${b0.statements()} else ${b1.statements()}; ???"
       
-    case ir"if ($cond) $thn else $els : Boolean" => 
-      ir"val c = $cond; c && $thn || !c && $els" // TODO rm usage of ||
+    //case ir"if ($cond) $thn else $els : Boolean" => 
+    //  ir"val c = $cond; c && $thn || !c && $els" // TODO rm usage of ||
       
     // TODO later?:
     //case ir"($x:Bool) && ${AsBlock(WithResult(b, ir"false"))}" => ir"if ($x) ${b.statements()}; false"
@@ -83,7 +83,7 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
 }
 
 /** Traverses a program and its expressions, accumulating what is known to be true or false if the current code is being
-  * executed. For example, will rewrite {{{n > 0 && {assert(m != 0); (n > 0)} && m != 0 }}} to {{{n > 0 && {assert(m != 0); true} && true }}}.
+  * executed. For example, will rewrite {{{ n > 0 && {assert(m != 0); (n > 0)} && m != 0 }}} to {{{ n > 0 && {assert(m != 0); true} && true }}}.
   * Best used along with LogicNormalizer because this only deals with `. && .` and `!.` but not with `. || .`.
   * Only supposed to work in ANF or any other IR where by-value conditions (eg to an IF-THEN-ELSE) are guaranteed to be pure. */
 trait LogicFlowNormalizer extends IRTransformer { self =>

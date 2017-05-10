@@ -85,7 +85,7 @@ trait ASTReinterpreter { ast: AST =>
     def rect(r: TypeRep): newBase.TypeRep = reinterpretType(r, newBase)
     
   }
-  object Reinterpreter {
+  private object Reinterpreter {
     def apply(NewBase: Base)(app: (Rep, Def => NewBase.Rep) => NewBase.Rep, ExtrudedHandle: (BoundVal => NewBase.Rep)) =
       new Reinterpreter {
         val newBase: NewBase.type = NewBase

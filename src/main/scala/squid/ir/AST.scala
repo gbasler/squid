@@ -87,6 +87,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
+  
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
     
     //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
@@ -267,8 +268,21 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   * In ction, represents a free variable
   * TODO Q: should holes really be pure?
   */
-  case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef
-  case class SplicedHole(name: String)(val typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
+  // TODO streamline these defs – were changed because the old ones did not have the right hashMap/equals implems
+  //case class Hole(name: String)(val typ: TypeRep, val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef
+  //case class SplicedHole(name: String)(val typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
+  type Hole = HoleClass
+  object Hole {
+    def apply(name: String)(typ: TypeRep,originalSymbol: Option[BoundVal] = None, matchedSymbol: Option[BoundVal] = None) = HoleClass(name: String,typ: TypeRep)(originalSymbol,matchedSymbol)
+    def unapply(x:Hole) = HoleClass.unapply(x) map (_._1)
+  }
+  case class HoleClass(name: String, typ: TypeRep)(val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef
+  type SplicedHole = SplicedHoleClass
+  object SplicedHole {
+    def apply(name: String)(typ: TypeRep) = SplicedHoleClass(name: String,typ: TypeRep)
+    def unapply(x:SplicedHole) = SplicedHoleClass.unapply(x) map (_._1)
+  }
+  case class SplicedHoleClass(name: String, typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
   
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
@@ -324,6 +338,20 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
+    
+    lazy val unboundVals = self.unboundVals(this)
+    def isClosed = unboundVals.isEmpty
+    
+    def children: Iterator[Rep] = this match {
+      case a @ Abs(p, b) => dfn(b).children
+      case Ascribe(r,t) => Iterator(r)
+      case Hole(_) | SplicedHole(_) | NewObject(_) | Constant(_) | (_:BoundVal) | StaticModule(_) => Iterator.empty
+      case Module(pref, name, typ) => Iterator(pref) //dfn(pref).children
+      case RecordGet(se, na, tp) => ???
+      case MethodApp(self, mtd, targs, argss, tp) => Iterator(self) ++ argss.flatMap(_.repsIt)
+    }
+    
+    lazy val size: Int = 1 + children.map(dfn).map(_.size).sum
     
     def extractImpl(r: Rep): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")

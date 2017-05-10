@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 9ms
+// Transfo time: 0ms  Stringifying time: 24ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -23,7 +23,7 @@
 
 // === Impl ===
 
-// Transfo time: 1ms  Stringifying time: 11ms
+// Transfo time: 1ms  Stringifying time: 23ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -46,7 +46,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 2ms  Stringifying time: 9ms
+// Transfo time: 3ms  Stringifying time: 18ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -65,7 +65,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 5ms  Stringifying time: 12ms
+// Transfo time: 4ms  Stringifying time: 21ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -92,7 +92,7 @@
 
 // === Imperative ===
 
-// Transfo time: 4ms  Stringifying time: 11ms
+// Transfo time: 6ms  Stringifying time: 26ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -125,25 +125,25 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 0ms  Stringifying time: 3ms
+// Transfo time: 0ms  Stringifying time: 7ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 4ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 0ms  Stringifying time: 3ms
+// Transfo time: 0ms  Stringifying time: 17ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 3ms  Stringifying time: 9ms
+// Transfo time: 5ms  Stringifying time: 27ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -165,7 +165,7 @@
             val x_9 = x_1.toString();
             val x_10 = x_9.+(x_8).toString();
             strAcc_6.++=(x_10);
-            true
+            ()
           }
         else
           ();
@@ -180,6 +180,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 3ms  Stringifying time: 3ms
+// Transfo time: 8ms  Stringifying time: 6ms
 
 // Same as above.

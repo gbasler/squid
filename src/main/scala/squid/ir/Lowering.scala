@@ -27,7 +27,7 @@ trait Lowering extends Transformer {
               val ruh = RuntimeUniverseHelpers
               val typ = r.typ.typeArgs.last // TODO be careful that a method implemented without parameter list can implement a method with an empty list (eg toString), which can make this crash
               base.rep(MethodApp(r, ruh.FunctionType.symbol(reps.size).toType member ruh.sru.TermName("apply") asMethod, Nil, Args(reps:_*)::Nil, typ))
-            case (r, args) => wth(s"$args") // TODO
+            case (r, args) => wth(s"Not supported yet: vararg $args") // TODO
           }
           ascribe(res, retTyp) // We ascribe so that if the body is, e.g., `???`, we don't end up with ill-typed code. 
         case Left(Recursive) =>

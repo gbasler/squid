@@ -6,6 +6,8 @@ import utils.meta.{RuntimeUniverseHelpers => ruh}
 import ruh.sru
 import squid.lang.Base
 
+import scala.collection.mutable
+
 
 /** Useful utility methods used by AST */
 trait ASTHelpers extends Base { self: AST =>
@@ -154,6 +156,12 @@ trait ASTHelpers extends Base { self: AST =>
     res
   }
   
+  
+  protected def unboundVals(d: Def): Set[Val] = d match {
+    case bv: BoundVal => Set(bv)
+    case Abs(p,b) => dfn(b).unboundVals - p
+    case _ => d.children.foldLeft(Set.empty[Val]){ (s,df) => s ++ dfn(df).unboundVals }
+  }
   
 }
 

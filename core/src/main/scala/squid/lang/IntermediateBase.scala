@@ -23,6 +23,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
   //override def showRep(r: Rep) = showScala(r)
   @volatile private var showing = false
+  protected def isShowing = showing
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
   def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?"))) )}
   

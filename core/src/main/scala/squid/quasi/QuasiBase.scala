@@ -57,10 +57,12 @@ self: Base =>
     
     val rep: Rep
     
-    override def equals(that: Any): Boolean = that match {
-      case that: IR[_,_] => rep =~= that.rep
-      case _ => false
-    }
+    //// dangerous... -> when Rep extends IR, this makes SchedulingANF consider `x` and `(x:t)` equal, for example, 
+    //// which has weird consequences (eg scheduling one as the other):
+    //override def equals(that: Any): Boolean = that match {
+    //  case that: IR[_,_] => rep =~= that.rep
+    //  case _ => false
+    //}
     
     def =~= (that: IR[_,_]): Boolean = rep =~= that.rep
     

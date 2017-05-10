@@ -34,7 +34,12 @@ class Compiler extends Optimizer {
   */
   
   val base: Code.type = Code
-  object Code extends squid.ir.SimpleANF with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects {
+  
+  object Code
+  //extends squid.ir.SimpleANF
+  extends squid.ir.SchedulingANF
+  with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects
+  {
     object Desug extends Desugaring //with TopDownTransformer
     object Norm extends SelfTransformer with transfo.StandardNormalizer //with FixPointRuleBasedTransformer
     def pipeline = Desug.pipeline andThen Norm.pipeline
@@ -80,7 +85,7 @@ class Compiler extends Optimizer {
         val body2 = body rewrite {
           case ir"$$s.under" => underFV
           case ir"$$s.size" => sizeFV
-          case ir"$$s.show$$default$$1" => ir"10" // Annoying to have to write that!
+          case ir"$$s.show$$default$$1" => ir"10" // Annoying to have to write that! FIXME introduces bad cyclic compiler dependency
         }
         val body3 = body2 subs 's -> Abort()
         ir"val under = $under; val size = $size; $body3"
