@@ -85,7 +85,6 @@ class Compiler extends Optimizer {
         val body2 = body rewrite {
           case ir"$$s.under" => underFV
           case ir"$$s.size" => sizeFV
-          case ir"$$s.show$$default$$1" => ir"10" // Annoying to have to write that! FIXME introduces bad cyclic compiler dependency
         }
         val body3 = body2 subs 's -> Abort()
         ir"val under = $under; val size = $size; $body3"

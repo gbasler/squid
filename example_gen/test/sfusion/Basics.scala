@@ -2,52 +2,50 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 151ms
+// Transfo time: 0ms  Stringifying time: 66ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
   val x_1 = x_0.to(10);
   val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
   val x_3 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](((x_1): scala.collection.IndexedSeq[scala.Int]))), scala.`package`.Left.apply[scala.Int, Nothing](x_2));
-  val x_4 = x_3.show$default$1;
-  x_3.show(x_4)
+  x_3.show()
 }
 
 // === Impl ===
 
-// Transfo time: 44ms  Stringifying time: 177ms
+// Transfo time: 38ms  Stringifying time: 175ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
   val x_1 = x_0.to(10);
   val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
   val x_3 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](((x_1): scala.collection.IndexedSeq[scala.Int]))), scala.`package`.Left.apply[scala.Int, Nothing](x_2));
-  val x_4 = x_3.show$default$1;
-  val x_5 = scala.StringContext.apply("Sequence(", ")");
-  var truncated_6: scala.Boolean = true;
-  val x_7 = x_3.under;
-  val x_8 = x_7.apply();
-  val x_9 = sfusion.impl.`package`.onFinish[scala.Int](x_8)((() => truncated_6 = false));
-  val withSep_15 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_9)(((a_10: scala.Int) => {
-    val sch_11 = "";
-    val x_12 = scala.StringContext.apply(sch_11, sch_11);
-    x_12.s(a_10)
-  }))(((a_13: scala.Int) => {
-    val x_14 = scala.StringContext.apply(",", "");
-    x_14.s(a_13)
+  val x_4 = scala.StringContext.apply("Sequence(", ")");
+  var truncated_5: scala.Boolean = true;
+  val x_6 = x_3.under;
+  val x_7 = x_6.apply();
+  val x_8 = sfusion.impl.`package`.onFinish[scala.Int](x_7)((() => truncated_5 = false));
+  val withSep_14 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_8)(((a_9: scala.Int) => {
+    val sch_10 = "";
+    val x_11 = scala.StringContext.apply(sch_10, sch_10);
+    x_11.s(a_9)
+  }))(((a_12: scala.Int) => {
+    val x_13 = scala.StringContext.apply(",", "");
+    x_13.s(a_12)
   }));
-  val withTrunc_16 = sfusion.impl.`package`.take[java.lang.String](withSep_15)(x_4);
-  val flat_19 = sfusion.impl.`package`.fold[java.lang.String, java.lang.String](withTrunc_16)("")(((x$4_17: java.lang.String, x$5_18: java.lang.String) => x$4_17.+(x$5_18)));
-  val x_20 = truncated_6;
-  x_5.s(if (x_20)
-    flat_19.+(",...")
+  val withTrunc_15 = sfusion.impl.`package`.take[java.lang.String](withSep_14)(10);
+  val flat_18 = sfusion.impl.`package`.fold[java.lang.String, java.lang.String](withTrunc_15)("")(((x$4_16: java.lang.String, x$5_17: java.lang.String) => x$4_16.+(x$5_17)));
+  val x_19 = truncated_5;
+  x_4.s(if (x_19)
+    flat_18.+(",...")
   else
-    flat_19)
+    flat_18)
 }
 
 // === CtorInline ===
 
-// Transfo time: 36ms  Stringifying time: 85ms
+// Transfo time: 49ms  Stringifying time: 79ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -77,7 +75,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 82ms  Stringifying time: 94ms
+// Transfo time: 30ms  Stringifying time: 86ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -113,7 +111,7 @@
 
 // === Imperative ===
 
-// Transfo time: 81ms  Stringifying time: 151ms
+// Transfo time: 70ms  Stringifying time: 118ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -181,25 +179,25 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 0ms  Stringifying time: 57ms
+// Transfo time: 0ms  Stringifying time: 56ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 48ms
+// Transfo time: 0ms  Stringifying time: 50ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 3ms  Stringifying time: 75ms
+// Transfo time: 2ms  Stringifying time: 61ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 61ms  Stringifying time: 134ms
+// Transfo time: 71ms  Stringifying time: 129ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -265,6 +263,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 40ms  Stringifying time: 49ms
+// Transfo time: 34ms  Stringifying time: 55ms
 
 // Same as above.

@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 37ms
+// Transfo time: 0ms  Stringifying time: 31ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -30,7 +30,7 @@
 
 // === Impl ===
 
-// Transfo time: 18ms  Stringifying time: 68ms
+// Transfo time: 13ms  Stringifying time: 63ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = scala.`package`.Right;
@@ -80,7 +80,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 13ms  Stringifying time: 26ms
+// Transfo time: 15ms  Stringifying time: 29ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -107,13 +107,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 8ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 24ms  Stringifying time: 124ms
+// Transfo time: 34ms  Stringifying time: 151ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -238,7 +238,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 237ms  Stringifying time: 246ms
+// Transfo time: 216ms  Stringifying time: 302ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -410,13 +410,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 96ms
+// Transfo time: 0ms  Stringifying time: 116ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 648ms  Stringifying time: 257ms
+// Transfo time: 761ms  Stringifying time: 281ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -597,7 +597,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 45ms  Stringifying time: 189ms
+// Transfo time: 47ms  Stringifying time: 195ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = ((null): scala.collection.immutable.WrappedString);
@@ -771,6 +771,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 30ms  Stringifying time: 71ms
+// Transfo time: 39ms  Stringifying time: 84ms
 
 // Same as above.

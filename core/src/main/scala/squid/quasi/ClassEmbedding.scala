@@ -43,13 +43,54 @@ object ClassEmbedding {
     object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
     import Helpers._
     
-    val (clsDefOpt: Option[ClassDef], objDef: ModuleDef) = annottees match {
+    // Encodes methods with default arguments using overloading
+    def rmDefaults(cls:ClassDef): ClassDef = ClassDef(cls.mods, cls.name, cls.tparams, 
+      Template(cls.impl.parents, cls.impl.self, cls.impl.body.flatMap {
+        case DefDef(mods, name, tparams, vparamss, tpt, rhs) 
+        if vparamss.exists(_.exists(_.rhs.nonEmpty)) =>
+          type Params = List[ValDef]
+          type Paramss = List[Params]
+          def rmDefault(vd: ValDef): ValDef = 
+            if (vd.rhs.isEmpty) vd else
+            ValDef(Modifiers.apply(),vd.name,vd.tpt,EmptyTree) // note modifs
+          
+          def rec(pss: Paramss): List[Paramss -> Tree] = pss match {
+            case ps :: pss =>
+              def rec2(ps: Params,rhs2:Tree): List[Params -> Tree] = ps match {
+                case vd :: tl => 
+                  for {
+                    (ps2,rh2) <- rec2(tl,rhs2)
+                    given = (rmDefault(vd) :: ps2) -> rh2 :: Nil
+                    (ps3,rh3) <- (if (vd.rhs.isEmpty) given else ps2 -> q"$vd; ..$rh2" :: given)
+                  } yield (ps3,rh3)
+                case Nil => Nil -> rhs2 :: Nil
+              }
+              for {
+                (pss2,rhs2) <- rec(pss)
+                (ps,rhs3) <- rec2(ps,rhs2)
+              } yield (ps::pss2,rhs3)
+            case Nil => Nil -> rhs :: Nil
+            //case Nil => Nil -> EmptyTree :: Nil
+          }
+          
+          rec(vparamss) map { case (vparamss2,rhs2) =>
+            DefDef(mods, name, tparams, vparamss2, tpt, rhs2)
+            //DefDef(mods, name, tparams, vparamss2, tpt, q"..$rhs2; $name[..$tparams](...${vparamss map (_ map (_ name))})")
+          } //and (ds => println("DS:\n"+ds.map(showCode(_)).mkString("\n")))
+          
+        case x => x :: Nil
+      })
+    )
+    
+    
+    val (clsDefOpt0: Option[ClassDef], objDef: ModuleDef) = annottees match {
       case (cls: ClassDef) :: (obj: ModuleDef) :: Nil => Some(cls) -> obj
       case (obj: ModuleDef) :: (cls: ClassDef) :: Nil => Some(cls) -> obj // Never actually happens -- if the object is annotated, the class doesn't get passed!
       case (cls: ClassDef) :: Nil => Some(cls) -> q"object ${cls.name.toTermName}"
       case (obj: ModuleDef) :: Nil => None -> obj
       case _ => throw EmbeddingException(s"Illegal annottee for @embed")
     }
+    val clsDefOpt = clsDefOpt0 map (rmDefaults(_))
     val clsDef = clsDefOpt Else q"class ${objDef.name.toTypeName}"
     
     val objName = objDef.name
