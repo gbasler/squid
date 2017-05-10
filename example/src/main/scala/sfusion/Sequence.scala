@@ -1,6 +1,7 @@
 package sfusion
 
 import squid.ir.SquidObject
+import squid.quasi.overloadEncoding
 import squid.utils._
 
 import scala.collection.mutable
@@ -90,6 +91,7 @@ final class Sequence[+A](val under: () => impl.Producer[A], val size: SizeInfo) 
   @inline @phase('Impl)
   def drop(num: Int): Sequence[A] = new Sequence(() => impl.drop(under())(num), minSize(size,Left(num)))
   
+  @overloadEncoding
   @phase('Impl)
   // TODO compare perf with old impl (cf commit b18e142b79baee6c48ed09425cc5b062cf036c82)
   def show(maxPrinted: Int = 10): String = s"Sequence(${

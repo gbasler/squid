@@ -17,8 +17,15 @@ import scala.collection.mutable
 class embed extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
 }
+@compileTimeOnly("Enable macro paradise to expand macro annotations.")
 class dbg_embed extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
+}
+
+/** Encode a method with default arguments into a set of overloaded methods without default arguments */
+@compileTimeOnly("Enable macro paradise to expand macro annotations.")
+class overloadEncoding extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro ClassEmbedding.overloadEncoding
 }
 
 class phase(name: Symbol) extends StaticAnnotation
@@ -32,56 +39,91 @@ import scala.reflect.macros.blackbox
   * TODO also facilities to convert object to a tuple of its fields while inlining methods -- if possible...
   *   would be nice if the IR did some flow tracking to also specialize other parametrized things accordingle (like containers and functions) if they are known to only use objects that can be converted
   * TODO use a fix combinator for recursive functions that are not polymorphically recursive */
-object ClassEmbedding {
+class ClassEmbedding(val c: whitebox.Context) {
+  import c.universe._
+  
+  val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
+  
+  object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
+  import Helpers._
+  
+  lazy val SUGAR_PHASE = q"new _root_.squid.quasi.phase('Sugar)"
+  
+  
+  def rmDefault(vd: ValDef): ValDef = 
+    if (vd.rhs.isEmpty) vd else
+    ValDef(Modifiers(FlagUtils.rmFlagsIn(vd.mods.flags, Flag.DEFAULTPARAM), 
+      vd.mods.privateWithin, vd.mods.annotations),vd.name,vd.tpt,EmptyTree)
+  
+  
+  def overloadEncoding(annottees: c.Tree*) = q"..${overloadEncodingImpl(annottees: _*)}"
+  
+  def overloadEncodingImpl(annottees: c.Tree*) = try {
+    annottees match {
+      case Seq(DefDef(mods, name, tparams, vparamss, tpt, rhs))
+      if vparamss exists (_ exists (_.rhs nonEmpty)) =>
+        
+        type Params = List[ValDef]
+        type Paramss = List[Params]
+        
+        def rec(pss: Paramss): List[Paramss -> Tree] = pss match {
+          case ps :: pss =>
+            def rec2(ps: Params,rhs2:Tree): List[Params -> Tree] = ps match {
+              case vd :: tl => 
+                for {
+                  (ps2,rh2) <- rec2(tl,rhs2)
+                  given = (rmDefault(vd) :: ps2) -> rh2 :: Nil
+                  (ps3,rh3) <- (if (vd.rhs.isEmpty) given else ps2 -> q"$vd; ..$rh2" :: given)
+                } yield (ps3,rh3)
+              case Nil => Nil -> rhs2 :: Nil
+            }
+            for {
+              (pss2,rhs2) <- rec(pss)
+              (ps,rhs3) <- rec2(ps,rhs2)
+            } yield (ps::pss2,rhs3)
+          //case Nil => Nil -> rhs :: Nil
+          case Nil => Nil -> EmptyTree :: Nil
+        }
+        
+        rec(vparamss) map {
+          case (vparamss2,rhs2) if vparamss2.map(_.size).sum == vparamss.map(_.size).sum =>
+            DefDef(mods, name, tparams, vparamss2, tpt, rhs)
+          case (vparamss2,rhs2) =>
+            //DefDef(mods, name, tparams, vparamss2, tpt, rhs2)
+            val mods2 = Modifiers(mods.flags, mods.privateWithin, SUGAR_PHASE :: mods.annotations)
+            DefDef(mods2, name, tparams, vparamss2, tpt, q"..$rhs2; $name[..$tparams](...${vparamss map (_ map (_ name))})")
+        } //and (ds => println("DS:\n"+ds.map(showCode(_)).mkString("\n")))
+        
+      case x => throw EmbeddingException(s"Illegal annottee for @overloadEncoding")
+        
+    }
+  } catch {
+    case EmbeddingException(msg) => c.abort(c.enclosingPosition, s"Embedding error: $msg")
+  }
+  
   
   /** TODO catch excepts and properly abort */
-  def embedImpl(c: whitebox.Context)(annottees: c.Tree*) = {
-    import c.universe._
+  def embedImpl(annottees: c.Tree*) = try {
     
-    val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
-    
-    object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
-    import Helpers._
-    
-    // Encodes methods with default arguments using overloading
     def rmDefaults(cls:ClassDef): ClassDef = ClassDef(cls.mods, cls.name, cls.tparams, 
       Template(cls.impl.parents, cls.impl.self, cls.impl.body.flatMap {
-        case DefDef(mods, name, tparams, vparamss, tpt, rhs) 
+        case d @DefDef(mods, name, tparams, vparamss, tpt, rhs)
         if vparamss.exists(_.exists(_.rhs.nonEmpty)) =>
-          type Params = List[ValDef]
-          type Paramss = List[Params]
-          def rmDefault(vd: ValDef): ValDef = 
-            if (vd.rhs.isEmpty) vd else
-            ValDef(Modifiers.apply(),vd.name,vd.tpt,EmptyTree) // note modifs
-          
-          def rec(pss: Paramss): List[Paramss -> Tree] = pss match {
-            case ps :: pss =>
-              def rec2(ps: Params,rhs2:Tree): List[Params -> Tree] = ps match {
-                case vd :: tl => 
-                  for {
-                    (ps2,rh2) <- rec2(tl,rhs2)
-                    given = (rmDefault(vd) :: ps2) -> rh2 :: Nil
-                    (ps3,rh3) <- (if (vd.rhs.isEmpty) given else ps2 -> q"$vd; ..$rh2" :: given)
-                  } yield (ps3,rh3)
-                case Nil => Nil -> rhs2 :: Nil
-              }
-              for {
-                (pss2,rhs2) <- rec(pss)
-                (ps,rhs3) <- rec2(ps,rhs2)
-              } yield (ps::pss2,rhs3)
-            case Nil => Nil -> rhs :: Nil
-            //case Nil => Nil -> EmptyTree :: Nil
+          val filan = mods.annotations.filter {
+            case q"new overloadEncoding()" => false
+            case _ => true
           }
-          
-          rec(vparamss) map { case (vparamss2,rhs2) =>
-            DefDef(mods, name, tparams, vparamss2, tpt, rhs2)
-            //DefDef(mods, name, tparams, vparamss2, tpt, q"..$rhs2; $name[..$tparams](...${vparamss map (_ map (_ name))})")
-          } //and (ds => println("DS:\n"+ds.map(showCode(_)).mkString("\n")))
-          
+          if (filan.size == mods.annotations.size) {
+            c.warning(vparamss.flatMap(_.find(_.rhs.nonEmpty)).head.pos, 
+              "Default arguments in @embed methods can cause problems because they generate public fields not accessible manually. " +
+                "Use @overloadEncoding to turn a method with default arguments into a set of overloaded methods.")
+            d :: Nil
+          } else {
+            overloadEncodingImpl(DefDef(Modifiers(mods.flags, mods.privateWithin, filan), name, tparams, vparamss, tpt, rhs))
+          }
         case x => x :: Nil
       })
     )
-    
     
     val (clsDefOpt0: Option[ClassDef], objDef: ModuleDef) = annottees match {
       case (cls: ClassDef) :: (obj: ModuleDef) :: Nil => Some(cls) -> obj
@@ -201,7 +243,11 @@ object ClassEmbedding {
     debug("Generated: "+showCode(gen))
     
     gen
+    
+  } catch {
+    case EmbeddingException(msg) => c.abort(c.enclosingPosition, s"Embedding error: $msg")
   }
+  
   
 }
 

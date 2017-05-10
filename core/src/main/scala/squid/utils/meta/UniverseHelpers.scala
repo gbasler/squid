@@ -178,6 +178,16 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   def isErroneous(tp: Type) =
     tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous
   
+  
+  object FlagUtils {
+    import Flag._
+    
+    def rmFlagsIn(from: FlagSet, rm: FlagSet): FlagSet = (from.asInstanceOf[Long] & ~rm.asInstanceOf[Long]).asInstanceOf[FlagSet]
+    def mkPublic(fs: FlagSet): FlagSet = rmFlagsIn(fs, PRIVATE | PROTECTED | LOCAL)
+    def mapFlags(m: Modifiers)(f: FlagSet => FlagSet) = Modifiers(f(m.flags), m.privateWithin, m.annotations)
+  
+  }
+  
 }
 
 abstract class UniverseHelpersClass[U <: scala.reflect.api.Universe](val uni: U) extends UniverseHelpers[U]

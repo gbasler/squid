@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 32ms
+// Transfo time: 0ms  Stringifying time: 29ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -22,7 +22,7 @@
 
 // === Impl ===
 
-// Transfo time: 25ms  Stringifying time: 99ms
+// Transfo time: 23ms  Stringifying time: 74ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -78,7 +78,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 33ms  Stringifying time: 49ms
+// Transfo time: 26ms  Stringifying time: 32ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
@@ -101,13 +101,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 7ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 132ms  Stringifying time: 184ms
+// Transfo time: 99ms  Stringifying time: 145ms
 
 {
   var cur_0: scala.Int = 1;
@@ -257,19 +257,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 2ms  Stringifying time: 113ms
+// Transfo time: 1ms  Stringifying time: 87ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 101ms
+// Transfo time: 0ms  Stringifying time: 79ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 71ms  Stringifying time: 228ms
+// Transfo time: 53ms  Stringifying time: 172ms
 
 {
   var cur_0: scala.Int = 1;
@@ -430,7 +430,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 183ms  Stringifying time: 184ms
+// Transfo time: 160ms  Stringifying time: 165ms
 
 {
   var cur_0: scala.Int = 1;
@@ -572,6 +572,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 56ms  Stringifying time: 101ms
+// Transfo time: 43ms  Stringifying time: 87ms
 
 // Same as above.

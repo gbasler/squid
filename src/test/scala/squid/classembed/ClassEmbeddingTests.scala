@@ -184,4 +184,22 @@ class ClassEmbeddingTests extends MyFunSuite {
     
   }
   
+  test("Overload Encoding") {
+    import TestDSL.Quasicodes._
+    
+    val Desugaring = new TestDSL.Desugaring with TopDownTransformer
+    
+    ir"(mc:MyClass) => mc.lol(42,142.toString)" transformWith Desugaring eqt
+      ir{ (mc:MyClass) => {
+          val __self_1 = mc;
+          ((b_2: scala.Int, c_3: java.lang.String) => {
+            val a_4 = 0;
+            val d_5 = "3";
+            __self_1.lol(a_4, b_2, c_3, d_5)
+          })
+        }.apply(42, 142.toString())
+      }
+    
+  }
+  
 }

@@ -16,6 +16,10 @@ class MyClass {
   def fooRef(x: Int) = this.foo(x)
   val baz = MyClass.swap(1,2)('lol)._2._2
   
+  
+  @overloadEncoding
+  def lol(a: Int = 0, b: Int, c: String, d: String = "3"): String = a + b + c + d
+  
 }
 
 object MyClass extends App with ir.SquidObject {
