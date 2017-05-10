@@ -44,7 +44,13 @@ self: Base =>
   /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
     substitute(r, defs.toMap)
   
-  protected def mkIR[T,C](r: Rep): IR[T,C] = new IR[T,C] { val rep = r }
+  protected def mkIR[T,C](r: Rep): IR[T,C] = new IR[T,C] {
+    val rep = r
+    override def equals(that: Any): Boolean = that match {
+      case that: IR[_,_] => rep =~= that.rep
+      case _ => false
+    }
+  }
   object IR {
     def apply[T,C](rep: Rep): IR[T,C] = mkIR(rep)
     def unapply[T,C](ir: IR[T,C]): Option[Rep] = Some(ir.rep)
