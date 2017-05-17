@@ -2,43 +2,83 @@ package squid.lang
 
 import squid.quasi
 
+
+/** The base trait defining, in the tagless final style, the core language of Squid:
+  *   constants, lambdas, method applications, object creations and module references. */
 trait Base extends TypingBase with quasi.QuasiBase {
   
+  /** Internal, untype representation of code */
   type Rep
+  
+  /** Representation of bound values or "symbols" */
   type BoundVal
   
+  /** Bound value annotation */
   type Annot = (TypeRep, List[ArgList])
   
+  /** Creates a new value with the specified type */
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal
   
+  /** Returns an internal code representation (Rep) corresponding to a value read/access */
   def readVal(v: BoundVal): Rep
+  
+  /** Scala constant, including base numeric types, Unit, String, and Class */
   def const(value: Any): Rep // Note: not taking a sru.Constant as argument, because `const` also receives things like () -- Unit "literal"
+  
+  /** Lambda expression with variable number of parameters  */
   def lambda(params: List[BoundVal], body: => Rep): Rep
   
+  /** Module (`object`) reference that can be accessed statically, such as `scala.Option` */
   def staticModule(fullName: String): Rep
+  
+  /** Module (`object`) reference based on some non-static prefix, such as `(new MyTrait).MyObject` */
   def module(prefix: Rep, name: String, typ: TypeRep): Rep
+  
+  /** Object creation; the parameters provided to the constructor in a full object creation are passed via a methodApp */
   def newObject(tp: TypeRep): Rep
+  
+  /** Scala method application, with a receiver, method identifier, type arguments, list of argument lists, and return type */
   def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep
   
+  /** Wraps code that is passed as a by-name argument to a method (such as the branhces of an IfThenElse) */
   def byName(arg: => Rep): Rep
   
-  
+  /** Method identifier */
   type MtdSymbol
   
-  /** Parameter `static` shpuld be true only for truly static methods (in the Java sense)
+  /** Parameter `static` should be true only for truly static methods (in the Java sense)
     * Note: index should be None when the symbol is not overloaded, to allow for more efficient caching */
   def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int] = None, static: Boolean = false): MtdSymbol
   
-  
-  
-  val Const: ConstAPI
+  /** High-level interface which implementation should specify how to construct (and potentially also deconstruct) constants */
   trait ConstAPI {
     def apply[T: IRType](v: T): IR[T,{}] = `internal IR`(const(v))
   }
+  val Const: ConstAPI
   
-  
+  /** High-level interface which implementation should specify how to construct (and potentially also deconstruct) constants */
   def repEq(a: Rep, b: Rep): Boolean
   
+  
+  // Method with a default implementation:
+  
+  
+  /** Specifies how to display an internal representation */
+  def showRep(r: Rep) = r.toString
+  
+  /** Function1 application */
+  def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, retTp)
+  
+  /** Let-binding of a value */
+  def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
+    app(lambda(bound::Nil, body), value)(bodyType)
+  }
+  
+  /** Override to give special meaning to type ascription */
+  def ascribe(self: Rep, typ: TypeRep): Rep = self
+  
+  
+  // Helpers:
   
   
   implicit class RepOps(private val self: Rep) {
@@ -51,24 +91,13 @@ trait Base extends TypingBase with quasi.QuasiBase {
   }
   
   
-  def showRep(r: Rep) = r.toString
-  
-  
-  
-  // Helpers:
-  
   /** Just a shortcut for methodApp */
   final def mapp(self: Rep, mtd: MtdSymbol, tp: TypeRep)(targs: TypeRep*)(argss: ArgList*): Rep =
     methodApp(self, mtd, targs.toList, argss.toList, tp)
   
   
+  // TODO move all these into a Builtin object and remove `lazy`; or better: use @embed to create a core set of required features
   protected lazy val Function1ApplySymbol = loadMtdSymbol(loadTypSymbol("scala.Function1"), "apply")
-  def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, retTp)
-  def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
-    app(lambda(bound::Nil, body), value)(bodyType)
-  }
-  
-  // TODO move all these into a Builtin object and remove `lazy`
   protected lazy val squidLib = staticModule("squid.lib.package")
   protected lazy val squidLibSym = loadTypSymbol("squid.lib.package$")
   protected lazy val BooleanType = staticTypeApp(loadTypSymbol("scala.Boolean"),Nil)
@@ -77,33 +106,14 @@ trait Base extends TypingBase with quasi.QuasiBase {
   def and(lhs: Rep, rhs: => Rep) = methodApp(squidLib,BooleanAndSymbol,Nil,Args(lhs,rhs)::Nil,BooleanType)
   def or(lhs: Rep, rhs: => Rep) = methodApp(squidLib,BooleanOrSymbol,Nil,Args(lhs,rhs)::Nil,BooleanType)
   
-  /** Override to give special meaning */
-  def ascribe(self: Rep, typ: TypeRep): Rep = self
   
-  
-  
+  /** Argument lists can either be:
+    *  - `Args(xs...)` a basic argument list to a method with no varargs; eg in `Math.pow(.5,2)`
+    *  - `ArgsVarargs(Args(xs...),Args(ys...))` an argument list followed by arguments to a vararg parameter; eg in `List(1,2,3)`
+    *  - `ArgsVarargSpliced(Args(xs...),y)` an argument list followed by arguments to a vararg parameter; eg in `List(xs:_*)` */
   sealed trait ArgList extends Product with Serializable {
     def repsIt: Iterator[Rep] = reps.iterator
     def reps: Seq[Rep]
-    //def extract(al: ArgList): Option[Extract] = (this, al) match {
-    //  case (a0: Args, a1: Args) => a0 extract a1
-    //  case (ArgsVarargs(a0, va0), ArgsVarargs(a1, va1)) => for {
-    //    a <- a0 extract a1
-    //    va <- va0 extractRelaxed va1
-    //    m <- merge(a, va)
-    //  } yield m
-    //  case (ArgsVarargSpliced(a0, va0), ArgsVarargSpliced(a1, va1)) => for {
-    //    a <- a0 extract a1
-    //    va <- baseSelf.extract(va0, va1)
-    //    m <- merge(a, va)
-    //  } yield m
-    //  case (ArgsVarargSpliced(a0, va0), ArgsVarargs(a1, vas1)) => for { // case dsl"List($xs*)" can extract dsl"List(1,2,3)"
-    //    a <- a0 extract a1
-    //    va <- baseSelf.spliceExtract(va0, vas1)
-    //    m <- merge(a, va)
-    //  } yield m
-    //  case _ => None
-    //}
     override def toString = show(_ toString)
     def show(rec: Rep => String, forceParens: Boolean = true) = {
       val strs = this match {
@@ -118,17 +128,6 @@ trait Base extends TypingBase with quasi.QuasiBase {
   case class Args(reps: Rep*) extends ArgList {
     def apply(vreps: Rep*) = ArgsVarargs(this, Args(vreps: _*))
     def splice(vrep: Rep) = ArgsVarargSpliced(this, vrep)
-    
-    //def extract(that: Args): Option[Extract] = {
-    //  require(reps.size == that.reps.size)
-    //  extractRelaxed(that)
-    //}
-    //def extractRelaxed(that: Args): Option[Extract] = {
-    //  if (reps.size != that.reps.size) return None
-    //  val args = (reps zip that.reps) map { case (a,b) => baseSelf.extract(a, b) }
-    //  (Some(EmptyExtract) +: args).reduce[Option[Extract]] { // `reduce` on non-empty; cf. `Some(EmptyExtract)`
-    //    case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
-    //}
     def map(b: Base)(f: Rep => b.Rep): b.Args = b.Args(reps map f: _*)
   }
   object ArgList {

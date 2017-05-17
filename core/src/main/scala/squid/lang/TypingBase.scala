@@ -2,8 +2,11 @@ package squid.lang
 
 import scala.reflect.runtime.universe.TypeTag
 
+/** The base trait defining, in the tagless final style, the core type language of Squid:
+  *   type application, constant type and uninterpreted types if supported for those that do not fall into these categories. */
 trait TypingBase { self: Base =>
   
+  /** Internal, untype representation of code type */
   type TypeRep
   
   def uninterpretedType[A: TypeTag]: TypeRep
@@ -17,8 +20,6 @@ trait TypingBase { self: Base =>
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean
   def typEq(a: TypeRep, b: TypeRep): Boolean = typLeq(a,b) && typLeq(b,a)
-  
-  
   
   
   final def staticModuleType(fullName: String): TypeRep = staticTypeApp(loadTypSymbol(fullName+"$"), Nil)

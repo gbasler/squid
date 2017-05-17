@@ -11,13 +11,14 @@ import collection.mutable
   * Builds the embedding in `base` of a piece of type-checked Scala code.
   * Caches the loading of symbols, modules and type applications so they are executed only once.
   * 
-  * TODO: move the caching code to a BaseCacher class, and combine it with a BaseForwarder
-  * 
-  * TODO: would it be possible to write out method apps (like for Var and Imperative) using a quasiquote itself..!? (would need circular macro dependency)
-  * 
-  * TODO check that expectedType is used whenever possible (dont blindly lift x.tpe instead...)
-  * 
   */
+/*
+ * TODO: move the caching code to a BaseCacher class, and combine it with a BaseForwarder
+ * 
+ * TODO: would it be possible to write out method apps (like for Var and Imperative) using a quasiquote itself..!? (would need circular macro dependency)
+ * 
+ * TODO check that expectedType is used whenever possible (dont blindly lift x.tpe instead...)
+ */ 
 class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, val base: B, debug: String => Unit = println) extends UniverseHelpers[U] {
   import uni._
   import base._

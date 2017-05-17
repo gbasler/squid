@@ -11,6 +11,7 @@ import squid.lang.Optimizer
 import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
+/** This is used to optimize snippets of Scala code at runtime by enclosing them within an `optimize{...}` block */
 class StaticOptimizer[Optim <: Optimizer] {
   
   def optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]

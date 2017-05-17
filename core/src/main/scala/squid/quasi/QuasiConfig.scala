@@ -11,6 +11,7 @@ abstract class BaseUser[C <: whitebox.Context](val macroContext: C) {
   def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep
 }
 
+/** This abstraction is probably going to disappear or be simplified because it complicates the implementation with little return. */
 abstract class QuasiConfig {
   
   def embed(c: whitebox.Context)(baseTree: c.Tree, user: BaseUser[c.type]): c.Tree

@@ -5,6 +5,7 @@ import squid.lang.InspectableBase
 import squid.lang.Optimizer
 import utils._
 
+/** General code transformation interface. */
 trait Transformer extends Optimizer { self =>
   val base: InspectableBase
   import base._

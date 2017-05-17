@@ -6,6 +6,9 @@ import squid.utils.MacroUtils.MacroSetting
 import squid.quasi.MetaBases
 import utils._
 
+/** An Intermediate Base is one that can still be reinterpreted into yet another Squid Base, using `reinterpret`,
+  * and thus can also be ran; by reinterpreting into the dynamic `BaseInterpreter` or by compiling scala trees 
+  * obtained from reinterpretation through `MetaBases.ScalaReflectionBase`  */
 trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
   // TODO IR and IRType, irTypeOf, typeRepOf, repType, etc.
@@ -44,11 +47,13 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def reinterpretIn(newBase: Base): newBase.IR[Typ,Ctx] =
       newBase.`internal IR`(newBase.wrapConstruct( reinterpret(self.rep, newBase)(DefaultExtrudedHandler) ))
     
+    /** Executes the code at runtime using Java reflection */
     def run(implicit ev: {} <:< Ctx): Typ = {
       val Inter = new ir.BaseInterpreter
       reinterpret(self.rep, Inter)().asInstanceOf[Typ]
     }
     
+    /** Compiles and executes the code at runtime using the Scala ToolBox compiler */
     def compile(implicit ev: {} <:< Ctx): Typ = {
       // TODO make `compile` a macro that can capture surrounding vars!!
       val s = scalaTree(self.rep,hideCtors0 = false) // note ctor

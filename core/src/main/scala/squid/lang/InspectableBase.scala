@@ -8,6 +8,7 @@ import squid.utils.TraceDebug
 
 import scala.annotation.StaticAnnotation
 
+/** An Inspectable Base is one that supports code pattern-matching, and therefore more generally code transformation */
 /* TODO proper error if user tries to do QQ matching with a Base that does not extend this */
 trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDebug { baseSelf =>
   

@@ -2,6 +2,7 @@ package squid
 
 import utils._
 
+/** This contains the virtualized definitions of core Scala constructs such as if-then-else's, loops and variables. */
 package object lib {
   
   @transparent // Note: `IfThenElse` is NOT @transparencyPropagating as it executes the closures it is passed

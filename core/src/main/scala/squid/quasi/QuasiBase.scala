@@ -12,8 +12,10 @@ import utils.MacroUtils.MacroSetting
 import scala.collection.mutable
 
 
-/** Maybe QQ/QC should be accessible to all bases (with necessary feature restrictions)?
-  *   Would make Liftable instances nicer since we'd be able to assume QQ/QC can be used on all bases */
+/** Provides the macro infrastructure to allow for using quasiquotes ir"foo" and quasicode ir{foo}, 
+  * which are more type-safe interfaces to manipulate code than the Base functions. */
+/* TODO implement feature restrictions in quasiquotes, so pattern QQs cannot be defined for non-inspectable bases...
+ * Also make Liftable instances nicer since we are now be able to assume QQ/QC can be used on all bases */
 trait QuasiBase {
 self: Base =>
   
