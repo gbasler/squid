@@ -47,10 +47,12 @@ trait ClassEmbedder { baseSelf: InspectableBase =>
   }
   
 }
+
 object ClassEmbedder {
-  @boilerless.enum class Error {
-    object Recursive
-    object Missing
+  sealed trait Error
+  object Error {
+    case object Recursive extends Error
+    case object Missing extends Error
   }
 }
 

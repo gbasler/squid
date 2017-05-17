@@ -1,5 +1,4 @@
 val paradiseVersion = "2.1.0"
-val boilerlessVersion = "0.1-SNAPSHOT"
 val squidVersion = "0.1.1-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
@@ -19,7 +18,6 @@ lazy val commonSettings = Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
   ),
-  libraryDependencies += "com.github.lptk" %% "boilerless" % boilerlessVersion,
   libraryDependencies ++= (
       if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
       else Nil
