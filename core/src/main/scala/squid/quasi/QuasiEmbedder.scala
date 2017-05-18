@@ -329,7 +329,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               
             // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`
-            case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => oh wait "Scala type checking problem."
+            case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => lastWords("Scala type checking problem.")
               
             case q"$baseTree.$$$$_*[$tp]($nameTree)" => // TODO check baseTree
               val name = holeName(nameTree, nameTree)

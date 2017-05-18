@@ -34,7 +34,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   def const(value: Any): Rep = rep(Constant(value))
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
-  def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) oh_and (varCount += 1)
+  def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) alsoDo (varCount += 1)
   protected def freshNameImpl(n: Int) = "val$"+n
   protected final def freshName: String = freshNameImpl(varCount)
   private var varCount = 0
@@ -108,7 +108,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       // Currently the rewrite engine is unsound because one can match a term of type T1 with a hole typed Any and transform it to an unrelated T2 because T2 <: Any 
       if (wrtp =:= wtp) r
       else if (wrtp <:< wtp) ascribe(r,wtp)
-      else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a subtype.") before r
+      else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a subtype.") thenReturn r
     }
     
     def apply(d: Def): Def = {
@@ -248,7 +248,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   // To do later: refactor this class for more convenience -- use a unique id in addition to the name
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
-    def renew = new BoundVal(name+freshName)(typ,annots) oh_and (varCount += 1)
+    def renew = new BoundVal(name+freshName)(typ,annots) alsoDo (varCount += 1)
     
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name

@@ -294,7 +294,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       case r => r
     }
     
-  } |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  and (r => debug(s"SUBS RESULT = $r"))
+  } |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  alsoApply (r => debug(s"SUBS RESULT = $r"))
   
   def hole(name: String, typ: TypeRep): Rep = Hole(name, typ, None)
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)
@@ -451,7 +451,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
               withSubs(sym -> e)(rec(sts))
           }
         case Nil =>
-        case _ => wtf // Scala spurious warning
+        case _ => spuriousWarning // Scala spurious warning
       }
       rec(b.stmts)
       b.res |> apply |> toExpr
@@ -459,13 +459,13 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     
   }
   
-  protected def failExtrWith(msg: => String) = none oh_and debug(s"${Console.RED}$msg${Console.RESET}")
+  protected def failExtrWith(msg: => String) = none alsoDo debug(s"${Console.RED}$msg${Console.RESET}")
   
   override def merge(a: Extract, b: Extract): Option[Extract] =
-    super.merge(a,b) >>? { case None => failExtrWith(s"Cannot merge: $a and $b") }  
+    super.merge(a,b) |>=? { case None => failExtrWith(s"Cannot merge: $a and $b") }  
   
   
-  protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = debug(s"${"Extr." |> bold} $xtor << $xtee") before nestDbg(xtor -> xtee match {
+  protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = debug(s"${"Extr." |> bold} $xtor << $xtee") thenReturn nestDbg(xtor -> xtee match {
       
     case Hole(name, typ, _) -> _ =>
       typ extract (xtee.typ, Covariant) flatMap { merge(_, (Map(name -> xtee), Map(), Map())) }
@@ -575,7 +575,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     
     def codeBlock(ex: Extract): Option[Block] = try typedBlock(code(ex) getOrElse (
       return failExtrWith("Rewritten code could not be constructed successfully: returned None"))
-    ) |> some and (c => debug(s"Constructed code: ${c.get|>trunc}")) catch {
+    ) |> some alsoApply (c => debug(s"Constructed code: ${c.get|>trunc}")) catch {
       case e: NoSuchElementException if e.getMessage === s"key not found: $SCRUTINEE_KEY" =>
         throw IRException(s"Could not extract a scrutinee for this rewrite pattern: ${xtor |> showRep}")
       case e: Throwable =>
@@ -602,7 +602,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       * Note: we accumulate skipped pure statements in `pureStms` because we need to look at them to see if they refer to removed nodes
       * @return pure statements encountered and skipped, rewritten block output by `code`, rest of the statements */
     def rec(ex: Extract, matchedVals: List[Val -> Val], pureStms: List[AStm])(xy: ListBlock -> ListBlock): Option[(List[Stm], Block -> Option[Val], ListBlock)] =
-    debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2|>trunc}") before nestDbg(xy match {
+    debug(s"rec ${xy._1}\n<<  ${xy._2._1.headOption filter (_.rhs.isPure) map (_ => "[PURE]") getOrElse "" }${xy._2|>trunc}") thenReturn nestDbg(xy match {
         
       case ((sc.Stm(b0, e0) :: es0) -> r0, ((s1 @ sc.Stm(b1, e1)) :: es1) -> r1) =>
         val trial1 = for {
@@ -628,12 +628,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
         
         // Function to check that a set of bound vals are not used in a list of statements,
         // trying to remove pure statements referring to them, and transitively
-        def removeStmts(acc: List[AStm])(toRm: Set[Val], from: List[AStm], fromRet: Expr): Option[List[AStm]] = debug(s"To remove: $toRm from $from ret $fromRet") before from match {
+        def removeStmts(acc: List[AStm])(toRm: Set[Val], from: List[AStm], fromRet: Expr): Option[List[AStm]] = debug(s"To remove: $toRm from $from ret $fromRet") thenReturn from match {
           case st :: stms =>
             val refs = freeVars(st.rhs)
             //debugVisible(s"Free vars $refs in ${st.rhs}")
             if (refs intersect toRm nonEmpty) {
-              if (st.rhs |> pure) debug(s"Getting rid of pure ${st.sym}") before removeStmts(acc)(toRm + st.sym, stms, fromRet)
+              if (st.rhs |> pure) debug(s"Getting rid of pure ${st.sym}") thenReturn removeStmts(acc)(toRm + st.sym, stms, fromRet)
               else failExtrWith(s"Statement ${st.sym} references symbols in the remove set ${toRm}")
             } else removeStmts(st :: acc)(toRm, stms, fromRet)
           case Nil if fromRet |>? {case s:Sym => toRm(s)} forall (!_) => 
@@ -777,7 +777,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       
       r
       
-    } |> some and (r => debug(s"${"Rewrote:" |> bold} ${r|>trunc}"))
+    } |> some alsoApply (r => debug(s"${"Rewrote:" |> bold} ${r|>trunc}"))
     
   }
   
@@ -786,7 +786,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   protected def spliceExtract(xtor: Rep, t: Args): Option[Extract] = ???
 
   // TODO refine? Basic subtyping like Int <: Any?
-  def extractType(xtor: TypeRep, xtee: TypeRep, va: Variance): Option[Extract] = debug(s"$va ${s"TypExtr." |> bold} $xtor << $xtee") before nestDbg(xtor match {
+  def extractType(xtor: TypeRep, xtee: TypeRep, va: Variance): Option[Extract] = debug(s"$va ${s"TypExtr." |> bold} $xtor << $xtee") thenReturn nestDbg(xtor match {
     case TypeHole(name) => mkExtract()(name -> xtee)() |> some
     case _ =>
       val xtorNameBase = xtor |> baseName
@@ -828,7 +828,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     r match {
     // PardisNode
         
-      case b: Block => if (continue) b.stmts foreach rec before b.res |> rec
+      case b: Block => if (continue) b.stmts foreach rec thenReturn b.res |> rec
         
       case sc.Stm(s, o) => o |> rec
         

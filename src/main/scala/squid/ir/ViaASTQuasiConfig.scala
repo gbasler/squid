@@ -30,7 +30,7 @@ class ViaASTQuasiConfig extends QuasiConfig {
     object Meta extends MetaBases {
       private var cnt = 0
       val u: c.universe.type = c.universe
-      def freshName(hint: String) = TermName(s"_${cnt}_$hint") oh_and (cnt += 1)
+      def freshName(hint: String) = TermName(s"_${cnt}_$hint") alsoDo (cnt += 1)
     }
     object base extends Meta.MirrorBase(baseTree)
     

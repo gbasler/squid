@@ -325,11 +325,11 @@ object MetaBases {
     val u: sru.type = sru
     
     private var varCount = 0
-    def freshName(hint: String) = sru.TermName(hint+s"_$varCount") oh_and (varCount += 1)
+    def freshName(hint: String) = sru.TermName(hint+s"_$varCount") alsoDo (varCount += 1)
     
     class ScalaReflectionBaseWithOwnNames extends Runtime.ScalaReflectionBase {
       private var varCount = 0
-      override def freshName(hint: String): sru.TermName = sru.TermName(hint+s"_$varCount") oh_and (varCount += 1)
+      override def freshName(hint: String): sru.TermName = sru.TermName(hint+s"_$varCount") alsoDo (varCount += 1)
     }
     object ScalaReflectionBase extends ScalaReflectionBaseWithOwnNames
     

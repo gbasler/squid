@@ -233,7 +233,7 @@ private class SizedProducerImpl[A](underFun: => impl.Producer[A], val size: Int)
 object Test extends App {
   
   //val s = fromIndexed(1 to 3).map(x => x oh_and print(s"[$x]")).take(4)
-  val s = fromIndexed(1 to 5).map(x => x oh_and print(s"[$x]")).take(4).drop(1)
+  val s = fromIndexed(1 to 5).map(x => x alsoDo print(s"[$x]")).take(4).drop(1)
   val p = s.map(_+1)
   
   //println(Producer.fromIndexed(1 to 3).map(_+1).size)
@@ -243,7 +243,7 @@ object Test extends App {
   def test[A](q: SizedProducer[A]): SizedProducer[A] = {
     //println(q.size, q.index)
     println(q.size)
-    q.map(a => println(a) before a)
+    q.map(a => println(a) thenReturn a)
   }
   val q = test(p)
   //println(q.size, q.index)

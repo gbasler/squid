@@ -64,7 +64,7 @@ object AutoBinder {
       val symByName = if (isCtor) originalType.member(termNames.CONSTRUCTOR)
         else originalType.member(name)
       
-      (symByName If (_.alternatives.size == 1) filter (_.isMethod) map (_.asMethod)) orElse {
+      (symByName optionIf (_.alternatives.size == 1) filter (_.isMethod) map (_.asMethod)) orElse {
           //disp(s"Method $name in $cls does not correspond to an actual method or is overloaded.")
           
           val tps = originalType.typeSymbol.typeSignature.typeParams
@@ -150,7 +150,7 @@ object AutoBinder {
       if mem.isModule
       obj = mem.asModule
       //_ = disp(obj, obj.companion)
-      if obj.companion If (_ =/= NoSymbol) filter (_.asClass.isCaseClass) isEmpty;
+      if obj.companion optionIf (_ =/= NoSymbol) filter (_.asClass.isCaseClass) isEmpty;
       if !ignoredObjName(obj.name.toString)
       mems = obj.typeSignature.members.toSet -- anyMem filterNot (_ isConstructor)
       if mems.nonEmpty
@@ -226,7 +226,7 @@ object AutoBinder {
       val u: c.universe.type = c.universe
       //def freshName(hint: String) = c.freshName(TermName(hint))
       private var cnt = 0
-      def freshName(hint: String) = TermName(s"_${cnt}_$hint") oh_and (cnt += 1)
+      def freshName(hint: String) = TermName(s"_${cnt}_$hint") alsoDo (cnt += 1)
     }
     val MB = new MBM.MirrorBase(q"_sb_")
     
@@ -278,7 +278,7 @@ object AutoBinder {
           var i = 0
           val args = mtd.paramLists.flatten filter (_ isImplicit) map {
             case p if p.name.toString startsWith overloadPrefix => q"_b_.${ TermName("overloaded" + (p.name.toString drop overloadPrefix.length)) }"
-            case p if p.typeSignature.baseType(TypeRepSym) =/= NoType => q"$pickFrom($i)" oh_and (i += 1)
+            case p if p.typeSignature.baseType(TypeRepSym) =/= NoType => q"$pickFrom($i)" alsoDo (i += 1)
             //case _ => "??? "+mtd.name |> disp; ??? // TODO proper error
           }
           if (args isEmpty) Nil

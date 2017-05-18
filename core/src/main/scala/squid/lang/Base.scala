@@ -110,7 +110,7 @@ trait Base extends TypingBase with quasi.QuasiBase {
   /** Argument lists can either be:
     *  - `Args(xs...)` a basic argument list to a method with no varargs; eg in `Math.pow(.5,2)`
     *  - `ArgsVarargs(Args(xs...),Args(ys...))` an argument list followed by arguments to a vararg parameter; eg in `List(1,2,3)`
-    *  - `ArgsVarargSpliced(Args(xs...),y)` an argument list followed by arguments to a vararg parameter; eg in `List(xs:_*)` */
+    *  - `ArgsVarargSpliced(Args(xs...),y)` an argument list followed by a spliced argument to a vararg parameter; eg in `List(xs:_*)` */
   sealed trait ArgList extends Product with Serializable {
     def repsIt: Iterator[Rep] = reps.iterator
     def reps: Seq[Rep]

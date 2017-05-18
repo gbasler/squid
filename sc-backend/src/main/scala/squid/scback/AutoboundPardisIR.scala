@@ -185,7 +185,7 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     mk(args.asInstanceOf[List[PardisFunArg]],
       // `self` will be null if it corresponds to a static module (eg: `Seq`)
       // in that case, the method type parameters are expected to be passed in first position:
-      (targs If (self == null)
+      (targs optionIf (self == null)
              Else self.typ.typeArguments
         ).asInstanceOf[TRL],
       targs.asInstanceOf[TRL])

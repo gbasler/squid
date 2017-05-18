@@ -55,7 +55,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
   }
   
   object Block {
-    def unapply[T,C](q: IR[T,C]): Option[AsBlock[T,C]] = unapplyBlock[T,C](q).get If (_.stmts.nonEmpty)
+    def unapply[T,C](q: IR[T,C]): Option[AsBlock[T,C]] = unapplyBlock[T,C](q).get optionIf (_.stmts.nonEmpty)
   }
   object AsBlock {
     def unapply[T,C](q: IR[T,C]): Some[AsBlock[T,C]] = unapplyBlock[T,C](q)
@@ -107,7 +107,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
           
           // Note: the trick will become unneeded once proper context polymorphism hygiene is implemented (see `doc/internal/design/future/Hygienic Context Polymorphism.md`)
           
-          val curid = uid oh_and (uid += 1)
+          val curid = uid alsoDo (uid += 1)
           val closedBody = body subs 'ClosureVar -> ir"placeHolder[$xt](${Const(curid)})"
           val rec = unapply(closedBody)
           def reopen[T,C](q: IR[T,C]): IR[T,C{val ClosureVar:xt.Typ}] = q rewrite {

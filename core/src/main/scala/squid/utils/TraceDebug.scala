@@ -26,7 +26,7 @@ trait TraceDebug {
   def muteFor[T](x: => T): T = setDebugFor(false)(x)
   
   //@inline final protected def nestDbg[T](x: T) = x // to enable in release
-  protected def nestDbg[T](x: => T) = (indent += 1) before (try x finally { indent -=1 })
+  protected def nestDbg[T](x: => T) = (indent += 1) thenReturn (try x finally { indent -= 1 })
   
   protected def dbg(xs: => List[Any]) = debug(xs mkString " ")
   protected def dbgs(x: => Any, xs: Any*) = debug((x +: xs) mkString " ")

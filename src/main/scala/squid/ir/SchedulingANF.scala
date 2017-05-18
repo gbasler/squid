@@ -57,7 +57,7 @@ class SchedulingANF extends SimpleANF {
     
     def apply(r: Rep): newBase.Rep = {
       
-      (scheduled.get(r) If (!r.effect.immediate) flatten) map newBase.readVal getOrElse {
+      (scheduled.get(r) optionIf (!r.effect.immediate) flatten) map newBase.readVal getOrElse {
         var bestFreq = 0
         var best = Option.empty[Rep]
         r.occurrences.foreach {
@@ -75,7 +75,7 @@ class SchedulingANF extends SimpleANF {
           val bv = newBase.bindVal("sch",e.typ|>rect,Nil)
           val e2 = e|>apply
           scheduled.put(e,bv)
-          newBase.letin(bv,e2,r|>apply,r.typ|>rect) oh_and (scheduled.remove(e))
+          newBase.letin(bv,e2,r|>apply,r.typ|>rect) alsoDo (scheduled.remove(e))
         } getOrElse apply(r.dfn)
       }
       

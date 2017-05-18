@@ -49,7 +49,7 @@ trait SimpleEffects extends AST {
     transparentMtds(m) || !opaqueMtds(m) && {
       val r = (
         m.annotations.exists(_.tree.tpe <:< TranspAnnotType)
-        || (transparentTyps(m.owner.asType) If (m.owner.isType) Else false) 
+        || (transparentTyps(m.owner.asType) optionIf (m.owner.isType) Else false)
         || (m.overrides exists (s => s.isMethod && isTransparentMethod(s.asMethod)))
         || m.isAccessor && {val rst = m.typeSignature.resultType.typeSymbol; rst.isModule || rst.isModuleClass }
       )

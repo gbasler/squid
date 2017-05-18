@@ -139,7 +139,7 @@ class ClassEmbedding(val c: whitebox.Context) {
     val clsName = objName.toTypeName
     
     var mangledCount = 0
-    def mangledName(name: TermName) = TermName(s"_${mangledCount}_") oh_and (mangledCount += 1)
+    def mangledName(name: TermName) = TermName(s"_${mangledCount}_") alsoDo (mangledCount += 1)
     
     val overloadingOrder = mutable.Map[(TermName,Boolean),Int]()
     
@@ -163,7 +163,7 @@ class ClassEmbedding(val c: whitebox.Context) {
       case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR && rhs.nonEmpty => // TODO sthg about parameter accessors?
         val ind = {
           val key = name -> inClass
-          overloadingOrder.getOrElseUpdate(key, -1) + 1  and (overloadingOrder(key) = _)
+          overloadingOrder.getOrElseUpdate(key, -1) + 1  alsoApply (overloadingOrder(key) = _)
         }
         
         val cleanRhs = if (!inClass) rhs else q"import __self._; ${
@@ -187,10 +187,10 @@ class ClassEmbedding(val c: whitebox.Context) {
         val AnyRefNames = typeOf[AnyRef].members.iterator.collect{case s if s.name.isTermName => s.name.toTermName}.toSet
         val uniqueName = if (ind == 0 && !(AnyRefNames contains name)) name else TermName(s"${name}_$ind")
         
-        val typ = (fullVparams foldRight tpt){ (ps, acc) => tq"(..${ps map (_.tpt)}) => $acc" }  If  tpt.nonEmpty
+        val typ = (fullVparams foldRight tpt){ (ps, acc) => tq"(..${ps map (_.tpt)}) => $acc" }  optionIf  tpt.nonEmpty
         val irBody = q"__b__.Quasicodes.ir[..${typ toList}]{$body}"
         val symbol = q"$parent.__typ__[..${
-          (clsDefOpt And inClass).toList flatMap (_.tparams map (_ => tq"Any"))
+          (clsDefOpt retainIf inClass).toList flatMap (_.tparams map (_ => tq"Any"))
         }].decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
         
         var fullTparams = tparams

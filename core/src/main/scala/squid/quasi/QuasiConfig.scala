@@ -27,7 +27,7 @@ class DefaultQuasiConfig extends QuasiConfig {
       private var cnt = 0
       val u: c.universe.type = c.universe
       //def freshName(hint: String) = c.freshName(u.TermName(hint)) // Creates problems with the Scala compiler when the produced code is processed by another macro
-      def freshName(hint: String) = TermName(s"_${cnt}_$hint") oh_and (cnt += 1)
+      def freshName(hint: String) = TermName(s"_${cnt}_$hint") alsoDo (cnt += 1)
     }
     object base extends Meta.MirrorBase(baseTree)
     

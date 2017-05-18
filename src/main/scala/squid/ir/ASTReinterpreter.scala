@@ -26,7 +26,7 @@ trait ASTReinterpreter { ast: AST =>
     
     val ascribeBoundValsWhenNull = false  // also applies to bindings with value of type Nothing since Nothing <: Null
     
-    val extrudedHandle: BoundVal => newBase.Rep = bv => wth(s"Extruded variable: $bv")
+    val extrudedHandle: BoundVal => newBase.Rep = bv => lastWords(s"Extruded variable: $bv")
     
     //def getClassName(cls: sru.ClassSymbol) = ruh.srum.runtimeClass(cls).getName
     
@@ -77,10 +77,10 @@ trait ASTReinterpreter { ast: AST =>
     }
     //protected def recv(bv: BoundVal) = newBase.bindVal(bv.name, rect(bv.typ), bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}) and (bound += bv -> _)
     protected def recv(bv: BoundVal) = newBase.bindVal(
-      bv.name IfNot (_ startsWith "$") Else "x", // bound variables starting with '$' are those that were not named explicitly in the source programs
+      bv.name optionUnless (_ startsWith "$") Else "x", // bound variables starting with '$' are those that were not named explicitly in the source programs
       rect(bv.typ),
       bv.annots map {case(tp,ass) => rect(tp) -> ass.map(_.map(newBase)(a => apply(a)))}
-    ) and (bound += bv -> _)
+    ) alsoApply (bound += bv -> _)
     
     def rect(r: TypeRep): newBase.TypeRep = reinterpretType(r, newBase)
     
@@ -162,7 +162,7 @@ trait ASTReinterpreter { ast: AST =>
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
           case ir"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>
-            val varName = newBase.freshName(bv.name IfNot (_ startsWith "$") Else "v")
+            val varName = newBase.freshName(bv.name optionUnless (_ startsWith "$") Else "v")
             
             //q"var $varName: ${rect(tv rep)} = ${apply(init.rep)}; ${body subs 'v -> q"$varName"}"
             /* ^ this does not work because `subs` wants to substitute with something of IR type of the current base, not a Scala tree */
@@ -175,7 +175,7 @@ trait ASTReinterpreter { ast: AST =>
           case ir"var ${v @ BV(bv)}: $tv = null; $body: $tb" =>
             assert(!(tv <:< AnyRef))
             System.err.println(s"Warning: variable `${v rep}` of type `${tv}` (not a subtype of `AnyRef`) is assigned `null`.")
-            val varName = newBase.freshName(bv.name IfNot (_ startsWith "$") Else "v")
+            val varName = newBase.freshName(bv.name optionUnless (_ startsWith "$") Else "v")
             q"var $varName: ${rect(tv.rep)} = null; ..${
               boundVars += bv -> varName
               apply(body.rep)}"

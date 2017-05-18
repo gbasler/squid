@@ -57,7 +57,7 @@ trait RuntimeSymbols {
           s.typeSignature.member(sru.TypeName(name))
         }
     }
-    (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) and (x => debug(s"Loaded: $x"))
+    (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) alsoApply (x => debug(s"Loaded: $x"))
   }
   
   def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
@@ -82,21 +82,3 @@ trait RuntimeSymbols {
   }
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

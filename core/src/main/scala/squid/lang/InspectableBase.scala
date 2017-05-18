@@ -42,7 +42,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     import Console.BOLD
     import Console.RESET
     debug(s"${BOLD}Extracting$RESET $xtee ${BOLD}with$RESET $xtor")
-    nestDbg(extract(xtor, xtee)) and (res => debug(s"${BOLD}Result:$RESET $res"))
+    nestDbg(extract(xtor, xtee)) alsoApply (res => debug(s"${BOLD}Result:$RESET $res"))
   }
   
   def `internal checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(splicedValKeys: String*): Extract = {

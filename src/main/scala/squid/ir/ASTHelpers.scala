@@ -14,7 +14,7 @@ trait ASTHelpers extends Base { self: AST =>
   
   
   // TODO implement and use `traverse` method here
-  def hasHoles(r: Rep): Boolean = r |> traversePartial{case RepDef(Hole(_)|SplicedHole(_)) => return true} before false
+  def hasHoles(r: Rep): Boolean = r |> traversePartial{case RepDef(Hole(_)|SplicedHole(_)) => return true} thenReturn false
   
   def traversePartial(f: PartialFunction[Rep, Boolean]) = traverse(f orElse PartialFunction(_ => true)) _
   
@@ -113,9 +113,9 @@ trait ASTHelpers extends Base { self: AST =>
       case NewObject(typ) => s"new ${typ |> apply}"
       case Typed(BoundVal(name), typ) => s"[$name:${typ |> apply}]"
       case Abs(p, b) => s"{$p => ${apply(b)}}"
-      case LetIn(p, v, b) => s"let $p = ${apply(v) oh_and (ident += 2)} in${s"->${b.typ}" If showReturnTypes Else ""}\n${try " " * ident + apply(b) finally ident -= 2}"
+      case LetIn(p, v, b) => s"let $p = ${apply(v) alsoDo (ident += 2)} in${s"->${b.typ}" optionIf showReturnTypes Else ""}\n${try " " * ident + apply(b) finally ident -= 2}"
       //case Imperative(effs, res) => s"{ ${effs map apply mkString "; "}; $res }"
-      case imp@Imperative(effs, res) => s"{\n${ident += 2; try ((effs :+ res) map apply map (" " * ident + _ + "\n") mkString) finally ident -= 2}${" " * ident}}${s"->${imp.typ}" If showReturnTypes Else ""}"
+      case imp@Imperative(effs, res) => s"{\n${ident += 2; try ((effs :+ res) map apply map (" " * ident + _ + "\n") mkString) finally ident -= 2}${" " * ident}}${s"->${imp.typ}" optionIf showReturnTypes Else ""}"
       case MethodApp(s, m, ts, ass, typ) => 
         val targsStr = if (ts isEmpty) "" else s"[${ts mkString ","}]"
         s"${apply(s)}.${m.name.decodedName}$targsStr${ass map (_ show apply) mkString ""}" + (if (showMtdReturnType) s"->${typ |> apply}" else "")

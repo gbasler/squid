@@ -21,16 +21,16 @@ package object utils {
   /** Allows functions taking one by-name parameter to be used on the rhs of |> and such operators. */
   implicit def byNameFun2fun[A,B](f: (=> A) => B): A => B = f(_)
   
-  implicit final class Andable[T](private val self: T) extends AnyVal {
+  implicit final class Alsoable[T](private val self: T) extends AnyVal {
     
-    @inline def and(f: T => Unit) = { f(self); self }
-    @inline def and_?(f: PartialFunction[T,Unit]) = { f.runWith(_=>())(self); self }
+    @inline def alsoApply(f: T => Unit) = { f(self); self }
+    @inline def alsoApply_?(f: PartialFunction[T,Unit]) = { f.runWith(_=>())(self); self }
     
-    @inline def oh_and(effect: Unit) = self
+    @inline def alsoDo(effect: Unit) = self
     
-    @inline def but_before(f: => Unit) = { f; self }
+    @inline def butBefore(f: Unit) = { f; self }
     
-    @inline def before[A](x: A) = x
+    @inline def thenReturn[A](x: A) = x
     @inline def !> [A](x: A) = x
     
   }
@@ -44,12 +44,11 @@ package object utils {
     @inline def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
     @inline def |>! [B] (rhs: PartialFunction[A, B]): B = rhs(__self)
     
-    @inline def >> (rhs: A => A): A = rhs(__self)
-    @inline def >>? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
+    /** Like |> but expects the function to return the same type */
     @inline def |>= (rhs: A => A): A = rhs(__self)
     @inline def |>=? (rhs: PartialFunction[A, A]): A = rhs.applyOrElse(__self, Function const __self)
     
-    /**A lesser precedence one! */
+    /** A lesser precedence one! */
     @inline def /> [B] (rhs: A => B): B = rhs(__self)
     
     /** 
@@ -62,19 +61,16 @@ package object utils {
     
     def withTypeOf[T >: A](x: T): T = __self: T
     
-    @inline def IfNot (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
-    @inline def Unless (cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
+    @inline def optionUnless(cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     
   }
   
   implicit final class LazyGenHelper[A](__self: => A) {
     
-    @inline def If (cond: Bool): Option[A] = if (cond) Some(__self) else None
-    @inline def If (cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
+    @inline def optionIf(cond: Bool): Option[A] = if (cond) Some(__self) else None
+    @inline def optionIf(cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
     
-    @inline def IfNot (cond: Bool): Option[A] = if (!cond) Some(__self) else None
-    // same as above, different name:
-    @inline def Unless (cond: Bool): Option[A] = if (!cond) Some(__self) else None
+    @inline def optionUnless(cond: Bool): Option[A] = if (!cond) Some(__self) else None
     
   }
   
@@ -84,9 +80,11 @@ package object utils {
     @inline def Then[B](f: A => B): Option[B] = __self map f
     /** Like getOrElse */
     @inline def Else[B >: A](x: => B): B = __self getOrElse x
-    @inline def And(cond: => Bool): Option[A] = if (__self.isDefined && !cond) None else __self
-    @inline def AndNot(cond: => Bool): Option[A] = if (__self.isDefined && cond) None else __self
+    @inline def retainIf(cond: => Bool): Option[A] = if (__self.isDefined && !cond) None else __self
+    @inline def retainUnless(cond: => Bool): Option[A] = if (__self.isDefined && cond) None else __self
   }
+  def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
+  
   @inline def some[A](x: A): Option[A] = Some(x)
   @inline def none = None
   
@@ -131,25 +129,11 @@ package object utils {
   }
   
   
-  def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
-  
-  
-  def wtf = wth("Program reached and unexpected state.")
-  def wth(msg: String) = throw new Exception(s"Internal Error: $msg")
+  def die = lastWords("Program reached and unexpected state.")
+  def lastWords(msg: String) = throw new Exception(s"Internal Error: $msg")
   
   /** Used to make Scala unexhaustivity warnings believed to be spurious go away */
-  def spuriousWarning = wth("Case was reached that was thought to be unreachable.")
-  
-  
-  object oh {
-    def wait(msg: String) = wth(msg)
-  }
-  
+  def spuriousWarning = lastWords("Case was reached that was thought to be unreachable.")
   
   
 }
-
-
-
-
-

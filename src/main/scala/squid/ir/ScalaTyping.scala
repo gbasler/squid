@@ -45,8 +45,8 @@ self: IntermediateBase => // for 'repType' TODO rm
     // e.g. in ClassEmbeddingTests.test("Online Lowering and Normalization") where the BindingNormalizer matches redexes
     //      so if the value is null of type Null(null) is will unify to this instead of the parameter type.
     case (a: ExtractedType) -> (b: ExtractedType) => mergeTypes(b, a) map { case ExtractedType(v,t) => v -> t }
-    case _ => wtf
-  }) map ExtractedType.tupled and { case None => debug(s"Could not merge types $a and $b") case _ =>}
+    case _ => die
+  }) map ExtractedType.tupled alsoApply_? { case None => debug(s"Could not merge types $a and $b") }
   
   def uninterpretedType[A: TypeTag]: TypeRep = sru.typeTag[A].tpe
   
@@ -167,9 +167,9 @@ self: IntermediateBase => // for 'repType' TODO rm
       case typ -> xtyp => // FIXME: is it okay to do this here? we should probably ensure typ is a TypeRef...
         val targs = typ.typeArgs
         
-        if (xtyp =:= ruh.Null) return None oh_and debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
+        if (xtyp =:= ruh.Null) return None alsoDo debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
         
-        def erron = None oh_and debug(s"Method `baseType` returned an erroneous type.")
+        def erron = None alsoDo debug(s"Method `baseType` returned an erroneous type.")
         
         if (va == Contravariant && xtyp.typeSymbol != typ.typeSymbol) {
         
@@ -264,7 +264,7 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   
   def nullValue[T: IRType]: IR[T,{}] = {
-    val tp = implicitly[IRType[T]].rep.tpe >>? {
+    val tp = implicitly[IRType[T]].rep.tpe |>=? {
       case TypeHoleRep(name) => throw new IllegalArgumentException("Type hole has no known nullValue.")
     }
     IR[T,{}](const(

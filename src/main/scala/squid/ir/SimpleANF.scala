@@ -70,8 +70,8 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     final def isImpure = !isPure
     
     lazy val asBlock: BlockRep = dfn match {
-      case LetIn(p,v,b) => b.asBlock >> { case es -> r => (Left(p -> v) :: es) -> r }
-      case Imperative(effs,ret) => ret.asBlock >> { case es -> r => ((effs map (e => Right(e)) toList) ++ es) -> r }
+      case LetIn(p,v,b) => b.asBlock |>= { case es -> r => (Left(p -> v) :: es) -> r }
+      case Imperative(effs,ret) => ret.asBlock |>= { case es -> r => ((effs map (e => Right(e)) toList) ++ es) -> r }
       //case MethodApp(s,m,ts,ass,t) => 
       case _ => Nil -> this
     }
@@ -138,7 +138,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
       case Imperative(effs, ret) =>
         val buf = statements.lastOption match {
           case Some(Right(b)) => b
-          case _ => mutable.Buffer[Rep]() and (b => statements += Right(b))
+          case _ => mutable.Buffer[Rep]() alsoApply (b => statements += Right(b))
         }
         buf ++= effs
         ret |> makeStmtIfNecessary(false)
@@ -148,13 +148,13 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
         //println(r,statements)
         val buf = statements.lastOption match {
           case Some(Right(b)) => b
-          case _ => mutable.Buffer[Rep]() and (b => statements += Right(b))
+          case _ => mutable.Buffer[Rep]() alsoApply (b => statements += Right(b))
         }
         if (r isImpure) buf += r
         r
       case _ =>
         //println(s"Binding $r")
-        readVal(freshBoundVal(r.typ) and { v => statements += Left(v -> r) })
+        readVal(freshBoundVal(r.typ) alsoApply { v => statements += Left(v -> r) })
     }
     
     def construct(init: Rep) = statements.foldRight(init) {
@@ -187,7 +187,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
         //effs foreach { e => e |> makeStmtIfNecessary(false) and (r => statements += Right(r)) }
         effs foreach makeStmtIfNecessary(false)
         //construct(ret |> makeStmtIfNecessary(false))
-        val newRet = ret >>? {
+        val newRet = ret |>=? {
           case Imperative(effs2, ret2) => 
             effs2 foreach makeStmtIfNecessary(false)
             ret2
@@ -203,11 +203,11 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
           // We still need to call `makeStmtIfNecessary` just in case what's bound is an imperative block or another let binding!
         val init = {
           //MethodApp(newSelf,m,ts,newArgss,t) |> (if (statements nonEmpty) rep else Rep) |> makeStmtIfNecessary(true) // SOF
-          (MethodApp(newSelf,m,ts,newArgss,t) |> (if (statements nonEmpty) rep else Rep)) >>? {
+          (MethodApp(newSelf,m,ts,newArgss,t) |> (if (statements nonEmpty) rep else Rep)) |>=? {
             case Imperative(es,r) =>
               val buf = statements.lastOption match { // TODO factor
                 case Some(Right(b)) => b
-                case _ => mutable.Buffer[Rep]() and (b => statements += Right(b))
+                case _ => mutable.Buffer[Rep]() alsoApply (b => statements += Right(b))
               }
               buf ++= es
               r
@@ -313,7 +313,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
       def checkRefs(r: Rep): Option[Rep] = { // Q: is it sufficient to use `freeVals` instead of `allValRefs` here?
         //debug("Checking refs in "+r)
         val matchedValsSet = matchedVals.toSet
-        r If ((originalVals(r) | allValRefs(r)) & matchedValsSet isEmpty) and_? {
+        r optionIf ((originalVals(r) | allValRefs(r)) & matchedValsSet isEmpty) alsoApply_? {
           case None => debug(s"${Console.RED}Rewritten term:${Console.RESET} $r ${Console.RED}contains references to original vals ${originalVals(r)} or free vals ${allValRefs(r)} ${Console.RESET}")
         }
       }
@@ -422,7 +422,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     if (xtor.asBlock._1.isEmpty && xtee.asBlock._1.nonEmpty) return None
     // ^ TODO handle `{val r = expr; r}` as well as `expr`
     
-    rec(repExtract(SCRUTINEE_KEY -> xtee),Nil)(xtor.asBlock -> xtee.asBlock) and_?
+    rec(repExtract(SCRUTINEE_KEY -> xtee),Nil)(xtor.asBlock -> xtee.asBlock) alsoApply_?
       { case Some(r) => debug(s"${BOLD}=> Rewrote$RESET $r") }
     
   }

@@ -23,7 +23,7 @@ trait SimpleRuleBasedTransformer extends RuleBasedTransformer {
       //debug(s"Matching xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
       
       //try rewriteRep(xtor, currentRep, code) foreach { res => currentRep = res }
-      nestDbg(try rewriteRep(xtor, currentRep, code) and { resOpt =>
+      nestDbg(try rewriteRep(xtor, currentRep, code) alsoApply { resOpt =>
         //debug(s"Got Code: ${resOpt map (_ show) map (s => s"${Console.GREEN+Console.BOLD}$s${Console.RESET}")}")
       } foreach { res =>
         //debug(s"Matched xtor ${Console.BOLD}${xtor.show}${Console.RESET} << ${currentRep.show}")
