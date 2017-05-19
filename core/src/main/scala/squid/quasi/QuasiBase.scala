@@ -288,6 +288,7 @@ self: Base =>
     //def $[T,C](q: IR[T,C]): T = macro QuasiMacros.forward$ // Actually unnecessary
     //def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forwardVararg$ // Actually unnecessary
     def $$[T](name: Symbol): T = macro QuasiMacros.forward$$
+    def ?[T](name: Symbol): T = macro QuasiMacros.forward$$
     
     type $[QT <: TypeErased] = TypeOf[QT]
     

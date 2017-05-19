@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 90ms
+// Transfo time: 0ms  Stringifying time: 81ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -14,7 +14,7 @@
 
 // === Impl ===
 
-// Transfo time: 31ms  Stringifying time: 73ms
+// Transfo time: 25ms  Stringifying time: 67ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -45,7 +45,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 26ms  Stringifying time: 52ms
+// Transfo time: 19ms  Stringifying time: 42ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -75,7 +75,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 30ms  Stringifying time: 64ms
+// Transfo time: 16ms  Stringifying time: 50ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -97,21 +97,20 @@
   val withTrunc_14 = sfusion.impl.`package`.take[java.lang.String](withSep_13)(10);
   val strAcc_15 = new scala.collection.mutable.StringBuilder();
   sfusion.impl.`package`.foreach[java.lang.String](withTrunc_14)(((s_16: java.lang.String) => {
-    val x_17 = s_16.toString();
-    strAcc_15.++=(x_17);
+    strAcc_15.++=(s_16.toString());
     ()
   }));
-  val x_18 = strAcc_15.result();
-  val x_19 = truncated_5;
-  x_4.s(if (x_19)
-    x_18.+(",...")
+  val x_17 = strAcc_15.result();
+  val x_18 = truncated_5;
+  x_4.s(if (x_18)
+    x_17.+(",...")
   else
-    x_18)
+    x_17)
 }
 
 // === Imperative ===
 
-// Transfo time: 66ms  Stringifying time: 96ms
+// Transfo time: 66ms  Stringifying time: 94ms
 
 {
   val x_0 = scala.Predef.intWrapper(1);
@@ -148,26 +147,108 @@
       x_19.<(10).&&({
         val x_20 = taken_8;
         taken_8 = x_20.+(1);
-        val x_21 = x_18.toString();
-        strAcc_9.++=(x_21);
+        strAcc_9.++=(x_18.toString());
         true.&&({
-          val x_22 = taken_8;
-          x_22.<(10)
+          val x_21 = taken_8;
+          x_21.<(10)
         })
       })
     })
   }) 
     ()
   ;
-  val x_23 = i_6;
-  val sch_24 = x_23.==(x_5);
-  if (sch_24)
+  val x_22 = i_6;
+  val sch_23 = x_22.==(x_5);
+  if (sch_23)
     truncated_4 = false
   else
     ();
-  sch_24.||({
-    val x_25 = taken_8;
-    x_25.==(10)
+  sch_23.||({
+    val x_24 = taken_8;
+    x_24.==(10)
+  });
+  val x_25 = strAcc_9.result();
+  val x_26 = truncated_4;
+  x_3.s(if (x_26)
+    x_25.+(",...")
+  else
+    x_25)
+}
+
+// === FlatMapFusion ===
+
+// Transfo time: 0ms  Stringifying time: 60ms
+
+// Same as above.
+
+// === LateImperative ===
+
+// Transfo time: 0ms  Stringifying time: 78ms
+
+// Same as above.
+
+// === VarFlattening ===
+
+// Transfo time: 2ms  Stringifying time: 63ms
+
+// Same as above.
+
+// === Low-Level Norm ===
+
+// Transfo time: 51ms  Stringifying time: 78ms
+
+{
+  val x_0 = scala.Predef.intWrapper(1);
+  val x_1 = x_0.to(10);
+  val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
+  val x_3 = scala.StringContext.apply("Sequence(", ")");
+  var truncated_4: scala.Boolean = true;
+  val x_5 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
+  var i_6: scala.Int = 0;
+  var first_7: scala.Boolean = true;
+  var taken_8: scala.Int = 0;
+  val strAcc_9 = new scala.collection.mutable.StringBuilder();
+  while ({
+    val x_10 = i_6;
+    x_10.<(x_5).&&({
+      val x_11 = i_6;
+      val x_12 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_11);
+      val x_13 = i_6;
+      i_6 = x_13.+(1);
+      val x_14 = first_7;
+      val x_18 = if (x_14)
+        {
+          val sch_15 = "";
+          first_7 = false;
+          val x_16 = scala.StringContext.apply(sch_15, sch_15);
+          x_16.s(x_12)
+        }
+      else
+        {
+          val x_17 = scala.StringContext.apply(",", "");
+          x_17.s(x_12)
+        };
+      val x_19 = taken_8;
+      x_19.<(10).&&({
+        val x_20 = taken_8;
+        taken_8 = x_20.+(1);
+        strAcc_9.++=(x_18.toString());
+        val x_21 = taken_8;
+        x_21.<(10)
+      })
+    })
+  }) 
+    ()
+  ;
+  val x_22 = i_6;
+  val sch_23 = x_22.==(x_5);
+  if (sch_23)
+    truncated_4 = false
+  else
+    ();
+  val x_25 = sch_23.`unary_!`.&&({
+    val x_24 = taken_8;
+    x_24.==(10).`unary_!`
   });
   val x_26 = strAcc_9.result();
   val x_27 = truncated_4;
@@ -177,92 +258,8 @@
     x_26)
 }
 
-// === FlatMapFusion ===
-
-// Transfo time: 0ms  Stringifying time: 58ms
-
-// Same as above.
-
-// === LateImperative ===
-
-// Transfo time: 0ms  Stringifying time: 32ms
-
-// Same as above.
-
-// === VarFlattening ===
-
-// Transfo time: 3ms  Stringifying time: 54ms
-
-// Same as above.
-
-// === Low-Level Norm ===
-
-// Transfo time: 52ms  Stringifying time: 101ms
-
-{
-  val x_0 = scala.Predef.intWrapper(1);
-  val x_1 = x_0.to(10);
-  val x_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]).size;
-  val x_3 = scala.StringContext.apply("Sequence(", ")");
-  var truncated_4: scala.Boolean = true;
-  val x_5 = ((x_1): scala.collection.IndexedSeq[scala.Int]).length;
-  var i_6: scala.Int = 0;
-  var first_7: scala.Boolean = true;
-  var taken_8: scala.Int = 0;
-  val strAcc_9 = new scala.collection.mutable.StringBuilder();
-  while ({
-    val x_10 = i_6;
-    x_10.<(x_5).&&({
-      val x_11 = i_6;
-      val x_12 = ((x_1): scala.collection.IndexedSeq[scala.Int]).apply(x_11);
-      val x_13 = i_6;
-      i_6 = x_13.+(1);
-      val x_14 = first_7;
-      val x_18 = if (x_14)
-        {
-          val sch_15 = "";
-          first_7 = false;
-          val x_16 = scala.StringContext.apply(sch_15, sch_15);
-          x_16.s(x_12)
-        }
-      else
-        {
-          val x_17 = scala.StringContext.apply(",", "");
-          x_17.s(x_12)
-        };
-      val x_19 = taken_8;
-      x_19.<(10).&&({
-        val x_20 = taken_8;
-        taken_8 = x_20.+(1);
-        val x_21 = x_18.toString();
-        strAcc_9.++=(x_21);
-        val x_22 = taken_8;
-        x_22.<(10)
-      })
-    })
-  }) 
-    ()
-  ;
-  val x_23 = i_6;
-  val sch_24 = x_23.==(x_5);
-  if (sch_24)
-    truncated_4 = false
-  else
-    ();
-  val x_26 = sch_24.`unary_!`.&&({
-    val x_25 = taken_8;
-    x_25.==(10).`unary_!`
-  });
-  val x_27 = strAcc_9.result();
-  val x_28 = truncated_4;
-  x_3.s(if (x_28)
-    x_27.+(",...")
-  else
-    x_27)
-}
-
 // === ReNorm (should be the same) ===
 
-// Transfo time: 27ms  Stringifying time: 43ms
+// Transfo time: 18ms  Stringifying time: 22ms
 
 // Same as above.

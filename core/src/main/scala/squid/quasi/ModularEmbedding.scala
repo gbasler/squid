@@ -269,7 +269,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         
         //debug("OBJ "+obj.tpe.typeSymbol)
         
-        def refMtd = getMtd(method.owner.typeSignature.typeSymbol.asType |> getTypSym, method)
+        def refMtd = getMtd(method.owner.asType |> getTypSym, method)
         
         val tp = liftType(x.tpe)
         val self = liftTerm(obj, x, Some(obj.tpe))

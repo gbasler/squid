@@ -28,8 +28,6 @@ package object utils {
     
     @inline def alsoDo(effect: Unit) = self
     
-    @inline def butBefore(f: Unit) = { f; self }
-    
     @inline def thenReturn[A](x: A) = x
     @inline def !> [A](x: A) = x
     

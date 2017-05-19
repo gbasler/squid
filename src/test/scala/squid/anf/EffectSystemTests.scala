@@ -52,7 +52,7 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     assert(ir"(() => () => println)()".rep.effect == Impure)
     assert(ir"(() => () => println)()()".rep.effect == Impure)
     
-    // thanks to an add-hoc entry in `transparencyPropagatingMtds`:
+    // thanks to an add-hoc entry for `identity` in `transparencyPropagatingMtds`:
     assert(ir"identity((x:Int)=>print(x))".rep.effect == Latent)
     assert(ir"identity((x:Int)=>x)".rep.effect == Pure)
     

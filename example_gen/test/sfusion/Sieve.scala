@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 29ms
+// Transfo time: 0ms  Stringifying time: 24ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -22,7 +22,7 @@
 
 // === Impl ===
 
-// Transfo time: 23ms  Stringifying time: 74ms
+// Transfo time: 28ms  Stringifying time: 68ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[Nothing, scala.Boolean](false));
@@ -78,11 +78,11 @@
 
 // === CtorInline ===
 
-// Transfo time: 26ms  Stringifying time: 32ms
+// Transfo time: 27ms  Stringifying time: 27ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
-  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$68_1: scala.Int) => x$1$68_1.+(1)));
+  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$67_1: scala.Int) => x$1$67_1.+(1)));
   val x_16 = sfusion.impl.`package`.filter[scala.Int](x_2)(((n_3: scala.Int) => {
     val x_4 = scala.math.`package`.sqrt(n_3.toDouble);
     val x_5 = scala.Predef.doubleWrapper(x_4);
@@ -107,7 +107,7 @@
 
 // === Imperative ===
 
-// Transfo time: 99ms  Stringifying time: 145ms
+// Transfo time: 111ms  Stringifying time: 126ms
 
 {
   var cur_0: scala.Int = 1;
@@ -257,19 +257,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 1ms  Stringifying time: 87ms
+// Transfo time: 0ms  Stringifying time: 66ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 79ms
+// Transfo time: 0ms  Stringifying time: 96ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 53ms  Stringifying time: 172ms
+// Transfo time: 49ms  Stringifying time: 101ms
 
 {
   var cur_0: scala.Int = 1;
@@ -430,7 +430,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 160ms  Stringifying time: 165ms
+// Transfo time: 219ms  Stringifying time: 107ms
 
 {
   var cur_0: scala.Int = 1;
@@ -504,16 +504,17 @@
               if (x_28)
                 {
                   val x_29 = optVal_24;
-                  val x_31 = if (x_29.<=(x_15.toInt))
-                    {
-                      val x_30 = optVal_24;
-                      x_12.%(x_30).!=(0)
-                    }
+                  val x_31 = x_29.<=(x_15.toInt).&&({
+                    val x_30 = optVal_24;
+                    x_12.%(x_30).!=(0)
+                  });
+                  if (x_31)
+                    ()
                   else
-                    {
+                    if (x_29.<=(x_15.toInt))
+                      ()
+                    else
                       stop_18 = true;
-                      false
-                    };
                   cont_19 = x_31
                 }
               else
@@ -572,6 +573,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 43ms  Stringifying time: 87ms
+// Transfo time: 24ms  Stringifying time: 38ms
 
 // Same as above.

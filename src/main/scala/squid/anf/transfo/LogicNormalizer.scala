@@ -57,8 +57,10 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     //// more general, but too complex (would need crazy bindings manip):
     //case ir"if ($cond) ${Block(b0)} else ${Block(b1)} : $t" if b0.res == b1.res  =>  ir"if ($cond) ${b0.statements()} else ${b1.statements()}; ???"
       
-    //case ir"if ($cond) $thn else $els : Boolean" => 
-    //  ir"val c = $cond; c && $thn || !c && $els" // TODO rm usage of ||
+    // Note: this is let-binds the condition and uses the bound variable twice;
+    // in ANF the expression (if pure) will be duplicated, but in SchedulingANF it will be re-bound in the scheduling phase
+    case ir"if ($cond) $thn else $els : Boolean" =>
+      ir"val c = $cond; c && $thn || !c && $els" // TODO rm usage of ||
       
     // TODO later?:
     //case ir"($x:Bool) && ${AsBlock(WithResult(b, ir"false"))}" => ir"if ($x) ${b.statements()}; false"

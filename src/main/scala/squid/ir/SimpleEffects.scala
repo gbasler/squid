@@ -18,6 +18,8 @@ import collection.mutable
   * 
   * Referentially-transparent types are (immutable) types that own only referentially-transparent methods (except those
   * registered explicitly in `opaqueMtds`).
+  * Also, values of these types are assumed not to contain latent effects. For example, `Function[Int,Int]` is not
+  * ref-transp because some values like `(_:Int)+readInt` contain latent effects.
   * 
   * Finally, "referential-transparency-propagating" methods are referentially-transparent methods that propagate the
   * referential transparency of their arguments.
@@ -57,8 +59,9 @@ trait SimpleEffects extends AST {
       r
     }
   }
+  def isOpaqueMethod(m: MtdSymbol): Bool = !isTransparentMethod(m)
   
-  def isTransparentType(m: MtdSymbol) = transparentMtds(m)
+  def isTransparentType(m: TypSymbol) = transparentTyps(m)
   
   /** Allows for caching effects in the `Rep`. Implement with just `effect(r)` for no caching to happen. */
   def effectCached(r: Rep): SimpleEffect
@@ -66,10 +69,16 @@ trait SimpleEffects extends AST {
     case Abs(p,b) => (b|>effectCached).prev
     case MethodApp(s,m,ts,pss,rt) =>
       val propag = m |> isTransparencyPropagatingMethod
-      if (propag || isTransparentMethod(m) || transparentTyps(s.typ.typeSymbol.asType) && !opaqueMtds(m)) {
-        val e = (s +: pss.flatMap(_.reps)).map(effectCached).fold(SimpleEffect.Pure)(_ | _)
+      lazy val e = (s +: pss.flatMap(_.reps)).map(effectCached).fold(SimpleEffect.Pure)(_ | _)
+      if (propag || isTransparentMethod(m) 
+        || e == SimpleEffect.Pure && isTransparentType(s.typ.typeSymbol.asType)
+        // ^ heuristic: if the sub-expressions are pure and the receiver is of transparent type (like Int), we assume the expression is pure
+        // Note that the first condition alone is not sufficient; see `scala.Predef.println` where the only sub-expr `scala.Predef` is pure
+      ) {
         if (propag) e else e.next
       } else SimpleEffect.Impure
+    // Cannot assume that a bound value of an opaque type does not hide a latent effect:
+    case bv: BoundVal if !isTransparentType(bv.typ.typeSymbol.asType) => SimpleEffect.Latent
     case Ascribe(r,_) => r|>effectCached
     case Module(r,_,_) => r|>effectCached
     case Constant(_) | _: BoundVal | StaticModule(_) | NewObject(_) | RecordGet(_,_,_) | _:Hole | _:SplicedHole => SimpleEffect.Pure
@@ -125,8 +134,14 @@ trait StandardEffects extends SimpleEffects {
   //transparentTyps += sru.typeOf[squid.lib.`package`.type].typeSymbol.asType
   // ^ no more necessary; methods are now annotated
   
+  //transparentTyps += typeSymbol[Unit] // add this one?
+  transparentTyps += typeSymbol[Null]
   transparentTyps += typeSymbol[Bool]
+  transparentTyps += typeSymbol[Char]
+  transparentTyps += typeSymbol[Short]
   transparentTyps += typeSymbol[Int]
+  transparentTyps += typeSymbol[Long]
+  transparentTyps += typeSymbol[Float]
   transparentTyps += typeSymbol[Double]
   transparentTyps += typeSymbol[String]
   
@@ -134,7 +149,9 @@ trait StandardEffects extends SimpleEffects {
   //pureTyps += sru.typeOf[Any].typeSymbol.asType // for, eg, `asInstanceOf`, `==` etc.
   transparentMtds += methodSymbol[Any]("asInstanceOf")
   
-  {
+  // It's not a good idea to make FunctionN a transparent type because it can have latent effects
+  // TODO: However it would be nice to have things like `andThen` be transparency-propagating
+  /*{
     def addFunTyp(tp: sru.Type) = {
       transparentTyps += tp.typeSymbol.asType
       opaqueMtds += tp.member(sru.TermName("apply")).asMethod
@@ -143,7 +160,7 @@ trait StandardEffects extends SimpleEffects {
     addFunTyp(sru.typeOf[Function1[Any,Any]])
     addFunTyp(sru.typeOf[Function2[Any,Any,Any]])
     addFunTyp(sru.typeOf[Function3[Any,Any,Any,Any]])
-  }
+  }*/
   
   private[this] val notTransp = Set(methodSymbol[Object]("equals"),methodSymbol[Object]("hashCode"),methodSymbol[Object]("$eq$eq"),methodSymbol[Object]("$hash$hash"))
   // ^ These should not be included by the following function, as they can be arbitrarily overridden, thereby becoming opaque (eg: equals for a mutable object)
@@ -165,7 +182,7 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[scala.collection.immutable.Traversable[Any]]
   transparentTyps += typeSymbol[scala.collection.immutable.Seq[Any]]
   transparentTyps += typeSymbol[scala.collection.immutable.Seq.type]
-  //transparentTyps += typeSymbol[scala.collection.immutable.List[Any]] // Q: useful?
+  transparentTyps += typeSymbol[scala.collection.immutable.List[Any]] // Useful to make things like List.map 
   transparentTyps += typeSymbol[scala.collection.immutable.List.type]
   
   transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods

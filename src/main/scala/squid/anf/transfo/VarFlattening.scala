@@ -54,7 +54,11 @@ trait VarFlattening extends SimpleRuleBasedTransformer { self =>
           //println("RW2 "+sbody2)
           sbody2 subs 'x -> Abort()
         case ir"$$v := None" => ir"$isDefined := false"
+          
         case ir"$$v := Some($x:$$t)" => ir"$optVal := $x; $isDefined := true"
+        case ir"val bound = Some($x:$$t); $$v := bound" => ir"$optVal := $x; $isDefined := true"
+        // FIXME: ^ this is a temporary kludge because the ANF matcher does not yet handle this with the pattern of the case above
+          
         case ir"$$v := $x" =>
           Abort() // TODO rewrite to if-then-else rebuilding the option -- note this may be tricky if options are not
           // normalized online, as it could lead to transforming `opt.isEmpty` into the ite before it is rewritten to
