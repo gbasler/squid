@@ -10,7 +10,7 @@ object SimpleANFTests {
     with BlockHelpers
     // with StandardEffects  // commented because some tests currently rely on things like Int ops to be effectful...
   
-  object DSLWithEffects extends SimpleANF with StandardEffects
+  object DSLWithEffects extends SimpleANF with lang.ScalaCore with StandardEffects
     with BlockHelpers
   
 }

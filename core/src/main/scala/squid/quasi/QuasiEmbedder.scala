@@ -209,7 +209,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
       * program go through an arbitrary base before ending up as Scala mirror code! */
-    val codeTree = config.embed(c)(Base, new BaseUser[c.type](c) {
+    val codeTree = config.embed(c)(Base, baseTree.tpe, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
         
         

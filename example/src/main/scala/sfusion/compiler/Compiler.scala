@@ -36,9 +36,10 @@ class Compiler extends Optimizer {
   val base: Code.type = Code
   
   object Code
-  //extends squid.ir.SimpleANF
-  extends squid.ir.SchedulingANF
-  with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects
+    //extends squid.ir.SimpleANF
+    extends squid.ir.SchedulingANF
+    with ScalaCore
+    with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects
   {
     object Desug extends Desugaring //with TopDownTransformer
     object Norm extends SelfTransformer with transfo.StandardNormalizer //with FixPointRuleBasedTransformer

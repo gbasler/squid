@@ -24,7 +24,7 @@ import utils.Debug.show
 */
 trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
   
-  val base: anf.analysis.BlockHelpers
+  val base: anf.analysis.BlockHelpers with lang.ScalaCore
   import base.Predef._
   import base.{AsBlock,WithResult}
   

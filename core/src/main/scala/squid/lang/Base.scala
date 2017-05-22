@@ -44,7 +44,7 @@ trait Base extends TypingBase with quasi.QuasiBase {
   def byName(arg: => Rep): Rep
   
   /** Method identifier */
-  type MtdSymbol
+  type MtdSymbol <: AnyRef  // AnyRef bound so it can be used in squid.utils.Lazy (see the @mirror/@embed annotations)
   
   /** Parameter `static` should be true only for truly static methods (in the Java sense)
     * Note: index should be None when the symbol is not overloaded, to allow for more efficient caching */
@@ -145,5 +145,14 @@ trait Base extends TypingBase with quasi.QuasiBase {
     val reps = args.reps :+ vararg
     def map(b: Base)(f: Rep => b.Rep): b.ArgsVarargSpliced = b.ArgsVarargSpliced(args.map(b)(f), f(vararg))
   }
+  
+  
+  /** `EmbeddedType` is used to store static references to type symbols and associated method symbols, so that 
+    * when the right type is present, quasiquotes can generate direct field accesses instead of calls to `loadTypeSymbol`
+    * and `loadMethodSymbol` (which have to go through hash-table lookups to find the right symbols). */
+  class EmbeddedType(val tsym: TypSymbol) {
+    val asStaticallyAppliedType = squid.utils.Lazy(staticTypeApp(tsym, Nil))
+  }
+  
   
 }

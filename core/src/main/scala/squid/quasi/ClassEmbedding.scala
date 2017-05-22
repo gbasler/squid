@@ -22,6 +22,15 @@ class dbg_embed extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
 }
 
+@compileTimeOnly("Enable macro paradise to expand macro annotations.")
+class mirror[T] extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro ClassEmbedding.mirrorImpl
+}
+@compileTimeOnly("Enable macro paradise to expand macro annotations.")
+class dbg_mirror[T] extends StaticAnnotation {
+  @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.mirrorImpl
+}
+
 /** Encode a method with default arguments into a set of overloaded methods without default arguments */
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
 class overloadEncoding extends StaticAnnotation {
@@ -39,12 +48,8 @@ import scala.reflect.macros.blackbox
   * TODO also facilities to convert object to a tuple of its fields while inlining methods -- if possible...
   *   would be nice if the IR did some flow tracking to also specialize other parametrized things accordingle (like containers and functions) if they are known to only use objects that can be converted
   * TODO use a fix combinator for recursive functions that are not polymorphically recursive */
-class ClassEmbedding(val c: whitebox.Context) {
+class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) {  // extend QuasiMacros mainly to have access to wrapError... could move that to a utility base class
   import c.universe._
-  
-  val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
-  
-  object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
   import Helpers._
   
   lazy val SUGAR_PHASE = q"new _root_.squid.quasi.phase('Sugar)"
@@ -56,9 +61,9 @@ class ClassEmbedding(val c: whitebox.Context) {
       vd.mods.privateWithin, vd.mods.annotations),vd.name,vd.tpt,EmptyTree)
   
   
-  def overloadEncoding(annottees: c.Tree*) = q"..${overloadEncodingImpl(annottees: _*)}"
+  def overloadEncoding(annottees: c.Tree*): Tree = q"..${overloadEncodingImpl(annottees: _*)}"
   
-  def overloadEncodingImpl(annottees: c.Tree*) = try {
+  def overloadEncodingImpl(annottees: c.Tree*): List[DefDef] = wrapError {
     annottees match {
       case Seq(DefDef(mods, name, tparams, vparamss, tpt, rhs))
       if vparamss exists (_ exists (_.rhs nonEmpty)) =>
@@ -97,13 +102,10 @@ class ClassEmbedding(val c: whitebox.Context) {
       case x => throw EmbeddingException(s"Illegal annottee for @overloadEncoding")
         
     }
-  } catch {
-    case EmbeddingException(msg) => c.abort(c.enclosingPosition, s"Embedding error: $msg")
   }
   
   
-  /** TODO catch excepts and properly abort */
-  def embedImpl(annottees: c.Tree*) = try {
+  def embedImpl(annottees: c.Tree*) = wrapError {
     
     def rmDefaults(cls:ClassDef): ClassDef = ClassDef(cls.mods, cls.name, cls.tparams, 
       Template(cls.impl.parents, cls.impl.self, cls.impl.body.flatMap {
@@ -244,11 +246,51 @@ class ClassEmbedding(val c: whitebox.Context) {
     
     gen
     
-  } catch {
-    case EmbeddingException(msg) => c.abort(c.enclosingPosition, s"Embedding error: $msg")
+  }
+  
+  
+  def mirrorImpl(annottees: c.Tree*): Tree = wrapError {
+    val cls @ ClassDef(mods, name, tparams, impl) = annottees match {
+      case (cls: ClassDef) :: Nil if cls.mods.hasFlag(Flag.TRAIT) => cls // TODO require empty body (?)
+      case _ => throw EmbeddingException(s"Illegal annottee for @embed") 
+    }
+    val tp = c.macroApplication match {
+      case q"new $_[$tp]().macroTransform(..$_)" => c.typecheck(tp,c.TYPEmode).tpe
+    }
+    
+    val encodedName = tp.typeSymbol.asType |> encodedTypeSymbol
+    
+    // (Note: passing $mods to the trait below seems to break the generated code; generates AbstractMethodError's)
+    val res = q"""trait $name[..$tparams] extends ..${impl.parents} with _root_.squid.lang.Base {
+      object ${TermName(encodedName).encodedName.toTermName} extends EmbeddedType(loadTypSymbol($encodedName)) {..${
+        
+        val usedNames = mutable.Set[String]()
+        // ^ this is an ad-hoc solution against the fact that some method symbols like `String.compareTo` appear several times...
+        // Weird things also happen with methods like Predef.ArrowAssoc, which come from a local AnyVal implicit class
+        
+        tp.decls.collect {
+          case m: MethodSymbol =>
+            
+            val overloadIndex = tp.member(m.name).alternatives optionIf (_.size > 1) map (_ indexOf m)
+            val javaStatic = m.isJava && m.isStatic
+            
+            val name = s"method ${m.name}${overloadIndex.fold("")(":"+_)}${if (javaStatic) ":" else ""}"
+            
+            if (!usedNames(name)) {
+              usedNames += name
+              q"val ${TermName(name).encodedName.toTermName} = _root_.squid.utils.Lazy(loadMtdSymbol(tsym, ${m.name.toString}, $overloadIndex, $javaStatic))"
+            }
+            else q""
+            
+        }
+      }}
+    }"""
+    
+    debug("Generated: "+showCode(res))
+    
+    res
   }
   
   
 }
-
 

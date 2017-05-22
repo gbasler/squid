@@ -3,6 +3,7 @@ package anf.transfo
 
 import utils._
 import ir._
+import lang.{ScalaCore,InspectableBase}
 import utils.Debug.show
 
 
@@ -24,6 +25,7 @@ trait StandardNormalizer extends SimpleRuleBasedTransformer
   * 
   */
 trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
+  val base: InspectableBase with ScalaCore
   import base.Predef._
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
@@ -63,6 +65,7 @@ trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
 }
 
 trait TupleNormalizer extends SimpleRuleBasedTransformer { self =>
+  val base: InspectableBase with ScalaCore
   import base.Predef._
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
@@ -80,6 +83,7 @@ trait TupleNormalizer extends SimpleRuleBasedTransformer { self =>
 }
 
 trait FunctionNormalizer extends SimpleRuleBasedTransformer { self =>
+  val base: InspectableBase with ScalaCore
   import base.Predef._
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
@@ -93,6 +97,7 @@ trait FunctionNormalizer extends SimpleRuleBasedTransformer { self =>
 }
 
 trait IdiomsNormalizer extends SimpleRuleBasedTransformer { self =>
+  val base: InspectableBase with ScalaCore
   import base.Predef._
   import self.base.InspectableIROps
   import self.base.IntermediateIROps

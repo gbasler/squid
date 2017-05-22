@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe.TypeTag
 trait TypingBase { self: Base =>
   
   /** Internal, untype representation of code type */
-  type TypeRep
+  type TypeRep <: AnyRef  // AnyRef bound so it can be used in squid.utils.Lazy (see EmbeddedType.asStaticallyAppliedType)
   
   def uninterpretedType[A: TypeTag]: TypeRep
   def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep // make targs a vararg?

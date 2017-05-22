@@ -13,7 +13,7 @@ import scala.reflect.macros.whitebox
   * This is just for demonstration purposes. More useful things can be done during that intermediate, compile-time phase. */
 class ViaASTQuasiConfig extends QuasiConfig {
   
-  def embed(c: whitebox.Context)(baseTree: c.Tree, user: BaseUser[c.type]) = {
+  def embed(c: whitebox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]) = {
     import c.universe._
     
     object AST extends SimpleAST

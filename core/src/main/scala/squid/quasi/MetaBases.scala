@@ -19,11 +19,12 @@ trait MetaBases {
     //freshName(hint replace('$', '_'))
     freshName(hint replace('$', '_') replace('<', '_') replace('>', '_'))
   
-  /** Base that generates the Scala code necessary to construct the DSL program.
+  /** Base that generates the Scala code necessary to construct the object program.
     * This class let-binds type symbols, method symbols, type applications and modules: the corresponding definitions
     * are stored in the `symbols` mutable buffer.
-    * Note: these are let-bound but not cached – caching is assumed to be performed by the caller (eg: ModularEmbedding). */
-  class MirrorBase(Base: Tree) extends Base {
+    * Note: these are let-bound but not cached – caching is assumed to be performed by the caller (eg: ModularEmbedding).
+    * @param baseType if defined, will be used to find potential static field accesses to the type/method symbols */
+  class MirrorBase(Base: Tree, baseType: Option[Type] = None) extends Base {
     /* TODO: more clever let-binding so defs used once won't be bound? -- that would require changing `type Rep = Tree` to something like `type Rep = () => Tree` */
     import scala.collection.mutable
     
@@ -52,14 +53,26 @@ trait MetaBases {
     def loadTypSymbol(fullName: String): TypSymbol = {
       val nameHint = fullName.drop(fullName.lastIndexOf('.')+1)
       val n = curatedFreshName(nameHint+"Sym")
-      val s = q"$Base.loadTypSymbol($fullName)"
-      symbols += n -> s
-      nameHint -> q"$n"
+      val encodedName = TermName(fullName).encodedName.toTermName
+      nameHint -> baseType.map(_.member(encodedName)).filter(_ =/= NoSymbol).fold[Tree] {
+        // TODO warn if some OpenWorld trait is not mixed in and the symbol is not found?
+        val s = q"$Base.loadTypSymbol($fullName)"
+        symbols += n -> s
+        q"$n"
+      } { sym =>
+        val s = q"$Base.$encodedName"
+        symbols += n -> s
+        q"$n.tsym"
+      }
     }
     
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
       val n = curatedFreshName(symName)
-      val s = q"$Base.loadMtdSymbol(${typ._2}, $symName, $index, $static)"
+      val s = typ._2 match {
+        case q"$n.tsym" => // TODO better error if sym not found? – or even fallback on dynamic loading
+          q"$n.${TermName(s"method $symName${index.fold("")(":"+_)}${if (static) ":" else ""}").encodedName.toTermName}.value"
+        case n => q"$Base.loadMtdSymbol($n, $symName, $index, $static)"
+      }
       symbols += n -> s
       q"$n"
     }
@@ -129,7 +142,12 @@ trait MetaBases {
     }
     def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val n = curatedFreshName(typ._1)
-      symbols += n -> q"$Base.staticTypeApp(${typ._2}, ${mkNeatList(targs)})"
+      val s = typ._2 match {
+        // As an optimization, if the type is applied to no type argument, access the `asStaticallyAppliedType` field:
+        case q"$n.tsym" if targs.isEmpty => q"$n.asStaticallyAppliedType.value"
+        case n => q"$Base.staticTypeApp(${typ._2}, ${mkNeatList(targs)})"
+      }
+      symbols += n -> s
       q"$n"
     }
     

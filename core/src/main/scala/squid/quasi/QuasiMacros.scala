@@ -43,7 +43,7 @@ class QuasiMacros(val c: whitebox.Context) {
   
   /** Generates a proper macro abort/error if a quasi or embedding exception is raised,
     * unless debugging is on (in which case it is often useful to see the stack trace) */
-  def wrapError(code: => Tree): Tree = try code catch {
+  def wrapError[T](code: => T): T = try code catch {
     case e: Throwable =>
       val (err, report) = e match {
         case QuasiException(msg) => "Quasiquote Error: "+msg -> true
@@ -345,7 +345,7 @@ class QuasiMacros(val c: whitebox.Context) {
     }
     val myBaseTree = c.typecheck(q"$quasiBase.base")
     
-    val codeTree = config.embed(c)(myBaseTree, new BaseUser[c.type](c) {
+    val codeTree = config.embed(c)(myBaseTree, myBaseTree.tpe, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
         object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
           val helper = QuasiMacros.this.Helpers
