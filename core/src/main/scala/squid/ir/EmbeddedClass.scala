@@ -20,10 +20,13 @@ abstract class EmbeddedClass[B <: Base](val base: B) {
   
 }
 
-abstract trait EmbeddedableClass {
-  def embedIn(base: Base): EmbeddedClass[base.type]
+abstract trait EmbeddedableClass[B <: Base] {
+  def embedIn(base: B): EmbeddedClass[base.type]
 }
 
 /** Just a small class to help the IDE feel less confused about the @embed macro annotation... */
-trait SquidObject extends ir.EmbeddedableClass
+trait SquidObject extends SquidObjectIn[Base]
+trait SquidObjectIn[B <: Base] extends ir.EmbeddedableClass[B] {
+  type Lang <: Base
+}
 

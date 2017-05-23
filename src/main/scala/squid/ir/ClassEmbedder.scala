@@ -12,8 +12,8 @@ import collection.mutable
 trait ClassEmbedder { baseSelf: InspectableBase =>
   
   protected[squid] var isEmbedding = false
-  def embed(cls: EmbeddedableClass*): Unit = cls map embed
-  def embed(cls: EmbeddedableClass) = {
+  def embed(cls: EmbeddedableClass[_ >: baseSelf.type]*): Unit = cls map embed
+  def embed(cls: EmbeddedableClass[_ >: baseSelf.type]) = {
     assert(!isEmbedding)
     isEmbedding = true
     try {

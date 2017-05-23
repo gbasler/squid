@@ -14,11 +14,11 @@ import scala.annotation.{StaticAnnotation, compileTimeOnly}
 import scala.collection.mutable
 
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class embed extends StaticAnnotation {
+class embed[B <: Base] extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
 }
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
-class dbg_embed extends StaticAnnotation {
+class dbg_embed[B <: Base] extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.embedImpl
 }
 
@@ -127,6 +127,16 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
       })
     )
     
+    val scal = q"_root_.scala"
+    val pred = q"$scal.Predef"
+    val squid = q"_root_.squid"
+    val sru = q"_root_.scala.reflect.runtime.universe"
+    
+    val BaseType = c.macroApplication match {
+      case q"new $_[$tp]().macroTransform(..$_)" => tp
+      case q"new $_().macroTransform(..$_)" => tq"$squid.lang.Base"
+    }
+    
     val (clsDefOpt0: Option[ClassDef], objDef: ModuleDef) = annottees match {
       case (cls: ClassDef) :: (obj: ModuleDef) :: Nil => Some(cls) -> obj
       case (obj: ModuleDef) :: (cls: ClassDef) :: Nil => Some(cls) -> obj // Never actually happens -- if the object is annotated, the class doesn't get passed!
@@ -144,11 +154,6 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     def mangledName(name: TermName) = TermName(s"_${mangledCount}_") alsoDo (mangledCount += 1)
     
     val overloadingOrder = mutable.Map[(TermName,Boolean),Int]()
-    
-    val scal = q"_root_.scala"
-    val pred = q"$scal.Predef"
-    val squid = q"_root_.squid"
-    val sru = q"_root_.scala.reflect.runtime.universe"
     
     val allDefs = (objDef.impl.body map (false -> _)) ++ (clsDefOpt.toList flatMap (_.impl.body map (true -> _)))
     
@@ -240,8 +245,8 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     
     
     val newModuleBody = q"""
-    def embedIn(base: $squid.lang.Base) = EmbeddedIn[base.type](base)""" :: q"""
-    case class EmbeddedIn[B <: $squid.lang.Base](override val base: B) extends $squid.ir.EmbeddedClass[B](base) {
+    def embedIn(base: $BaseType): EmbeddedIn[base.type] = EmbeddedIn[base.type](base)""" :: q"""
+    case class EmbeddedIn[B <: $BaseType](override val base: B) extends $squid.ir.EmbeddedClass[B](base) {
       import base.Predef.implicitType
       val __b__ : base.type = base
       object Class {
@@ -260,9 +265,9 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
       }
       lazy val defs = $pred.Map[$sru.MethodSymbol, $squid.utils.Lazy[base.SomeIR]](..$defs)
       lazy val parametrizedDefs = $pred.Map[$sru.MethodSymbol, $scal.Seq[__b__.TypeRep] => base.SomeIR](..$paramDefs)
-    }""" :: q"trait Lang extends _root_.squid.lang.Base { $clsObjTree; $modObjTree }" :: Nil
+    }""" :: q"trait Lang extends $squid.lang.Base { $clsObjTree; $modObjTree }" :: Nil
     
-    val newObjDef = ModuleDef(objDef.mods, objDef.name, Template(objDef.impl.parents :+ tq"squid.ir.EmbeddedableClass", objDef.impl.self, objDef.impl.body ++ newModuleBody))
+    val newObjDef = ModuleDef(objDef.mods, objDef.name, Template(objDef.impl.parents :+ tq"squid.ir.EmbeddedableClass[$BaseType]", objDef.impl.self, objDef.impl.body ++ newModuleBody))
     
     val gen = q"${clsDefOpt getOrElse q""}; $newObjDef"
     
