@@ -2,6 +2,7 @@ package squid
 package lang
 
 import squid.quasi.mirror
+import squid.quasi.dbg_mirror
 
 trait ScalaCore
   extends Base

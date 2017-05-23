@@ -214,6 +214,31 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     val classDefs -> moduleDefs = objDefs.mapSplit{case true->d => Left(d) case false->d => Right(d)}
     val classMirrorDefs -> moduleMirrorDefs = objMirrorDefs.mapSplit{case true->d => Left(d) case false->d => Right(d)}
     
+    
+    /* Here we create clsObjTree and modObjTree, the EmbeddedType objects populating the Lang inner trait of the resulting module: */
+    
+    // Creates a symbol using `c.typecheck` for the sole purpose of knowing its full name
+    // Note: this may sometimes raise cyclic dependency errors, and other approaches could be used, such as using 
+    // the (deprecated) `c.enclosingPackage` method.
+    val fictitiousSymbol = c.typecheck(q"class $clsName; new $clsName").tpe.typeSymbol.asType
+    val encodedName = (fictitiousSymbol |> encodedTypeSymbol)
+    
+    val List(clsObjTree, modObjTree) = List(true -> encodedName, false -> (encodedName+"$")) map { case isClass -> encName =>
+      
+      // All class member name counts; will be used to generate the right overloading index
+      var counts = allDefs.collect { case (`isClass`, d:NameTree) => d.name }.groupBy(identity).mapValues(_.size).filter(_._2 > 1)
+      
+      reifyEmbeddedType(encName, allDefs.reverseIterator.collect {
+        case (`isClass`, dd:DefDef) =>
+          val overloadIndex = counts get dd.name map (_ - 1) // get current overloading index for `dd.name` 
+          overloadIndex foreach (i => counts = counts.updated(dd.name, i)) // decrease current name count for `dd.name`
+          val javaStatic = false
+          (dd.name.toString, overloadIndex, javaStatic)
+      })
+      
+    }
+    
+    
     val newModuleBody = q"""
     def embedIn(base: $squid.lang.Base) = EmbeddedIn[base.type](base)""" :: q"""
     case class EmbeddedIn[B <: $squid.lang.Base](override val base: B) extends $squid.ir.EmbeddedClass[B](base) {
@@ -235,7 +260,7 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
       }
       lazy val defs = $pred.Map[$sru.MethodSymbol, $squid.utils.Lazy[base.SomeIR]](..$defs)
       lazy val parametrizedDefs = $pred.Map[$sru.MethodSymbol, $scal.Seq[__b__.TypeRep] => base.SomeIR](..$paramDefs)
-    }""" :: Nil
+    }""" :: q"trait Lang extends _root_.squid.lang.Base { $clsObjTree; $modObjTree }" :: Nil
     
     val newObjDef = ModuleDef(objDef.mods, objDef.name, Template(objDef.impl.parents :+ tq"squid.ir.EmbeddedableClass", objDef.impl.self, objDef.impl.body ++ newModuleBody))
     
@@ -260,35 +285,49 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     
     val encodedName = tp.typeSymbol.asType |> encodedTypeSymbol
     
-    // (Note: passing $mods to the trait below seems to break the generated code; generates AbstractMethodError's)
-    val res = q"""trait $name[..$tparams] extends ..${impl.parents} with _root_.squid.lang.Base {
-      object ${TermName(encodedName).encodedName.toTermName} extends EmbeddedType(loadTypSymbol($encodedName)) {..${
-        
-        val usedNames = mutable.Set[String]()
-        // ^ this is an ad-hoc solution against the fact that some method symbols like `String.compareTo` appear several times...
-        // Weird things also happen with methods like Predef.ArrowAssoc, which come from a local AnyVal implicit class
-        
-        tp.decls.collect {
-          case m: MethodSymbol =>
-            
-            val overloadIndex = tp.member(m.name).alternatives optionIf (_.size > 1) map (_ indexOf m)
-            val javaStatic = m.isJava && m.isStatic
-            
-            val name = s"method ${m.name}${overloadIndex.fold("")(":"+_)}${if (javaStatic) ":" else ""}"
-            
-            if (!usedNames(name)) {
-              usedNames += name
-              q"val ${TermName(name).encodedName.toTermName} = _root_.squid.utils.Lazy(loadMtdSymbol(tsym, ${m.name.toString}, $overloadIndex, $javaStatic))"
-            }
-            else q""
-            
-        }
-      }}
-    }"""
+    val objTree = reifyEmbeddedType(encodedName, tp.decls.iterator.collect {
+      case m: MethodSymbol =>
+        val overloadIndex = tp.member(m.name).alternatives optionIf (_.size > 1) map (_ indexOf m)
+        val javaStatic = m.isJava && m.isStatic
+        (m.name.toString, overloadIndex, javaStatic)
+    })
+    
+    val res = q"""
+      trait $name[..$tparams] extends ..${impl.parents} with _root_.squid.lang.Base {
+        ${impl.self} => $objTree; ${impl.body}
+      }
+    """
     
     debug("Generated: "+showCode(res))
     
     res
+  }
+  
+  def reifyEmbeddedType(typeSymbolString: String, methods: Iterator[(String,Int|>Option,Bool)]): Tree = wrapError {
+    
+    q"""object ${TermName(typeSymbolString).encodedName.toTermName} extends EmbeddedType(loadTypSymbol($typeSymbolString)) {..${
+
+      val usedNames = mutable.Set[String]() // <- would be better moved to `mirrorImpl` as the problem arises only in its case
+      // ^ this is an ad-hoc solution against the fact that some method symbols like `String.compareTo` appear several times...
+      // Weird things also happen with methods like Predef.ArrowAssoc, which come from a local AnyVal implicit class
+      
+      val xs = methods.map {
+        case (mtdName, overloadIdx, javaStatic) =>
+          
+          val name = s"method $mtdName${overloadIdx.fold("")(":"+_)}${if (javaStatic) ":" else ""}"
+          
+          if (!usedNames(name)) {
+            usedNames += name
+            q"val ${TermName(name).encodedName.toTermName} = _root_.squid.utils.Lazy(loadMtdSymbol(tsym, $mtdName, $overloadIdx, $javaStatic))"
+          }
+          else q""
+          
+      }.toBuffer
+      
+      xs
+      
+    }}"""
+    
   }
   
   
