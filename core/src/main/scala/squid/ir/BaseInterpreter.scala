@@ -201,7 +201,7 @@ class BaseInterpreter extends Base with RuntimeSymbols with TraceDebug {
   }
   def hole(name: String, typ: TypeRep): Rep = ???
   def splicedHole(name: String, typ: TypeRep): Rep = ???
-  def substitute(r: Rep,defs: scala.collection.immutable.Map[String,Rep]): Rep = ???
+  def substitute(r: => Rep,defs: scala.collection.immutable.Map[String,Rep]): Rep = ???
   def typeHole(name: String): TypeRep = ???
   
   

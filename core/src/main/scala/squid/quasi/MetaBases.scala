@@ -168,7 +168,7 @@ trait MetaBases {
     def hole(name: String, typ: TypeRep): Rep = q"$Base.hole($name, $typ)"
     def splicedHole(name: String, typ: TypeRep): Rep = q"$Base.splicedHole($name, $typ)"
     
-    def substitute(r: Rep, defs: Map[String, Rep]): Rep =
+    def substitute(r: => Rep, defs: Map[String, Rep]): Rep =
     //if (defs isEmpty) r else  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
       q"$Base.substitute($r, ..${defs map {case (name, rep) => q"$name -> $rep"}})"
     /* 
@@ -312,7 +312,7 @@ trait MetaBases {
     def hole(name: String, typ: TypeRep): Rep = q"${TermName(name)}" // TODO ensure hygiene... (this should not clash!)
     def splicedHole(name: String, typ: TypeRep): Rep = q"${TermName(name)}: _*"
     
-    def substitute(r: Rep, defs: Map[String, Rep]): Rep = r transform {
+    def substitute(r: => Rep, defs: Map[String, Rep]): Rep = r transform {
       //case h @ q"${TermName(name)}" =>  // Weird! this does not seem to match...
       case h @ Ident(TermName(name)) =>
         defs.getOrElse(name, h)

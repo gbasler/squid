@@ -279,13 +279,14 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   protected def inlineUnlessEnclosedOr(dontInline: Bool)(r: Rep) = r |>=? {
     case b: Block if !dontInline => inlineBlockIfEnclosed(b)
   }
-  override def substitute(r: Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs.mapValues(() => _))
-  override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = {
+  override def substitute(r: => Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs.mapValues(() => _))
+  override def substituteLazy(mkR: => Rep, defs: Map[String, () => Rep]): Rep = {
+    val r = if (defs isEmpty) mkR else typedBlock(mkR |> toExpr)
     //debug(s"SUBST $r with "+(defs mapValues (f=>util.Try(typedBlock(f())))))
     
     val nameMap = curSubs collect { case k -> Hole(n,_,_) => k -> n }
     
-    if (defs isEmpty) r else bottomUp(r) {
+    val res = if (defs isEmpty) r else bottomUp(r) {
       case h @ Hole(n,_,_) => defs get n map (_()) getOrElse h
       case h @ SplicedHole(n,_) => defs get n map (_()) getOrElse h
       case s: Sym =>
@@ -294,7 +295,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
       case r => r
     }
     
-  } |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  alsoApply (r => debug(s"SUBS RESULT = $r"))
+    res |> inlineUnlessEnclosedOr(r.isInstanceOf[PardisBlock[_]])  alsoApply (r => debug(s"SUBS RESULT = $r"))
+  }
   
   def hole(name: String, typ: TypeRep): Rep = Hole(name, typ, None)
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)

@@ -26,8 +26,8 @@ self: Base =>
   // TODO impl correctly
   //def substitute(r: Rep, defs: Map[String, Rep]): Rep = substituteLazy(r, defs map (kv => kv._1 -> (() => kv._2)))
   //def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep
-  def substitute(r: Rep, defs: Map[String, Rep]): Rep
-  def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = substitute(r, defs map (kv => kv._1 -> kv._2()))
+  def substitute(r: => Rep, defs: Map[String, Rep]): Rep
+  def substituteLazy(r: => Rep, defs: Map[String, () => Rep]): Rep = substitute(r, defs map (kv => kv._1 -> kv._2()))
   
   def hole(name: String, typ: TypeRep): Rep
   def splicedHole(name: String, typ: TypeRep): Rep
@@ -42,7 +42,7 @@ self: Base =>
   /* --- --- --- Provided defs --- --- --- */
   
   
-  final def substitute(r: Rep, defs: (String, Rep)*): Rep =
+  final def substitute(r: => Rep, defs: (String, Rep)*): Rep =
   /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
     substitute(r, defs.toMap)
   

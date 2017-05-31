@@ -69,12 +69,12 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     case r => r
   }
   
-  override def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep = if (defs isEmpty) r else bottomUp(r) { r => dfn(r) match {
+  override def substituteLazy(r: => Rep, defs: Map[String, () => Rep]): Rep = if (defs isEmpty) r else bottomUp(r) { r => dfn(r) match {
     case h @ Hole(n) => defs get n map (_()) getOrElse r
     case h @ SplicedHole(n) => defs get n map (_()) getOrElse r
     case _ => r
   }}
-  override def substitute(r: Rep, defs: Map[String, Rep]): Rep = if (defs isEmpty) r else bottomUp(r) { r => dfn(r) match {
+  override def substitute(r: => Rep, defs: Map[String, Rep]): Rep = if (defs isEmpty) r else bottomUp(r) { r => dfn(r) match {
     case h @ Hole(n) => defs getOrElse (n, r)
     case h @ SplicedHole(n) => defs getOrElse (n, r)
     case _ => r
