@@ -57,15 +57,12 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
     * And original names are currently important for `rewriteRep` to distinguish explicitly-bound variables.
     * This is why we put everything in a block, and then in `letin` rewrites blocks that return a symbol use the value
     * bound in the let-in instead of that symbol. */
-  def methodApp(self: Rep, mtd0: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
+  def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep): Rep = {
     //println("METHOD "+mtd.name+" in "+mtd.owner)
     assert(ab =/= null, s"The AutoBinder variable `ab` in $this has not been initialized.")
     
-    val mtd = mtd0.fullName match {
-      case "squid.lib.And" => BooleanAnd
-      case "squid.lib.Or" => BooleanOr
-      case _ => mtd0
-    }
+    lazy val methodName = mtd.name.toString
+    lazy val fullMethodName = mtd.fullName
     
     mtd match {
         
@@ -120,24 +117,32 @@ class AutoboundPardisIR[DSL <: ir.Base](val DSL: DSL) extends PardisIR(DSL) {
         val Args(arg)::Nil = argss
         return blockWithType(tp)(sc.__assign[Any](v, arg |> toExpr)(v.e.tp))
         
-      case s if s.name.toString == "$eq$eq" =>
+      case _ if fullMethodName == "squid.lib.And" =>
+        val Args(a,b)::Nil = argss
+        return methodApp(a, BooleanAnd, Nil, Args(b)::Nil, BooleanType)
+        
+      case _ if fullMethodName == "squid.lib.Or" =>
+        val Args(a,b)::Nil = argss
+        return methodApp(a, BooleanOr, Nil, Args(b)::Nil, BooleanType)
+        
+      case _ if methodName == "$eq$eq" =>
         val Args(a)::Nil = argss
         return blockWithType(types.BooleanType)(sc.infix_==(self |> toExpr, a |> toExpr)(self.typ, a.typ))
         
-      case s if s.name.toString == "$bang$eq" =>
+      case _ if methodName == "$bang$eq" =>
         val Args(a)::Nil = argss
         return blockWithType(types.BooleanType)(sc.infix_!=(self |> toExpr, a |> toExpr)(self.typ, a.typ))
         
-      case s if s.name.toString == "$hash$hash" =>
+      case _ if methodName == "$hash$hash" =>
         //assert(argss.isEmpty)
         assert(argss == List(Args()))
         return blockWithType(types.IntType)(sc.infix_hashCode(self |> toExpr)(self.typ))
         
-      case s if s.name.toString == "toString" =>
+      case _ if methodName == "toString" =>
         assert(argss == List(Args()))
         return blockWithType(types.StringType)(sc.infix_toString(self |> toExpr)(self.typ))
         
-      case s if s.name.toString == "asInstanceOf" =>
+      case _ if methodName == "asInstanceOf" =>
         assert(argss == Nil)
         val targ::Nil = targs
         return blockWithType(targ)(sc.infix_asInstanceOf(self |> toExpr)(targ))
