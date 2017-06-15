@@ -30,17 +30,29 @@ trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
   import self.base.InspectableIROps
   import self.base.IntermediateIROps
   
+   // To generate on cases statically-known to be failures;
+   // will help remove dead code under the assumption this is an undefiend behavior:
+  lazy val NoneGet = ir"""assert(false, "None.get").asInstanceOf[Nothing]"""
+  
   rewrite {
       
     // Simplifications
     
     case ir"Some[$t]($v).get" => ir"$v"
-    //case ir"None.get" => ir"???" // TODO generate explicit assertion failure/contract violation?
+    case ir"None.get" => NoneGet
     case ir"Some[$t]($v).getOrElse($d)" => ir"$v"
     case ir"None.getOrElse[$t]($d)" => ir"$d"
     //case ir"Some[$t]($_).isDefined" => ir"true" // FIXME allow `_` in patterns...
     case ir"Some[$t]($v).isDefined" => ir"true"
     case ir"None.isDefined" => ir"false"
+      
+    // Methods `isEmpty` and `get` are redefined in `Some` and `None` (ie Some.get is not the same symbol as Option.get),
+    // so we need to handle the separate Option symbols here:
+    case ir"(Some[$t]($v):Option[t]).isEmpty" => ir"false"
+    case ir"(Some[$t]($v):Option[t]).get" => ir"$v"
+    case ir"(None:Option[$t]).isEmpty" => ir"true"
+    case ir"(None:Option[$t]).get" => NoneGet
+      
       
     // Feature Streamlining
     
@@ -51,6 +63,7 @@ trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"($opt:Option[$t]).fold[$s]($dflt)($thn)" => ir"if ($opt.isDefined) $thn($opt.get) else $dflt"
     case ir"($opt:Option[$t]).filter($f)" => ir"if ($opt.isDefined && $f($opt.get)) $opt else None"
     case ir"($opt:Option[$t]).map[$mt]($f)" => ir"if ($opt.isDefined) Some($f($opt.get)) else None"
+    case ir"($opt:Option[$t]).flatMap[$mt]($f)" => ir"if ($opt.isDefined) $f($opt.get) else None"
     case ir"($opt:Option[$t]).orElse[t]($other)" => ir"if ($opt.isDefined) $opt else $other" // TODO test with different type params
     // TODO handle other features... e.g. flatMap
     

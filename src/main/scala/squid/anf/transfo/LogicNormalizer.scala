@@ -57,10 +57,23 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     //// more general, but too complex (would need crazy bindings manip):
     //case ir"if ($cond) ${Block(b0)} else ${Block(b1)} : $t" if b0.res == b1.res  =>  ir"if ($cond) ${b0.statements()} else ${b1.statements()}; ???"
       
+      
+    /*
+    // Putting if-then-else in CPS
+    case ir"val x: $xt = if ($cnd) $thn else $els; $body: $bt" =>
+      ir"val k = (x:$xt) => $body; if ($cnd) k($thn) else k($els)"
+    */
+      
+    // ^ this would be good to have, but currently ANF inlines too aggressively, so this would end up duplicating lots of code...
+    // Also, it seems to create a stack overflow when the one below is also enabled:
+      
+    ///*
     // Note: this is let-binds the condition and uses the bound variable twice;
     // in ANF the expression (if pure) will be duplicated, but in SchedulingANF it will be re-bound in the scheduling phase
     case ir"if ($cond) $thn else $els : Boolean" =>
       ir"val c = $cond; c && $thn || !c && $els" // TODO rm usage of ||
+    //*/
+      
       
     // TODO later?:
     //case ir"($x:Bool) && ${AsBlock(WithResult(b, ir"false"))}" => ir"if ($x) ${b.statements()}; false"
@@ -84,16 +97,50 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
   
 }
 
+/** Types like Int have their own == symbol, different from Any.==, which is very annoying when wanting to treat 
+  * equality uniformly. So this replaces all == and != method calls by calls to `Any.equals`, for consistency.
+  * This also normalizes if-then-else.equals and partially evaluates constant equality tests. */
+trait EqualityNormalizer extends SimpleRuleBasedTransformer { self =>
+  
+  val base: anf.analysis.BlockHelpers with lang.ScalaCore
+  import base.Predef._
+  import base.{MethodApplication}
+  
+  rewrite {
+  
+    case ir"${MethodApplication(ma)}:Bool" if ma.symbol.name.toString == "$eq$eq" =>
+      ir"${ma.args(0)(0)} equals ${ma.args(1)(0)}"
+      
+    case ir"${MethodApplication(ma)}:Bool" if ma.symbol.name.toString == "$bang$eq" =>
+      ir"!(${ma.args(0)(0)} equals ${ma.args(1)(0)})"
+    
+    case ir"(if ($c) $t else $e : Any) equals $x" =>
+      ir"if ($c) $t equals $x else $e equals $x"
+      
+    case ir"(${Const(x)}:Any) equals ${Const(y)}" => Const(x == y)
+      
+  }
+  
+}
+
 /** Traverses a program and its expressions, accumulating what is known to be true or false if the current code is being
   * executed. For example, will rewrite {{{ n > 0 && {assert(m != 0); (n > 0)} && m != 0 }}} to {{{ n > 0 && {assert(m != 0); true} && true }}}.
   * Best used along with LogicNormalizer because this only deals with `. && .` and `!.` but not with `. || .`.
   * Only supposed to work in ANF or any other IR where by-value conditions (eg to an IF-THEN-ELSE) are guaranteed to be pure. */
 trait LogicFlowNormalizer extends IRTransformer { self =>
+  /*
+  
+  FIXME: track state dependencies and invalidate formulae on mutation.
+    At the very least, consider anything not pure can change value and either:
+     - don't record it, or
+     - invalidate it as soon as anything impure is executed
+  
+  */
   
   val base: anf.analysis.BlockHelpers
   import base.Predef._
   import base.InspectableIROps
-  import base.{AsBlock,WithResult,MethodApplication}
+  import base.{Block,WithResult,MethodApplication,LeafCode,Lambda}
   
   object Tab extends squid.utils.algo.Tableaux {
     type Symbol = IR[Bool,Nothing]
@@ -118,7 +165,7 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
         val (d0,(s2,e2)) = rec(d)(k2)
         ir"$c0 && $d0".asInstanceOf[IR[T,C]] -> (s1 ∧ s2, e1 ∧ e2)
         
-      case AsBlock(b) if b.stmts.nonEmpty => // TODO move down
+      case Block(b) => // TODO move down
         //println("Block with "+known)
         var ks: Formula = Trivial
         var ke: Formula = Trivial
@@ -172,11 +219,26 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
           }
         }) -> ((ks,Trivial))
         
-      // FIXME add case for traversing lambdas...
+      //case ir"(x: $xt) => $body : $bt" => // <- doing this would cause problems unless we have safe context polymorphism in place 
+      case Lambda(lam) =>
+        // Note: this assumes the lambda gets executed here, which is obviously unsound:
+        //val (c,(s,e)) = rec(lam.body)(known)
+        //lam.rebuild(c) -> (s -> e)
+        val (c,(s,e)) = rec(lam.body)(Trivial)
+        lam.rebuild(c) -> (Trivial -> Trivial)
+        // ^ to do better than this, we could:
+        // - use a heuristic for when the lambda actually gets executed on the spot (for example in List.map(lam), but not in Stream.map(lam))
+        // - otherwise only pass those formulae in `known` that constant (won't become false later on due to mutability)
+        
+      // Note: no need to special case let-bindings, as they are handled by the Block case above
+      
+      // FIXME add case for traversing module accesses on non-static paths (not a leaft node)
       // TODO add special case for while
+      
+      case LeafCode(_) => code -> (Trivial -> Trivial)
         
       case e =>
-        //println(s"Default: $e")
+        System.err.println(s"Warning: case was not handled by LogicFlowNormalizer: $e")
         e -> (Trivial -> Trivial)
       
     }
