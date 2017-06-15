@@ -175,6 +175,10 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   }
   
   
+  // TODO factor relevant code here:
+  //def overloadingIndexOf(mtd: MethodSymbol) =
+  
+  
   def isErroneous(tp: Type) =
     tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous
   

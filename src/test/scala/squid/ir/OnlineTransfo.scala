@@ -49,7 +49,7 @@ object OnlineTransfo {
   object DSL extends SimpleAST with OnlineOptimizer with SimpleRuleBasedTransformer {
     import Predef._
     
-    override val transformExtractors = true
+    transformExtractors = true
     
     rewrite { // Naive Addition/Multiplication Partial Evaluation
       

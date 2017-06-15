@@ -45,7 +45,8 @@ trait BottomUpTransformer extends Transformer { abstract override def transform(
 trait IRTransformer extends Transformer { self =>
   import base._
   def transform[T,C](code: IR[T,C]): IR[T,C]
-  final protected[squid] def transform(rep: Rep): Rep = transform(`internal IR`(rep)).rep // not nice
+  protected[squid] def transform(rep: Rep): Rep = transform(`internal IR`(rep)).rep // <- not very nice, may incur useless work to wrap/unwrap
+  // ^ not final to allow composition with things like TopDownTransformer
 }
 trait IdentityTransformer extends Transformer { def transform(rep: base.Rep): base.Rep = rep }
 

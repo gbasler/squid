@@ -10,6 +10,31 @@ import utils._
   */
 trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixin...
   
+  /** Matches expressions that have no subexpressions; note that it does NOT match x.module where `module` is the name
+    * of a nested object and `x` is not a static path. */
+  object LeafCode {
+    def unapply[T,C](q: IR[T,C]): Option[IR[T,C]] = q.rep.dfn match {
+      case (_:Constant) | (_:Hole) | (_:SplicedHole) | (_:StaticModule) | (_:BoundVal) => Some(q)
+      case Ascribe(t,_) => unapply(IR(t))
+      case _ => None
+    }
+  }
+  
+  object Lambda {
+    def unapply[T,C](q: IR[T,C]): Option[Lambda[T,C]] = q.rep.dfn match {
+      case (abs:Abs) => Some(new Lambda[T,C](abs,None)) // TODO ascr
+      case Ascribe(t,_) => unapply(IR(t))
+      case _ => None
+    }
+  }
+  class Lambda[T,C](private val abs: Abs, private val asc: Option[TypeRep]) {
+    type C0 <: C
+    val body: IR[T,C0] = IR(abs.body)
+    def rebuild(newBody: IR[T,C0]): IR[T,C] = {
+      val res = rep(Abs(abs.param, newBody.rep)(abs.typ))
+      IR(asc map (Ascribe(res, _) |> rep) getOrElse res)
+    }
+  }
   
   object MethodApplication {
     def unapply[T,C](q: IR[T,C]): Option[MethodApplication[T,C]] = unapplyMethodApplication[T,C](q)
@@ -79,11 +104,28 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
   }
   
   
+  import Predef.QuasiContext
+  import Predef.implicitType
+  import squid.anf.analysis.BlockHelpers.placeHolder
+  
   /** A thing of beauty: no unsafe casts, @unchecked patterns or low-level hacks; just plain typeticool Squid quasiquotes. */
-  object Closure {
-    import Predef.QuasiContext
-    import Predef.implicitType
-    import squid.anf.analysis.BlockHelpers.placeHolder
+  object Closure extends AbstractClosure {
+    override def unapply[A:IRType,C](term: IR[A,C]): Option[Closure[A, C]] = {
+      term match {
+        case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
+          Some(new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term"))
+        case _ => super.unapply(term)
+      }
+    }
+  }
+  object GeneralClosure extends AbstractClosure {
+    override def unapply[A:IRType,C](term: IR[A,C]): Some[Closure[A, C]] = {
+      Some(super.unapply(term).getOrElse {
+        new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term")
+      })
+    }
+  }
+  class AbstractClosure {
     
     private var uid = 0
     
@@ -94,9 +136,6 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
       //println("CLOSREC: "+x.rep)
       
       term match {
-          
-        case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
-          Some(new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term"))
           
         case ir"val ClosureVar: $xt = $v; $body: A" =>
           

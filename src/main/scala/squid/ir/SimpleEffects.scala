@@ -203,6 +203,8 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Option[Any]]
   transparentTyps += typeSymbol[Some.type]
   transparentTyps += typeSymbol[None.type]
+  transparencyPropagatingMtds += methodSymbol[Some.type]("apply")
+  // ^ Some(_) is lready known to be transp, but it's actually transpropag too! eg: `Some((x:Int) => readInt)` only has a deferred effect
   
   transparentTyps += typeSymbol[Either[Any,Any]]
   transparentTyps += typeSymbol[Left.type]
