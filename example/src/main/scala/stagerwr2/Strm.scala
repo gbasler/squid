@@ -113,6 +113,8 @@ object Strm {
       if (iv <= to) { k(iv); i = iv + 1 }
     }
   })
+  @phase('Sugar)
+  def fromIndexed[A](xs: IndexedSeq[A]): Strm[A] = range(0, xs.length).map(xs)
   
   @phase('Impl)
   def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
@@ -162,6 +164,17 @@ object Strm {
       }
     }
   }
+  
+  
+  
+  @phase('Impl)
+  @transparencyPropagating
+  def conditionally[A](cond: Bool)(lhs: Strm[A], rhs: Strm[A]): Strm[A] = Strm(() => {
+    val p0 = lhs.producer()
+    val p1 = rhs.producer()
+    k => if (cond) p0(k) else p1(k)
+  })
+  
   
   
   

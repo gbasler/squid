@@ -38,12 +38,13 @@ class Compiler extends Optimizer {
   
 }
 
-
+// TODO warn when Strm ctors remain (they may not be let-bound!)
 object ImplInlining extends Embedding.Lowering('Impl)
 object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer with FixPointTransformer {
   def transform[T,C](code: IR[T,C]): IR[T,C] = (code match {
       
-    case ir"(if ($c) $thn else $els : Strm[$ta]).producer" => ir"if ($c) $thn.producer else $els.producer"
+    case ir"(if ($c) $thn else $els : Strm[$ta]).producer" => ir"if ($c) $thn.producer else $els.producer" // TODO rm?
+      
     case ir"new Strm($pf).producer" => pf
     case ir"val $st = new Strm[$t]($pf); $body: $bt" =>
       body rewrite { case ir"$$st.producer" => pf } subs 'st -> {System.err.println("huh s");return code}
@@ -130,6 +131,10 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
   
   rewrite {
       
+    // Syntactic Normalization
+    
+    case ir"(if ($c) $thn else $els : Strm[$ta])" => ir"conditionally($c)($thn,$els)"
+    
       
     // Bubble up pullable
       
@@ -161,6 +166,9 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     case ir"consumeWhile(($as: Strm[$ta]).flatMap[$tb]($f))($g)" =>
       //ir"consumeWhileNested($as)($f andThen $g)"
       ir"consumeWhileNested($as)($f)($g)"
+      
+    case ir"consumeWhile(($as:Strm[$ta]).filter($pred))($f)" =>
+      ir"consumeWhile($as)(a => if ($pred(a)) $f(a) else true)"
       
       
     // Zipping
@@ -194,6 +202,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
       
       
+      ///*
       
     // Normalization (helps with flatMap streamlining)
       
@@ -229,6 +238,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     //case ir"($as: Strm[$ta]).filter($pred)" =>
     //  ir"$as.flatMap(a => singleIf(a,$pred(a)))"
       
+      //*/
       
     
     
