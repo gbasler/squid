@@ -47,11 +47,19 @@ object DeepTests2 extends App {
   //}
   
   // Typical flatMap blunder
-  val pgrm0 = ir{ 
-    val s0 = range(0,3).map(n => range(0,n)).flatMap(identity)
-    //s0.foreach(println)
-    //s0.zip(range(0,100)).foreach(println) // with zip
-    s0.zip(s0).foreach(println) // with hard zip
+  //val pgrm0 = ir{ 
+  //  val s0 = range(0,3).map(n => range(0,n)).flatMap(identity)
+  //  //s0.foreach(println)
+  //  //s0.zip(range(0,100)).foreach(println) // with zip
+  //  s0.zip(s0).foreach(println) // with hard zip
+  //}
+  
+  // flatMap streamlining
+  val pgrm0 = ir{ (n:Int) =>
+    //val p = range(0,n).flatMap(i => range(0,i)).producer() // simplest case -- only state is variable i
+    val p = range(0,n).flatMap(i => fromIndexed(0 to i)).producer()
+    var cont = false; while(cont){p{a => println(a);cont = true}}
+    // TODO more chained/nested flatMaps!
   }
   
   // Two filtered streams fused (not done in SFTC)
@@ -89,8 +97,8 @@ object DeepTests2 extends App {
   val r = C.optimize(pgrm0)
   
   //println(r.run)
-  println(r.compile)
-  //println(r.compile.apply(42))
+  //println(r.compile)
+  println(r.compile.apply(42))
   
   
 }
