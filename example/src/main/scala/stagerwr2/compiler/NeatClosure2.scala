@@ -30,15 +30,27 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
     //close[A,Producer[B],Nothing](f) { (body,reopen) =>
     close[A,Producer[B],Producer[B]](f) { (body,reopen) =>
       def rec(t: Code[Producer[B]], reset: Code[() => Unit]): Code[Producer[B]] = t match {
-        //case ir"val x: $xt = $init; $innerBody: Producer[B]" => // TODO
+          
         case ir"val x = Var[$xt]($init); $innerBody: Producer[B]" =>
-          println("REC "+init)
+          println("REC var "+init)
           val innerBodyFun = NeatClosure.mkFun(innerBody)
           //rec(body)
           close(innerBodyFun) { (ib,reopenIb) =>
             //ir"val y = Var(uncheckedNullValue[$xt]); ${reopenIb(rec(ib))}(y)"
             ir"val y = Var(uncheckedNullValue[$xt]); ${(y:Code[Var[xt.Typ]]) => reopenIb(rec(ib,ir"() => { $reset(); $y := $init }"))(y)}(y)"
           }
+          
+        case ir"val x: $xt = $init; $innerBody: Producer[B]" =>
+          println("REC val "+init)
+          val innerBodyFun = NeatClosure.mkFun(innerBody)
+          close(innerBodyFun) { (ib,reopenIb) =>
+            ir"val y = Var(uncheckedNullValue[$xt]); ${(y:Code[Var[xt.Typ]]) => reopenIb(rec(ib,ir"() => { $reset(); $y := $init }"))(ir"$y.!")}(y)"
+          }
+          
+        case ir"$effect; $innerBody: Producer[B]" =>
+          println("REC eff "+effect)
+          rec(innerBody, ir"() => { $reset(); $effect; () }")
+          
         case ir"(k: (B => Unit)) => $innerBody: Unit" =>
           
           val reot = reopen(t)
@@ -67,6 +79,8 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
           //${reopen(innerBodyFun).asInstanceOf[Code[A] => IR[Producer[B],{val k:Consumer[B]}]]}(a) { b =>
           
           //???
+
+        //case _ => // TODO handle non-fusable case 
           
       }
       rec(body, ir"() => ()")

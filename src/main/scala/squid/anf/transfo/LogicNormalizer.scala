@@ -93,6 +93,13 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
     // Associatign on the left
     case ir"($x:Bool) && (($y:Bool) && $z)" => ir"$x && $y && $z"
       
+      
+      
+    case ir"if ($c0) { if ($c1) $thn else $els } else els : $t" => ir"if ($c0 && $c1) $thn else $els"
+    //case ir"if ($c0) $thn else { if ($c1) thn else $els } : $t" => // TODO
+      
+      
+      
   }
   
 }

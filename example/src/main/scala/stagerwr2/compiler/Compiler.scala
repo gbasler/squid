@@ -28,15 +28,30 @@ class Compiler extends Optimizer {
     
     val r1 = ImplLowering pipeline r0
     println("--- ImplLowering ---\n"+r1)
-    r1
+    //r1
     
     //val r2 = FlatMapFusion pipeline r1
     //println("--- FlatMapFusion ---\n"+r2)
     ////r2
     
+    val r3 = LowLevel pipeline r1
+    println("--- LowLevel ---\n"+r3)
+    r3
+    
   }
   
 }
+
+//object LowLevel extends Embedding.Lowering('LL) with FixPointTransformer with TopDownTransformer
+object LowLevel extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+  
+  rewrite {
+    //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"
+    case ir"Strm.loopWhile($cnd)" => ir"var cont = true; while(cont)(cont = $cnd)"
+  }
+  
+}
+
 
 // TODO warn when Strm ctors remain (they may not be let-bound!)
 object ImplInlining extends Embedding.Lowering('Impl)
@@ -195,6 +210,11 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     //   it's still arguably better since it means the branch is executed only once instead of at every iteration
     case ir"consumeWhile(conditionally[$ta]($c)($thn,$els))($f)" =>
       ir"if ($c) consumeWhile($thn)($f) else consumeWhile($els)($f)"
+      
+      
+    // for paper:
+    case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
+      ir"val len = $xs.length; var i = 0; while(i < len) { $f($xs(i)); i += 1 }"
       
       
     // Zipping

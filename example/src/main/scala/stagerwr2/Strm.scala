@@ -139,9 +139,11 @@ object Strm {
   // for the paper:
   @phase('Sugar) def fromRange(from: Int, to: Int) = range(from,to)
   @phase('Sugar) def fromRangeImpl(from: Int, to: Int) = range(from,to)
+  @phase('Sugar) def fromArray[A](xs: Array[A]): Strm[A] = fromArrayImpl(xs)
+  @transparencyPropagating @phase('Impl) def fromArrayImpl[A](xs: Array[A]): Strm[A] = range(0, xs.length-1).map(x => xs(x))
   
   @phase('Sugar)
-  def fromIndexed[A](xs: IndexedSeq[A]): Strm[A] = range(0, xs.length).map(xs)
+  def fromIndexed[A](xs: IndexedSeq[A]): Strm[A] = range(0, xs.length-1).map(xs)
   
   @phase('Sugar)
   def unfold[A,B](init:B)(next:B => Option[(A,B)]): Strm[A] = pullStrm(() => {
@@ -256,6 +258,8 @@ object Strm {
   
   
   @transparent
+  @inline
+  //@phase('LL) // FIXME auto lowering of by-name params
   def loopWhile(cnd: => Bool) = {
     while(cnd)()
   }

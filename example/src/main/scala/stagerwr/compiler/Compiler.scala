@@ -13,7 +13,7 @@ import squid.lang._
 import squid.anf.analysis
 import squid.anf.transfo
 import Embedding.Rep
-import Embedding.{Block, AsBlock, WithResult, GeneralClosure}
+import Embedding.{Block, AsBlock, WithResult, GeneralClosure, Lambda}
 //import Embedding.{Block, AsBlock, WithResult, GeneralClosure, ConstantShape}
 
 /*
@@ -258,6 +258,11 @@ object FlatMapFusion extends Embedding.SelfTransformer with FixPointRuleBasedTra
       
       fuseFlatMap(p, clos)
       //fuseFlatMap[ta.Typ,tb.Typ](p, clos)
+      
+    case ir"doFlatMap[$ta,$tb]($p, ${Lambda(body)})" =>   // goal is to extract lambda without making holes
+      //fuseFlatMap(p, clos)
+      ???
+    
       
       //ir"val p = $p; (k:Consumer[$tb]) => {  }"
       

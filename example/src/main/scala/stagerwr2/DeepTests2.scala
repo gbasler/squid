@@ -57,8 +57,9 @@ object DeepTests2 extends App {
   // flatMap streamlining
   val pgrm0 = ir{ (n:Int) =>
     //val p = range(0,n).flatMap(i => range(0,i)).producer() // simplest case -- only state is variable i
-    val p = range(0,n).flatMap(i => fromIndexed(0 to i)).producer()
-    var cont = false; while(cont){p{a => println(a);cont = true}}
+    //val p = range(0,n).flatMap{i => fromIndexed(0 to i)}.producer()
+    val p = range(0,n).flatMap{i => val r = 0 to i; println("-- "+r.length+" --");fromIndexed(r)}.producer() // with effect capturing local val
+    var cont = true; while(cont){cont = false;p{a => println(a);cont = true}}
     // TODO more chained/nested flatMaps!
   }
   
@@ -89,16 +90,19 @@ object DeepTests2 extends App {
   
   pgrm0 alsoApply println
   
+  //val N = 42
+  val N = 4
+  
   //println(pgrm0.run)
   //println(pgrm0.compile)
-  //println(pgrm0.compile.apply(42))
+  println(pgrm0.compile.apply(N))
   
   //pgrm alsoApply println
   val r = C.optimize(pgrm0)
   
   //println(r.run)
   //println(r.compile)
-  println(r.compile.apply(42))
+  println(r.compile.apply(N))
   
   
 }

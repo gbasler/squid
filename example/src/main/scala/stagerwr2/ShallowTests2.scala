@@ -34,4 +34,15 @@ object ShallowTests2 extends App {
   
   
   
+  
+  
+  println({ (n:Int) =>
+    //val p = range(0,n).flatMap(i => range(0,i)).producer() // simplest case -- only state is variable i
+    val p = range(0,n).flatMap(i => fromIndexed(0 to i)).producer()
+    //val p = fromIndexed(0 to n).producer()
+    var cont = true; while(cont){cont = false;p{a => println(a);cont = true}}
+    // TODO more chained/nested flatMaps!
+  } apply 42)
+  
+  
 }
