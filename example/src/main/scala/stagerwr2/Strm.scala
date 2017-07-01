@@ -56,10 +56,10 @@ class Strm[A](val producer: () => Producer[A]) {
   def filter(pred: A => Bool): Strm[A] = Strm(() => {
     val p = producer()
     k => {
-      var continue = true
-      while(continue) {
-        continue = false
-        p { a => if (pred(a)) k(a) else continue = true }
+      var cont_f = true
+      while(cont_f) {
+        cont_f = false
+        p { a => if (pred(a)) k(a) else cont_f = true }
       }
     }
   })
@@ -111,7 +111,7 @@ class Strm[A](val producer: () => Producer[A]) {
   // for the paper:
   @phase('Impl) def csme(f: A => Bool) = {
     val p = producer(); loopWhile {
-      var cont = false; p { a => cont = f(a) }; cont }}
+      var cont_csme = false; p { a => cont_csme = f(a) }; cont_csme }}
   
 }
 
@@ -161,25 +161,25 @@ object Strm {
   def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
     val p = s.producer()
     loopWhile {
-      var continue = false
-      p { a => continue = f(a) }
-      continue
+      var cont_cw = false
+      p { a => cont_cw = f(a) }
+      cont_cw
     }
   }
   @phase('Sugar)
   def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
     consumeWhile(s) { a =>
-      var continue = false 
-      consumeWhile(nest(a)) { b => continue = f(b); continue }
-      continue 
+      var cont_cwn = false 
+      consumeWhile(nest(a)) { b => cont_cwn = f(b); cont_cwn }
+      cont_cwn 
     }
   }
   @phase('Sugar)
   def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(f: (A,B) => Bool) = {
     consumeWhile(s) { a =>
-      var continue = false
-      p { b => continue = f(a,b) }
-      continue
+      var cont_cwz = false
+      p { b => cont_cwz = f(a,b) }
+      cont_cwz
     }
   }
   
@@ -219,15 +219,15 @@ object Strm {
   def doFlatMap[A,B](p: Producer[A], f: A => Producer[B]): Producer[B] = {
     var curBs: Option[Producer[B]] = None
     k => {
-      var consumed = false
+      var consumed_fm = false
       loopWhile {
         if (!curBs.isDefined) p(a => curBs = Some(f(a)))
         curBs.fold(false) { as =>
           as { a =>
             k(a)
-            consumed = true
+            consumed_fm = true
           }
-          if (!consumed) { curBs = None; true } else false
+          if (!consumed_fm) { curBs = None; true } else false
         }
       }
     }

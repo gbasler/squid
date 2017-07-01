@@ -67,11 +67,11 @@ class Compiler extends Optimizer {
 }
 
 //object LowLevel extends Embedding.Lowering('LL) with FixPointTransformer with TopDownTransformer
-object LowLevel extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+object LowLevel extends Embedding.SelfTransformer with transfo.VarFlattening with FixPointRuleBasedTransformer with TopDownTransformer {
   
   rewrite {
     //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"
-    case ir"Strm.loopWhile($cnd)" => ir"var cont = true; while(cont)(cont = $cnd)"
+    case ir"Strm.loopWhile($cnd)" => ir"var cont_wr = true; while(cont_wr)(cont_wr = $cnd)"
   }
   
 }
@@ -238,7 +238,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     // for paper:
     case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
-      ir"val len = $xs.length; var i = 0; var cont = true; while(i < len && cont) { cont = $f($xs(i)); i += 1 }"
+      ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
       
       
     // Zipping
@@ -260,13 +260,17 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
       //val as0 = ir"(k:$ta=>Bool) => consumeWhile($as)(k)" transformWith ImplFlowOptimizer
       //val bs0 = bs transformWith ImplFlowOptimizer
+      
       val as0 = as transformWith ImplLowering
+      val bs0 = bs
+      //val as0 = as
       //val bs0 = bs transformWith ImplLowering
       
-      println(as0)
+      //println(as0)
       //println(bs0)
+      //ir"consumeWhile(pullable($as0).zipWith($bs)($f))($g)"
       
-      ir"consumeWhile(pullable($as0).zipWith($bs)($f))($g)"
+      ir"consumeWhile(pullable($as0).zipWith($bs0)($f))($g)"
       
       //???
       

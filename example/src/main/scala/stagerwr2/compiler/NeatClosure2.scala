@@ -63,15 +63,15 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
           ir"""
             var curA: Option[A] = None
             (k:Consumer[B]) => {
-              var consumed = false
+              var consumed_fmr = false
               loopWhile {
                 if (!curA.isDefined) $p{a => curA = Some(a); ${reoreset}(a)() }
                 curA.fold(false) { a =>
                   ${reot}(a) { b =>
                     k(b)
-                    consumed = true
+                    consumed_fmr = true
                   }
-                  if (!consumed) { curA = None; true } else false
+                  if (!consumed_fmr) { curA = None; true } else false
                 }
               }
             }
