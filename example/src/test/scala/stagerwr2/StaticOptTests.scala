@@ -2,7 +2,7 @@ package stagerwr2
 
 object StaticOptTestsOptimizer extends squid.StaticOptimizer[stagerwr2.compiler.Compiler]
 
-import StaticOptTestsOptimizer.{dbg_optimize, optimize}
+import StaticOptTestsOptimizer.{dbg_optimize, optimize, optimizeAs}
 import squid.DumpFolder
 
 /**
@@ -20,7 +20,8 @@ object StaticOptTests extends App {
   def test = (x:Int) => x // works
   
   //val r = dbg_optimize {
-  val r = optimize {
+  //val r = optimize {
+  val r = optimizeAs('MyOptTest) {
     //val f = (a:Int) => a + 42 + x
     val f = (a:Int) => test(a + 42 + x)
     f(0)

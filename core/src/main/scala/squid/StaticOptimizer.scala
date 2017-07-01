@@ -19,6 +19,9 @@ class StaticOptimizer[Optim <: Optimizer] {
   def optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
   @MacroSetting(debug = true) def dbg_optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
   
+  def optimizeAs[A](name:Symbol)(code: A): A = macro StaticOptimizerMacros.optimizeAsImpl[Optim]
+  @MacroSetting(debug = true) def dbg_optimizeAs[A](name:Symbol)(code: A): A = macro StaticOptimizerMacros.optimizeAsImpl[Optim]
+  
 }
 
 /** TODO generate a macro that lifts passed arguments and compiles the body (caching/or inlining) -- like a static staging */
@@ -57,9 +60,22 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
   }
   
   
+  def optimizeAsImpl[Comp: WeakTypeTag](name: Tree)(code: Tree) = optimizeImpl(code)
+  
   def optimizeImpl[Comp: WeakTypeTag](code: Tree) = {
     
     val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
+    
+    val name = c.macroApplication |> {
+      case q"$_.optimize[$_]($_)" => None
+      case q"$_.dbg_optimize[$_]($_)" => None
+      case q"$_.optimizeAs[$_]($t)($_)" => Some(t)
+      case q"$_.dbg_optimizeAs[$_]($t)($_)" => Some(t)
+    } map {
+      case q"scala.Symbol.apply(${Literal(Constant(str:String))})" => str
+      case t => c.abort(t.pos, "Name is not a literal.")
+    }
+    
     
     val Optim = {
       val Comp = weakTypeOf[Comp].widen
@@ -145,7 +161,7 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
         None
     }
     dumpFolder foreach { dumpFolder => 
-      val ctx = s"$dumpFolder/Dump_${pos.source.file.name}_${pos.line}"
+      val ctx = s"$dumpFolder/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
       Optim.setContext(ctx)
     }
     

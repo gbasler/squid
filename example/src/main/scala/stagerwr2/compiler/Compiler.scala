@@ -37,7 +37,7 @@ class Compiler extends Optimizer {
   }
   
   def dump(phaseName:String,tree:base.Rep) = {
-    lazy val str = s"--- $phaseName ---\n"+base.showRep(tree)
+    lazy val str = s"// --- $phaseName ---\n"+base.showRep(tree)
     if (printResults) println(str)
     ctx foreach { _.appendAll(str+"\n") }
   }
