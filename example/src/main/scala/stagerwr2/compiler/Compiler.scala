@@ -72,6 +72,9 @@ object LowLevel extends Embedding.SelfTransformer with transfo.VarFlattening wit
   rewrite {
     //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"
     case ir"Strm.loopWhile($cnd)" => ir"var cont_wr = true; while(cont_wr)(cont_wr = $cnd)"
+      
+    case ir"squid.lib.uncheckedNullValue[$t]" => nullValue[t.Typ]
+      
   }
   
 }
@@ -212,6 +215,15 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     // Folding
       
+    // for paper:
+    case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($g)" =>
+      ir"""
+        val len = $as.length
+        var i = 0
+        var cont_fcwr = true
+        while(i < len && cont_fcwr) { consumeWhile($f($as(i))){b => val r = $g(b); cont_fcwr = r; r}; i += 1 }"""
+      
+      
     case ir"consumeWhile(pullable($as:Strm[$ta]))($f)" =>
       ir"consumeWhile($as)($f)"
       
@@ -239,6 +251,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     // for paper:
     case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
       ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
+      //ir"val len = $xs.length; var i = 0; while(i < len && { val cont_cwr = $f($xs(i)); i += 1; cont_cwr }){}"
       
       
     // Zipping

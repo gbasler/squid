@@ -47,6 +47,7 @@ object CompTests extends App {
   println(r.compile apply A0)
   */
   
+  /*
   // original from benchmarks:
   val zipWith_after_flatMap = ir{ (xs : Array[Int], ys : Array[Int]) =>
     Strm.fromArray[Int](xs)
@@ -57,6 +58,19 @@ object CompTests extends App {
   
   println(zipWith_after_flatMap.compile apply (A0,A1)) // 215
   val r = C.optimize(zipWith_after_flatMap)
+  println(r.compile apply (A0,A1))
+  */
+  
+  // original from benchmarks:
+  val flatMap_take_rewritten = ir{ (xs : Array[Int], ys : Array[Int]) =>
+    Strm.fromArray[Int](xs)
+      .flatMap(x => Strm.fromArray[Int](ys).map(y => (x * y)))
+      .take(20000000)
+      .fold(0)((a,b) => a + b)
+  } alsoApply println
+  
+  println(flatMap_take_rewritten.compile apply (A0,A1)) // 167034
+  val r = C.optimize(flatMap_take_rewritten)
   println(r.compile apply (A0,A1))
   
   

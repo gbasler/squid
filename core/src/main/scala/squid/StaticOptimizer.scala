@@ -196,9 +196,9 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     /** The Scala compiler used to crash with a StackOverflow at scala.tools.nsc.Global$Run.compiles(Global.scala:1402)!!
       * unless we used c.parse & showCode. It seems this was because we were splicing symbols directly into QQs */
-    res: Tree
+    //res: Tree
     //c.untypecheck(res)
-    //c.parse(showCode(res))
+    c.parse(showCode(res))
   }}
   
   
