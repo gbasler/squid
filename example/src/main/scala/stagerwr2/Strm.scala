@@ -183,18 +183,18 @@ object Strm {
     }
   }
   
-  // version where consumeWhile
+  // version where consumeWhile returns a boolean indicating whether it consumed all
   /*
   @phase('Impl)
   def consumeWhile[A](s: Strm[A])(f: A => Bool): Bool = {
     val p = s.producer()
-    var continue = false
+    var cont_cw = false
     loopWhile {
-      continue = false
-      p { a => continue = f(a) }
-      continue
+      cont_cw = false
+      p { a => cont_cw = f(a) }
+      cont_cw
     }
-    !continue
+    !cont_cw
   }
   @phase('Sugar)
   def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
@@ -205,9 +205,9 @@ object Strm {
   @phase('Sugar)
   def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(f: (A,B) => Bool) = {
     consumeWhile(s) { a =>
-      var continue = false
-      p { b => continue = f(a,b) }
-      continue
+      var cont_cwz = false
+      p { b => cont_cwz = f(a,b) }
+      cont_cwz
     }
   }
   */

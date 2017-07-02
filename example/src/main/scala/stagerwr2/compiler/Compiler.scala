@@ -252,6 +252,8 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
       ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
       //ir"val len = $xs.length; var i = 0; while(i < len && { val cont_cwr = $f($xs(i)); i += 1; cont_cwr }){}"
+    //case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
+    //  ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }; i == len"
       
       
     // Zipping
@@ -332,7 +334,6 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
   }
   
 }
-
 
 
 
