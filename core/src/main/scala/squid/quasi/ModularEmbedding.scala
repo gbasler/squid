@@ -261,7 +261,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
         
       /** --- --- --- METHOD APPLICATIONS --- --- --- */
-      case SelectMember(obj, f) =>
+      case SelectMember(obj, f) if x.symbol.isMethod =>
         
         val method = x.symbol.asMethod // FIXME safe?
         

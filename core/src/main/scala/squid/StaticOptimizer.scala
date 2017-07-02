@@ -117,8 +117,10 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       import base._
       
       override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = x match {
-        case Select(This(typName),fieldName) if x.symbol != null && x.symbol.isMethod =>
-          val thisName = s"$typName:this:$fieldName"
+        case Select(This(typName),fieldName) 
+        if x.symbol != null && x.symbol.isTerm || x.symbol.isParameter => // otherwise we capture things like `scala.collection.immutable`
+          //val thisName = s"$typName:this:$fieldName"
+          val thisName = s"$typName.this.$fieldName"
           thisNames += TermName(thisName)
           base.hole(thisName, liftType(x.tpe))
         case _ => super.liftTerm(x,parent,expectedType,inVarargsPos)
@@ -182,7 +184,8 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       new Transformer { // replacing the names introduced for X.this.y trees
         override def transform(x: Tree) = x match {
           case Ident(name) if thisNames(name) =>
-            val Seq(typ,ths,field) = name.toString.splitSane(':')
+            //val Seq(typ,ths,field) = name.toString.splitSane(':')
+            val Seq(typ,ths,field) = name.toString.splitSane('.')
             Select(This(TypeName(typ)),TermName(field))
           case _ => super.transform(x)
         }
@@ -196,9 +199,9 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     /** The Scala compiler used to crash with a StackOverflow at scala.tools.nsc.Global$Run.compiles(Global.scala:1402)!!
       * unless we used c.parse & showCode. It seems this was because we were splicing symbols directly into QQs */
-    //res: Tree
+    res: Tree
     //c.untypecheck(res)
-    c.parse(showCode(res))
+    //c.parse(showCode(res))
   }}
   
   

@@ -156,7 +156,7 @@ object Strm {
     }
   })
   
-  
+  ///*
   @phase('Impl)
   def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
     val p = s.producer()
@@ -182,7 +182,7 @@ object Strm {
       cont_cwz
     }
   }
-  
+  //*/
   // version where consumeWhile returns a boolean indicating whether it consumed all
   /*
   @phase('Impl)

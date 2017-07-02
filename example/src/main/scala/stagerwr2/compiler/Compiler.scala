@@ -70,7 +70,7 @@ class Compiler extends Optimizer {
 object LowLevel extends Embedding.SelfTransformer with transfo.VarFlattening with FixPointRuleBasedTransformer with TopDownTransformer {
   
   rewrite {
-    //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"
+    //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"  // makes for much slower code!
     case ir"Strm.loopWhile($cnd)" => ir"var cont_wr = true; while(cont_wr)(cont_wr = $cnd)"
       
     case ir"squid.lib.uncheckedNullValue[$t]" => nullValue[t.Typ]
@@ -222,6 +222,13 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
         var i = 0
         var cont_fcwr = true
         while(i < len && cont_fcwr) { consumeWhile($f($as(i))){b => val r = $g(b); cont_fcwr = r; r}; i += 1 }"""
+    //case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($g)" =>
+    //  ir"""
+    //    val len = $as.length
+    //    var i = 0
+    //    var cont_fcwr = true
+    //    while(i < len && cont_fcwr) { consumeWhile($f($as(i))){b => val r = $g(b); cont_fcwr = r; r}; i += 1 }
+    //    i == len"""
       
       
     case ir"consumeWhile(pullable($as:Strm[$ta]))($f)" =>
