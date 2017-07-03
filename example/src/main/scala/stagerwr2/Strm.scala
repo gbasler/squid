@@ -75,7 +75,7 @@ class Strm[A](val producer: () => Producer[A]) {
   @phase('Sugar)
   @transparent
   def foreach(f: A => Unit): Unit = {
-    consumeWhile(this) { a => f(a); true }
+    consumeWhile(this)(() => true, { a => f(a); true })
     
     //fold(())(a => println(a))
     
@@ -158,29 +158,36 @@ object Strm {
   
   ///*
   @phase('Impl)
-  def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
+  def consumeWhile[A](s: Strm[A])(k: () => Bool, f: A => Bool) = {
     val p = s.producer()
-    loopWhile {
+    loopWhile2(k) {
       var cont_cw = false
       p { a => cont_cw = f(a) }
       cont_cw
     }
   }
   @phase('Sugar)
-  def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
-    consumeWhile(s) { a =>
+  def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(k: () => Bool, f: B => Bool) = {
+    consumeWhile(s)(k,{ a =>
       var cont_cwn = false 
-      consumeWhile(nest(a)) { b => cont_cwn = f(b); cont_cwn }
+      consumeWhile(nest(a))(k,{ b => cont_cwn = f(b); cont_cwn })
       cont_cwn 
-    }
+    })
   }
   @phase('Sugar)
-  def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(f: (A,B) => Bool) = {
-    consumeWhile(s) { a =>
+  def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(k: () => Bool, f: (A,B) => Bool) = {
+    consumeWhile(s)(k,{ a =>
       var cont_cwz = false
       p { b => cont_cwz = f(a,b) }
       cont_cwz
-    }
+    })
+  }
+  @phase('Sugar)
+  def consumeZipped[A,B](s: Strm[A], p: Producer[B])(k:()=>Bool,f: (A,B) => Unit) = {
+    consumeWhile(s)(k,{ a =>
+      p { b => f(a,b) }
+      true
+    })
   }
   //*/
   // version where consumeWhile returns a boolean indicating whether it consumed all
@@ -262,6 +269,12 @@ object Strm {
   //@phase('LL) // FIXME auto lowering of by-name params
   def loopWhile(cnd: => Bool) = {
     while(cnd)()
+  }
+  @transparent
+  @inline
+  // the `k` function is suppposed to be a small condition to end up in the condition of the generated while (which handles badly big conditions)
+  def loopWhile2(k: () => Bool)(cnd: => Bool) = {
+    while(k() && cnd)()
   }
   
 }

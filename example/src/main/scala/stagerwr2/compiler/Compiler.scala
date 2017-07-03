@@ -72,6 +72,8 @@ object LowLevel extends Embedding.SelfTransformer with transfo.VarFlattening wit
   rewrite {
     //case ir"Strm.loopWhile($cnd)" => ir"while($cnd)()"  // makes for much slower code!
     case ir"Strm.loopWhile($cnd)" => ir"var cont_wr = true; while(cont_wr)(cont_wr = $cnd)"
+    case ir"Strm.loopWhile2($k)(${AsBlock(WithResult(b,ir"true"))})" => ir"while($k())(${b.statements()})"
+    case ir"Strm.loopWhile2($k)($cnd)" => ir"var cont_wr = true; while($k() && cont_wr)(cont_wr = $cnd)"
       
     case ir"squid.lib.uncheckedNullValue[$t]" => nullValue[t.Typ]
       
@@ -216,12 +218,18 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     // Folding
       
     // for paper:
-    case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($g)" =>
+    case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($k,gxx => ${AsBlock(WithResult(b,ir"true"))})" =>
+      ir"""
+        val len = $as.length
+        var i = 0
+        while($k() && i < len) { consumeWhile($f($as(i)))($k,{gxx => ${b.statements()}; true}); i += 1 }"""
+    case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($k,$g)" =>
       ir"""
         val len = $as.length
         var i = 0
         var cont_fcwr = true
-        while(i < len && cont_fcwr) { consumeWhile($f($as(i))){b => val r = $g(b); cont_fcwr = r; r}; i += 1 }"""
+        while($k() && i < len && cont_fcwr) { consumeWhile($f($as(i)))($k,{b => val r = $g(b); cont_fcwr = r; r}); i += 1 }"""
+        //while(i < len && cont_fcwr) { consumeWhile($f($as(i))){b => val r = $g(b); cont_fcwr = r; r}; i += 1 }"""
     //case ir"consumeWhile[tb](fromArrayImpl[$ta]($as).flatMap[$tb]($f))($g)" =>
     //  ir"""
     //    val len = $as.length
@@ -231,33 +239,38 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     //    i == len"""
       
       
-    case ir"consumeWhile(pullable($as:Strm[$ta]))($f)" =>
-      ir"consumeWhile($as)($f)"
+    case ir"consumeWhile(pullable($as:Strm[$ta]))($k,$f)" =>
+      ir"consumeWhile($as)($k,$f)"
       
-    case ir"consumeWhile(($as: Strm[$ta]).map[$tb]($f))($g)" =>
-      ir"consumeWhile($as)($f andThen $g)"
+    case ir"consumeWhile(($as: Strm[$ta]).map[$tb]($f))($k,$g)" =>
+      ir"consumeWhile($as)($k,$f andThen $g)"
     
-    case ir"consumeWhile(($as: Strm[$ta]).take($n))($f)" =>
+    case ir"consumeWhile(($as: Strm[$ta]).take($n))($k,$f)" =>
       //ir"var taken = 0; consumeWhile($as){a => taken < $n && $f(a) }"
-      ir"var taken = 0; consumeWhile($as){a => val t = taken; taken = t+1; t < $n && $f(a) }"
+      //ir"var taken = 0; consumeWhile($as){a => val t = taken; taken = t+1; t < $n && $f(a) }"
+      ir"var taken = 0; consumeWhile($as)(() => $k() && taken < $n,{ a => taken = taken+1; $f(a) })"
     
-    case ir"consumeWhile(($as: Strm[$ta]).flatMap[$tb]($f))($g)" =>
+    case ir"consumeWhile(($as: Strm[$ta]).flatMap[$tb]($f))($k,$g)" =>
       //ir"consumeWhileNested($as)($f andThen $g)"
-      ir"consumeWhileNested($as)($f)($g)"
+      ir"consumeWhileNested($as)($f)($k,$g)"
       
-    case ir"consumeWhile(($as:Strm[$ta]).filter($pred))($f)" =>
+    case ir"consumeWhile(($as:Strm[$ta]).filter($pred))($k,$f)" =>
       //ir"consumeWhile($as)(a => if ($pred(a)) $f(a) else true)"
-      ir"consumeWhile($as)(a => !$pred(a) || $f(a))"
+      ir"consumeWhile($as)($k,a => !$pred(a) || $f(a))"
       
     // this actually makes code bigger, by duplicating the whole loop (instead of just the inside)
     //   it's still arguably better since it means the branch is executed only once instead of at every iteration
-    case ir"consumeWhile(conditionally[$ta]($c)($thn,$els))($f)" =>
-      ir"if ($c) consumeWhile($thn)($f) else consumeWhile($els)($f)"
+    case ir"consumeWhile(conditionally[$ta]($c)($thn,$els))($k,$f)" =>
+      ir"if ($c) consumeWhile($thn)($k,$f) else consumeWhile($els)($k,$f)"
       
       
     // for paper:
-    case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
-      ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
+    case ir"consumeWhile(fromArrayImpl[$ta]($xs))($k,gxxx => ${AsBlock(WithResult(b,ir"true"))})" =>  // specialization for when f returns ir"true"
+      ir"val len = $xs.length; var i = 0; while($k() && i < len) { val gxxx = $xs(i); ${b.statements()}; i += 1 }"
+    // for paper:
+    case ir"consumeWhile(fromArrayImpl[$ta]($xs))($k,$f)" =>  // TODOne specialize for when f returns ir"true"
+      //ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
+      ir"val len = $xs.length; var i = 0; var cont_cwr = true; while($k() && i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }"
       //ir"val len = $xs.length; var i = 0; while(i < len && { val cont_cwr = $f($xs(i)); i += 1; cont_cwr }){}"
     //case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
     //  ir"val len = $xs.length; var i = 0; var cont_cwr = true; while(i < len && cont_cwr) { cont_cwr = $f($xs(i)); i += 1 }; i == len"
@@ -265,15 +278,18 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     // Zipping
       
-    case ir"consumeWhile(pullable($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($g)" =>
-      ir"consumeWhileZipped($bs,$as.producer())((b,a) => $g($f(a,b)))"
+    case ir"consumeWhile(pullable($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($k,gx => ${AsBlock(WithResult(b,ir"true"))})" =>
+      ir"consumeZipped($bs,$as.producer())($k,{(b,a) => val gx = $f(a,b); ${b.statements()}})"
       
-    case ir"consumeWhile(($as:Strm[$ta]).zipWith[$tb,$tc](pullable($bs))($f))($g)" =>
+    case ir"consumeWhile(pullable($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($k,$g)" =>
+      ir"consumeWhileZipped($bs,$as.producer())($k,(b,a) => $g($f(a,b)))"
+      
+    case ir"consumeWhile(($as:Strm[$ta]).zipWith[$tb,$tc](pullable($bs))($f))($k,$g)" =>
       //ir"val p = $bs.producer(); consumeWhile($as) { a => p { b => $g($f(a,b)) } }"
       //ir"consumeWhileZipped($as,$bs.producer())($f andThen $g)"
-      ir"consumeWhileZipped($as,$bs.producer())((a,b) => $g($f(a,b)))"
+      ir"consumeWhileZipped($as,$bs.producer())($k,(a,b) => $g($f(a,b)))"
       
-    case ir"consumeWhile(($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($g)" =>
+    case ir"consumeWhile(($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($k,$g)" =>
       
       println("AS: "+as)
       println("BS: "+bs)
@@ -292,7 +308,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       //println(bs0)
       //ir"consumeWhile(pullable($as0).zipWith($bs)($f))($g)"
       
-      ir"consumeWhile(pullable($as0).zipWith($bs0)($f))($g)"
+      ir"consumeWhile(pullable($as0).zipWith($bs0)($f))($k,$g)"
       
       //???
       
