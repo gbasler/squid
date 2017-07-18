@@ -118,7 +118,14 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       
       override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = x match {
         case Select(This(typName),fieldName) 
-        if x.symbol != null && x.symbol.isTerm || x.symbol.isParameter => // otherwise we capture things like `scala.collection.immutable`
+        if x.symbol != null && (x.symbol.isParameter || x.symbol.isMethod) => // otherwise we capture things like `scala.collection.immutable`
+        /*
+            ^ this is still not relly satisfying. 
+            We're going to capture method references that may have a static path to them and would be better
+            Ideally we'd check whether there is a static (and accessible from reflection) path first
+            OTOH, does it really happen to have a static path to a local method, that will be accessible via the QQ's relfection?
+            Note: `!x.symbol.isPackage` is not enough, as then we end up with things like the `List` of `scala.immutable.List`
+        */
           //val thisName = s"$typName:this:$fieldName"
           val thisName = s"$typName.this.$fieldName"
           thisNames += TermName(thisName)

@@ -90,6 +90,11 @@ object CompTests extends App {
   println(r.compile apply (A0,A1))
   
   
+  
+  // FIXME why does dotProduct not stop as soon as the inner array is out?
+  
+  
+  
   //val x = ir{
   //  val a = readInt
   //  if (a.>(1))

@@ -22,7 +22,7 @@ object Embedding
   object Desug extends Desugaring
   object Norm extends SelfTransformer with transfo.StandardNormalizer
     //
-    with VarNormalizer
+    //with VarNormalizer // already in VarFlattening!
     with transfo.LogicNormalizer
     with transfo.EqualityNormalizer 
   {
