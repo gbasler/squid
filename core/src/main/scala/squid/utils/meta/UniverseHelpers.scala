@@ -88,12 +88,12 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   
   object FunctionType { // TODO complete with all functions types!
     
-    val Fun0Sym = typeOf[() => Any].typeSymbol
-    val FunSym  = typeOf[(Any) => Any].typeSymbol
-    val Fun2Sym = typeOf[(Any, Any) => Any].typeSymbol
-    val Fun3Sym = typeOf[(Any, Any, Any) => Any].typeSymbol
-    val Fun4Sym = typeOf[(Any, Any, Any, Any) => Any].typeSymbol
-    val Fun5Sym = typeOf[(Any, Any, Any, Any, Any) => Any].typeSymbol
+    val Fun0Sym = typeOf[() => Any].typeSymbol.asType
+    val FunSym  = typeOf[(Any) => Any].typeSymbol.asType
+    val Fun2Sym = typeOf[(Any, Any) => Any].typeSymbol.asType
+    val Fun3Sym = typeOf[(Any, Any, Any) => Any].typeSymbol.asType
+    val Fun4Sym = typeOf[(Any, Any, Any, Any) => Any].typeSymbol.asType
+    val Fun5Sym = typeOf[(Any, Any, Any, Any, Any) => Any].typeSymbol.asType
     
     val scalaPackage = FunSym.owner.asType.toType
     

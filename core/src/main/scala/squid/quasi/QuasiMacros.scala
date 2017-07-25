@@ -97,8 +97,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     object Embedder extends QuasiEmbedder[c.type](c)
     val res = Embedder(base, code, Nil,
-       config,
-      None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil)
+       config, None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil, Set())
     
     debug("Generated:\n"+showCode(res))
     
@@ -109,6 +108,10 @@ class QuasiMacros(val c: whitebox.Context) {
   
   lazy val IRTSym = symbolOf[QuasiBase#IRType[_]]
   lazy val IRSym = symbolOf[QuasiBase#IR[_,_]]
+  
+  def asIR(tp: Type, typeOfBase: Type) = tp.baseType(IRSym) |>? {
+    case TypeRef(typeOfBase0, IRSym, typ :: ctx :: Nil) if typeOfBase =:= typeOfBase0 => (typ, ctx)
+  }
   
   
   def unapplyImpl[L: c.WeakTypeTag](scrutinee: c.Tree) = wrapError {
@@ -125,9 +128,8 @@ class QuasiMacros(val c: whitebox.Context) {
     val base = c.typecheck(q"$quasiBase.base")
     
     /** [INV:Quasi:reptyp]: we only match IR[_,_] types */
-    scrutinee.tpe.baseType(IRSym) match {
-      case TypeRef(baseType, IRSym, typ :: ctx :: Nil) if base.tpe =:= baseType =>
-      case _ => throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a subtype of `$base.${IRSym.name}[_,_]`"
+    if (asIR(scrutinee.tpe, base.tpe).isEmpty) {
+      throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a proper subtype of `$base.${IRSym.name}[_,_]`"
         +"\n\tTry matching { case x: IR[_,_] => ... } first.")
     }
     
@@ -211,7 +213,21 @@ class QuasiMacros(val c: whitebox.Context) {
             case _ => false
           }) => q"$base.$$($t: _*)"
           case t if h.vararg => q"$base.$$($t: _*)"
-          case t => q"$base.$$($t)"
+            
+          case t => 
+            // Here we try to retrieve the IR type of the inserted code, so that we can generate a typed call to `$`
+            // This is only necessary when we want a type coercion to happen during type checking of the shallow program;
+            // (such as when we ascribe a term with a type and rely on pat-mat subtyping knowledge to apply the coercion)
+            // if we don't do that, the expected type we want to coerce to will be propagated all the way inside the 
+            // unquote, and the coercion would have to happen outside of the shallow program! (not generally possible)
+            // ---
+            // TODO: ideally, we should also handle function types (cf. auto-fun-lift)
+            asIR(t.tpe, base.tpe).fold {
+              q"$base.$$($t)"
+            }{
+              case (typ, ctx) => q"$base.$$[$typ,$ctx]($t)"
+            }
+            
         }
       }
     }
@@ -403,8 +419,10 @@ class QuasiMacros(val c: whitebox.Context) {
     
     debug(s"Output context: $outputCtx")
     
-    val sanitizedTerm = if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
-    //val sanitizedTerm = term
+    val sanitizedTerm = 
+      if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
+      //term
+      //c.untypecheck(term)
     val res = q"$base.`internal IR`[$typ,$outputCtx]($base.substituteLazy($quoted.rep, Map($name -> (() => ($sanitizedTerm:$base.IR[_,_]).rep))))"
     
     debug("Generated: "+showCode(res))

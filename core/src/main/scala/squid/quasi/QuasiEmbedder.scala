@@ -14,6 +14,11 @@ import scala.reflect.macros.whitebox
 
 case class QuasiException(msg: String) extends Exception(msg)
 
+object QuasiEmbedder {
+  private val knownSubtypes = mutable.ArrayBuffer[Any]()
+}
+import QuasiEmbedder._
+
 /** Holes represent free variables and free types (introduced as unquotes in a pattern or alternative unquotes in expressions).
   * Here, insertion unquotes are _not_ viewed as holes (they should simply correspond to a base.$[T,C](tree) node). */
 class QuasiEmbedder[C <: whitebox.Context](val c: C) {
@@ -24,6 +29,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
   
+  val rc = c.asInstanceOf[reflect.macros.runtime.Context]
+  import rc.universe.analyzer.{Context=>RCtx}
+  
+  /** Stores known subtyping knowledge extracted during pattern matching, 
+    * along with the scope (scala compiler context) in which they are true. */
+  val curTypeEqs = knownSubtypes.asInstanceOf[mutable.ArrayBuffer[(RCtx,Type,Type)]]
   
   val UnknownContext = typeOf[utils.UnknownContext]
   val scal = q"_root_.scala"
@@ -39,20 +50,35 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     //debug("HOLES:",holes)
     
+    debug("Tree:", tree)
+    
     val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
     
     val traits = typeHoles map { typ => q"trait $typ extends _root_.squid.quasi.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
     
-    debug("Tree:", tree)
+    val curCtxs = rc.callsiteTyper.context.enclosingContextChain
+    val (convNames, convs) = curTypeEqs.flatMap {
+      case (ctx,lhs,rhs) => 
+        if (curCtxs.contains(ctx)) {
+          val fresh = TermName(c.freshName("__conv"))
+          //q"implicit def $fresh: $lhs <:< $rhs = null" :: Nil
+          fresh -> q"implicit def $fresh: _root_.scala.Predef.<:<[$lhs,$rhs] = null" :: Nil
+        }
+        else Nil
+    } .unzip .mapFirst (_.toSet)  // same as:  |> { case (a,b) => (a.toSet,b) }
+    debug(s"Subtype knowledge: ${convs.map(t => showCode(t.tpt)).mkString(", ")}")
     
     var termScope: List[Type] = Nil // will contain the scrutinee's scope or nothing
+    
+    var scrutineeType = Option.empty[Type]
     
     val ascribedTree = unapply match {
       case Some(t) =>
         debug("Scrutinee type:", t.tpe)
         t.tpe.baseType(symbolOf[QuasiBase#IR[_,_]]) match {
           case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
+            scrutineeType = Some(tp)
             if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
               // ^ UnknownContext is used as the dummy context parameter of terms rewritten in rewrite rules
@@ -85,7 +111,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     def shallowTree(t: Tree) = {
       // we need tp introduce a dummy val in case there are no statements; otherwise we may remove the wrong statements when extracting the typed term
-      val nonEmptyVals = if (traits.size + vals.size == 0) Set(q"val $$dummy$$ = ???") else vals
+      val nonEmptyVals = if (traits.size + vals.size + convs.size == 0) Set(q"val $$dummy$$ = ???") else vals ++ convs
       val st = q"..$traits; ..$nonEmptyVals; $t"
       //val st = q"object Traits { ..$traits; }; import Traits._; ..$nonEmptyVals; $t"
       // ^ this has the advantage that when types are taken out of scope, their name is preserved (good for error message),
@@ -135,6 +161,19 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
       }
     }
     
+    scrutineeType foreach { asc =>
+      debug(s"PROCESSING TYPE RELATION: $typedTreeType <:< ${asc}")
+      def zip(lhs:Type,rhs:Type):Unit = (lhs.dealias,rhs.dealias) match {
+        case (TypeRef(b0,s0,as0),TypeRef(b1,s1,as1)) if b0 =:= b1 && s0 == s1 => // TODO use baseType instead
+          //debug((b0,s0,as0),(b1,s1,as1))
+          as0.iterator zip as1.iterator foreach (zip _).tupled
+        case _ =>
+          debug(s"Subtyping knowledge: $lhs <:< $rhs")
+          curTypeEqs += ((curCtxs.head, lhs, rhs))
+      }
+      zip(typedTreeType,asc)
+    }
+    
     val q"..$stmts; $finalTree" = typedTree
     
     // // For when traits are generated in a 'Traits' object:
@@ -154,7 +193,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     apply(Base, finalTree, termScope, config, unapply, 
-      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts)
+      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames)
     
   }
   
@@ -167,10 +206,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   
   
-  def apply(baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
-            typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
-            holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
-            termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree]): c.Tree = {
+  def apply(
+    baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
+    typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
+    holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
+    termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree], 
+    convNames: Set[TermName]
+  ): c.Tree = {
     
     
     val shortBaseName = TermName("__b__")
@@ -394,6 +436,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                    b.splicedHole(name, liftType(holeType))
               else b.hole(name, liftType(holeType))
               
+            /** Removes implicit conversions that were generated in order to apply the subtyping knowledge extracted from pattern matching */
+            case q"${Ident(name:TermName)}.apply($x)" if convNames(name) => 
+              liftTerm(x, parent, typeIfNotNothing(x.tpe))
+              // ^ Q: correct to pass this expectedType? -- currently not passing through the current one 
+              // because it would mean that sometimes the actual type is not a known subtype of the expected type...
               
             case _ => 
               //debug("NOPE",x)

@@ -271,8 +271,10 @@ self: Base =>
     implicit class QuasiContext(private val ctx: StringContext) {
       
       object ir { // TODO try to refine the types..?
-        //def apply(t: Any*): Any = macro QuasiMacros.applyImpl[QC]
-        //def unapply(t: Any): Any = macro QuasiMacros.unapplyImpl[QC]
+        //def apply(inserted: Any*): Any = macro QuasiMacros.applyImpl[QC]
+        //def unapply(scrutinee: Any): Any = macro QuasiMacros.unapplyImpl[QC]
+        // ^ versions above give less hints to macro-blind IDEs, but may be faster to compile 
+        // as they involve an easier (trivial) subtype check: macro_result.tpe <: Any (performed by scalac)
         def apply(inserted: Any*): SomeIR = macro QuasiMacros.applyImpl[QC]
         def unapply(scrutinee: SomeIR): Any = macro QuasiMacros.unapplyImpl[QC]
       }
