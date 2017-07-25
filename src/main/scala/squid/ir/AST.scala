@@ -86,6 +86,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     if (newD eq d) r else rep(newD)
   }
   
+  
+  override def traverseTopDown(f: Rep => Unit)(r: Rep): Unit = traverse(f(_) thenReturn true)(r)
+  //override def traverseBottomUp(f: Rep => Unit)(r: Rep): Unit = ??? // TODO
+  
+  
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
   
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {

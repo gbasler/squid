@@ -22,6 +22,10 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   
   def topDown(r: Rep)(f: Rep => Rep): Rep
   
+  // Important: do not forget to override these to have better traversal performance (without useless tree reconstruction!) 
+  def traverseTopDown(f: Rep => Unit)(r: Rep): Unit = topDown(r)(_ alsoApply f)
+  def traverseBottomUp(f: Rep => Unit)(r: Rep): Unit = bottomUp(r)(_ alsoApply f)
+  
   def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] =
     extractRep(xtor, xtee) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code
   
@@ -81,6 +85,13 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     def rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
     @MacroSetting(debug = true) def dbg_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
     @RecRewrite def fix_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
+    
+    @inline final def analyse(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = analyseTopDown(pf)
+    def analyseTopDown(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = 
+      traverseTopDown(r => pf.runWith(identity)(IR(r)) thenReturn Unit)(self.rep)
+    def analyseBottomUp(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = 
+      traverseBottomUp(r => pf.runWith(identity)(IR(r)) thenReturn Unit)(self.rep)
+    
   }
   protected implicit class ProtectedInspectableRepOps(private val self: Rep) {
     def extract (that: Rep) = baseSelf.extract(self, that)
