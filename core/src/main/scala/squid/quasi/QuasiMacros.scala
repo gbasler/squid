@@ -66,6 +66,9 @@ class QuasiMacros(val c: whitebox.Context) {
   def forward$(q: Tree*): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
   }
+  def forward$2(q: Tree): Tree = c.macroApplication match {
+    case q"$qc.$$[$t,$s,$c]($code)" => q"$qc.qcbase.$$[$t,$s,$c]($code)"
+  }
   def forward$$(name: Tree): Tree = c.macroApplication match {
     case q"$qc.$$$$[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
     case q"$qc.?[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"

@@ -292,6 +292,7 @@ self: Base =>
     @MacroSetting(debug = true) def dbg_ir[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
     
     def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forward$ // to conserve the same method receiver as for QQ (the real `Base`)
+    def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = macro QuasiMacros.forward$2
     //def $[T,C](q: IR[T,C]): T = macro QuasiMacros.forward$ // Actually unnecessary
     //def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forwardVararg$ // Actually unnecessary
     def $$[T](name: Symbol): T = macro QuasiMacros.forward$$
