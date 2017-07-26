@@ -27,9 +27,11 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     ir"true && {identity(42.toDouble);true} && false" eqt ir"(true:Bool) && true && false"
     eqt(ir"true && {println;true} && false".rep.asBlock._1.head.fold(_._2,identity), ir"true && {println;true}".rep)
     
-    assert(ir"IndexedSeq().size + Nil.size + Seq().size".rep.asBlock._1.size == 3)
+    assert(ir"IndexedSeq().size + Nil.size + Seq().size".rep.asBlock._1.size == 5) // used to be 3 because GenericCompanion.apply was handled wrongly
     // ^ currently, `.size` on immutable collections is not viewed as pure; this is more tricky because `size` is defined
     // in a generic class, and so should only be pure if the receiver is an immutable collection... not expressible withb current infra
+    // very similarly, we now have Seq.apply and IndexedSeq.apply not pure because they're from GenericCompanion, 
+    // the same as for mutable.Seq.apply (which is obviously stateful)
     
   }
   
@@ -99,6 +101,18 @@ class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     ir"myId((x:Int) => {print(x);x}); 42" eqt ir"42"   // expr with latent effect is ignored
     ir"val mid = myId((x:Int) => {print(x);x}); mid(42)" |> stmtsNumIs(0)
     ir"val mid = myId((x:Int) => {print(x);x}); mid(readInt)" |> stmtsNumIs(1)
+    
+  }
+  
+  test("Collections") {
+    import scala.collection.mutable.Set
+    import scala.collection.mutable.Buffer
+    
+    ir"Set(1,2,3).head" |> stmtsNumIs(1)
+    ir"Buffer(1,2,3)+=1" |> stmtsNumIs(1)
+    
+    ir"List(1,2,3).head" |> stmtsNumIs(0)
+    ir"println(List.empty[Int])" |> stmtsNumIs(0)
     
   }
   

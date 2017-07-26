@@ -186,7 +186,9 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[scala.collection.immutable.List[Any]] // Useful to make things like List.map 
   transparentTyps += typeSymbol[scala.collection.immutable.List.type]
   
-  transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods
+  /* transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods */
+  // ^ this is not right: will register the GenericCompanion symbol (ignoring the List parameter), and thus things like
+  // mutable.Set.apply will be considered pure!
   
   // These are not correct, as mutable collections `size` is not referentially-transparent -- TODO use the @read effect
   /*
