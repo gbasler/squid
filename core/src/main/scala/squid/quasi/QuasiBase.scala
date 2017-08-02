@@ -141,6 +141,9 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
+    @deprecated("Abort(msg) should only be called from the body of a rewrite rule. " +
+      "If you want to abort a rewriting from a function called in the rewrite rule body, " +
+      "use `throw RewriteAbort(msg)` instead.", "0.1.1")
     def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Abort was called outside a rewrite rule!")
     
     object Return {
