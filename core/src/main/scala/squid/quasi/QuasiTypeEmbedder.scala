@@ -45,20 +45,31 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
           case sym if sym.isVal
             && sym.isInitialized // If we look into the type of value being constructed (eg `val x = exp"42"`),
                                  // it will trigger a 'recursive value needs type' error
-            && sym.name == tp.typeSymbol.name.toTermName
+            //&& sym.name.toString == tp.typeSymbol.name.toString // used to compare names directly, but sometimes failed because they came from different cakes...
           =>
-            //debug(sym, sym.isInitialized)
-            sym -> sym.tpe
+            sym -> sym.tpe.dealias // dealiasing so for example base.Predef.IR[_,_] ~> base.IR[_,_]
         }
       }.asInstanceOf[List[(TermSymbol, Type)]]
       
       val QTSym = symbolOf[QuasiBase#IRType[_]]
       
+      //val PredefQTSym = symbolOf[QuasiBase#Predef[_ <: QuasiConfig]#IRType[_]]
+      //val PredefQTSym = typeOf[QuasiBase#Predef[_ <: QuasiConfig]#IRType[_]].typeSymbol
+      // ^ For some reson, these always return a symbol s where s.fullName == "squid.quasi.QuasiBase.IRType"
+      
       vals foreach {
-        case (sym, TypeRef(tpbase, QTSym, tp::Nil)) if tpbase =:= baseTree.tpe =>
+        case (sym, TypeRef(tpbase, QTSym /*| PredefQTSym*/, tp0::Nil)) 
+          if tpbase =:= baseTree.tpe 
+          && tp0 <:< tp && tp <:< tp0 // NOTE: for some godforsaken reason, sometimes in Scala this is not the same as `tp0 =:= tp`
+          // For example in  {{{ (typs:List[IRType[_]]) map { case typ: IRType[t] => dbg.implicitType[t] } }}}
+        =>
           debug("FOUND QUOTED TYPE "+sym)
           return (q"$sym.rep".asInstanceOf[base.TypeRep] // FIXME
             |> insertTypeEvidence)
+        //case (sym, TypeRef(tpbase, QTSym, tp::Nil)) =>
+        //  debug(s"Note: $tpbase =/= ${baseTree.tpe}")
+        //case (sym, TypeRef(tpbase, qtsym, tp::Nil)) =>
+        //  debug(s"$qtsym ${qtsym.fullName} ${PredefQTSym.fullName} ${QTSym.fullName} ${qtsym == PredefQTSym}")
         case _ =>
       }
       

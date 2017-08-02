@@ -18,8 +18,10 @@ class TypeMatching extends MyFunSuite {
         eqt(t.rep, base.constType(42))
         eqt(t.rep, x.trep)
         
-        val opt = ir"Option.empty[$t]" // TODO
+        val opt = ir"Option.empty[$t]"
         eqt(opt, ir"Option.empty[Int]")
+        
+        // Note that opt.typ is `Option[Int(42)]`, so:
         assert(!(typeRepOf[Option[Int]] <:< opt.trep))
         subt(opt.trep, typeRepOf[Option[Int]])
     }
