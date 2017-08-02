@@ -78,7 +78,7 @@ class QuasiMacros(val c: whitebox.Context) {
   lazy val SubstituteVarargSym = typeOf[QuasiBase].member(TypeName("__*").encodedName)
   //lazy val SubstituteVarargSym = symbolOf[QuasiBase#__*] // nope: gets 'trait Seq' (dealias) ...
   
-  
+  /** Note: quasicode currently does not support inserted types, but it could in principle (though it would need another syntax). */
   def quasicodeImpl[Config: c.WeakTypeTag](tree: c.Tree) = wrapError {
     
     debug(s"Typed[${tree.tpe}]: "+showCode(tree))
@@ -97,7 +97,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     object Embedder extends QuasiEmbedder[c.type](c)
     val res = Embedder(base, code, Nil,
-       config, None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil, Set())
+       config, None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil, Set(), Seq())
     
     debug("Generated:\n"+showCode(res))
     
@@ -336,7 +336,6 @@ class QuasiMacros(val c: whitebox.Context) {
           "which may have been interpreted as operator `?:` -- " +
           "use a space to remove this ambiguity.")
         throw e
-        //???
     }
     
     debug("Generated:\n"+showCode(res))

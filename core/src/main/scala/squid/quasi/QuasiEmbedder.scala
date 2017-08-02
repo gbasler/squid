@@ -42,7 +42,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
 
   /** holes: Seq(either term or type); splicedHoles: which holes are spliced term holes (eg: List($xs*))
     * holes in ction mode are interpreted as free variables (and are never spliced)
-    * unquotedTypes contains the types unquoted in (in ction mode) plus the types found in the current scope
+    * unquotedTypes contains the types unquoted in (in ction mode with $ and in xtion mode with $$)
     * TODO: actually use `unquotedTypes`!
     * TODO maybe this should go in QuasiMacros... */
   def applyQQ(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName],
@@ -193,7 +193,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     apply(Base, finalTree, termScope, config, unapply, 
-      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames)
+      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames, unquotedTypes)
     
   }
   
@@ -211,7 +211,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
     holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
     termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree], 
-    convNames: Set[TermName]
+    convNames: Set[TermName], unquotedTypes: Seq[(TypeName, Type, Tree)]
   ): c.Tree = {
     
     
@@ -264,6 +264,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         /** Special-cases the default modular embedding with quasiquote-specific details */
         object ME extends QTE.Impl {
+          
+          // Add to the type cache all the types that were explicitly inserted
+          typeCache ++= unquotedTypes map {
+            case (_,tp,tpt) => tp -> q"$tpt.rep".asInstanceOf[base.TypeRep]
+          }
+          // We could also make sure that there are no two inserted types corresponding to non-equivalent trees,
+          // and raise a c.warning if it's the case, as it would likely be an error or potentially lead to surprises
           
           override def insertTypeEvidence(ev: base.TypeRep): base.TypeRep = if (unapply.isEmpty) ev else {
             val tn = c.freshName(TermName("insertedEv"))

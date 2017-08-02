@@ -26,8 +26,8 @@ class TypeImplicits extends MyFunSuite {
       case _ => fail
     }
     
-    // FIXME currently infers an existential type!
-    ir"Option.empty[${typs.head}]" //alsoApply println
+    // Note how here we get an existential type `_$1` inserted, but the QQ now keeps track of inserted types and finds the corresponding tree
+    ir"Map.empty[${typs.head},${typs.tail.head}]" eqt ir"Map.empty[Int,Double]"
     
   }
   
