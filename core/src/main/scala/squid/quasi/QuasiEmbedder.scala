@@ -492,20 +492,37 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
         
-        val ctxBase = tq"${glb(termScope)}"
+        // Notes: we used to just compute `glb(termScope)`, but when quasiquotes have context `{}` (like `Const(42)`)
+        // they introduce pesky AnyRef in the refined type; so now we make sure to remove it from the inferred context.
+        // The reason `Const` returns an `IR[T,{}]` and not an `IR[T,Any]` is mostly historical/aesthetical, and is debatable
+        val cleanedUpGLB = glb(termScope) |>=? {
+          case RefinedType(typs,scp) => 
+            //RefinedType(typs filterNot (AnyRef <:< _ ), scp)
+            internal.refinedType(typs filterNot (AnyRef <:< _ ), scp)
+        }
+        // To make things more consistent, we could say that `{}` is used whenever the context is empty, so we could 
+        // replace `glb(termScope)` above with `glb(AnyRef :: termScope)`. But this causes problems down the line,
+        // specifically when trying to use contravariance to use a context-free term with type IR[T,C] (where we _do not_ have `C <: AnyRef`)
+        // producing errors like:
+        //    error]  found   : BlockHelpers.this.IR[Unit,AnyRef]
+        //    [error]  required: BlockHelpers.this.IR[Unit,C]
+        
+        val ctxBase = tq"${cleanedUpGLB}"
+        // Older comment:
+        //val ctxBase = tq"${glb(termScope)}"
         // ^ Note: the natural empty context `{}` is actually equivalent to `AnyRef`, but `glb(Nil) == Any` so explicitly using
         // this empty context syntax can cause type mismatches. To solve this, we could do:
         //   val ctxBase = tq"${glb(AnyRef :: termScope)}"
         // But this makes some things uglier, like the need to have [C <: AnyRef] bounds so we don'r get IR[T,AnyRef with C{...}] types.
         // Instead, I opted for an implicit conversion IR[T,{}] ~> IR[T,Any] in the quasiquote Predef.
         
+        // Old way:
         /*
         // putting every freevar in a different refinement (allows name redefinition!)
         val context = (freeVars ++ importedFreeVars).foldLeft(ctxBase){ //.foldLeft(tq"AnyRef": Tree){
           case (acc, (n,t)) => tq"$acc{val $n: $t}"
         }
         */
-        
         
         // Note: an alternative would be to put these into two different refinements,
         // so we could end up with IR[_, C{val fv: Int}{val fv: Double}] -- which is supposedly equivalent to IR[_, C{val fv: Int with Double}]
