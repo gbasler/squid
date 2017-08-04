@@ -246,7 +246,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     val insertedTermTrees = mutable.ArrayBuffer[Tree]() // currently only used to disable caching if non-empty
-    val insertedTypeTrees = mutable.Map[TermName,Tree]()
+    val insertedTypeTrees = mutable.Map[TermName,Tree]() // 'inserted types' are types that are explicitly unquoted or types for which an implicit is obtained
+    insertedTypeTrees ++= unquotedTypes map { case (tn,tp,tpt) => c.freshName(tn.toTermName) -> q"$tpt.rep" }
     
     
     /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
