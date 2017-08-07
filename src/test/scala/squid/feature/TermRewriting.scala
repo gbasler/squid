@@ -76,4 +76,23 @@ class TermRewriting extends MyFunSuite {
     
   }
   
+  test("Literals in patterns") {
+    
+    ir"'abc -> 'def" rewrite {
+      case ir"Symbol(${Const("abc")})" =>
+        ir"'lol"
+    } eqt ir"'lol -> 'def"
+    
+  }
+  
+  test("Non-trivial name-pattern bindings in patterns") {
+    
+    ir"println(1.toDouble+1,2.toDouble+1)" rewrite {
+      case ir"(${c @ Const(n)}:Int).toDouble+1" =>
+        //ir"$c.toDouble + ${Const(n+1.0)}"
+        ir"($c,${Const(n+1.0)})._2"
+    } eqt ir"println((1,2.0)._2,(2,3.0)._2)"
+    
+  }
+  
 }
