@@ -54,7 +54,18 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
     
-    val traits = typeHoles map { typ => q"trait $typ extends _root_.squid.quasi.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
+    /* We used to use local traits to generate local symbols for the type holes; for `case ir"foo[$t]" =>`, term `t` would 
+       appear as having type `IRType[t]`.
+       Now, in order to be able to add arbitrary bounds to type holes, we generate a local object with a `Typ` type member,
+       so the type above appears as `IRType[t.Typ]`, which is nice because it's exactly the syntax the user has to use to 
+       refer to such an extracted type.
+    */
+    // val traits = typeHoles map { typ => q"trait $typ extends _root_.squid.quasi.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
+    val traits = typeHoles flatMap { typ => 
+      // Note: cannot use undefined `type` members here, as "only classes can have declared but undefined members"
+      val trm = typ.toTermName
+      q"object $trm { type Typ <: _root_.squid.quasi.QuasiBase.`<extruded type>` }" :: q"type $typ = $trm.Typ" :: Nil }
+    
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
     
     val curCtxs = rc.callsiteTyper.context.enclosingContextChain
@@ -116,7 +127,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
       //val st = q"object Traits { ..$traits; }; import Traits._; ..$nonEmptyVals; $t"
       // ^ this has the advantage that when types are taken out of scope, their name is preserved (good for error message),
       // but it caused other problems... the implicit evidences generated for them did not seem to work
-      if (debug.debugOptionEnabled) debug("Shallow Tree: "+st)
+      if (debug.debugOptionEnabled) debug("Shallow Tree: "+showCode(st))
       st
     }
     
@@ -183,7 +194,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     //    (name: TypeName) -> internal.typeRef(traits.symbol.typeSignature, t.symbol, Nil) }
     //} get) toMap;
     val typeSymbols = stmts collect {
-      case t @ q"abstract trait ${name: TypeName} extends ..$_" => (name: TypeName) -> t.symbol
+      // case t @ q"abstract trait ${name: TypeName} extends ..$_" => (name: TypeName) -> t.symbol
+      case t @ q"object ${name: TermName} extends ..$_ { $_ => $tp }" => name.toTypeName -> tp.symbol
     } toMap;
     val holeSymbols = stmts collect {
       case t @ q"val ${name: TermName}: $_ = $_" => t.symbol
@@ -456,9 +468,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           }}
           
           override def liftTypeUncached(tp: Type, wide: Boolean): b.TypeRep = {
-            val tname = tp.typeSymbol.name
-            typeSymbols get tname.toTypeName filter (_ === tp.typeSymbol) map { sym =>
-              b.typeHole(tname.toString)
+            val tname = tp.typeSymbol.owner.name optionIf tp <:< ExtrudedType
+            // ^ in case of type hole t.Typ, the name we are looking for is no more the name of the type itself (Typ),
+            // but the name of the owner (t). (The type itself used to be just 't' before.)
+            tname flatMap (typeSymbols get _.toTypeName) filter (_ === tp.typeSymbol) map { sym =>
+              b.typeHole(tname.get.toString)
             } getOrElse super.liftTypeUncached(tp, wide)
           }
           
@@ -555,7 +569,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           case Left(vname) => termTypesToExtract(vname)
           case Right(tname) => typeTypesToExtract(tname) // TODO B/E
         }
-        debug("Extracted Types: "+extrTyps.mkString(", "))
+        debug("Extracted Types: "+extrTyps.map(showCode(_)).mkString(", "))
         
         val extrTuple = tq"(..$extrTyps)"
         //debug("Type to extract: "+extrTuple)

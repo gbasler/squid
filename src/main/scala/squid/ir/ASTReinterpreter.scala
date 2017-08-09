@@ -174,7 +174,9 @@ trait ASTReinterpreter { ast: AST =>
               apply(body.rep)}" // Note: if subs took a partial function, we could avoid the need for a `boundVars` context
             
           // The rule above will not match if `tv` is not a subtype of AnyRef: value null will extract type Null that will not merge successfully
-          case ir"var ${v @ BV(bv)}: $tv = null; $body: $tb" =>
+          // Note: now that hole types are not typed as local traits but local type members instead, they are no more seen as extending AnyRef,
+          // and thus `asInstanceOf` is now necessary (not satisfactory); a proper way to solve this would be an AnyRef bound on tv
+          case ir"var ${v @ BV(bv)}: $tv = null.asInstanceOf[tv]; $body: $tb" =>
             assert(!(tv <:< AnyRef))
             System.err.println(s"Warning: variable `${v rep}` of type `${tv}` (not a subtype of `AnyRef`) is assigned `null`.")
             val varName = newBase.freshName(bv.name optionUnless (_ startsWith "$") Else "v")

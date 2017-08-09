@@ -320,7 +320,11 @@ self: Base =>
 
 object QuasiBase {
   
-  /** Used to tag types generated for type holes, and to have a self-documenting name when the type is widened because of scope extrusion. */
+  /** Used to tag types generated for type holes, and to have a self-documenting name when the type is widened because of scope extrusion.
+    * Note: now that extracted type symbols are not generated from a local `trait` but instead from the `Typ` member of a local `object`, 
+    *   scope extrusion does not neatly widen extruded types to just `<extruded type>` anymore, but often things like:
+    *   `Embedding.IRType[MyClass.s.Typ]]`; but still this trait is important as it is used in, e.g., `QuasiTypeEmbedded` to customize the 
+    *   error on implicit type not found. */
   trait `<extruded type>`
   
 }
