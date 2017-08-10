@@ -46,6 +46,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     * TODO: actually use `unquotedTypes`!
     * TODO maybe this should go in QuasiMacros... */
   def applyQQ(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName],
+            typeBounds: Map[TypeName,EitherOrBoth[Tree,Tree]],
             unquotedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree], config: QuasiConfig): c.Tree = {
     
     //debug("HOLES:",holes)
@@ -64,7 +65,16 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     val traits = typeHoles flatMap { typ => 
       // Note: cannot use undefined `type` members here, as "only classes can have declared but undefined members"
       val trm = typ.toTermName
-      q"object $trm { type Typ <: _root_.squid.quasi.QuasiBase.`<extruded type>` }" :: q"type $typ = $trm.Typ" :: Nil }
+      //we used to generate: q"object $trm { type Typ <: _root_.squid.quasi.QuasiBase.`<extruded type>` }"
+      val extrudedType = tq"_root_.squid.quasi.QuasiBase.`<extruded type>`"
+      val (lb,ub) = typeBounds get typ map {
+        case First (lb   ) => lb -> tq"Any" // extrudedType
+        // ^ when a lower bound is present, keeping `<extruded type>` in the upper bound will usually make bad bounds, so we do not put it in this case
+        case Second(   ub) => tq"Nothing" -> tq"$extrudedType with $ub"
+        case Both  (lb,ub) => lb -> ub // tq"$extrudedType with $ub"
+      } getOrElse tq"Nothing" -> extrudedType
+      q"object $trm { type Typ >: $lb <: $ub }" :: q"type $typ = $trm.Typ @_root_.squid.quasi.Extracted" :: Nil
+      }
     
     val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
     
@@ -468,7 +478,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           }}
           
           override def liftTypeUncached(tp: Type, wide: Boolean): b.TypeRep = {
-            val tname = tp.typeSymbol.owner.name optionIf tp <:< ExtrudedType
+            val tname = tp.typeSymbol.owner.name optionIf (ExtractedType unapply tp isDefined)
             // ^ in case of type hole t.Typ, the name we are looking for is no more the name of the type itself (Typ),
             // but the name of the owner (t). (The type itself used to be just 't' before.)
             tname flatMap (typeSymbols get _.toTypeName) filter (_ === tp.typeSymbol) map { sym =>

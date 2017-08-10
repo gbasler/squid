@@ -9,6 +9,7 @@ import squid.lang.InspectableBase
 import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
+import scala.annotation.StaticAnnotation
 import scala.collection.mutable
 
 
@@ -320,14 +321,21 @@ self: Base =>
 
 object QuasiBase {
   
-  /** Used to tag types generated for type holes, and to have a self-documenting name when the type is widened because of scope extrusion.
+  /** Used to tag (the upper bound of) types generated for type holes, 
+    * and to have a self-documenting name when the type is widened because of scope extrusion.
     * Note: now that extracted type symbols are not generated from a local `trait` but instead from the `Typ` member of a local `object`, 
     *   scope extrusion does not neatly widen extruded types to just `<extruded type>` anymore, but often things like:
-    *   `Embedding.IRType[MyClass.s.Typ]]`; but still this trait is important as it is used in, e.g., `QuasiTypeEmbedded` to customize the 
-    *   error on implicit type not found. */
-  trait `<extruded type>`
+    *   `Embedding.IRType[MyClass.s.Typ]]`.
+    *   Still, this trait is useful as it is used in, e.g., `QuasiTypeEmbedded` to customize the error on implicit 
+    *   type not found. It's also the inferred type for things like `case List($a:$ta,$b:$tb)`, which prompts 
+    *   a QQ error -- this is not really necessary, just a nicety. 
+    *   Eventually we can totally get rid of that bound, as QuasiEmbedder now internally relies on `Extracted` instead. */
+  type `<extruded type>`
   
 }
+
+/** Annotation used on extracted types */
+class Extracted extends StaticAnnotation
 
 
 

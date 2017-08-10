@@ -21,11 +21,11 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       
       debug(s"Lifting unknown type $tp (${tp.widen.dealias})")
       
-      if (tp.widen =:= typeOf[QuasiBase.`<extruded type>`] || tp.widen.contains(symbolOf[QuasiBase.`<extruded type>`])) {
+      if (tp.widen =:= ExtrudedType || tp.widen.contains(ExtrudedType.typeSymbol)) { // was: contains(symbolOf[QuasiBase.`<extruded type>`])
         debug(s"Detected widened type hole: ${tp.widen}")
-        val purged = tp.toString.replaceAll(typeOf[QuasiBase.`<extruded type>`].toString, "<extruded type>")
+        val purged = tp.toString.replaceAll(ExtrudedType.toString, "<extruded type>")
         throw EmbeddingException(s"Precise info for extracted type was lost, " +
-          s"possibly because it was extruded from its defining scope" +
+          s"possibly because it was extruded from its defining scope " +
           s"or because the least upper bound was obtained from two extracted types, in: $purged")
       }
       
@@ -74,7 +74,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <
       }
       
       
-      if (tp <:< typeOf[QuasiBase.`<extruded type>`] && !(tp <:< Null)) { // Note that: tp <:< Nothing ==> tp <:< Null so no need for the test
+      if (tp <:< ExtrudedType && !(tp <:< Null) // Note that: tp <:< Nothing ==> tp <:< Null so no need for the test
+          || ExtractedType.unapply(tp).nonEmpty) {
         
         throw EmbeddingException(s"Could not find type evidence associated with extracted type `$tp`.")
         

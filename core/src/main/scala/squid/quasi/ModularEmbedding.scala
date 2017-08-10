@@ -49,6 +49,14 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   lazy val squidLibTypSym = loadTypSymbol(encodedTypeSymbol(typeOf[squid.lib.`package`.type].typeSymbol.asType))
   
   lazy val ExtrudedType = mir.typeOf[QuasiBase.`<extruded type>`]
+  lazy val Extracted = mir.typeOf[squid.quasi.Extracted]
+  object ExtractedType {
+    def unapply(tp: Type) = tp |>? {
+      case AnnotatedType(annotations, underlying)
+        if annotations map (_.tree.tpe) collectFirst { case Extracted => } isDefined
+        => Some(underlying)
+    }
+  }
   
   
   private val typSymbolCache = mutable.HashMap[String, TypSymbol]()
@@ -456,7 +464,10 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   /** Note: we currently use `moduleType` for types that reside in packages and for objects used as modules...
     * Note: widening may change Int(0) to Int (wanted) but also make 'scala' (as in 'scala.Int') TypeRef-matchable !! */
-  def liftTypeUncached(tp: Type, wide: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, { tp match {
+  def liftTypeUncached(tp: Type, wide: Boolean): TypeRep = typeCache.getOrElseUpdate(tp,
+  {
+  lazy val isExtracted = (ExtractedType unapply tp isDefined)
+  tp match {
     //case _ if tp =:= Any =>
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
@@ -476,7 +487,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       liftType(etp)
       */
       
-    case AnnotatedType(annotations, underlying) =>
+    case AnnotatedType(annotations, underlying) if !isExtracted => // ignore all annotations that are not '@Extracted'
       liftType(underlying)
 
     case SingleType(pre, sym) if sym.isStatic && sym.isModule => // TODO understand diffce with ThisType 
@@ -489,7 +500,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< ExtrudedType) && prefix != NoPrefix =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && prefix != NoPrefix && !isExtracted  =>
       //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
       dbg(s"TypeRef($prefix, $sym, $targs)")
       

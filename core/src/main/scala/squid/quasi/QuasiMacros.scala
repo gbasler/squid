@@ -163,6 +163,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     var holes: List[(Either[TermName,TypeName], Tree)] = Nil // (Left: value hole; Right: type hole, original hole tree)
     val splicedHoles = mutable.Set[TermName]()
+    var typeBounds: List[(TypeName, EitherOrBoth[Tree,Tree])] = Nil
     
     // Keeps track of which holes still have not been found in the source code
     val remainingHoles = mutable.Set[TermName](builder.holes.keysIterator.toSeq: _*)
@@ -258,6 +259,18 @@ class QuasiMacros(val c: whitebox.Context) {
       case Ident(name: TermName) if builder.holes.contains(name) =>
         mkTermHole(name, false)
         
+      // Interprets bounds on extracted types, like in: `case List[$t where (Null <:< t <:< AnyRef)]`:
+      case tq"${Ident(name: TypeName)} where $bounds" if isUnapply && builder.holes.contains(name.toTermName) =>
+        val HoleName = builder.holes(name.toTermName).name.get.toTypeName // FIXME
+        bounds match {
+          case tq"$lb <:< ${Ident(HoleName)}"         => typeBounds ::= HoleName -> First (lb   )
+          case tq"${Ident(HoleName)} <:< $ub"         => typeBounds ::= HoleName -> Second(   ub)
+          case tq"$lb <:< ${Ident(HoleName)} <:< $ub" => typeBounds ::= HoleName -> Both  (lb,ub)
+          case _ => throw EmbeddingException(s"Illegal bounds specification shape: `${showCode(bounds)}`. " +
+            s"It shoule be of the form: `LB <:< $HoleName` or `$HoleName <:< UB` or `LB <:< $HoleName <:< UB`.")
+        }
+        rec(Ident(name))
+        
       case Ident(name: TypeName) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
         val hole = builder.holes(name.toTermName)
         remainingHoles -= name.toTermName
@@ -329,7 +342,7 @@ class QuasiMacros(val c: whitebox.Context) {
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, unquotedTypes, scrutinee, config)
+    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, typeBounds.toMap, unquotedTypes, scrutinee, config)
     catch {
       case e: EmbeddingException if hasStuckSemi.isDefined => 
         c.warning(c.enclosingPosition, s"It seems you tried to annotate free variable `${hasStuckSemi.get}` with `:`, " +
