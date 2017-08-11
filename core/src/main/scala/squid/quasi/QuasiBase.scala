@@ -10,6 +10,7 @@ import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
 import scala.annotation.StaticAnnotation
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable
 
 
@@ -62,7 +63,17 @@ self: Base =>
   // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
   abstract class IR[+T, -C] protected () extends TypeErased with ContextErased {
     type Typ <: T
-    type Ctx >: C
+    
+    // type Ctx >: C
+    /* ^ this is the 'type-correct' definition: given an x:IR[T,C], we cannot really conclude that the "real" context of
+     * x is C, since because of contravariance it *could be* any type less specific than C, such as Any. */
+    type Ctx = C @uncheckedVariance
+    /* ^ however this definition is much more useful, because we sometimes want to refer to a term's "observed" context 
+     * even when it may not be the "real", most specific context.
+     * This is safe, because Ctx is a phantom type and so no values will be misinterpreted because of this variance 
+     * violation. 
+     * An alternative (more cumbersome) solution that does not require @uncheckedVariance is to use type inference, as in:
+     *   `def ctxRef[C](x:IR[Any,C]) = new{ type Ctx = C }; val c = ctxRef(x); x : IR[T,c.Ctx]` */ 
     
     val rep: Rep
     
@@ -89,7 +100,7 @@ self: Base =>
     
     override def toString: String = {
       val repStr = showRep(rep)
-      val quote = if (repStr contains '\n') "\"" * 3 else "\""
+      val quote = if ((repStr contains '\n') || (repStr contains '"')) "\"" * 3 else "\""
       s"ir$quote$repStr$quote"
     }
   }

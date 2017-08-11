@@ -442,6 +442,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     case _: DefDef =>
       throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
        
+    case _ if x.symbol.isMethod =>
+      throw EmbeddingException.Unsupported(s"Reference to local method `${x.symbol.name}`")
+      
     case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
       
   }

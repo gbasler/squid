@@ -562,10 +562,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
       case Some(selector) =>
         
-        val noSefl = q"class A {}" match { case q"class A { $self => }" => self }
         val termHoleInfoProcessed = termHoleInfo mapValues {
           case (scp, tp) =>
-            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSefl, scp map { case(n,t) => q"val $n: $t" } toList))
+            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSelfType, scp map { case(n,t) => q"val $n: $t" } toList))
             (scpTyp, tp)
         }
         val termTypesToExtract = termHoleInfoProcessed map {
@@ -602,8 +601,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val splicedValKeys = splicedHoles.map(_.toString)
         
         
-        //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
-        val termType = tq"$Base.SomeIR" // We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case dsl"..." => }'
+        //val termType = tq"$Base.IR[${typedTree.tpe}, ${termScope.last}]"
+        // ^ We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case ir"..." => }'
+        val termType = tq"$Base.SomeIR"
         
         val typeInfo = q"type $$ExtractedType$$ = ${typedTree.tpe}" // Note: typedTreeType can be shadowed by a scrutinee type
         val contextInfo = q"type $$ExtractedContext$$ = ${termScope.last}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
