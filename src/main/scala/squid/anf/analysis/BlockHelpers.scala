@@ -77,6 +77,8 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
     
     def rebuild(stmtTransfo: SelfTransformer, resultTransfo: SelfTransformer): IR[T,C]
     
+    def withResult[R](r: IR[R,C0]): IR[R,C] // TODO generalize..?
+    
   }
   
   object Block {
@@ -96,6 +98,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
         bl._1 map { case Left((v,r)) => Left(v,r |> stmtTransfo.pipeline) case Right(r) => Right(r |> stmtTransfo.pipeline) },
         bl._2 |> resultTransfo.pipeline
       )))
+      def withResult[R](result: IR[R,C0]): IR[R,C] = IR(constructBlock((bl._1, result.rep)))
     })
   }
   

@@ -120,8 +120,9 @@ trait IdiomsNormalizer extends SimpleRuleBasedTransformer { self =>
       
     case ir"($str:String).toString" => ir"$str"
       
-    //case ir"($x:$t).asInstanceOf[t]" => ir"$x:$t" // FIXME... access to messed up "static" type path
-    case ir"(($x:$t):Any).asInstanceOf[t]" => ir"$x:$t"
+    case ir"($x:$t).asInstanceOf[t]" => ir"$x:$t"
+      
+    case ir"identity[$t]($x)" => x
       
   }
   

@@ -180,7 +180,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
       case LetIn(p, v, RepDef(Ascribe(b,tp))) if b.dfn === p => ascribe(v,tp)
         
       // Unit value normalization:
-      case LetIn(p, v, b) if p.typ <:< UnitType && !(p.typ <:< NothingType) => Imperative(v)(inline(p, b, () |> const))
+      case LetIn(p, v, b) if p.typ <:< UnitType && !(p.typ <:< NothingType) && !(p.isExtractedBinder) => Imperative(v)(inline(p, b, () |> const))
       case Imperative(Seq(e),r) if r.isPure && (e.typ <:< UnitType) && (e.typ <:< r.typ) => e
         
       case Imperative(effs, ret) =>

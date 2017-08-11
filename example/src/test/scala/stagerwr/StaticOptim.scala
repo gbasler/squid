@@ -25,7 +25,7 @@ object StaticOptim extends App {
     
     gravityForce(pl0, pl1) alsoApply println
     
-    dbg_optimize{ gravityForce(pl0, pl1) } alsoApply println
+    /*dbg_*/optimize{ gravityForce(pl0, pl1) } alsoApply println
     //optimize{ distance(pl0.pos, pl1.pos) } alsoApply println
     
   }
