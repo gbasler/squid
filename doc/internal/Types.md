@@ -14,7 +14,7 @@ so it does not do the work several times.
 
 
 
-## Misc
+## Pattern Matching, a.k.a Extraction
 
 ### Method Parameters
 
@@ -27,4 +27,25 @@ and this difference would be detected while extracting the _values_.
 
 However, currently we _need_ to perform the type parameter extraction,
 as `Option.empty[$t]` should be able to extract `t = Int` from `Option.empty[Int]`.
+
+
+Note: currently (as of Aug'17), we match method type parameters covariantly, which is unsound,
+as it makes us match, for example, `val a = ArrayBuffer[Int]; ...` with `case ir"val $arr = ArrayBuffer[Any](); $body:$bt"`.
+The right thing to do would be to determine the matching variance based on the method signature (looking at the return type of method `ArrayBuffer.apply`, in this case).  
+A workaround for now is to use a pattern guard: `if arr.typ =:= irTypeOf[ArrayBuffer[Any]]`.
+
+
+
+
+
+### Typing of Extraction Holes
+
+It's normal to have insertions typed as (`base.$$[Nothing]:T`) when using quasiquotes (and looking at the debugging output); the type parameter is only here to support quasicode.
+
+For example, the debugging output can look like:
+
+```
+Typed[xt]: squid.anf.analysis.BlockHelpers.placeHolder[xt](BlockHelpers.this.Predef.base.$$[Nothing](scala.Symbol.apply("ANON_HOLE$macro$15")))
+```
+
 
