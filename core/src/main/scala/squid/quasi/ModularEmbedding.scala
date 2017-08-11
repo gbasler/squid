@@ -80,9 +80,11 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   def getTypSym(tsym: TypeSymbol): TypSymbol = {
     // Maybe cache this more somehow? (e.g. per compilation unit):
-    val cls = if (tsym == ObjectSym) "scala.Any" // scala is inconsistent in what version of == it uses -- for unrefined
-                                                 // types it's Any.== and for type parameters it's Object.== (ugly...)
-      else encodedTypeSymbol(tsym)
+    
+    val cls = encodedTypeSymbol(tsym)
+    // ^ we used to special-case `tsym == ObjectSym` returning "scala.Any", but that caused problems down
+    // the line (made `irTypeOf[AnyRef]` be represented as `irTypeOf[Any]`).
+    // The root problems which motivated this hack seem to have been fixed (cf: symbol (owner) of `==` calls).
     
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)

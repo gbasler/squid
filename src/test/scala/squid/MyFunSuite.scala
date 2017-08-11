@@ -2,9 +2,10 @@ package squid
 
 import org.scalatest.FunSuite
 import squid.ir.AST
+import squid.ir.SimpleANF
+import squid.ir.SimpleAST
 import squid.lang.InspectableBase
 import utils.meta.RuntimeUniverseHelpers.sru
-
 import utils.GenHelper
 
 class MyFunSuite[DSL <: AST](override val DSL: DSL = TestDSL) extends MyFunSuiteBase[DSL](DSL) { funs =>
@@ -38,7 +39,9 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
   }
   
   private def showBest(x:Any) = x match {
-    case r: DSL.Rep => r|>DSL.showRep
+    //case r: DSL.Rep => r |> DSL.showRep // this no longer works, because Rep is an erased type
+    case (_: SimpleAST # Rep) | (_: SimpleANF # Rep) => // so for now we just special-case actual known Rep classes
+      x.asInstanceOf[DSL.Rep] |> DSL.showRep
     case _ => x.toString
   }
   

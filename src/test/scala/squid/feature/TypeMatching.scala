@@ -289,7 +289,18 @@ class TypeMatching extends MyFunSuite {
         eqt(a, irTypeOf[Int])
         eqt(b, irTypeOf[String])
         eqt(t, irTypeOf[Abst[Int,AnyRef]]) // Q: why does it show as Abst[Int,Any]?
-        eqt(t, irTypeOf[Abst[Int,Any]])    // Q: and even compares equal to it?!
+        //eqt(t, irTypeOf[Abst[Int,Any]])    // Q: and even compares equal to it?!
+    }
+    
+  }
+  
+  test("Bounds Checking") {
+    
+    // cf. https://github.com/LPTK/Squid/issues/15
+    
+    ir"List(0)" matches {
+      case ir"$ls:List[$t where (t <:< String)]" => // fail // FIXME
+      case ir"$ls:List[$t where (t <:< AnyVal)]" => eqt(t, irTypeOf[Int])
     }
     
   }
