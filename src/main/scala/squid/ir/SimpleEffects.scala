@@ -145,6 +145,8 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Float]
   transparentTyps += typeSymbol[Double]
   transparentTyps += typeSymbol[String]
+  transparentTyps += typeSymbol[Symbol]
+  transparentTyps += typeSymbol[Symbol.type]
   
   // TODO should make these @read but not pure:
   //pureTyps += sru.typeOf[Any].typeSymbol.asType // for, eg, `asInstanceOf`, `==` etc.
