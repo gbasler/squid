@@ -348,8 +348,9 @@ object QuasiBase {
 /** Annotation used on extracted types */
 class Extracted extends StaticAnnotation
 
-
-
+object SuppressWarning {
+  implicit object `scrutinee type mismatch`
+}
 
 
 

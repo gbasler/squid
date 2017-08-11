@@ -162,7 +162,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     } getOrElse {
       try {
         val typed = c.typecheck(shallowTree(tree))
-        if (ascribedTree.nonEmpty) {
+        if (ascribedTree.nonEmpty && c.inferImplicitValue(typeOf[SuppressWarning.`scrutinee type mismatch`.type]).isEmpty) {
           val expanded = unapply.get.tpe map (_.dealias)
           c.warning(c.enclosingPosition, s"""Scrutinee type: ${unapply.get.tpe}${
             if (expanded == unapply.get.tpe) ""

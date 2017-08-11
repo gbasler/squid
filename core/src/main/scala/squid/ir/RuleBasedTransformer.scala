@@ -272,7 +272,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
               }
               else {
                 val args_names = args.zipWithIndex map (ai => ai._1 -> TermName("__"+ai._2))
-                q"$unapp flatMap { case (..${args_names map { case (arg, nam) => pq"$nam: ${arg.tpe.widen}" }}) => ${
+                q"$unapp flatMap { case (..${args_names map { case (arg, nam) => pq"$nam: ${arg.tpe.widen} @unchecked" }}) => ${
                 // using `.widen` so that things like `:String("abc")` become just `:String` ^
                   (args_names :\ body) {
                     case ((arg, nam), acc) => patMat(q"$nam", arg, acc)

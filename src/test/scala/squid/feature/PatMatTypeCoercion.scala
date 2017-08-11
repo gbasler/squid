@@ -12,6 +12,8 @@ class PatMatTypeCoercion extends MyFunSuite {
   
   test("Simple Type Coercion") {
     
+    import quasi.SuppressWarning.`scrutinee type mismatch`
+    
     // TODO: a way to remove the warning... without actually throwing the type info (which is being used)
     def foo[T:IRType](x : IR[List[T],Any]) = x match {
       case ir"List[$t0]($x)" => ir"$x:T" // compiles
