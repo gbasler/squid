@@ -514,8 +514,6 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         // TODO check conflicts in contexts
         
-        if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
-        
         // Notes: we used to just compute `glb(termScope)`, but when quasiquotes have context `{}` (like `Const(42)`)
         // they introduce pesky AnyRef in the refined type; so now we make sure to remove it from the inferred context.
         // The reason `Const` returns an `IR[T,{}]` and not an `IR[T,Any]` is mostly historical/aesthetical, and is debatable
@@ -523,13 +521,15 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           case RefinedType(typs,scp) => 
             //RefinedType(typs filterNot (AnyRef <:< _ ), scp)
             internal.refinedType(typs filterNot (AnyRef <:< _ ), scp)
-        }
+        } |>=? { case glb if AnyRef <:< glb => Any }
         // To make things more consistent, we could say that `{}` is used whenever the context is empty, so we could 
         // replace `glb(termScope)` above with `glb(AnyRef :: termScope)`. But this causes problems down the line,
         // specifically when trying to use contravariance to use a context-free term with type IR[T,C] (where we _do not_ have `C <: AnyRef`)
         // producing errors like:
         //    error]  found   : BlockHelpers.this.IR[Unit,AnyRef]
         //    [error]  required: BlockHelpers.this.IR[Unit,C]
+        
+        if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)} ~> $cleanedUpGLB")
         
         val ctxBase = tq"${cleanedUpGLB}"
         // Older comment:

@@ -118,14 +118,16 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       
       override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = x match {
         case Select(This(typName),fieldName) 
-        if x.symbol != null && (x.symbol.isParameter || x.symbol.isMethod) => // otherwise we capture things like `scala.collection.immutable`
-        /*
-            ^ this is still not relly satisfying. 
-            We're going to capture method references that may have a static path to them and would be better
-            Ideally we'd check whether there is a static (and accessible from reflection) path first
+          if x.symbol != null 
+          && (x.symbol.isParameter || x.symbol.isMethod || x.symbol.isPrivateThis) // otherwise we capture things like `scala.collection.immutable`
+        /* ^ we make a special case for `isPrivateThis` because it is the only case (I know of) where a class field will 
+            not have `isMethod` return true... that's still a heuristic (what if non-fields/parameters are PrivateThis?) */
+        /*  The solution above (a case guarded by ad-hoc conditions) is not relly satisfying. 
+            We're going to capture method references that may have a static path to them and would be better with a static access.
+            Ideally we'd check whether there is a static (and accessible from reflection) path first in the guard of the case.
             OTOH, does it really happen to have a static path to a local method, that will be accessible via the QQ's relfection?
-            Note: `!x.symbol.isPackage` is not enough, as then we end up with things like the `List` of `scala.immutable.List`
-        */
+            Note: `!x.symbol.isPackage` is not enough, as then we end up with things like the `List` of `scala.immutable.List` */
+        =>
           //val thisName = s"$typName:this:$fieldName"
           val thisName = s"$typName.this.$fieldName"
           thisNames += TermName(thisName)
