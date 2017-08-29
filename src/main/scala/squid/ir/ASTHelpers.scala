@@ -14,7 +14,10 @@ trait ASTHelpers extends Base { self: AST =>
   
   
   // TODO implement and use `traverse` method here
-  def hasHoles(r: Rep): Boolean = r |> traversePartial{case RepDef(Hole(_)|SplicedHole(_)) => return true} thenReturn false
+  def hasImmediateHoles(r: Rep): Boolean = r |> traversePartial { 
+    case RepDef(Abs(_,_)) => false
+    case RepDef(Hole(_)|SplicedHole(_)) => return true
+  } thenReturn false
   
   def traversePartial(f: PartialFunction[Rep, Boolean]) = traverse(f orElse PartialFunction(_ => true)) _
   

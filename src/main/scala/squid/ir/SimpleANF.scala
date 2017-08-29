@@ -56,11 +56,11 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     
     def isTrivial = !effect.immediate
     
-    lazy val hasHoles = anf.hasHoles(this)
+    lazy val hasImmediateHoles = anf.hasImmediateHoles(this)
     
     lazy val effect = anf.effect(this)
     
-    def isPure = isTrivial && !hasHoles
+    def isPure = isTrivial && !hasImmediateHoles
     
     lazy val isHole: Bool = dfn match {
       case Hole(_) | SplicedHole(_) => true
@@ -128,7 +128,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     val statements = mutable.Buffer[Either[Val -> Rep, mutable.Buffer[Rep]]]()
     
     def makeStmtIfNecessary(letBound: Bool)(r: Rep): Rep = /*println(s"mkStmt $r") before*/ r match {
-      case _ if r.isTrivial && !(r.hasHoles && isImperativeCall) => r  // Note: not sure between `r.hasHoles` and `r.isHole` here (used to be `r.isHole`)
+      case _ if r.isTrivial && !(r.hasImmediateHoles && isImperativeCall) => r  // Note: not sure between `r.hasHoles` and `r.isHole` here (used to be `r.isHole`)
       // ^ Reason for the `!r.hasHoles` test is that we don't want to have holes disappear from patterns (provokes extractor crashes)
       // A better solution would be to have aggregated usage info in `r` and inline a term containing holes only when the term is used at least once in the body.
       case LetIn(p, v, b) =>
@@ -171,7 +171,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     
     val normal = dfn match {
       //case Apply(f,a) => Apply(f,a,dfn.typ) |> Rep
-      case LetIn(p, v, b) if v.isPure && !b.hasHoles =>
+      case LetIn(p, v, b) if v.isPure && !b.hasImmediateHoles =>
         //println(s"Inl $p as $v in $b")
         inline(p, b, v)
         
