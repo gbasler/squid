@@ -3,8 +3,6 @@ package compiler
 
 import Embedding.Predef._
 import Embedding.Quasicodes._
-import java.io.File
-import java.io.PrintStream
 
 import example.VarNormalizer
 import squid.utils._
@@ -16,26 +14,45 @@ import Embedding.Rep
 import Embedding.{Block, AsBlock, WithResult, GeneralClosure}
 
 
+class DbgCompiler extends Compiler { override val printResults = true }
+
 class Compiler extends Optimizer {
   
   val base: Embedding.type = Embedding
   
+  val printResults = false
+  
+  var ctx = Option.empty[scala.tools.nsc.io.File]
+  override def setContext(src:String) = {
+    val f = scala.tools.nsc.io.File(src)
+    if (f.exists) f.delete()
+    ctx = Some(f)
+  }
+  
+  def dump(phaseName:String,tree:base.Rep) = {
+    lazy val str = s"--- $phaseName ---\n"+base.showRep(tree)
+    if (printResults) println(str)
+    ctx foreach { _.appendAll(str+"\n") }
+  }
+  
   def pipeline = (r: Rep) => {
     
+    dump("Source",r)
+    
     val r0 = ImplFlowOptimizer pipeline r
-    println("--- ImplFlowOptimizer ---\n"+r0)
+    dump("ImplFlowOptimizer",r0)
     //r0
     
     val r1 = ImplLowering pipeline r0
-    println("--- ImplLowering ---\n"+r1)
+    dump("ImplLowering",r1)
     //r1
     
     //val r2 = FlatMapFusion pipeline r1
-    //println("--- FlatMapFusion ---\n"+r2)
+    //dump("FlatMapFusion",r2)
     ////r2
     
     val r3 = LowLevel pipeline r1
-    println("--- LowLevel ---\n"+r3)
+    dump("LowLevel",r3)
     r3
     
   }

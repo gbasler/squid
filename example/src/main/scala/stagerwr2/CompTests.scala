@@ -9,7 +9,8 @@ import compiler._
   * 
   */
 object CompTests extends App {
-  object C extends Compiler
+  //object C extends Compiler
+  object C extends DbgCompiler
   import Embedding.Predef._
   import Embedding.Quasicodes._
   import Strm._

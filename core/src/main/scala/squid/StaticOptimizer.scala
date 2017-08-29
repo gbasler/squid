@@ -11,6 +11,8 @@ import squid.lang.Optimizer
 import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
+object DumpFolder
+
 /** This is used to optimize snippets of Scala code at runtime by enclosing them within an `optimize{...}` block */
 class StaticOptimizer[Optim <: Optimizer] {
   
@@ -131,6 +133,21 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       }
     
     debug("Code: "+Base.showRep(newCode))
+    
+    val pos = c.enclosingPosition
+    
+    val dumpFolder = c.inferImplicitValue(c.typeOf[DumpFolder.type]) match {
+      case Ident(df) => Some(df.decodedName.toString)
+      case Select(_,df) => Some(df.decodedName.toString)
+      case EmptyTree => None
+      case t => 
+        c.warning(t.pos, s"DumpFolder implicit should be a value whose name is the desired path; found: ${showCode(t)}")
+        None
+    }
+    dumpFolder foreach { dumpFolder => 
+      val ctx = s"$dumpFolder/Dump_${pos.source.file.name}_${pos.line}"
+      Optim.setContext(ctx)
+    }
     
     newCode = Optim.optimizeRep(newCode)
     

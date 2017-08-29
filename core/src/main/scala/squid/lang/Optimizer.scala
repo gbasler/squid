@@ -13,4 +13,7 @@ trait Optimizer {
   
   def wrapOptim[A](id: String)(code: => A) = code
   
+  
+  def setContext(src:String) = ()
+  
 }
