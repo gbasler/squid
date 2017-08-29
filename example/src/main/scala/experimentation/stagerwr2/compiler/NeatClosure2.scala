@@ -12,6 +12,8 @@ abstract class AdHocPoly[X] { def apply[T](t: Code[T]): Code[X] => Code[T] }
 
 object NeatClosure2 { // FIXME make reopen polymorphic!
   
+  def mkFun[S,T](body: IR[T,{val x:S}]) = (x: Code[S]) => body subs 'x -> x
+  
   //def close[X:IRType,R,S](f: Code[X] => Code[R])(k: (Code[R], Code[S] => Code[X] => Code[S]) => Code[S]): Code[S] = {
   def close[X:IRType,R,S](f: Code[X] => Code[R])(k: (Code[R], AdHocPoly[X]) => Code[S]): Code[S] = {
     import base._
@@ -33,7 +35,7 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
           
         case ir"val x = Var[$xt]($init); $innerBody: Producer[B]" =>
           println("REC var "+init)
-          val innerBodyFun = NeatClosure.mkFun(innerBody)
+          val innerBodyFun = mkFun(innerBody)
           //rec(body)
           close(innerBodyFun) { (ib,reopenIb) =>
             //ir"val y = Var(uncheckedNullValue[$xt]); ${reopenIb(rec(ib))}(y)"
@@ -42,7 +44,7 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
           
         case ir"val x: $xt = $init; $innerBody: Producer[B]" =>
           println("REC val "+init)
-          val innerBodyFun = NeatClosure.mkFun(innerBody)
+          val innerBodyFun = mkFun(innerBody)
           close(innerBodyFun) { (ib,reopenIb) =>
             ir"val y = Var(uncheckedNullValue[$xt]); ${(y:Code[Var[xt.Typ]]) => reopenIb(rec(ib,ir"() => { $reset(); $y := $init }"))(ir"$y.!")}(y)"
           }
@@ -118,7 +120,7 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
         //case ir"val x: $xt = $init; $innerBody: Producer[B]" => // TODO
         case ir"val x = Var[$xt]($init); $innerBody: Producer[B]" =>
           println("REC "+init)
-          val innerBodyFun = NeatClosure.mkFun(innerBody)
+          val innerBodyFun = mkFun(innerBody)
           //rec(body)
           close(innerBodyFun) { (ib,reopenIb) =>
             //ir"val y = Var(uncheckedNullValue[$xt]); ${reopenIb(rec(ib))}(y)"
@@ -130,7 +132,7 @@ object NeatClosure2 { // FIXME make reopen polymorphic!
           
           //val innerBodyFun = innerBody : Code[Unit]
           val innerBodyFun = innerBody.asInstanceOf[Code[Producer[B]]] // FIXME
-          //val innerBodyFun = NeatClosure.mkFun(innerBody) // TODO FIXME
+          //val innerBodyFun = mkFun(innerBody) // TODO FIXME
           
           import Strm._
           
