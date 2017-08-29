@@ -155,4 +155,9 @@ trait Base extends TypingBase with quasi.QuasiBase {
   }
   
   
+  abstract class SymbolLoadingException(cause: Exception) extends Exception(cause)
+  case class MtdSymbolLoadingException(typ: TypSymbol, symName: String, index: Option[Int], cause: Exception) extends SymbolLoadingException(cause)
+  case class TypSymbolLoadingException(fullName: String, cause: Exception) extends SymbolLoadingException(cause)
+  
+  
 }

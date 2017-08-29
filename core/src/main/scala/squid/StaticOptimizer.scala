@@ -109,7 +109,15 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     }
     
     var newCode = //Optim.TranformerDebug.debugFor
-      ME(code)
+      try ME(code)
+      catch {
+        case EmbeddingException(msg) =>
+          c.abort(c.enclosingPosition, s"Embedding error: $msg")
+        case Base.TypSymbolLoadingException(fn,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access type symbol $fn. Perhaps it was defined in the same project.")
+        case Base.MtdSymbolLoadingException(tp,sn,idx,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
+      }
     
     debug("Code: "+Base.showRep(newCode))
     
