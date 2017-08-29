@@ -78,6 +78,25 @@ class Compiler extends Optimizer {
       }}
   ) with FixPointTransformer
   
+  //val HL = new Code.SelfTransformer with FixPointRuleBasedTransformer with BottomUpTransformer {
+  val HL = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+    rewrite {
+      // TODO: Q: make Sequence's map transparencyPropagating for this to work in more cases?
+      // FIXME this does not handle other functions like filter, take/drop etc... 
+      
+      case ir"($s: Sequence[$ta]).map[$tb]($f).map[$tc]($g)" =>
+        ir"$s.map($f andThen $g)"
+        
+      //case ir"val $ms = ($s: Sequence[$ta]).map[$tb]($f); $body: $bt" =>
+      case ir"($s: Sequence[$ta]).map[$tb]($f).flatMap[$tc]($g)" =>
+        ir"$s.flatMap($f andThen $g)"
+        
+      case ir"($s: Sequence[$ta]).flatMap[$tb]($f).flatMap[$tc]($g)" =>
+        ir"$s.flatMap($f(_) flatMap $g)"
+        
+    }
+  }
+  
   val CtorInline = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
     rewrite {
       case ir"val $s = new Sequence[$ta]($under,$size); $body: $bt" =>
@@ -117,9 +136,25 @@ class Compiler extends Optimizer {
         val zadd = if (z =~= ir{""}) ir"()" else ir"$strAcc ++= $z" // FIXME does not compile when inserted in-line... why?
         ir"val strAcc = new StringBuilder; $zadd; foreach($s){ s => strAcc ++= $body2.toString }; strAcc.result"
     }
+    
+    //object Linear {
+    //  // TODO use
+    //  //def unapply[C](x:IR[Any,C]): Option[IR[  ,C]] = 
+    //}
+    //
+    //rewrite {
+    //  case ir"val $ts = fromIndexed[$t]($indexed); $body: $bt" =>
+    //    val body2 = body rewrite {
+    //      case ir"flatMap($$ts, )"
+    //    }
+    //    body2
+    //}
+    
   }
+  object ImplFlowOptimizer extends Code.SelfTransformer with ImplFlowOptimizer
   
-  val FlatMapFusion = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+  //val FlatMapFusion = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
+  val FlatMapFusion = new Code.SelfTransformer with FixPointRuleBasedTransformer with BottomUpTransformer {
     import impl._
     import Code.Closure
     
@@ -127,21 +162,27 @@ class Compiler extends Optimizer {
       case ir"flatMap[$ta,$tb]($s)(a => ${Closure(clos)})" =>
         //println("CLOS: "+clos)
         import clos._
+        import squid.lib.Var
         
-        val fun2 = fun subs 'a -> Abort()
+        println(fun)
+        //val fun2 = fun subs 'a -> Abort()
+        //val fun2 = fun subs 'a -> ???
+        val fun2 = fun subs 'a -> ir"(aVar? : Var[Option[$ta]]).!.get"
         // ^ TODO could save the 'a' along with the environment...
         // ... when more methods are pure/trivial, it may often happen (eg `stringWrapper` that makes String an IndexedSeq)
         
         // Reimplementation of flatMap but using a variable for the Producer state and _not_ for the Producer, so it can be inlined.
         // Note: would probably be simpler to implement it in shallow as syntax sugar to use from here.
+        //  var aVar: Option[$ta] = None // FIXME allow this syntax...
         val res = ir"""
           val s = $s
+          val aVar = Var[Option[$ta]](None)
           var envVar: Option[E] = None
           (k => {
             var completed = false
             var continue = false
             while({
-              if (envVar.isEmpty) s { a => envVar = Some($env); false }
+              if (envVar.isEmpty) s { a => aVar := Some(a); envVar = Some($env); false }
               if (envVar.isEmpty) completed = true
               else {
                 if ($fun2(envVar.get) { b => continue = k(b); continue }) envVar = None
@@ -169,10 +210,12 @@ class Compiler extends Optimizer {
   import Code.Rep
   
   val phases: List[String->(Rep=>Rep)] = List(
+    "HL" -> HL.pipeline,
     "Impl" -> Impl.pipeline,
     "CtorInline" -> CtorInline.pipeline,
     //"DCE 0" -> DCE.pipeline,  // FIXME only remove effectless/just-read things
     "ImplOptim" -> ImplOptim.pipeline,
+    //"ImplFlowOptimizer" -> ImplFlowOptimizer.pipeline,
     "Imperative" -> Imperative.pipeline,
     "FlatMapFusion" -> FlatMapFusion.pipeline,
     "LateImperative" -> LateImperative.pipeline,
