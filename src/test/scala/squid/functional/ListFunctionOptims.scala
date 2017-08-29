@@ -44,6 +44,10 @@ class ListFunctionOptims extends MyFunSuite(OptimTestDSL) {
     
     assert(optimize { 'unoptimized } == 'optimized)
     
+    assert(optimize { optimize { 'unoptimized }.name } == "optimized")
+    
+    assert(optimize { optimize { 'unoptimized }.name + 'unoptimized } == "optimized'optimized")
+    
     assert(optimize { List(1,2,3) map (_ + 1) map (_ toDouble) } == List(2.0, 3.0, 4.0) )
     
     def foo(ls: List[Int], f: Int => Int) = optimize { ls map f map (_ + 1) map f }

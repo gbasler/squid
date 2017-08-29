@@ -167,6 +167,9 @@ self: IntermediateBase => // for 'repType' TODO rm
       case typ -> xtyp => // FIXME: is it okay to do this here? we should probably ensure typ is a TypeRef...
         val targs = typ.typeArgs
         
+        if (xtyp.typeSymbol.isParameter) return None alsoDo debug(s"Cannot match parameter type `$xtyp`.")
+        // ^ Sometimes we get this kind of types because of type-tag-based uninterpretedType
+        
         if (xtyp =:= ruh.Null) return None alsoDo debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
         
         def erron = None alsoDo debug(s"Method `baseType` returned an erroneous type.")
@@ -219,7 +222,10 @@ self: IntermediateBase => // for 'repType' TODO rm
           
         } else {
           
-          val base = xtyp.baseType(typ.typeSymbol)
+          val base = xtyp.baseType(typ.typeSymbol).orElse(NoType)
+          // ^ this `.orElse(NoType)` seems to semantically do nothing; in fact, it will convert a NoType in the wrong 
+          // universe to a NoType in our current universe so that the comparison below `base == NoType` works correctly.
+          // The reason we sometimes get types from different universes (a.k.a. alien types) is too gruesome to be explained here.
           
           val baseTargs = if (base == NoType) {
             debug(s"$xtyp not an instance of ${typ.typeSymbol}")

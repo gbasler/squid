@@ -47,6 +47,7 @@ trait SimpleEffects extends AST {
     }
   }
   
+  def addTransparentMethod(m: MtdSymbol): Unit = transparentMtds += m
   def isTransparentMethod(m: MtdSymbol): Bool = {
     transparentMtds(m) || !opaqueMtds(m) && {
       val r = (
