@@ -150,6 +150,10 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     val objName = objDef.name
     val clsName = objName.toTypeName
     
+    val reservedName = Set("Class","Object","Defs")
+    if (reservedName(objName.toString)) throw EmbeddingException(s"@embed class or object cannot be named any of: " + 
+      reservedName.mkString(", "))
+    
     var mangledCount = 0
     def mangledName(name: TermName) = TermName(s"_${mangledCount}_") alsoDo (mangledCount += 1)
     
