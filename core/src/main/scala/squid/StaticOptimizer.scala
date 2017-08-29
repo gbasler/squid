@@ -93,7 +93,18 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     val varRefs = collection.mutable.Buffer[(String, Tree)]()
     
+    val thisNames = collection.mutable.Set[Name]()
+    
     object ME extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
+      import base._
+      
+      override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = x match {
+        case Select(This(typName),fieldName) if x.symbol != null && x.symbol.isMethod =>
+          val thisName = s"$typName:this:$fieldName"
+          thisNames += TermName(thisName)
+          base.hole(thisName, liftType(x.tpe))
+        case _ => super.liftTerm(x,parent,expectedType,inVarargsPos)
+      }
       
       override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
           
@@ -132,7 +143,18 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     val MB = new MBM.ScalaReflectionBase
     
     //val res = Optim.base.scalaTreeIn(MBM)(MB, newCode)
-    val res = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+    //val res = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+    val res = {
+      val r = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+      new Transformer { // replacing the names introduced for X.this.y trees
+        override def transform(x: Tree) = x match {
+          case Ident(name) if thisNames(name) =>
+            val Seq(typ,ths,field) = name.toString.splitSane(':')
+            Select(This(TypeName(typ)),TermName(field))
+          case _ => super.transform(x)
+        }
+      } transform r
+    }
     
     // This works but is unnecessary, as currently holes in ScalaReflectionBase are just converted to identifiers
     //res = MB.substitute(res, varRefs.toMap)
