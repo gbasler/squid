@@ -81,6 +81,110 @@ class OptimTests extends FunSuite {
     }
     
   }
+  test("FlatMap") {
+    import Sequence._
+    
+    val ls = IndexedSeq[IndexedSeq[Char]]("lol","okay","test")
+    
+    /*
+    //val c0 = ir{(xs:Iterable[Iterable[Char]]) => fromIterable(xs).flatMap(a => fromIterable(a)).fold(0)((ac,_) => ac + 1)}
+    //val c0 = ir{(xs:IndexedSeq[IndexedSeq[Char]]) => fromIndexed(xs).flatMap(a => fromIndexed(a)).fold(0)((ac,_) => ac + 1)} // FIXME flatMap fusion does not kick in
+    val c0 = ir{(xs:IndexedSeq[IndexedSeq[Char]]) => fromIndexed(xs).flatMap(a => fromIterable(a)).fold(123)((ac,_) => ac + 1)} // here it does
+    val r0 = fromIndexed(ls).flatMap(a => fromIterable(a)).fold(123)((ac,_) => ac + 1)
+    
+    Compiler.wrapOptim("FlatMap") {
+      val r = Compiler.optimize(c0)
+      assert((ls |> r.run) == r0)
+    }
+    */
+    
+    
+    val c1 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
+      fromIndexed(xs).flatMap(a => fromIndexed(a).flatMap(b => fromIndexed(b))).fold(123)(_ + _)
+    }
+    
+    Compiler.wrapOptim("FlatMapInFlatMap") {
+      val r = Compiler.optimize(c1)
+      //println(r.run.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
+      println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
+      //assert((ls |> r.run) == r0)
+    }
+    
+    
+    //val c2 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
+    val c2 = ir{ (xs: IndexedSeq[IndexedSeq[Int]]) => 
+      //fromIndexed(xs).flatMap(a => fromIndexed(a)).flatMap(b => fromIndexed(b)).fold(123)(_ + _)
+      //fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
+      fromIndexed(xs).map(fromIndexed).flatMap(b => b).fold(123)(_ + _) // FIXedME doesn't fuse
+    }
+    
+    Compiler.wrapOptim("MapThenFlatMap") {
+      val r = Compiler.optimize(c2)
+      //println(r.run.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
+      //println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
+      println(r.compile.apply(IndexedSeq(IndexedSeq(1,2,3))))
+      //assert((ls |> r.run) == r0)
+    }
+    
+    
+    val c3 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
+      fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
+    }
+    
+    Compiler.wrapOptim("FlatMapThenFlatMap") {
+      val r = Compiler.optimize(c3)
+      println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
+      //assert((ls |> r.run) == r0)
+    }
+    
+  }
+  
+  test("Zip") {
+    import Sequence._
+    
+    val xs = IndexedSeq(1,2,3)
+    //val ys = IndexedSeq('a, 'b, 'c, 'd)
+    val ys = Seq('a, 'b, 'c, 'd)
+    
+    /*
+    //val c0 = ir{(xs:IndexedSeq[Int],ys:IndexedSeq[Symbol]) => fromIndexed(xs)}
+    val c0 = ir{(xs:IndexedSeq[Int],ys:Iterable[Symbol]) => 
+      fromIndexed(xs).zip(fromIterable(ys).map(_.name)).fold("")((acc,xy) => acc + xy._1 + ":" + xy._2 + "; ")}
+    //val r0 = fromIndexed(ls).flatMap(a => fromIterable(a)).fold(123)((ac,_) => ac + 1)
+    
+    Compiler.wrapOptim("ZipLinearLinear") {
+      val r = Compiler.optimize(c0)
+      println(r.run.apply(xs,ys))
+      //assert(r.run.apply() == r0)
+    }
+    */
+    
+    val c1 = ir{(xs:IndexedSeq[Int],ys:Iterable[Int]) => 
+      fromIndexed(xs).flatMap(x => fromIterable(ys).map(_ + x)).zip(fromIterable(ys)).fold("")((acc,xy) => acc + xy._1 + xy._2)}
+    
+    Compiler.wrapOptim("ZipFlatmapLinear") {
+      val r = Compiler.optimize(c1) // FIXME flatmap fusion does not kick in
+      //println(r)
+      //println(r.run.apply(xs,xs)) // FIXME
+      println(r.compile.apply(xs,xs))
+      println(xs.flatMap(x => xs.map(_ + x)).zip(xs).foldLeft("")((acc,xy) => acc + xy._1 + xy._2))
+      //assert(r.run.apply() == r0)
+    }
+    
+  }
+  
+  /* // TODO test:
+  
+  zip(map(fromIndexed,f),map(fromIterable,g))  --> should use efficient linear-fused impl
+  
+  zip(nested,linear)
+  zip(linear,nested)
+  zip(zip(linear,linear),linear)
+  
+  try to encode unzip as sugar for two maps...
+    but then we'll probably need horrizontal fusion -- possibly in the ImplFlowOptimizer
+  
+  */
   
   
   /* // TODO

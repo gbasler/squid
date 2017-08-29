@@ -10,6 +10,7 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"
     , "-deprecation"
   ),
+  incOptions := incOptions.value.withLogRecompileOnMacro(false), // silences macro-related recompilation messages (cf. https://github.com/sbt/zinc/issues/142)
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
@@ -102,6 +103,7 @@ lazy val scBackend = (project in file("sc-backend")).
 lazy val example = (project in file("example")).
   settings(commonSettings: _*).
   settings(
+    name := "squid-example",
     parallelExecution in Test := false
   ).
   dependsOn(main).

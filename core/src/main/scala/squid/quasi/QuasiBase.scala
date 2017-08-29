@@ -9,6 +9,8 @@ import squid.lang.InspectableBase
 import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
+import scala.annotation.StaticAnnotation
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable
 
 
@@ -61,7 +63,17 @@ self: Base =>
   // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
   abstract class IR[+T, -C] protected () extends TypeErased with ContextErased {
     type Typ <: T
-    type Ctx >: C
+    
+    // type Ctx >: C
+    /* ^ this is the 'type-correct' definition: given an x:IR[T,C], we cannot really conclude that the "real" context of
+     * x is C, since because of contravariance it *could be* any type less specific than C, such as Any. */
+    type Ctx = C @uncheckedVariance
+    /* ^ however this definition is much more useful, because we sometimes want to refer to a term's "observed" context 
+     * even when it may not be the "real", most specific context.
+     * This is safe, because Ctx is a phantom type and so no values will be misinterpreted because of this variance 
+     * violation. 
+     * An alternative (more cumbersome) solution that does not require @uncheckedVariance is to use type inference, as in:
+     *   `def ctxRef[C](x:IR[Any,C]) = new{ type Ctx = C }; val c = ctxRef(x); x : IR[T,c.Ctx]` */ 
     
     val rep: Rep
     
@@ -88,7 +100,7 @@ self: Base =>
     
     override def toString: String = {
       val repStr = showRep(rep)
-      val quote = if (repStr contains '\n') "\"" * 3 else "\""
+      val quote = if ((repStr contains '\n') || (repStr contains '"')) "\"" * 3 else "\""
       s"ir$quote$repStr$quote"
     }
   }
@@ -141,6 +153,9 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
+    @deprecated("Abort(msg) should only be called from the body of a rewrite rule. " +
+      "If you want to abort a rewriting from a function called in the rewrite rule body, " +
+      "use `throw RewriteAbort(msg)` instead.", "0.1.1")
     def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Abort was called outside a rewrite rule!")
     
     object Return {
@@ -248,12 +263,19 @@ self: Base =>
   /* To support insertion syntax `$xs` (in ction) or `$$xs` (in xtion) */
   def $[T,C](q: IR[T,C]*): T = ??? // TODO B/E  -- also, rename to 'unquote'?
   //def $[T,C](q: IR[T,C]): T = ??? // Actually unnecessary
+  def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = ???
   
-  /* To support hole syntax `$$xs` (in ction) or `$xs` (in xtion)  */
+  /* To support hole syntax `xs?` (old syntax `$$xs`) (in ction) or `$xs` (in xtion)  */
   def $$[T](name: Symbol): T = ???
   /* To support hole syntax `$$xs: _*` (in ction) or `$xs: _*` (in xtion)  */
   def $$_*[T](name: Symbol): Seq[T] = ???
   
+  
+  def liftFun[A:IRType,B,C](qf: IR[A,C] => IR[B,C]): IR[A => B,C] = {
+    val bv = bindVal("lifted", typeRepOf[A], Nil) // TODO annotation recording the lifting?
+    val body = qf(IR(bv |> readVal)).rep
+    IR(lambda(bv::Nil, body))
+  }
   
   
   import scala.language.experimental.macros
@@ -264,8 +286,10 @@ self: Base =>
     implicit class QuasiContext(private val ctx: StringContext) {
       
       object ir { // TODO try to refine the types..?
-        //def apply(t: Any*): Any = macro QuasiMacros.applyImpl[QC]
-        //def unapply(t: Any): Any = macro QuasiMacros.unapplyImpl[QC]
+        //def apply(inserted: Any*): Any = macro QuasiMacros.applyImpl[QC]
+        //def unapply(scrutinee: Any): Any = macro QuasiMacros.unapplyImpl[QC]
+        // ^ versions above give less hints to macro-blind IDEs, but may be faster to compile 
+        // as they involve an easier (trivial) subtype check: macro_result.tpe <: Any (performed by scalac)
         def apply(inserted: Any*): SomeIR = macro QuasiMacros.applyImpl[QC]
         def unapply(scrutinee: SomeIR): Any = macro QuasiMacros.unapplyImpl[QC]
       }
@@ -285,6 +309,7 @@ self: Base =>
     @MacroSetting(debug = true) def dbg_ir[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
     
     def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forward$ // to conserve the same method receiver as for QQ (the real `Base`)
+    def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = macro QuasiMacros.forward$2
     //def $[T,C](q: IR[T,C]): T = macro QuasiMacros.forward$ // Actually unnecessary
     //def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forwardVararg$ // Actually unnecessary
     def $$[T](name: Symbol): T = macro QuasiMacros.forward$$
@@ -307,13 +332,25 @@ self: Base =>
 
 object QuasiBase {
   
-  /** Used to tag types generated for type holes, and to have a self-documenting name when the type is widened because of scope extrusion. */
-  trait `<extruded type>`
+  /** Used to tag (the upper bound of) types generated for type holes, 
+    * and to have a self-documenting name when the type is widened because of scope extrusion.
+    * Note: now that extracted type symbols are not generated from a local `trait` but instead from the `Typ` member of a local `object`, 
+    *   scope extrusion does not neatly widen extruded types to just `<extruded type>` anymore, but often things like:
+    *   `Embedding.IRType[MyClass.s.Typ]]`.
+    *   Still, this trait is useful as it is used in, e.g., `QuasiTypeEmbedded` to customize the error on implicit 
+    *   type not found. It's also the inferred type for things like `case List($a:$ta,$b:$tb)`, which prompts 
+    *   a QQ error -- this is not really necessary, just a nicety. 
+    *   Eventually we can totally get rid of that bound, as QuasiEmbedder now internally relies on `Extracted` instead. */
+  type `<extruded type>`
   
 }
 
+/** Annotation used on extracted types */
+class Extracted extends StaticAnnotation
 
-
+object SuppressWarning {
+  implicit object `scrutinee type mismatch`
+}
 
 
 

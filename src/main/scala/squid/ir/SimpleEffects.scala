@@ -47,6 +47,7 @@ trait SimpleEffects extends AST {
     }
   }
   
+  def addTransparentMethod(m: MtdSymbol): Unit = transparentMtds += m
   def isTransparentMethod(m: MtdSymbol): Bool = {
     transparentMtds(m) || !opaqueMtds(m) && {
       val r = (
@@ -144,6 +145,8 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Float]
   transparentTyps += typeSymbol[Double]
   transparentTyps += typeSymbol[String]
+  transparentTyps += typeSymbol[Symbol]
+  transparentTyps += typeSymbol[Symbol.type]
   
   // TODO should make these @read but not pure:
   //pureTyps += sru.typeOf[Any].typeSymbol.asType // for, eg, `asInstanceOf`, `==` etc.
@@ -185,7 +188,9 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[scala.collection.immutable.List[Any]] // Useful to make things like List.map 
   transparentTyps += typeSymbol[scala.collection.immutable.List.type]
   
-  transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods
+  /* transparentTyps += typeSymbol[scala.collection.generic.GenericCompanion[List]] // for the `apply`/`empty` methods */
+  // ^ this is not right: will register the GenericCompanion symbol (ignoring the List parameter), and thus things like
+  // mutable.Set.apply will be considered pure!
   
   // These are not correct, as mutable collections `size` is not referentially-transparent -- TODO use the @read effect
   /*
@@ -203,6 +208,8 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[Option[Any]]
   transparentTyps += typeSymbol[Some.type]
   transparentTyps += typeSymbol[None.type]
+  transparencyPropagatingMtds += methodSymbol[Some.type]("apply")
+  // ^ Some(_) is lready known to be transp, but it's actually transpropag too! eg: `Some((x:Int) => readInt)` only has a deferred effect
   
   transparentTyps += typeSymbol[Either[Any,Any]]
   transparentTyps += typeSymbol[Left.type]

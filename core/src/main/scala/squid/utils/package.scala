@@ -125,6 +125,10 @@ package object utils {
   object -> {
     def unapply[A,B](ab: (A,B)) = Some(ab)
   }
+  implicit class Tuple2Helper[A,B](private val self: (A,B)) extends AnyVal {
+    @inline def mapFirst[C](f: A => C): (C,B) = (self._1 |> f, self._2)
+    @inline def mapSecond[C](f: B => C): (A,C) = (self._1, self._2 |> f)
+  }
   
   
   def die = lastWords("Program reached and unexpected state.")

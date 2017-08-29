@@ -154,6 +154,8 @@ trait ASTReinterpreter { ast: AST =>
     
           case ir"while ($cond) $body" => q"while(${apply(cond rep)}) ${apply(body rep)}"
             
+          case ir"($x:Any) equals $y" => q"${apply(x rep)} == ${apply(y rep)}"
+    
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) !" => id
           case ir"${ScalaVar(id)}: squid.lib.Var[$tv]" =>
@@ -171,14 +173,18 @@ trait ASTReinterpreter { ast: AST =>
               boundVars += bv -> varName
               apply(body.rep)}" // Note: if subs took a partial function, we could avoid the need for a `boundVars` context
             
-          // The rule above will not match if `tv` is not a subtype of AnyRef: value null will extract type Null that will not merge successfully
-          case ir"var ${v @ BV(bv)}: $tv = null; $body: $tb" =>
-            assert(!(tv <:< AnyRef))
-            System.err.println(s"Warning: variable `${v rep}` of type `${tv}` (not a subtype of `AnyRef`) is assigned `null`.")
+          // The rule above will not match if `tv` is not a subtype of AnyRef: extracted value null will extract type Null that will not merge successfully...
+          // Therefore, there is no way to express this (ill-typed) term in quasiquotes, so we use explicit Rep syntax
+          // Note: currently having a Null lower bound would also work
+          //   as in:  case ir"var ${v @ BV(bv)}: ($tv where (Null <:< tv)) = null; $body: $tb" =>
+          //   but that's only because type type hole bounds are not yet checked; cf:
+          case IR(LetIn(bv, RepDef(MethodApp(_,Var.Apply.Symbol,tv::Nil,Args(RepDef(ast.Constant(null)))::Nil,rt)), body0)) =>
+            assert(!(tv <:< AnyRef.rep))
+            System.err.println(s"Warning: variable `${bv}` of type `${tv}` (not a subtype of `AnyRef`) is assigned `null`.")
             val varName = newBase.freshName(bv.name optionUnless (_ startsWith "$") Else "v")
-            q"var $varName: ${rect(tv.rep)} = null; ..${
+            q"var $varName: ${rect(tv)} = null; ..${
               boundVars += bv -> varName
-              apply(body.rep)}"
+              apply(inline(bv, body0, Hole(bv.name)(bv.typ,Some(bv)) |> rep))}"
             
             
           /** Converts redexes to value bindings, nicer to the eye.

@@ -6,6 +6,15 @@ import utils.Debug._
 class Genericity extends MyFunSuite {
   import TestDSL.Predef._
   
+  
+  test("Generic Contexts and AnyRef") {
+    
+    assertCompiles(""" def constructTuple[C](x: IR[Int, C]): IR[Int, C] = ir"$x + ${Const(123)}" """)
+    assertCompiles(""" def constructTuple[C]: IR[Int, C] = ir"${Const(123):IR[Int,AnyRef]}" """)
+    
+  }
+  
+  
   test("List") {
     
     val ls = ir"List(1.0, 2.0)"

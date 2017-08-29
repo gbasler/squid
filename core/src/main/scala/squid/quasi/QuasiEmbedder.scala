@@ -14,6 +14,11 @@ import scala.reflect.macros.whitebox
 
 case class QuasiException(msg: String) extends Exception(msg)
 
+object QuasiEmbedder {
+  private val knownSubtypes = mutable.ArrayBuffer[Any]()
+}
+import QuasiEmbedder._
+
 /** Holes represent free variables and free types (introduced as unquotes in a pattern or alternative unquotes in expressions).
   * Here, insertion unquotes are _not_ viewed as holes (they should simply correspond to a base.$[T,C](tree) node). */
 class QuasiEmbedder[C <: whitebox.Context](val c: C) {
@@ -24,6 +29,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
   
+  val rc = c.asInstanceOf[reflect.macros.runtime.Context]
+  import rc.universe.analyzer.{Context=>RCtx}
+  
+  /** Stores known subtyping knowledge extracted during pattern matching, 
+    * along with the scope (scala compiler context) in which they are true. */
+  val curTypeEqs = knownSubtypes.asInstanceOf[mutable.ArrayBuffer[(RCtx,Type,Type)]]
   
   val UnknownContext = typeOf[utils.UnknownContext]
   val scal = q"_root_.scala"
@@ -31,28 +42,64 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
 
   /** holes: Seq(either term or type); splicedHoles: which holes are spliced term holes (eg: List($xs*))
     * holes in ction mode are interpreted as free variables (and are never spliced)
-    * unquotedTypes contains the types unquoted in (in ction mode) plus the types found in the current scope
+    * unquotedTypes contains the types unquoted in (in ction mode with $ and in xtion mode with $$)
     * TODO: actually use `unquotedTypes`!
     * TODO maybe this should go in QuasiMacros... */
   def applyQQ(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName],
+            typeBounds: Map[TypeName,EitherOrBoth[Tree,Tree]],
             unquotedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree], config: QuasiConfig): c.Tree = {
     
     //debug("HOLES:",holes)
     
-    val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
-    
-    val traits = typeHoles map { typ => q"trait $typ extends _root_.squid.quasi.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
-    val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
-    
     debug("Tree:", tree)
     
+    val (termHoles, typeHoles) = holes.mapSplit(identity) match {case (termHoles, typeHoles) => (termHoles toSet, typeHoles toSet)}
+    
+    /* We used to use local traits to generate local symbols for the type holes; for `case ir"foo[$t]" =>`, term `t` would 
+       appear as having type `IRType[t]`.
+       Now, in order to be able to add arbitrary bounds to type holes, we generate a local object with a `Typ` type member,
+       so the type above appears as `IRType[t.Typ]`, which is nice because it's exactly the syntax the user has to use to 
+       refer to such an extracted type.
+    */
+    // val traits = typeHoles map { typ => q"trait $typ extends _root_.squid.quasi.QuasiBase.`<extruded type>`" }  // QuasiBase.HoleType
+    val traits = typeHoles flatMap { typ => 
+      // Note: cannot use undefined `type` members here, as "only classes can have declared but undefined members"
+      val trm = typ.toTermName
+      //we used to generate: q"object $trm { type Typ <: _root_.squid.quasi.QuasiBase.`<extruded type>` }"
+      val extrudedType = tq"_root_.squid.quasi.QuasiBase.`<extruded type>`"
+      val (lb,ub) = typeBounds get typ map {
+        case First (lb   ) => lb -> tq"Any" // extrudedType
+        // ^ when a lower bound is present, keeping `<extruded type>` in the upper bound will usually make bad bounds, so we do not put it in this case
+        case Second(   ub) => tq"Nothing" -> tq"$extrudedType with $ub"
+        case Both  (lb,ub) => lb -> ub // tq"$extrudedType with $ub"
+      } getOrElse tq"Nothing" -> extrudedType
+      q"object $trm { type Typ >: $lb <: $ub }" :: q"type $typ = $trm.Typ @_root_.squid.quasi.Extracted" :: Nil
+      }
+    
+    val vals = termHoles map { vname => q"val $vname: Nothing = ???" }
+    
+    val curCtxs = rc.callsiteTyper.context.enclosingContextChain
+    val (convNames, convs) = curTypeEqs.flatMap {
+      case (ctx,lhs,rhs) => 
+        if (curCtxs.contains(ctx)) {
+          val fresh = TermName(c.freshName("__conv"))
+          //q"implicit def $fresh: $lhs <:< $rhs = null" :: Nil
+          fresh -> q"implicit def $fresh: _root_.scala.Predef.<:<[$lhs,$rhs] = null" :: Nil
+        }
+        else Nil
+    } .unzip .mapFirst (_.toSet)  // same as:  |> { case (a,b) => (a.toSet,b) }
+    debug(s"Subtype knowledge: ${convs.map(t => showCode(t.tpt)).mkString(", ")}")
+    
     var termScope: List[Type] = Nil // will contain the scrutinee's scope or nothing
+    
+    var scrutineeType = Option.empty[Type]
     
     val ascribedTree = unapply match {
       case Some(t) =>
         debug("Scrutinee type:", t.tpe)
         t.tpe.baseType(symbolOf[QuasiBase#IR[_,_]]) match {
           case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
+            scrutineeType = Some(tp)
             if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
               // ^ UnknownContext is used as the dummy context parameter of terms rewritten in rewrite rules
@@ -85,12 +132,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     def shallowTree(t: Tree) = {
       // we need tp introduce a dummy val in case there are no statements; otherwise we may remove the wrong statements when extracting the typed term
-      val nonEmptyVals = if (traits.size + vals.size == 0) Set(q"val $$dummy$$ = ???") else vals
+      val nonEmptyVals = if (traits.size + vals.size + convs.size == 0) Set(q"val $$dummy$$ = ???") else vals ++ convs
       val st = q"..$traits; ..$nonEmptyVals; $t"
       //val st = q"object Traits { ..$traits; }; import Traits._; ..$nonEmptyVals; $t"
       // ^ this has the advantage that when types are taken out of scope, their name is preserved (good for error message),
       // but it caused other problems... the implicit evidences generated for them did not seem to work
-      if (debug.debugOptionEnabled) debug("Shallow Tree: "+st)
+      if (debug.debugOptionEnabled) debug("Shallow Tree: "+showCode(st))
       st
     }
     
@@ -115,7 +162,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     } getOrElse {
       try {
         val typed = c.typecheck(shallowTree(tree))
-        if (ascribedTree.nonEmpty) {
+        if (ascribedTree.nonEmpty && c.inferImplicitValue(typeOf[SuppressWarning.`scrutinee type mismatch`.type]).isEmpty) {
           val expanded = unapply.get.tpe map (_.dealias)
           c.warning(c.enclosingPosition, s"""Scrutinee type: ${unapply.get.tpe}${
             if (expanded == unapply.get.tpe) ""
@@ -135,6 +182,19 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
       }
     }
     
+    scrutineeType foreach { asc =>
+      debug(s"PROCESSING TYPE RELATION: $typedTreeType <:< ${asc}")
+      def zip(lhs:Type,rhs:Type):Unit = (lhs.dealias,rhs.dealias) match {
+        case (TypeRef(b0,s0,as0),TypeRef(b1,s1,as1)) if b0 =:= b1 && s0 == s1 => // TODO use baseType instead
+          //debug((b0,s0,as0),(b1,s1,as1))
+          as0.iterator zip as1.iterator foreach (zip _).tupled
+        case _ =>
+          debug(s"Subtyping knowledge: $lhs <:< $rhs")
+          curTypeEqs += ((curCtxs.head, lhs, rhs))
+      }
+      zip(typedTreeType,asc)
+    }
+    
     val q"..$stmts; $finalTree" = typedTree
     
     // // For when traits are generated in a 'Traits' object:
@@ -144,7 +204,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     //    (name: TypeName) -> internal.typeRef(traits.symbol.typeSignature, t.symbol, Nil) }
     //} get) toMap;
     val typeSymbols = stmts collect {
-      case t @ q"abstract trait ${name: TypeName} extends ..$_" => (name: TypeName) -> t.symbol
+      // case t @ q"abstract trait ${name: TypeName} extends ..$_" => (name: TypeName) -> t.symbol
+      case t @ q"object ${name: TermName} extends ..$_ { $_ => $tp }" => name.toTypeName -> tp.symbol
     } toMap;
     val holeSymbols = stmts collect {
       case t @ q"val ${name: TermName}: $_ = $_" => t.symbol
@@ -154,7 +215,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     apply(Base, finalTree, termScope, config, unapply, 
-      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts)
+      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames, unquotedTypes)
     
   }
   
@@ -167,10 +228,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   
   
-  def apply(baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
-            typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
-            holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
-            termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree]): c.Tree = {
+  def apply(
+    baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
+    typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
+    holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
+    termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree], 
+    convNames: Set[TermName], unquotedTypes: Seq[(TypeName, Type, Tree)]
+  ): c.Tree = {
     
     
     val shortBaseName = TermName("__b__")
@@ -204,7 +268,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     val insertedTermTrees = mutable.ArrayBuffer[Tree]() // currently only used to disable caching if non-empty
-    val insertedTypeTrees = mutable.Map[TermName,Tree]()
+    val insertedTypeTrees = mutable.Map[TermName,Tree]() // 'inserted types' are types that are explicitly unquoted or types for which an implicit is obtained
+    insertedTypeTrees ++= unquotedTypes map { case (tn,tp,tpt) => c.freshName(tn.toTermName) -> q"$tpt.rep" }
     
     
     /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
@@ -222,6 +287,13 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         /** Special-cases the default modular embedding with quasiquote-specific details */
         object ME extends QTE.Impl {
+          
+          // Add to the type cache all the types that were explicitly inserted
+          typeCache ++= unquotedTypes map {
+            case (_,tp,tpt) => tp -> q"$tpt.rep".asInstanceOf[base.TypeRep]
+          }
+          // We could also make sure that there are no two inserted types corresponding to non-equivalent trees,
+          // and raise a c.warning if it's the case, as it would likely be an error or potentially lead to surprises
           
           override def insertTypeEvidence(ev: base.TypeRep): base.TypeRep = if (unapply.isEmpty) ev else {
             val tn = c.freshName(TermName("insertedEv"))
@@ -327,6 +399,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   subs(q"_root_.scala.Seq(..${idts}): _*")
               }
               
+            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun)" => // Special case for inserting staged functions
+              val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
+              liftTerm(tree, parent, expectedType)
+              
               
             // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`
             case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => lastWords("Scala type checking problem.")
@@ -390,6 +466,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                    b.splicedHole(name, liftType(holeType))
               else b.hole(name, liftType(holeType))
               
+            /** Removes implicit conversions that were generated in order to apply the subtyping knowledge extracted from pattern matching */
+            case q"${Ident(name:TermName)}.apply($x)" if convNames(name) => 
+              liftTerm(x, parent, typeIfNotNothing(x.tpe))
+              // ^ Q: correct to pass this expectedType? -- currently not passing through the current one 
+              // because it would mean that sometimes the actual type is not a known subtype of the expected type...
               
             case _ => 
               //debug("NOPE",x)
@@ -397,9 +478,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           }}
           
           override def liftTypeUncached(tp: Type, wide: Boolean): b.TypeRep = {
-            val tname = tp.typeSymbol.name
-            typeSymbols get tname.toTypeName filter (_ === tp.typeSymbol) map { sym =>
-              b.typeHole(tname.toString)
+            val tname = tp.typeSymbol.owner.name optionIf (ExtractedType unapply tp isDefined)
+            // ^ in case of type hole t.Typ, the name we are looking for is no more the name of the type itself (Typ),
+            // but the name of the owner (t). (The type itself used to be just 't' before.)
+            tname flatMap (typeSymbols get _.toTypeName) filter (_ === tp.typeSymbol) map { sym =>
+              b.typeHole(tname.get.toString)
             } getOrElse super.liftTypeUncached(tp, wide)
           }
           
@@ -431,22 +514,39 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         // TODO check conflicts in contexts
         
-        if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)}")
+        // Notes: we used to just compute `glb(termScope)`, but when quasiquotes have context `{}` (like `Const(42)`)
+        // they introduce pesky AnyRef in the refined type; so now we make sure to remove it from the inferred context.
+        // The reason `Const` returns an `IR[T,{}]` and not an `IR[T,Any]` is mostly historical/aesthetical, and is debatable
+        val cleanedUpGLB = glb(termScope) |>=? {
+          case RefinedType(typs,scp) => 
+            //RefinedType(typs filterNot (AnyRef <:< _ ), scp)
+            internal.refinedType(typs filterNot (AnyRef <:< _ ), scp)
+        } |>=? { case glb if AnyRef <:< glb => Any }
+        // To make things more consistent, we could say that `{}` is used whenever the context is empty, so we could 
+        // replace `glb(termScope)` above with `glb(AnyRef :: termScope)`. But this causes problems down the line,
+        // specifically when trying to use contravariance to use a context-free term with type IR[T,C] (where we _do not_ have `C <: AnyRef`)
+        // producing errors like:
+        //    error]  found   : BlockHelpers.this.IR[Unit,AnyRef]
+        //    [error]  required: BlockHelpers.this.IR[Unit,C]
         
-        val ctxBase = tq"${glb(termScope)}"
+        if (termScope.size > 1) debug(s"Merging scopes; glb($termScope) = ${glb(termScope)} ~> $cleanedUpGLB")
+        
+        val ctxBase = tq"${cleanedUpGLB}"
+        // Older comment:
+        //val ctxBase = tq"${glb(termScope)}"
         // ^ Note: the natural empty context `{}` is actually equivalent to `AnyRef`, but `glb(Nil) == Any` so explicitly using
         // this empty context syntax can cause type mismatches. To solve this, we could do:
         //   val ctxBase = tq"${glb(AnyRef :: termScope)}"
         // But this makes some things uglier, like the need to have [C <: AnyRef] bounds so we don'r get IR[T,AnyRef with C{...}] types.
         // Instead, I opted for an implicit conversion IR[T,{}] ~> IR[T,Any] in the quasiquote Predef.
         
+        // Old way:
         /*
         // putting every freevar in a different refinement (allows name redefinition!)
         val context = (freeVars ++ importedFreeVars).foldLeft(ctxBase){ //.foldLeft(tq"AnyRef": Tree){
           case (acc, (n,t)) => tq"$acc{val $n: $t}"
         }
         */
-        
         
         // Note: an alternative would be to put these into two different refinements,
         // so we could end up with IR[_, C{val fv: Int}{val fv: Double}] -- which is supposedly equivalent to IR[_, C{val fv: Int with Double}]
@@ -462,10 +562,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
       case Some(selector) =>
         
-        val noSefl = q"class A {}" match { case q"class A { $self => }" => self }
         val termHoleInfoProcessed = termHoleInfo mapValues {
           case (scp, tp) =>
-            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSefl, scp map { case(n,t) => q"val $n: $t" } toList))
+            val scpTyp = CompoundTypeTree(Template(termScope map typeToTree, noSelfType, scp map { case(n,t) => q"val $n: $t" } toList))
             (scpTyp, tp)
         }
         val termTypesToExtract = termHoleInfoProcessed map {
@@ -479,7 +578,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           case Left(vname) => termTypesToExtract(vname)
           case Right(tname) => typeTypesToExtract(tname) // TODO B/E
         }
-        debug("Extracted Types: "+extrTyps.mkString(", "))
+        debug("Extracted Types: "+extrTyps.map(showCode(_)).mkString(", "))
         
         val extrTuple = tq"(..$extrTyps)"
         //debug("Type to extract: "+extrTuple)
@@ -502,8 +601,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         val splicedValKeys = splicedHoles.map(_.toString)
         
         
-        //val termType = tq"$Base.Quoted[${typedTree.tpe}, ${termScope.last}]"
-        val termType = tq"$Base.SomeIR" // We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case dsl"..." => }'
+        //val termType = tq"$Base.IR[${typedTree.tpe}, ${termScope.last}]"
+        // ^ We can't use the type inferred for the pattern or we'll get type errors with things like 'x.erase match { case ir"..." => }'
+        val termType = tq"$Base.SomeIR"
         
         val typeInfo = q"type $$ExtractedType$$ = ${typedTree.tpe}" // Note: typedTreeType can be shadowed by a scrutinee type
         val contextInfo = q"type $$ExtractedContext$$ = ${termScope.last}" // Note: the last element of 'termScope' should be the scope of the scrutinee...
@@ -587,7 +687,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   def purgedTypeToTree(tpe: Type): Tree = {
     val existentials = mutable.Buffer[TypeName]()
     def rec(tpe: Type): Tree = tpe match {
-      case _ if !tpe.typeSymbol.isClass => //&& !(tpe <:< typeOf[Base.Param]) =>
+      //case _ if !tpe.typeSymbol.isClass => //&& !(tpe <:< typeOf[Base.Param]) =>
+        // FIXME?! had to change it to:   -- otherwise disgusting stuff happens with uninterpretedType[?0] etc.
+      case _ if !tpe.typeSymbol.isClass && !tpe.typeSymbol.isParameter => //&& !(tpe <:< typeOf[Base.Param]) =>
         existentials += TypeName("?"+existentials.size)
         tq"${existentials.last}"
       case TypeRef(pre, sym, Nil) =>

@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 13ms
+// Transfo time: 0ms  Stringifying time: 20ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -21,9 +21,15 @@
     }
 })
 
+// === HL ===
+
+// Transfo time: 0ms  Stringifying time: 4ms
+
+// Same as above.
+
 // === Impl ===
 
-// Transfo time: 0ms  Stringifying time: 17ms
+// Transfo time: 1ms  Stringifying time: 19ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -46,7 +52,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 1ms  Stringifying time: 12ms
+// Transfo time: 3ms  Stringifying time: 14ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -65,7 +71,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 7ms  Stringifying time: 15ms
+// Transfo time: 11ms  Stringifying time: 16ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -90,7 +96,7 @@
 
 // === Imperative ===
 
-// Transfo time: 5ms  Stringifying time: 20ms
+// Transfo time: 6ms  Stringifying time: 26ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -127,19 +133,19 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 5ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 0ms  Stringifying time: 5ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 4ms  Stringifying time: 18ms
+// Transfo time: 5ms  Stringifying time: 20ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -174,6 +180,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 5ms  Stringifying time: 5ms
+// Transfo time: 6ms  Stringifying time: 5ms
 
 // Same as above.

@@ -11,11 +11,16 @@ import squid.lang.Optimizer
 import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
+object DumpFolder
+
 /** This is used to optimize snippets of Scala code at runtime by enclosing them within an `optimize{...}` block */
 class StaticOptimizer[Optim <: Optimizer] {
   
   def optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
   @MacroSetting(debug = true) def dbg_optimize[A](code: A): A = macro StaticOptimizerMacros.optimizeImpl[Optim]
+  
+  def optimizeAs[A](name:Symbol)(code: A): A = macro StaticOptimizerMacros.optimizeAsImpl[Optim]
+  @MacroSetting(debug = true) def dbg_optimizeAs[A](name:Symbol)(code: A): A = macro StaticOptimizerMacros.optimizeAsImpl[Optim]
   
 }
 
@@ -55,9 +60,22 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
   }
   
   
+  def optimizeAsImpl[Comp: WeakTypeTag](name: Tree)(code: Tree) = optimizeImpl(code)
+  
   def optimizeImpl[Comp: WeakTypeTag](code: Tree) = {
     
     val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
+    
+    val name = c.macroApplication |> {
+      case q"$_.optimize[$_]($_)" => None
+      case q"$_.dbg_optimize[$_]($_)" => None
+      case q"$_.optimizeAs[$_]($t)($_)" => Some(t)
+      case q"$_.dbg_optimizeAs[$_]($t)($_)" => Some(t)
+    } map {
+      case q"scala.Symbol.apply(${Literal(Constant(str:String))})" => str
+      case t => c.abort(t.pos, "Name is not a literal.")
+    }
+    
     
     val Optim = {
       val Comp = weakTypeOf[Comp].widen
@@ -93,7 +111,29 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     
     val varRefs = collection.mutable.Buffer[(String, Tree)]()
     
+    val thisNames = collection.mutable.Set[Name]()
+    
     object ME extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
+      import base._
+      
+      override def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = x match {
+        case Select(This(typName),fieldName) 
+          if x.symbol != null 
+          && (x.symbol.isParameter || x.symbol.isMethod || x.symbol.isPrivateThis) // otherwise we capture things like `scala.collection.immutable`
+        /* ^ we make a special case for `isPrivateThis` because it is the only case (I know of) where a class field will 
+            not have `isMethod` return true... that's still a heuristic (what if non-fields/parameters are PrivateThis?) */
+        /*  The solution above (a case guarded by ad-hoc conditions) is not relly satisfying. 
+            We're going to capture method references that may have a static path to them and would be better with a static access.
+            Ideally we'd check whether there is a static (and accessible from reflection) path first in the guard of the case.
+            OTOH, does it really happen to have a static path to a local method, that will be accessible via the QQ's relfection?
+            Note: `!x.symbol.isPackage` is not enough, as then we end up with things like the `List` of `scala.immutable.List` */
+        =>
+          //val thisName = s"$typName:this:$fieldName"
+          val thisName = s"$typName.this.$fieldName"
+          thisNames += TermName(thisName)
+          base.hole(thisName, liftType(x.tpe))
+        case _ => super.liftTerm(x,parent,expectedType,inVarargsPos)
+      }
       
       override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
           
@@ -109,9 +149,32 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     }
     
     var newCode = //Optim.TranformerDebug.debugFor
-      ME(code)
+      try ME(code)
+      catch {
+        case EmbeddingException(msg) =>
+          c.abort(c.enclosingPosition, s"Embedding error: $msg")
+        case Base.TypSymbolLoadingException(fn,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access type symbol $fn. Perhaps it was defined in the same project.")
+        case Base.MtdSymbolLoadingException(tp,sn,idx,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
+      }
     
     debug("Code: "+Base.showRep(newCode))
+    
+    val pos = c.enclosingPosition
+    
+    val dumpFolder = c.inferImplicitValue(c.typeOf[DumpFolder.type]) match {
+      case Ident(df) => Some(df.decodedName.toString)
+      case Select(_,df) => Some(df.decodedName.toString)
+      case EmptyTree => None
+      case t => 
+        c.warning(t.pos, s"DumpFolder implicit should be a value whose name is the desired path; found: ${showCode(t)}")
+        None
+    }
+    dumpFolder foreach { dumpFolder => 
+      val ctx = s"$dumpFolder/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
+      Optim.setContext(ctx)
+    }
     
     newCode = Optim.optimizeRep(newCode)
     
@@ -124,7 +187,19 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
     val MB = new MBM.ScalaReflectionBase
     
     //val res = Optim.base.scalaTreeIn(MBM)(MB, newCode)
-    val res = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+    //val res = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+    val res = {
+      val r = Optim.base.scalaTreeInWTFScala[MBM.type](MBM)(MB, newCode)
+      new Transformer { // replacing the names introduced for X.this.y trees
+        override def transform(x: Tree) = x match {
+          case Ident(name) if thisNames(name) =>
+            //val Seq(typ,ths,field) = name.toString.splitSane(':')
+            val Seq(typ,ths,field) = name.toString.splitSane('.')
+            Select(This(TypeName(typ)),TermName(field))
+          case _ => super.transform(x)
+        }
+      } transform r
+    }
     
     // This works but is unnecessary, as currently holes in ScalaReflectionBase are just converted to identifiers
     //res = MB.substitute(res, varRefs.toMap)

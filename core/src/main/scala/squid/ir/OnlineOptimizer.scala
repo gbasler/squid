@@ -10,7 +10,7 @@ import squid.lang.Optimizer
 trait OnlineOptimizer extends Optimizer with InspectableBase {
   val base: this.type = this
   
-  val transformExtractors = false
+  protected var transformExtractors = false
   
   private var enabled = true
   override def disableRewritingsFor[A](r: => A): A = {

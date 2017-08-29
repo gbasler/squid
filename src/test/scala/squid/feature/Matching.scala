@@ -212,6 +212,17 @@ class Matching extends MyFunSuite {
     assert(matchTyp[Boolean](ir"(1,2)") == 4)
     assert(matchTyp[Boolean](ir"(true,false)") == 3)
     
+    
+    
+    def matchTyp2(x:IR[Any,{}], t: IRType[_]) = x match {
+      case ir"$x:$$t" =>
+      case _ => fail
+    }
+    
+    matchTyp2(ir"42", irTypeOf[Int])
+    matchTyp2(ir"'ok", irTypeOf[Symbol])
+    
+    
   }
   
   

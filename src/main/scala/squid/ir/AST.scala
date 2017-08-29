@@ -42,10 +42,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
   def abs(param: BoundVal, body: => Rep): Rep = rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
   
-  override def ascribe(self: Rep, typ: TypeRep): Rep = if (self.typ =:= typ) self else rep(self match {
-    case RepDef(Ascribe(trueSelf, _)) => Ascribe(trueSelf, typ) // Hopefully Scala's subtyping is transitive
-    case _ => Ascribe(self, typ)
-  })
+  override def ascribe(self: Rep, typ: TypeRep): Rep = if (self.typ =:= typ) self else self match {
+    case RepDef(Ascribe(trueSelf, _)) => ascribe(trueSelf, typ) // Hopefully Scala's subtyping is transitive
+    case _ => rep(Ascribe(self, typ))
+  }
   
   def newObject(tp: TypeRep): Rep = rep(NewObject(tp))
   def staticModule(fullName: String): Rep = rep({
@@ -85,6 +85,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     val newD = f(d)
     if (newD eq d) r else rep(newD)
   }
+  
+  
+  override def traverseTopDown(f: Rep => Unit)(r: Rep): Unit = traverse(f(_) thenReturn true)(r)
+  //override def traverseBottomUp(f: Rep => Unit)(r: Rep): Unit = ??? // TODO
+  
   
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
   
@@ -306,7 +311,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   
   case class Ascribe(self: Rep, typ: TypeRep) extends Def {
-    require(!(self.typ =:= typ))
+    //require(!(self.typ =:= typ)) // in the future, re-enable this?
+    if (self.typ =:= typ) System.err.println(s"Warning: annotating term $self of type ${self.typ} with equivalent type $typ")
+    // ^ TODO proper warning iface with capa to print stack trace
   }
   
   case class NewObject(typ: TypeRep) extends NonTrivialDef

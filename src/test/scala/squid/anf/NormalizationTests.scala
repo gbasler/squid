@@ -34,6 +34,18 @@ class NormalizationTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     
   }
   
+  test("Normalization of Unit Values In Patterns") {
+    
+    ir"val a = println; 123" match {
+      case ir"val $x = println; $body" =>
+        fail // bindings of type Unit are currently removed; this test make sure that they are NOT removed in patterns 
+        // if the binder is extracted (as above), which would raise a runtime assertion error (missing extracted term).
+      case ir"println; $body" =>
+        body eqt ir"123"
+    }
+    
+  }
+  
   object ONorm extends DSL.SelfTransformer with transfo.OptionNormalizer with TopDownTransformer
   
   test("Option Normalization") {

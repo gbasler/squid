@@ -18,8 +18,10 @@ class TypeMatching extends MyFunSuite {
         eqt(t.rep, base.constType(42))
         eqt(t.rep, x.trep)
         
-        val opt = ir"Option.empty[$t]" // TODO
+        val opt = ir"Option.empty[$t]"
         eqt(opt, ir"Option.empty[Int]")
+        
+        // Note that opt.typ is `Option[Int(42)]`, so:
         assert(!(typeRepOf[Option[Int]] <:< opt.trep))
         subt(opt.trep, typeRepOf[Option[Int]])
     }
@@ -261,6 +263,48 @@ class TypeMatching extends MyFunSuite {
   }
   
   
+  test("Bounds") {
+    
+    val q: IR[Any,Any] = ir"foo[List[Int]]"
+    val t = q match {
+      case ir"foo[$s where (s <:< Seq[Int])]" =>
+        s
+    }
+    eqt(t, irTypeOf[List[Int]])
+    
+    ir"Some(Nil).orElse(Some(List(0)))" matches {
+      case ir"($lhs:Option[$t]).orElse($rhs:Option[t])" => eqt(t, irTypeOf[List[Int]])
+    } and {
+      case ir"($lhs:Option[$ta]).orElse($rhs:Option[$tb where (ta <:< tb)])" =>
+        eqt(ta, irTypeOf[Nil.type])
+        eqt(tb, irTypeOf[List[Int]])
+    } and {
+      case ir"($lhs:Option[$ta where (ta <:< tb)]).orElse($rhs:Option[$tb])" =>  // even works when we forward-refer to `tb`!
+        eqt(ta, irTypeOf[Nil.type])
+        eqt(tb, irTypeOf[List[Int]])
+    }
+    
+    ir"bar[Int,String,Abst[Int,AnyRef]]" matches {
+      case ir"bar[$a, $b, $t where (Abst[a,b] <:< t <:< Expr[Any])]" =>
+        eqt(a, irTypeOf[Int])
+        eqt(b, irTypeOf[String])
+        eqt(t, irTypeOf[Abst[Int,AnyRef]]) // Q: why does it show as Abst[Int,Any]?
+        //eqt(t, irTypeOf[Abst[Int,Any]])    // Q: and even compares equal to it?!
+    }
+    
+  }
+  
+  test("Bounds Checking") {
+    
+    // cf. https://github.com/LPTK/Squid/issues/15
+    
+    ir"List(0)" matches {
+      case ir"$ls:List[$t where (t <:< String)]" => // fail // FIXME
+      case ir"$ls:List[$t where (t <:< AnyVal)]" => eqt(t, irTypeOf[Int])
+    }
+    
+  }
+  
 }
 
 object TypeMatching {
@@ -269,6 +313,9 @@ object TypeMatching {
   object Abst { def apply[A,B] = new Abst[A,B] }
   class Appl[+A,+B] extends Expr[B]
   object Appl { def apply[A,B] = new Appl[A,B] }
+  
+  def foo[T <: Seq[Int]] = ()
+  def bar[A,B,T >: Abst[A,B] <: Expr[Any]] = ()
 }
 
 

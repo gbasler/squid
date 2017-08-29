@@ -150,6 +150,10 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     val objName = objDef.name
     val clsName = objName.toTypeName
     
+    val reservedName = Set("Class","Object","Defs")
+    if (reservedName(objName.toString)) throw EmbeddingException(s"@embed class or object cannot be named any of: " + 
+      reservedName.mkString(", "))
+    
     var mangledCount = 0
     def mangledName(name: TermName) = TermName(s"_${mangledCount}_") alsoDo (mangledCount += 1)
     
@@ -222,11 +226,16 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     
     /* Here we create clsObjTree and modObjTree, the EmbeddedType objects populating the Lang inner trait of the resulting module: */
     
-    // Creates a symbol using `c.typecheck` for the sole purpose of knowing its full name
-    // Note: this may sometimes raise cyclic dependency errors, and other approaches could be used, such as using 
-    // the (deprecated) `c.enclosingPackage` method.
-    val fictitiousSymbol = c.typecheck(q"class $clsName; new $clsName").tpe.typeSymbol.asType
-    val encodedName = (fictitiousSymbol |> encodedTypeSymbol)
+    // Creating a symbol using `c.typecheck` for the sole purpose of knowing its full name is not robust
+    // (may sometimes raise cyclic dependency errors, or plain compiler crashes) 
+    //val fictitiousSymbol = c.typecheck(q"class $clsName; new $clsName").tpe.typeSymbol.asType
+    //val encodedName = (fictitiousSymbol |> encodedTypeSymbol)
+    val encodedName = {
+      val ow = c.internal.enclosingOwner
+      if (!ow.isPackage) // TODO handle nested classes/objects; should be easy by using a slightly generalized `encodedTypeSymbol` method
+        throw EmbeddingException(s"Type embedding of non-top-level classes and objects is not yet supported.")
+      s"${ow.fullName}.${clsName}"
+    }
     
     val List(clsObjTree, modObjTree) = List(true -> encodedName, false -> (encodedName+"$")) map { case isClass -> encName =>
       

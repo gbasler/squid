@@ -76,4 +76,39 @@ class TermRewriting extends MyFunSuite {
     
   }
   
+  test("Literals in patterns") {
+    
+    ir"'abc -> 'def" rewrite {
+      case ir"Symbol(${Const("abc")})" =>
+        ir"'lol"
+    } eqt ir"'lol -> 'def"
+    
+  }
+  
+  test("Non-trivial name-pattern bindings in patterns") {
+    
+    ir"println(1.toDouble+1,2.toDouble+1)" rewrite {
+      case ir"(${c @ Const(n)}:Int).toDouble+1" =>
+        //ir"$c.toDouble + ${Const(n+1.0)}"
+        ir"($c,${Const(n+1.0)})._2"
+    } eqt ir"println((1,2.0)._2,(2,3.0)._2)"
+    
+  }
+  
+  test("Contexts") {
+    
+    def foo[T,C](x:IR[T,C]):IR[T,C] = x rewrite {
+      case ir"val s = Symbol($str); $body:Int" =>
+        // We can refer to body.Ctx as below, because Ctx is now precisely defined (not just bounded):
+        identity(body) : IR[Int,body.Ctx]
+        identity(body) : IR[Int,base.ContextOf[body.type]]
+        // ^ identity to avoid useless statement warnings
+        ir"val s = Symbol($str.reverse); ${(p:IR[Symbol,body.Ctx]) => ir"$body+1"}(s)"
+    }
+    
+    foo(ir"""println{val x = Symbol("ok"); (a?:Double).toInt}""") eqt
+        ir"""println{val x = Symbol("ok".reverse); val lifted = x; (a?:Double).toInt+1}""" // `lifted` introduced by automatic function lifting
+    
+  }
+  
 }

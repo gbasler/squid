@@ -14,7 +14,10 @@ trait ASTHelpers extends Base { self: AST =>
   
   
   // TODO implement and use `traverse` method here
-  def hasHoles(r: Rep): Boolean = r |> traversePartial{case RepDef(Hole(_)|SplicedHole(_)) => return true} thenReturn false
+  def hasImmediateHoles(r: Rep): Boolean = r |> traversePartial { 
+    case RepDef(Abs(_,_)) => false
+    case RepDef(Hole(_)|SplicedHole(_)) => return true
+  } thenReturn false
   
   def traversePartial(f: PartialFunction[Rep, Boolean]) = traverse(f orElse PartialFunction(_ => true)) _
   
@@ -161,6 +164,22 @@ trait ASTHelpers extends Base { self: AST =>
     case bv: BoundVal => Set(bv)
     case Abs(p,b) => dfn(b).unboundVals - p
     case _ => d.children.foldLeft(Set.empty[Val]){ (s,df) => s ++ dfn(df).unboundVals }
+  }
+  
+  
+  abstract override def loadTypSymbol(fullName: String) = {
+    try super.loadTypSymbol(fullName)
+    catch {
+      case e @ ScalaReflectionException(msg) =>
+        throw TypSymbolLoadingException(fullName, e)
+    }
+  }
+  abstract override def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
+    try super.loadMtdSymbol(typ, symName, index, static)
+    catch {
+      case e @ ScalaReflectionException(msg) =>
+        throw MtdSymbolLoadingException(typ, symName, index, e)
+    }
   }
   
 }

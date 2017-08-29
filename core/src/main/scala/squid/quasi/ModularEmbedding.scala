@@ -49,6 +49,14 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   lazy val squidLibTypSym = loadTypSymbol(encodedTypeSymbol(typeOf[squid.lib.`package`.type].typeSymbol.asType))
   
   lazy val ExtrudedType = mir.typeOf[QuasiBase.`<extruded type>`]
+  lazy val Extracted = mir.typeOf[squid.quasi.Extracted]
+  object ExtractedType {
+    def unapply(tp: Type) = tp |>? {
+      case AnnotatedType(annotations, underlying)
+        if annotations map (_.tree.tpe) collectFirst { case Extracted => } isDefined
+        => Some(underlying)
+    }
+  }
   
   
   private val typSymbolCache = mutable.HashMap[String, TypSymbol]()
@@ -72,9 +80,11 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   def getTypSym(tsym: TypeSymbol): TypSymbol = {
     // Maybe cache this more somehow? (e.g. per compilation unit):
-    val cls = if (tsym == ObjectSym) "scala.Any" // scala is inconsistent in what version of == it uses -- for unrefined
-                                                 // types it's Any.== and for type parameters it's Object.== (ugly...)
-      else encodedTypeSymbol(tsym)
+    
+    val cls = encodedTypeSymbol(tsym)
+    // ^ we used to special-case `tsym == ObjectSym` returning "scala.Any", but that caused problems down
+    // the line (made `irTypeOf[AnyRef]` be represented as `irTypeOf[Any]`).
+    // The root problems which motivated this hack seem to have been fixed (cf: symbol (owner) of `==` calls).
     
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
@@ -261,7 +271,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
         
       /** --- --- --- METHOD APPLICATIONS --- --- --- */
-      case SelectMember(obj, f) =>
+      case SelectMember(obj, f) if x.symbol.isMethod =>
         
         val method = x.symbol.asMethod // FIXME safe?
         
@@ -432,6 +442,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     case _: DefDef =>
       throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
        
+    case _ if x.symbol.isMethod =>
+      throw EmbeddingException.Unsupported(s"Reference to local method `${x.symbol.name}`")
+      
     case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
       
   }
@@ -456,7 +469,10 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   /** Note: we currently use `moduleType` for types that reside in packages and for objects used as modules...
     * Note: widening may change Int(0) to Int (wanted) but also make 'scala' (as in 'scala.Int') TypeRef-matchable !! */
-  def liftTypeUncached(tp: Type, wide: Boolean): TypeRep = typeCache.getOrElseUpdate(tp, { tp match {
+  def liftTypeUncached(tp: Type, wide: Boolean): TypeRep = typeCache.getOrElseUpdate(tp,
+  {
+  lazy val isExtracted = (ExtractedType unapply tp isDefined)
+  tp match {
     //case _ if tp =:= Any =>
     //  // In Scala one can call methods on Any that are really AnyRef methods, eg: (42:Any).hashCode
     //  // Assuming AnyRef for Any not be perfectly safe, though... (to see)
@@ -476,7 +492,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       liftType(etp)
       */
       
-    case AnnotatedType(annotations, underlying) =>
+    case AnnotatedType(annotations, underlying) if !isExtracted => // ignore all annotations that are not '@Extracted'
       liftType(underlying)
 
     case SingleType(pre, sym) if sym.isStatic && sym.isModule => // TODO understand diffce with ThisType 
@@ -489,7 +505,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && !(tp <:< ExtrudedType) && prefix != NoPrefix =>
+    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && prefix != NoPrefix && !isExtracted  =>
       //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
       dbg(s"TypeRef($prefix, $sym, $targs)")
       

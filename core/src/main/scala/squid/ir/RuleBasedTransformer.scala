@@ -261,6 +261,8 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         assert(subPatterns.size == patNames.size)
         
         /** Rewrites UnApply trees introduced by typechecking to normal trees recursively, so we can typecheck again later. */
+        // Q: with nested rewrite rules, doesn't this virtualizes pattern matching several times, 
+        // resulting in very bad code? (indeed, we do produce normal patmat as a result here)
         def patMat(scrut: Tree, pat: Tree, body: Tree): Tree = {
           pat match {
             case UnApply(fun, args) =>
@@ -270,16 +272,28 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
               }
               else {
                 val args_names = args.zipWithIndex map (ai => ai._1 -> TermName("__"+ai._2))
-                q"$unapp flatMap { case (..${args_names map { case (arg, nam) => pq"$nam: ${arg.tpe}" }}) => ${
+                q"$unapp flatMap { case (..${args_names map { case (arg, nam) => pq"$nam: ${arg.tpe.widen} @unchecked" }}) => ${
+                // using `.widen` so that things like `:String("abc")` become just `:String` ^
                   (args_names :\ body) {
                     case ((arg, nam), acc) => patMat(q"$nam", arg, acc)
                   }
-                }}"
+                }}" 
+                //} case _ => None }" // such default case is not useful as long as we widen `arg.tpe`; otherwise when
+                // matching a constant, as in `case ir"println(${Const("abc")}:String)"`, the type of the pattern variable
+                // would be String("abc") and the matching would fail...
+                // OTOH, maybe there are other cases where the pattern variable would have a type that is too precise,
+                // eg maybe when matching a vararg with a host-language List instead of Seq... but it's not clear that
+                // in this case we really want to silently fail the matching...
               }
             //case Bind(name: TermName, pq"_") => q"val $name = $scrut; ..$body"
             case b@Bind(name: TermName, pq"_") => // For some reason, this seems to be necessary for the gen0/gen phase below to work!! 
               q"${internal.valDef(b.symbol,scrut)}; ..$body"
-            case p => throw EmbeddingException(s"Pattern shape not yet supported: ${showCode(p)} :-(")
+            case b@Bind(name: TermName, pat) =>
+              val scrutName = TermName(c.freshName("scrut"))
+              q"val $scrutName = $scrut; ${internal.valDef(b.symbol,q"$scrutName")}; ${patMat(q"$scrutName", pat, body)}"
+            case k @ Literal(Constant(c)) =>
+              q"if ($scrut == $k) $body else None"
+            case p => throw EmbeddingException(s"Pattern shape not yet supported in rewrite rule: ${showCode(p)}")
           }
         }
         

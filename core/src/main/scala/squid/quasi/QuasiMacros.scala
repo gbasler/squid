@@ -66,6 +66,9 @@ class QuasiMacros(val c: whitebox.Context) {
   def forward$(q: Tree*): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
   }
+  def forward$2(q: Tree): Tree = c.macroApplication match {
+    case q"$qc.$$[$t,$s,$c]($code)" => q"$qc.qcbase.$$[$t,$s,$c]($code)"
+  }
   def forward$$(name: Tree): Tree = c.macroApplication match {
     case q"$qc.$$$$[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
     case q"$qc.?[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
@@ -75,7 +78,7 @@ class QuasiMacros(val c: whitebox.Context) {
   lazy val SubstituteVarargSym = typeOf[QuasiBase].member(TypeName("__*").encodedName)
   //lazy val SubstituteVarargSym = symbolOf[QuasiBase#__*] // nope: gets 'trait Seq' (dealias) ...
   
-  
+  /** Note: quasicode currently does not support inserted types, but it could in principle (though it would need another syntax). */
   def quasicodeImpl[Config: c.WeakTypeTag](tree: c.Tree) = wrapError {
     
     debug(s"Typed[${tree.tpe}]: "+showCode(tree))
@@ -94,8 +97,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     object Embedder extends QuasiEmbedder[c.type](c)
     val res = Embedder(base, code, Nil,
-       config,
-      None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil)
+       config, None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil, Set(), Seq())
     
     debug("Generated:\n"+showCode(res))
     
@@ -106,6 +108,10 @@ class QuasiMacros(val c: whitebox.Context) {
   
   lazy val IRTSym = symbolOf[QuasiBase#IRType[_]]
   lazy val IRSym = symbolOf[QuasiBase#IR[_,_]]
+  
+  def asIR(tp: Type, typeOfBase: Type) = tp.baseType(IRSym) |>? {
+    case TypeRef(typeOfBase0, IRSym, typ :: ctx :: Nil) if typeOfBase =:= typeOfBase0 => (typ, ctx)
+  }
   
   
   def unapplyImpl[L: c.WeakTypeTag](scrutinee: c.Tree) = wrapError {
@@ -122,9 +128,8 @@ class QuasiMacros(val c: whitebox.Context) {
     val base = c.typecheck(q"$quasiBase.base")
     
     /** [INV:Quasi:reptyp]: we only match IR[_,_] types */
-    scrutinee.tpe.baseType(IRSym) match {
-      case TypeRef(baseType, IRSym, typ :: ctx :: Nil) if base.tpe =:= baseType =>
-      case _ => throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a subtype of `$base.${IRSym.name}[_,_]`"
+    if (asIR(scrutinee.tpe, base.tpe).isEmpty) {
+      throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a proper subtype of `$base.${IRSym.name}[_,_]`"
         +"\n\tTry matching { case x: IR[_,_] => ... } first.")
     }
     
@@ -158,6 +163,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     var holes: List[(Either[TermName,TypeName], Tree)] = Nil // (Left: value hole; Right: type hole, original hole tree)
     val splicedHoles = mutable.Set[TermName]()
+    var typeBounds: List[(TypeName, EitherOrBoth[Tree,Tree])] = Nil
     
     // Keeps track of which holes still have not been found in the source code
     val remainingHoles = mutable.Set[TermName](builder.holes.keysIterator.toSeq: _*)
@@ -208,7 +214,21 @@ class QuasiMacros(val c: whitebox.Context) {
             case _ => false
           }) => q"$base.$$($t: _*)"
           case t if h.vararg => q"$base.$$($t: _*)"
-          case t => q"$base.$$($t)"
+            
+          case t => 
+            // Here we try to retrieve the IR type of the inserted code, so that we can generate a typed call to `$`
+            // This is only necessary when we want a type coercion to happen during type checking of the shallow program;
+            // (such as when we ascribe a term with a type and rely on pat-mat subtyping knowledge to apply the coercion)
+            // if we don't do that, the expected type we want to coerce to will be propagated all the way inside the 
+            // unquote, and the coercion would have to happen outside of the shallow program! (not generally possible)
+            // ---
+            // TODO: ideally, we should also handle function types (cf. auto-fun-lift)
+            asIR(t.tpe, base.tpe).fold {
+              q"$base.$$($t)"
+            }{
+              case (typ, ctx) => q"$base.$$[$typ,$ctx]($t)"
+            }
+            
         }
       }
     }
@@ -238,6 +258,18 @@ class QuasiMacros(val c: whitebox.Context) {
         
       case Ident(name: TermName) if builder.holes.contains(name) =>
         mkTermHole(name, false)
+        
+      // Interprets bounds on extracted types, like in: `case List[$t where (Null <:< t <:< AnyRef)]`:
+      case tq"${Ident(name: TypeName)} where $bounds" if isUnapply && builder.holes.contains(name.toTermName) =>
+        val HoleName = builder.holes(name.toTermName).name.get.toTypeName // FIXME
+        bounds match {
+          case tq"$lb <:< ${Ident(HoleName)}"         => typeBounds ::= HoleName -> First (lb   )
+          case tq"${Ident(HoleName)} <:< $ub"         => typeBounds ::= HoleName -> Second(   ub)
+          case tq"$lb <:< ${Ident(HoleName)} <:< $ub" => typeBounds ::= HoleName -> Both  (lb,ub)
+          case _ => throw EmbeddingException(s"Illegal bounds specification shape: `${showCode(bounds)}`. " +
+            s"It shoule be of the form: `LB <:< $HoleName` or `$HoleName <:< UB` or `LB <:< $HoleName <:< UB`.")
+        }
+        rec(Ident(name))
         
       case Ident(name: TypeName) if builder.holes.contains(name.toTermName) => // in case we have a hole in type position ('name' is a TypeName but 'holes' only uses TermNames)
         val hole = builder.holes(name.toTermName)
@@ -310,14 +342,13 @@ class QuasiMacros(val c: whitebox.Context) {
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, unquotedTypes, scrutinee, config)
+    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, typeBounds.toMap, unquotedTypes, scrutinee, config)
     catch {
       case e: EmbeddingException if hasStuckSemi.isDefined => 
         c.warning(c.enclosingPosition, s"It seems you tried to annotate free variable `${hasStuckSemi.get}` with `:`, " +
           "which may have been interpreted as operator `?:` -- " +
           "use a space to remove this ambiguity.")
         throw e
-        //???
     }
     
     debug("Generated:\n"+showCode(res))
@@ -400,8 +431,10 @@ class QuasiMacros(val c: whitebox.Context) {
     
     debug(s"Output context: $outputCtx")
     
-    val sanitizedTerm = if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
-    //val sanitizedTerm = term
+    val sanitizedTerm = 
+      if (debug.debugOptionEnabled) term else untypeTreeShape(c.untypecheck(term))
+      //term
+      //c.untypecheck(term)
     val res = q"$base.`internal IR`[$typ,$outputCtx]($base.substituteLazy($quoted.rep, Map($name -> (() => ($sanitizedTerm:$base.IR[_,_]).rep))))"
     
     debug("Generated: "+showCode(res))

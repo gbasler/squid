@@ -10,6 +10,31 @@ import utils._
   */
 trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixin...
   
+  /** Matches expressions that have no subexpressions; note that it does NOT match x.module where `module` is the name
+    * of a nested object and `x` is not a static path. */
+  object LeafCode {
+    def unapply[T,C](q: IR[T,C]): Option[IR[T,C]] = q.rep.dfn match {
+      case (_:Constant) | (_:Hole) | (_:SplicedHole) | (_:StaticModule) | (_:BoundVal) => Some(q)
+      case Ascribe(t,_) => unapply(IR(t))
+      case _ => None
+    }
+  }
+  
+  object Lambda {
+    def unapply[T,C](q: IR[T,C]): Option[Lambda[T,C]] = q.rep.dfn match {
+      case (abs:Abs) => Some(new Lambda[T,C](abs,None)) // TODO ascr
+      case Ascribe(t,_) => unapply(IR(t))
+      case _ => None
+    }
+  }
+  class Lambda[T,C](private val abs: Abs, private val asc: Option[TypeRep]) {
+    type C0 <: C
+    val body: IR[T,C0] = IR(abs.body)
+    def rebuild[R](newBody: IR[R,C0]): IR[R,C] = {
+      val res = rep(Abs(abs.param, newBody.rep)(abs.typ))
+      IR(asc map (Ascribe(res, _) |> rep) getOrElse res)
+    }
+  }
   
   object MethodApplication {
     def unapply[T,C](q: IR[T,C]): Option[MethodApplication[T,C]] = unapplyMethodApplication[T,C](q)
@@ -52,6 +77,8 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
     
     def rebuild(stmtTransfo: SelfTransformer, resultTransfo: SelfTransformer): IR[T,C]
     
+    def withResult[R](r: IR[R,C0]): IR[R,C] // TODO generalize..?
+    
   }
   
   object Block {
@@ -71,6 +98,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
         bl._1 map { case Left((v,r)) => Left(v,r |> stmtTransfo.pipeline) case Right(r) => Right(r |> stmtTransfo.pipeline) },
         bl._2 |> resultTransfo.pipeline
       )))
+      def withResult[R](result: IR[R,C0]): IR[R,C] = IR(constructBlock((bl._1, result.rep)))
     })
   }
   
@@ -79,11 +107,28 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
   }
   
   
+  import Predef.QuasiContext
+  import Predef.implicitType
+  import squid.anf.analysis.BlockHelpers.placeHolder
+  
   /** A thing of beauty: no unsafe casts, @unchecked patterns or low-level hacks; just plain typeticool Squid quasiquotes. */
-  object Closure {
-    import Predef.QuasiContext
-    import Predef.implicitType
-    import squid.anf.analysis.BlockHelpers.placeHolder
+  object Closure extends AbstractClosure {
+    override def unapply[A:IRType,C](term: IR[A,C]): Option[Closure[A, C]] = {
+      term match {
+        case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
+          Some(new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term"))
+        case _ => super.unapply(term)
+      }
+    }
+  }
+  object GeneralClosure extends AbstractClosure {
+    override def unapply[A:IRType,C](term: IR[A,C]): Some[Closure[A, C]] = {
+      Some(super.unapply(term).getOrElse {
+        new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term")
+      })
+    }
+  }
+  class AbstractClosure {
     
     private var uid = 0
     
@@ -94,9 +139,6 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
       //println("CLOSREC: "+x.rep)
       
       term match {
-          
-        case ir"(x: $xt) => ($body:$bt)" => // Note: here `bt` is NOT `A` -- in fact `A =:= (xt => bt)`
-          Some(new ClosureImpl[A,C,Unit](ir"()", ir"(_:Unit) => $term"))
           
         case ir"val ClosureVar: $xt = $v; $body: A" =>
           
@@ -145,6 +187,21 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
   private case class ClosureImpl[A,C,TE](env: IR[TE,C], fun: IR[TE => A,C])(implicit val typA: IRType[A], val typE: IRType[TE])
     extends Closure[A,C] { type E = TE }
   
+  
+  
+  
+  // This class is here because it uses BlockHelpers, and because of Scala peth-dependent typing limitations, there is
+  // no easy way to have it defined outside. This could be resolved by making BlockHelpers NOT a mixin trait, which it
+  // should never have been anyways. (TODO change it)
+  import ir._
+  trait ANFTypeChangingIRTransformer extends SelfTransformer with TypeChangingIRTransformer { self =>
+    def transformChangingType[T,C](code: IR[T,C]): IR[_,C] = code match {
+      case Lambda(lmd) => lmd.rebuild(transformChangingType(lmd.body))
+      case MethodApplication(m) => m.rebuild(this)
+      case LeafCode(_) => code
+    }
+    
+  }
   
 }
 object BlockHelpers {
