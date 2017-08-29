@@ -65,7 +65,8 @@ trait OptionNormalizer extends SimpleRuleBasedTransformer { self =>
     case ir"($opt:Option[$t]).map[$mt]($f)" => ir"if ($opt.isDefined) Some($f($opt.get)) else None"
     case ir"($opt:Option[$t]).flatMap[$mt]($f)" => ir"if ($opt.isDefined) $f($opt.get) else None"
     case ir"($opt:Option[$t]).orElse[t]($other)" => ir"if ($opt.isDefined) $opt else $other" // TODO test with different type params
-    // TODO handle other features... e.g. flatMap
+    case ir"($opt:Option[$t]).foreach[$r]($f)" => ir"if ($opt.isDefined) {$f($opt.get);()} else ()"
+    // TODO handle other features...
     
     // Commuting with IF
     

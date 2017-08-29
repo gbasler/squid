@@ -591,7 +591,9 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   def purgedTypeToTree(tpe: Type): Tree = {
     val existentials = mutable.Buffer[TypeName]()
     def rec(tpe: Type): Tree = tpe match {
-      case _ if !tpe.typeSymbol.isClass => //&& !(tpe <:< typeOf[Base.Param]) =>
+      //case _ if !tpe.typeSymbol.isClass => //&& !(tpe <:< typeOf[Base.Param]) =>
+        // FIXME?! had to change it to:   -- otherwise disgusting stuff happens with uninterpretedType[?0] etc.
+      case _ if !tpe.typeSymbol.isClass && !tpe.typeSymbol.isParameter => //&& !(tpe <:< typeOf[Base.Param]) =>
         existentials += TypeName("?"+existentials.size)
         tq"${existentials.last}"
       case TypeRef(pre, sym, Nil) =>

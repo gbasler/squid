@@ -49,7 +49,24 @@ object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer wit
     case ir"val $st = new Strm[$t]($pf); $body: $bt" =>
       body rewrite { case ir"$$st.producer" => pf } subs 'st -> {System.err.println("huh s");return code}
       
+    case ir"Strm.pullable($as:Strm[$ta])" => as
       
+    case ir"Strm.doFlatMap[$ta,$tb]($pa, a => $body)" =>
+      println(s"Trying to flatten $pa with $body")
+      
+      //val bodyFun = f transformWith ImplLowering
+      
+      import base.SimplePredef.unsound
+      import base.SimplePredef.{Rep=>Code}
+      
+      val r = NeatClosure2.doFlatMapStaged(pa,(x:Code[ta.Typ]) => body subs 'a -> x)
+      println(r)
+      
+      r
+      //???
+      
+    // works, but for the paper I want a simpler interface that accepts dealing with open terms
+      /*
     //case ir"($as:Strm[$ta]).flatMap[$tb]($f)" =>
     //case ir"Strm.doFlatMap[$ta,$tb]($pa,$f)" =>
     case ir"Strm.doFlatMap[$ta,$tb]($pa,$f)" =>
@@ -70,7 +87,7 @@ object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer wit
       
       //val body = (x: Code[ta.Typ]) => f subs 'a -> x  // TODO use
       
-      ///*
+      ///
       //val NeatClosure(clos) = f0 match {
       //  case ir"(a:$ta) => $body" => body
       //}
@@ -99,26 +116,25 @@ object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer wit
         """
       }
       println(res)
-      //*/
+      ///
       
-      /*
-      val body = f0 match {
-        case ir"(a:$$ta) => $body : Producer[$$tb]" =>
-          (x: Code[ta.Typ]) => body subs 'a -> x
-      }
-      val closedBody = 
-      val NeatClosure(clos) = body
-      */
+      //val body = f0 match {
+      //  case ir"(a:$$ta) => $body : Producer[$$tb]" =>
+      //    (x: Code[ta.Typ]) => body subs 'a -> x
+      //}
+      //val closedBody = 
+      //val NeatClosure(clos) = body
       
       res.get
-      //???
+      */
       
       
     case _ => code
   }).asInstanceOf[IR[T,C]]
 }
-object ImplLowering extends Embedding.TransformerWrapper(ImplInlining, ImplCtorInline) with TopDownTransformer with FixPointTransformer
-//object ImplLowering extends Embedding.TransformerWrapper(ImplCtorInline,ImplInlining) with TopDownTransformer with BottomUpTransformer
+//object ImplLowering extends Embedding.TransformerWrapper(ImplInlining, ImplCtorInline) with TopDownTransformer with FixPointTransformer
+object ImplLowering extends Embedding.TransformerWrapper(ImplInlining, ImplCtorInline) with BottomUpTransformer with FixPointTransformer
+//object ImplLowering extends Embedding.TransformerWrapper(ImplCtorInline,ImplInlining) with TopDownTransformer with BottomUpTransformer // STUPID
 
 
 
@@ -133,7 +149,8 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     // Syntactic Normalization
     
-    case ir"(if ($c) $thn else $els : Strm[$ta])" => ir"conditionally($c)($thn,$els)"
+    case ir"(if ($c) $thn else $els : Strm[$ta])" => 
+      ir"conditionally($c)($thn,$els)"
     
       
     // Bubble up pullable
@@ -149,6 +166,9 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     case ir"pullable($as:Strm[$ta]).take($n)" =>
       ir"pullable($as.take($n))"
+      
+    case ir"conditionally[$ta]($c)(pullable($thn),pullable($els))" =>
+      ir"pullable(conditionally[$ta]($c)($thn,$els))"
       
       
     // Folding
@@ -168,7 +188,13 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       ir"consumeWhileNested($as)($f)($g)"
       
     case ir"consumeWhile(($as:Strm[$ta]).filter($pred))($f)" =>
-      ir"consumeWhile($as)(a => if ($pred(a)) $f(a) else true)"
+      //ir"consumeWhile($as)(a => if ($pred(a)) $f(a) else true)"
+      ir"consumeWhile($as)(a => !$pred(a) || $f(a))"
+      
+    // this actually makes code bigger, by duplicating the whole loop (instead of just the inside)
+    //   it's still arguably better since it means the branch is executed only once instead of at every iteration
+    case ir"consumeWhile(conditionally[$ta]($c)($thn,$els))($f)" =>
+      ir"if ($c) consumeWhile($thn)($f) else consumeWhile($els)($f)"
       
       
     // Zipping
@@ -245,6 +271,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
   }
   
 }
+
 
 
 

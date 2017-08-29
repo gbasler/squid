@@ -76,6 +76,24 @@ class Strm[A](val producer: () => Producer[A]) {
   @transparent
   def foreach(f: A => Unit): Unit = {
     consumeWhile(this) { a => f(a); true }
+    
+    //fold(())(a => println(a))
+    
+    //val p = producer()
+    //var mayHaveLeft = true
+    //while (mayHaveLeft) {
+    //  mayHaveLeft = false
+    //  p { a =>
+    //    f(a)
+    //    mayHaveLeft = true
+    //  }
+    //}
+  }
+  @phase('Sugar)
+  def fold[B](z: B)(f: (B,A) => B): B = {
+    var curVal = z
+    foreach { a => curVal = f(curVal, a) }
+    curVal
   }
   
   
@@ -89,6 +107,11 @@ class Strm[A](val producer: () => Producer[A]) {
     val p1 = that.producer()
     k => p0 { a => p1 { b => k(combine(a, b)) } }
   })
+  
+  // for the paper:
+  @phase('Impl) def csme(f: A => Bool) = {
+    val p = producer(); loopWhile {
+      var cont = false; p { a => cont = f(a) }; cont }}
   
 }
 
@@ -113,8 +136,24 @@ object Strm {
       if (iv <= to) { k(iv); i = iv + 1 }
     }
   })
+  // for the paper:
+  @phase('Sugar) def fromRange(from: Int, to: Int) = range(from,to)
+  @phase('Sugar) def fromRangeImpl(from: Int, to: Int) = range(from,to)
+  
   @phase('Sugar)
   def fromIndexed[A](xs: IndexedSeq[A]): Strm[A] = range(0, xs.length).map(xs)
+  
+  @phase('Sugar)
+  def unfold[A,B](init:B)(next:B => Option[(A,B)]): Strm[A] = pullStrm(() => {
+    var st = init
+    k => {
+      next(st).foreach { nst_b =>
+        st = nst_b._2
+        k(nst_b._1)
+      }
+    }
+  })
+  
   
   @phase('Impl)
   def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
@@ -125,7 +164,6 @@ object Strm {
       continue
     }
   }
-  
   @phase('Sugar)
   def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
     consumeWhile(s) { a =>
@@ -134,7 +172,6 @@ object Strm {
       continue 
     }
   }
-  
   @phase('Sugar)
   def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(f: (A,B) => Bool) = {
     consumeWhile(s) { a =>
@@ -143,6 +180,35 @@ object Strm {
       continue
     }
   }
+  
+  // version where consumeWhile
+  /*
+  @phase('Impl)
+  def consumeWhile[A](s: Strm[A])(f: A => Bool): Bool = {
+    val p = s.producer()
+    var continue = false
+    loopWhile {
+      continue = false
+      p { a => continue = f(a) }
+      continue
+    }
+    !continue
+  }
+  @phase('Sugar)
+  def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
+    consumeWhile(s) { a =>
+      consumeWhile(nest(a))(f)
+    }
+  }
+  @phase('Sugar)
+  def consumeWhileZipped[A,B](s: Strm[A], p: Producer[B])(f: (A,B) => Bool) = {
+    consumeWhile(s) { a =>
+      var continue = false
+      p { b => continue = f(a,b) }
+      continue
+    }
+  }
+  */
   
   
   
@@ -174,6 +240,16 @@ object Strm {
     val p1 = rhs.producer()
     k => if (cond) p0(k) else p1(k)
   })
+  // doesn't fuse because we don't do anything to inline things like `if(...) lambda else lambda`
+  //def conditionally[A](cond: Bool)(lhs: Strm[A], rhs: Strm[A]): Strm[A] = Strm(() => {
+  //  if (cond) {
+  //    val p0 = lhs.producer()
+  //    k => p0(k)
+  //  } else {
+  //    val p1 = rhs.producer()
+  //    k => p1(k)
+  //  }
+  //})
   
   
   
