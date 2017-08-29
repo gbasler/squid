@@ -13,6 +13,13 @@ import squid.anf.transfo
 import Embedding.Rep
 import Embedding.{Block, AsBlock, WithResult, GeneralClosure}
 
+/*
+
+TODO explore what to do on the pullable arg of a zip
+  are algebraic normalization rules enough?
+  is there something to do to fold .producer()?
+
+*/
 
 class DbgCompiler extends Compiler { override val printResults = true }
 
@@ -231,7 +238,7 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
       
     // for paper:
     case ir"consumeWhile(fromArrayImpl[$ta]($xs))($f)" =>
-      ir"val len = $xs.length; var i = 0; while(i < len) { $f($xs(i)); i += 1 }"
+      ir"val len = $xs.length; var i = 0; var cont = true; while(i < len && cont) { cont = $f($xs(i)); i += 1 }"
       
       
     // Zipping

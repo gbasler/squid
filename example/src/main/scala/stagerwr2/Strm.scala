@@ -139,7 +139,7 @@ object Strm {
   // for the paper:
   @phase('Sugar) def fromRange(from: Int, to: Int) = range(from,to)
   @phase('Sugar) def fromRangeImpl(from: Int, to: Int) = range(from,to)
-  @phase('Sugar) def fromArray[A](xs: Array[A]): Strm[A] = fromArrayImpl(xs)
+  @phase('Sugar) def fromArray[A](xs: Array[A]): Strm[A] = pullable(fromArrayImpl(xs)) // tried without pullable; made sure still works [30/06/17]
   @transparencyPropagating @phase('Impl) def fromArrayImpl[A](xs: Array[A]): Strm[A] = range(0, xs.length-1).map(x => xs(x))
   
   @phase('Sugar)
