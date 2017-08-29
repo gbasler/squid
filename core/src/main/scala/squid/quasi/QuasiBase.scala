@@ -248,12 +248,19 @@ self: Base =>
   /* To support insertion syntax `$xs` (in ction) or `$$xs` (in xtion) */
   def $[T,C](q: IR[T,C]*): T = ??? // TODO B/E  -- also, rename to 'unquote'?
   //def $[T,C](q: IR[T,C]): T = ??? // Actually unnecessary
+  def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = ???
   
-  /* To support hole syntax `$$xs` (in ction) or `$xs` (in xtion)  */
+  /* To support hole syntax `xs?` (old syntax `$$xs`) (in ction) or `$xs` (in xtion)  */
   def $$[T](name: Symbol): T = ???
   /* To support hole syntax `$$xs: _*` (in ction) or `$xs: _*` (in xtion)  */
   def $$_*[T](name: Symbol): Seq[T] = ???
   
+  
+  def liftFun[A:IRType,B,C](qf: IR[A,C] => IR[B,C]): IR[A => B,C] = {
+    val bv = bindVal("lifted", typeRepOf[A], Nil) // TODO annotation recording the lifting?
+    val body = qf(IR(bv |> readVal)).rep
+    IR(lambda(bv::Nil, body))
+  }
   
   
   import scala.language.experimental.macros

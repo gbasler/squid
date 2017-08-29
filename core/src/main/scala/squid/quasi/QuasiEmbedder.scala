@@ -327,6 +327,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   subs(q"_root_.scala.Seq(..${idts}): _*")
               }
               
+            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun)" => // Special case for inserting staged functions
+              val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
+              liftTerm(tree, parent, expectedType)
+              
               
             // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`
             case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => lastWords("Scala type checking problem.")
