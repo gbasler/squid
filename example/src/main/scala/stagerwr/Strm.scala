@@ -98,9 +98,9 @@ case class Strm[A](producer: () => Producer[A]) {
   //@phase('Fold)
   //def foreach(f: A => Unit): Unit = doWhile { x => f(x); true }
   //
-  //@phase('Sugar)
+  @phase('Sugar)
   //@phase('Fold)
-  @phase('Impl)
+  //@phase('Impl)
   def fold[B](z: B)(f: (B,A) => B): B = {
     var curVal = z
     foreach { a => curVal = f(curVal, a) }
@@ -117,8 +117,9 @@ case class Strm[A](producer: () => Producer[A]) {
   def flatten[B](implicit ev: A <:< Strm[B]) = flatMap(ev)
   
   /*
-  //@phase('Impl)
-  @phase('FlatMap)
+  @phase('Impl)
+  //@phase('FlatMap)
+  @transparencyPropagating
   def flatMap[B](f: A => Strm[B]): Strm[B] = Strm(() => {
     val p = producer()
     //var curA: Option[A] = None
@@ -197,6 +198,43 @@ case class Strm[A](producer: () => Producer[A]) {
   
 }
 object Strm {
+  
+  //@phase('Impl)
+  //def doForeachNested[A](s: Strm[Strm[A]], f: A => Unit) = {
+  //  // squid.lib.compileWarning("doForeachNested not removed")
+  //  ???
+  //}
+  @phase('Impl)
+  def consumeWhile[A](s: Strm[A])(f: A => Bool) = {
+    //???
+    val p = s.producer()
+    loopWhile {
+      var continue = false
+      p { a =>
+        //f(a)
+        //continue = true
+        continue = f(a)
+      }
+      continue
+    }
+  }
+  //@phase('Impl)
+  @phase('Sugar)
+  //def consumeWhileNested[A](s: Strm[Strm[A]])(f: A => Bool) = {
+  def consumeWhileNested[A,B](s: Strm[A])(nest: A => Strm[B])(f: B => Bool) = {
+    //???
+    //val pa = s.producer()
+    consumeWhile(s) { a =>
+      //val p = nest(a).pr
+      //consumeWhile(nest(a))(f)
+      var continue = false 
+      consumeWhile(nest(a)) { b =>
+        continue = f(b)
+        continue
+      }
+      continue 
+    }
+  }
   
   
   @phase('Impl)

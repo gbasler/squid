@@ -89,8 +89,8 @@ import Strm._
 import Embedding.Predef._
 
 
-//object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with BottomUpTransformer with FixPointTransformer { self =>
-object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer with FixPointTransformer { self =>
+object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with BottomUpTransformer with FixPointTransformer { self =>
+//object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer with FixPointTransformer { self =>
   
   rewrite {
       
@@ -121,9 +121,47 @@ object ImplFlowOptimizer extends Embedding.SelfTransformer with FixPointRuleBase
     case ir"($as: Strm[$ta]).map[$tb]($fb).flatMap[$tc]($fc)" =>
       ir"$as.flatMap($fb andThen $fc)"
       
-    case ir"($as: Strm[$ta]).filter($pred)" =>
-      ir"$as.flatMap(a => singleIf(a,$pred(a)))"
+    // TODO?
+    //case ir"($as: Strm[$ta]).filter($pred)" =>
+    //  ir"$as.flatMap(a => singleIf(a,$pred(a)))"
       
+      
+      
+      
+      
+    // (old) Assumption: uninlined streams have simple implem -- a producer which implem can be used efficiently, eg. Strm.range 
+    //  TODO filter?
+      
+    // Folding
+      
+    case ir"($as: Strm[$ta]).foreach($f)" =>
+      ir"consumeWhile($as){a => $f(a); true}"
+      
+    case ir"consumeWhile(($as: Strm[$ta]).map[$tb]($f))($g)" =>
+      ir"consumeWhile($as)($f andThen $g)"
+    
+    case ir"consumeWhile(($as: Strm[$ta]).take($n))($f)" =>
+      //ir"var taken = 0; consumeWhile($as){a => taken < $n && $f(a) }"
+      ir"var taken = 0; consumeWhile($as){a => val t = taken; taken = t+1; t < $n && $f(a) }"
+    
+    case ir"consumeWhile(($as: Strm[$ta]).flatMap[$tb]($f))($g)" =>
+      //ir"consumeWhileNested($as)($f andThen $g)"
+      ir"consumeWhileNested($as)($f)($g)"
+      
+      
+    // Zipping
+      
+    case ir"consumeWhile(($as:Strm[$ta]).zipWith[$tb,$tc]($bs)($f))($g)" =>
+      
+      val as0 = ir"(k:$ta=>Bool) => consumeWhile($as)(k)" transformWith ImplFlowOptimizer
+      val bs0 = bs transformWith ImplFlowOptimizer
+      
+      println(as0)
+      println(bs0)
+      
+      ???
+    
+    
     
   }
   
@@ -326,6 +364,7 @@ object FlatMapInlining extends Embedding.Lowering('FlatMap) with TopDownTransfor
 object ImplInlining extends Embedding.Lowering('Impl)
 object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer with FixPointTransformer {
   def transform[T,C](code: IR[T,C]): IR[T,C] = (code match {
+    case ir"(if ($c) $thn else $els : Strm[$ta]).producer" => ir"if ($c) $thn.producer else $els.producer"
     case ir"Strm($pf).producer" => pf
     case ir"val $st = Strm[$t]($pf); $body: $bt" =>
       body rewrite { case ir"$$st.producer" => pf } subs 'st -> {System.err.println("huh s");return code}

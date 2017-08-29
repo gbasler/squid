@@ -1,5 +1,5 @@
-package stagerwr
-//package compiler
+package stagerwr2
+package compiler
 
 import squid.utils._
 import squid.ir._
@@ -29,7 +29,6 @@ object Embedding
     import base.Predef._
     import Strm._
     rewrite {
-      //case ir"(if ($c) $thn else $els : Strm[$ta])"
       case ir"identity[$xt]($x)" => x
     }
   }
@@ -38,7 +37,6 @@ object Embedding
   embed(Strm)
   
   
-  //intWrapper(0)
   addTransparentMethod(methodSymbol[scala.Predef.type]("intWrapper"))
   //addTransparentMethod(methodSymbol[math.`package`.type]("sqrt"))
   
