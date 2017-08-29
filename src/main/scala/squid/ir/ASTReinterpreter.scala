@@ -154,6 +154,8 @@ trait ASTReinterpreter { ast: AST =>
     
           case ir"while ($cond) $body" => q"while(${apply(cond rep)}) ${apply(body rep)}"
             
+          case ir"($x:Any) equals $y" => q"${apply(x rep)} == ${apply(y rep)}"
+    
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) := $value" => q"$id = ${apply(value.rep)}"
           case ir"(${ScalaVar(id)}: squid.lib.Var[$tv]) !" => id
           case ir"${ScalaVar(id)}: squid.lib.Var[$tv]" =>
