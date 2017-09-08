@@ -65,14 +65,36 @@ self: Base =>
       case _ => false
     }
   }
+  
+  abstract class Code[+T] protected () extends TypeErased with ContextErased {
+    type Typ <: T
+    val rep: Rep
+    
+    def asClosedIR: IR[T,Any] = `internal IR`(rep)
+    
+    // In the future: have a mehtod that actually checks contexts at runtime, once we have reified hygienic contexts...
+    //def asIR[C:Ctx]: Option[IR[T,C]] = ???
+    
+    def =~= (that: Code[_]): Boolean = rep =~= that.rep
+    
+    def transformWith(trans: ir.Transformer{val base: self.type}) = Code[T](trans.pipeline(rep))
+    
+    /** Useful when we have non-denotable types (e.g., extracted types) */
+    def withTypeOf[Typ >: T](x: Code[Typ]) = this: Code[Typ]
+    
+  }
+  object Code {
+    def apply[T](rep: Rep): Code[T] = mkIR(rep)
+    def unapply[T](c: Code[T]): Option[Rep] = Some(c.rep)
+  }
+  
   object IR {
     def apply[T,C](rep: Rep): IR[T,C] = mkIR(rep)
     def unapply[T,C](ir: IR[T,C]): Option[Rep] = Some(ir.rep)
   }
   
   // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
-  abstract class IR[+T, -C] protected () extends TypeErased with ContextErased {
-    type Typ <: T
+  abstract class IR[+T, -C] protected () extends Code[T] {
     
     // Note: cannot put this in `IntermediateIROps`, because of the path-dependent type
     def Typ(implicit ev: self.type <:< (self.type with IntermediateBase)): IRType[Typ] = {
@@ -102,15 +124,14 @@ self: Base =>
     //  case _ => false
     //}
     
-    def =~= (that: IR[_,_]): Boolean = rep =~= that.rep
-    
     def cast[S >: T]: IR[S, C] = this
     def erase: IR[Any, C] = this
     
-    def transformWith(trans: ir.Transformer{val base: self.type}) = IR[T,C](trans.pipeline(rep))
+    override def transformWith(trans: ir.Transformer{val base: self.type}) = IR[T,C](trans.pipeline(rep))
     
-    /** Useful when we have non-denotable types (e.g., extracted types) */
-    def withTypeOf[Typ >: T](x: IR[Typ, Nothing]) = this: IR[Typ,C]
+    /** Useful when we have non-denotable types (e.g., extracted types) 
+      * -- in fact, now that we have `Ctx = C @uncheckedVariance` it's not really useful anymore... */
+    override def withTypeOf[Typ >: T](x: Code[Typ]) = this: IR[Typ,C]
     
     /** Useful when we have non-denotable contexts (e.g., rewrite rule contexts) */
     def withContextOf[Ctx <: C](x: IR[Any, Ctx]) = this: IR[T,Ctx]
@@ -123,7 +144,7 @@ self: Base =>
     }
   }
   def `internal IR`[Typ,Ctx](rep: Rep) = IR[Typ,Ctx](rep) // mainly for macros
-  type SomeIR = IR[_, _] // shortcut; avoids showing messy existentials
+  type SomeIR = Code[_] // shortcut; avoids showing messy existentials
   
   
   sealed case class IRType[T] private[quasi] (rep: TypeRep) extends TypeErased {
@@ -151,15 +172,15 @@ self: Base =>
   class Predef[QC <: QuasiConfig] {
     val base: self.type = self // macro expansions will make reference to it
     
+    type Code[+T] = self.Code[T]
     type IR[+T,-C] = self.IR[T,C]
+    type CodeType[T] = self.IRType[T]
     type IRType[T] = self.IRType[T]
     type __* = self.__*
     
     val Const: self.Const.type = self.Const
     def irTypeOf[T: IRType] = self.irTypeOf[T]
     def typeRepOf[T: IRType] = self.typeRepOf[T]
-    
-    implicit def anyContextIsEmptyContext[A](ir: IR[A,AnyRef]): IR[A,Any] = ir.asInstanceOf[IR[A,Any]]
     
     def nullValue[T: IRType](implicit ev: base.type <:< (base.type with IntermediateBase)): IR[T,{}] = {
       val b: base.type with IntermediateBase = ev(base)
@@ -171,6 +192,7 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
     
+    // Could also use compileTimeOnly here:
     @deprecated("Abort(msg) should only be called from the body of a rewrite rule. " +
       "If you want to abort a rewriting from a function called in the rewrite rule body, " +
       "use `throw RewriteAbort(msg)` instead.", "0.1.1")
@@ -283,7 +305,10 @@ self: Base =>
   /* To support insertion syntax `$xs` (in ction) or `$$xs` (in xtion) */
   def $[T,C](q: IR[T,C]*): T = ??? // TODO B/E  -- also, rename to 'unquote'?
   //def $[T,C](q: IR[T,C]): T = ??? // Actually unnecessary
-  def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = ???
+  def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = ??? // TODO rely on implicit liftFun instead?
+  
+  def $Code[T](q: Code[T]): T = ??? // TODO B/E  -- also, rename to 'unquote'?
+  def $Code[A,B](q: Code[A] => Code[B]): A => B = ???
   
   /* To support hole syntax `xs?` (old syntax `$$xs`) (in ction) or `$xs` (in xtion)  */
   def $$[T](name: Symbol): T = ???
@@ -291,12 +316,22 @@ self: Base =>
   def $$_*[T](name: Symbol): Seq[T] = ???
   
   
-  def liftFun[A:IRType,B,C](qf: IR[A,C] => IR[B,C]): IR[A => B,C] = {
-    val bv = bindVal("lifted", typeRepOf[A], Nil) // TODO annotation recording the lifting?
+  implicit def liftFun[A:IRType,B,C](qf: IR[A,C] => IR[B,C]): IR[A => B,C] = {
+    val bv = bindVal("lifted", typeRepOf[A], Nil) // add TODO annotation recording the lifting?
     val body = qf(IR(bv |> readVal)).rep
     IR(lambda(bv::Nil, body))
   }
-  
+  implicit def liftCodeFun[A:IRType,B](qf: Code[A] => Code[B]): Code[A => B] = {
+    val bv = bindVal("lifted", typeRepOf[A], Nil) // add TODO annotation recording the lifting?
+    val body = qf(Code(bv |> readVal)).rep
+    Code(lambda(bv::Nil, body))
+  }
+  implicit def unliftFun[A,B:IRType,C](qf: IR[A => B,C]): IR[A,C] => IR[B,C] = x => {
+    IR(app(qf.rep, x.rep)(typeRepOf[B]))
+  }
+  implicit def unliftCodeFun[A,B:IRType](qf: Code[A => B]): Code[A] => Code[B] = x => {
+    Code(app(qf.rep, x.rep)(typeRepOf[B]))
+  }
   
   import scala.language.experimental.macros
   

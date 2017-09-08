@@ -98,8 +98,22 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     val ascribedTree = unapply match {
       case Some(t) =>
         debug("Scrutinee type:", t.tpe)
+        def mkTree(tp: Type) =
+          if (tp.typeSymbol.isClass && !(Any <:< tp)) {
+            // ^ If the scrutinee is 'Any', we're better off with no ascription at all, as something like:
+            // 'List(1,2,3) map (_ + 1): Any' will typecheck to:
+            // 'List[Int](1, 2, 3).map[Int, Any]((x$1: Int) => x$1+1)(List.canBuildFrom[Int]): scala.Any'
+            tp match {
+              case _: ConstantType => None // For some stupid reason, Scala typechecks `(($hole: String): String("Hello"))` as `"Hello"` ..................
+              case _ =>
+                val purged = purgedTypeToTree(tp)
+                debug("Purged matched type:", purged)
+                Some(q"$tree: $purged") // doesn't work to force subterms of covariant result to acquire the right type params.....
+                //Some(q"_root_.scala.Predef.identity[$purged]($virtualizedTree)") // nope, this neither
+            }
+          } else None
         t.tpe.baseType(symbolOf[QuasiBase#IR[_,_]]) match {
-          case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Rep[_], as is ensured in Quasi.unapplyImpl
+          case tpe @ TypeRef(tpbase, _, tp::ctx::Nil) =>
             scrutineeType = Some(tp)
             if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
             val newCtx = if (ctx <:< UnknownContext) {
@@ -113,20 +127,16 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             } else ctx
             debug("New context:",newCtx)
             termScope ::= newCtx
-            if (tp.typeSymbol.isClass && !(Any <:< tp)) {
-              // ^ If the scrutinee is 'Any', we're better off with no ascription at all, as something like:
-              // 'List(1,2,3) map (_ + 1): Any' will typecheck to:
-              // 'List[Int](1, 2, 3).map[Int, Any]((x$1: Int) => x$1+1)(List.canBuildFrom[Int]): scala.Any'
-              tp match {
-                case _: ConstantType => None // For some stupid reason, Scala typechecks `(($hole: String): String("Hello"))` as `"Hello"` ..................
-                case _ =>
-                  val purged = purgedTypeToTree(tp)
-                  debug("Purged matched type:", purged)
-                  Some(q"$tree: $purged") // doesn't work to force subterms of covariant result to acquire the right type params.....
-                  //Some(q"_root_.scala.Predef.identity[$purged]($virtualizedTree)") // nope, this neither
-              }
-            } else None
-          case NoType => assert(false, "Unexpected type: "+t.tpe); ??? // cf. [INV:Quasi:reptyp]
+            mkTree(tp)
+          case NoType =>
+            t.tpe.baseType(symbolOf[QuasiBase#Code[_]]) match {
+              case tpe @ TypeRef(tpbase, _, tp::Nil) => // Note: cf. [INV:Quasi:reptyp] we know this type is of the form Code[_], as is ensured in Quasi.unapplyImpl
+                scrutineeType = Some(tp)
+                if (!(tpbase =:= Base.tpe)) throw EmbeddingException(s"Could not verify that `$tpbase` is the same as `${Base.tpe}`")
+                termScope ::= Any
+                mkTree(tp)
+              case NoType => assert(false, "Unexpected type: "+t.tpe); ??? // cf. [INV:Quasi:reptyp]
+            }
         }
       case None => None
     }
@@ -357,6 +367,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               super.liftTerm(x, parent, expectedType, inVarargsPos)
               
+            
+            case q"$baseTree.$$Code[$tpt]($idt)" =>
+              val tree = q"$baseTree.$$[$tpt,$Any]($idt.asClosedIR)"
+              liftTerm(tree, parent, expectedType)
               
             /** Replaces insertion unquotes with whatever `insert` feels like inserting.
               * In the default quasi config case, this will be the trees representing the inserted elements. */
@@ -400,12 +414,21 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   subs(q"_root_.scala.Seq(..${idts}): _*")
               }
               
-            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun)" => // Special case for inserting staged functions
+            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun)" => // Special case for inserting staged IR functions
               val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
               liftTerm(tree, parent, expectedType)
               
-            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun).apply($arg)" => // Special case for inserting staged functions that are directly applied
+            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun).apply($arg)" => // Special case for inserting staged IR functions that are immediately applied
               val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
+              val argl = liftTerm(arg, x, Some(tfrom.tpe)) // Q: use typeIfNotNothing?
+              b.tryInline(liftTerm(tree, parent, expectedType), argl)(liftType(tfrom.tpe))
+              
+            case q"$baseTree.$$Code[$tfrom,$tto]($fun)" => // Special case for inserting staged Code functions
+              val tree = q"$baseTree.$$Code[$tfrom => $tto]($baseTree.liftCodeFun[$tfrom,$tto]($fun))"
+              liftTerm(tree, parent, expectedType)
+              
+            case q"$baseTree.$$Code[$tfrom,$tto]($fun).apply($arg)" => // Special case for inserting staged Code functions that are immediately applied
+              val tree = q"$baseTree.$$Code[$tfrom => $tto]($baseTree.liftCodeFun[$tfrom,$tto]($fun))"
               val argl = liftTerm(arg, x, Some(tfrom.tpe)) // Q: use typeIfNotNothing?
               b.tryInline(liftTerm(tree, parent, expectedType), argl)(liftType(tfrom.tpe))
               

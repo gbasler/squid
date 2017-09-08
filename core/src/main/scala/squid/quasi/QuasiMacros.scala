@@ -125,9 +125,24 @@ class QuasiMacros(val c: whitebox.Context) {
   
   lazy val IRTSym = symbolOf[QuasiBase#IRType[_]]
   lazy val IRSym = symbolOf[QuasiBase#IR[_,_]]
+  lazy val CodeSym = symbolOf[QuasiBase#Code[_]]
+  lazy val FunSym = symbolOf[_ => _]
   
   def asIR(tp: Type, typeOfBase: Type) = tp.baseType(IRSym) |>? {
     case TypeRef(typeOfBase0, IRSym, typ :: ctx :: Nil) if typeOfBase =:= typeOfBase0 => (typ, ctx)
+  }
+  class AsIR(typeOfBase: Type) { def unapply(x:Type) = asIR(x, typeOfBase) }
+  
+  def asCode(tp: Type, typeOfBase: Type) = tp.baseType(CodeSym) |>? {
+    case TypeRef(typeOfBase0, CodeSym, typ :: Nil) if typeOfBase =:= typeOfBase0 => typ
+  }
+  class AsCode(typeOfBase: Type) { def unapply(x:Type) = asCode(x, typeOfBase) }
+  
+  object AsFun {
+    def unapply(x:Type) = x.baseType(FunSym) match {
+      case TypeRef(_, FunSym, t0 :: tr :: Nil) => Some(t0,tr)
+      case _ => None
+    }
   }
   
   
@@ -144,10 +159,15 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val base = c.typecheck(q"$quasiBase.base")
     
-    /** [INV:Quasi:reptyp]: we only match IR[_,_] types */
-    if (asIR(scrutinee.tpe, base.tpe).isEmpty) {
-      throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a proper subtype of `$base.${IRSym.name}[_,_]`"
-        +"\n\tTry matching { case x: IR[_,_] => ... } first.")
+    /** [INV:Quasi:reptyp]: we only match Code[_] types */
+    // TODO if in contextual mode, nake sure IR terms are used!
+    //
+    //if (asIR(scrutinee.tpe, base.tpe).isEmpty) {
+    //  throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a proper subtype of `$base.${IRSym.name}[_,_]`"
+    //    +"\n\tTry matching { case x: IR[_,_] => ... } first.")
+    if (asCode(scrutinee.tpe, base.tpe).isEmpty) {
+      throw EmbeddingException(s"Cannot match type `${scrutinee.tpe}`, which is not a proper subtype of `$base.${CodeSym.name}[_]`"
+        +"\n\tTry matching { case x: Code[_] => ... } first.")
     }
     
     quasiquoteImpl[L](base, Some(scrutinee))
@@ -198,6 +218,9 @@ class QuasiMacros(val c: whitebox.Context) {
     
     var hasStuckSemi = Option.empty[TermName]
     
+    object AsIR extends AsIR(base.tpe)
+    object AsCode extends AsCode(base.tpe)
+    
     def mkTermHole(name: TermName, followedBySplice: Boolean) = {
       val h = builder.holes(name)
       remainingHoles -= name
@@ -239,12 +262,14 @@ class QuasiMacros(val c: whitebox.Context) {
             // (such as when we ascribe a term with a type and rely on pat-mat subtyping knowledge to apply the coercion)
             // if we don't do that, the expected type we want to coerce to will be propagated all the way inside the 
             // unquote, and the coercion would have to happen outside of the shallow program! (not generally possible)
-            // ---
-            // TODO: ideally, we should also handle function types (cf. auto-fun-lift)
-            asIR(t.tpe, base.tpe).fold {
-              q"$base.$$($t)"
-            }{
-              case (typ, ctx) => q"$base.$$[$typ,$ctx]($t)"
+            
+            // TODO: also handle auto-lifted function types of greater arities...
+            t.tpe match {
+              case AsIR(typ, ctx) => q"$base.$$[$typ,$ctx]($t)"
+              case AsFun(AsIR(t0,ctx0), AsIR(tr,ctxr)) => q"$base.$$[$t0,$tr,$ctx0 with $ctxr]($t)"
+              case AsCode(typ) => q"$base.$$Code[$typ]($t)"
+              case AsFun(AsCode(t0), AsCode(tr)) => q"$base.$$Code[$t0,$tr]($t)"
+              case _ => q"$base.$$($t)"
             }
             
         }

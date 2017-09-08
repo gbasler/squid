@@ -30,6 +30,7 @@ object PowerTests extends App {
   
   def powerCurried(exp: Int)(base: Code[Double]): Code[Double] = power(exp, base)
   def powerCurried2(exp: Int): Code[Double] => Code[Double] = power(exp, _)
+  //def powerCurried2(exp: Int): IR[Double,_] => IR[Double,_] = power(exp, _).asClosedIR
   
   power(3,ir"42.0") alsoApply println
   
@@ -51,4 +52,6 @@ object PowerTests extends App {
   */
     
 }
+
+// TODO test Code and IR fun-lifting
 

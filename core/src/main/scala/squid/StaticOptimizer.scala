@@ -171,6 +171,7 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
         c.warning(t.pos, s"DumpFolder implicit should be a value whose name is the desired path; found: ${showCode(t)}")
         None
     }
+    debug(s"Dumping folder: $dumpFolder")
     dumpFolder foreach { dumpFolder => 
       val ctx = s"$dumpFolder/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
       Optim.setContext(ctx)

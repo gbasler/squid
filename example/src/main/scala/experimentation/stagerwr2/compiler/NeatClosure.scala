@@ -1,3 +1,4 @@
+/*
 package stagerwr2
 package compiler
 
@@ -44,10 +45,10 @@ object NeatClosure {
         //ir"val x = Var($init); ${(x:Code[Var[xt.Typ]]) =>
         //ir"val x = Var[$xt](uncheckedNullValue); ${(x:Code[Var[xt.Typ]]) =>
         Some(ir"val env = Var(uncheckedNullValue[$xt]); ${ (x:Code[Var[xt.Typ]]) =>
-          ///*
+          ///+
           val b = bodyFun(ir"$x.!")  // UNSAFE: the var access is let-bound, and rec ends up in an infinite loop!
           rec(b, ir"() => { $reset(); $x := $init }", term_reset) getOrElse (return None)
-          //*/
+          //+/
           /*
           // Does not work: `acc` ends up being bound in the context, and is thus not up to date
           ir"val acc = $x.!; ${ (a:Code[xt.Typ]) =>
@@ -89,4 +90,4 @@ abstract class NeatClosure[T,C] {
   def make[R:IRType](term_reset: (Code[T], Code[() => Unit]) => Code[R]): Option[Code[R]]
 }
 
-
+*/

@@ -74,6 +74,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   def extractType(xtor: TypeRep, xtee: TypeRep, va: Variance): Option[Extract]
   
   
+  implicit class InspectableCodeOps[T](private val self: Code[T]) extends InspectableIROps[T,Any](self.asClosedIR) // TODO make it the other way around? or just separate it
   implicit class InspectableIROps[T,C](private val self: IR[T,C]) {
     import scala.language.experimental.macros
     import squid.utils.MacroUtils.MacroSetting

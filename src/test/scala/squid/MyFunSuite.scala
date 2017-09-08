@@ -58,24 +58,23 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
   def subt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ <:< _)
   
   def eqt(a: Rep, b: Rep) = eqtBy(a,b)(_ =~= _)
-  def eqt(a: IR[_,_], b: IR[_,_], truth: Boolean = true) = eqtBy(a,b,truth)(_ =~= _)
+  def eqt(a: Code[_], b: Code[_], truth: Boolean = true) = eqtBy(a,b,truth)(_ =~= _)
   
-  //def matches[A](a: A)(pfs: PartialFunction[A,Unit]*) = {
-  def matches(a: IR[_,_])(pfs: PartialFunction[IR[_,_],Unit]*) = {
+  def matches(a: Code[_])(pfs: PartialFunction[Code[_],Unit]*) = {
     for (pf <- pfs) pf(a)
     MatchesAnd(a)
   }
-  case class MatchesAnd[T,C](a: IR[T,C]) {
-    def and (pf: PartialFunction[IR[_,_],Unit]) = {
+  case class MatchesAnd[T](a: Code[T]) {
+    def and (pf: PartialFunction[Code[_],Unit]) = {
       pf(a)
       this
     }
   }
   
-  implicit class Matches(self: IR[_,_]) {
-    def matches(pfs: PartialFunction[IR[_,_],Unit]*) = funs.matches(self)(pfs: _*)
-    def eqt (that: IR[_,_]) = funs.eqt(self.rep, that.rep)
-    def dbg_eqt (that: Q[_,_]) = {
+  implicit class Matches(self: Code[_]) {
+    def matches(pfs: PartialFunction[Code[_],Unit]*) = funs.matches(self)(pfs: _*)
+    def eqt (that: Code[_]) = funs.eqt(self.rep, that.rep)
+    def dbg_eqt (that: Code[_]) = {
       DSL debugFor (self.rep extractRep that.rep)
       DSL debugFor (that.rep extractRep self.rep)
       funs.eqt(self.rep, that.rep)

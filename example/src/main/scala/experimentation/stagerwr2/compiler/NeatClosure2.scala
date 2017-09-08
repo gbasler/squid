@@ -6,13 +6,13 @@ import squid.lib.{Var,uncheckedNullValue}
 import Embedding.Predef._
 import Embedding.Quasicodes._
 import Embedding.$
-import Embedding.SimplePredef.{Rep=>Code,_}
+import Embedding.SimplePredef._
 
 abstract class AdHocPoly[X] { def apply[T](t: Code[T]): Code[X] => Code[T] }
 
 object NeatClosure2 { // FIXME make reopen polymorphic!
   
-  def mkFun[S,T](body: IR[T,{val x:S}]) = (x: Code[S]) => body subs 'x -> x
+  def mkFun[S,T](body: IR[T,{val x:S}]) = (x: Code[S]) => body subs 'x -> x.asClosedIR
   
   //def close[X:IRType,R,S](f: Code[X] => Code[R])(k: (Code[R], Code[S] => Code[X] => Code[S]) => Code[S]): Code[S] = {
   def close[X:IRType,R,S](f: Code[X] => Code[R])(k: (Code[R], AdHocPoly[X]) => Code[S]): Code[S] = {
