@@ -43,7 +43,7 @@ class TermRewriting extends MyFunSuite {
       case ir"readInt" => ir"$open+1"
     }
     eqt(r, ir"List(($$a: Int)+1)")
-    r [ List[Int] IR Any{val a: Int} ]
+    r ofType[ List[Int] IR Any{val a: Int} ]()
     
   }
   
@@ -60,7 +60,7 @@ class TermRewriting extends MyFunSuite {
     val r = insert(ir"$$a: Int")
     
     eqt(r, ir"List(($$a: Int)+1)")
-    r [ List[Int] IR Any{val a: Int} ]
+    r ofType[ List[Int] IR Any{val a: Int} ]()
     
   }
   
@@ -107,7 +107,10 @@ class TermRewriting extends MyFunSuite {
     }
     
     foo(ir"""println{val x = Symbol("ok"); (a?:Double).toInt}""") eqt
-        ir"""println{val x = Symbol("ok".reverse); val lifted = x; (a?:Double).toInt+1}""" // `lifted` introduced by automatic function lifting
+        ir"""println{val x = Symbol("ok".reverse); (a?:Double).toInt+1}"""
+    // Note: previous implem. used to generated a `lifted` let-binding introduced by automatic function lifting:
+    //    ir"""println{val x = Symbol("ok".reverse); val lifted = x; (a?:Double).toInt+1}"""
+    // But now automatic function lifting is paired with a call to tryInline, which removes that binding (good).
     
   }
   

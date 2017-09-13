@@ -35,7 +35,7 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
   def ofExactType[A: sru.TypeTag, B: sru.TypeTag](a: A) = sameScalaType[A,B]
   
   implicit class TypeHelper[A: sru.TypeTag](self: A) {
-    def apply [B: sru.TypeTag] = { sameScalaType[A,B]; self }
+    def ofType[B: sru.TypeTag]() = { sameScalaType[A,B]; self }
   }
   
   private def showBest(x:Any) = x match {

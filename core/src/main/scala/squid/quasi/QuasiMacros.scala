@@ -12,7 +12,7 @@ import scala.reflect.macros.blackbox
 
 
 object QuasiMacros {
-  val dslInterpolators = Set("ir", "dbg_ir")
+  val dslInterpolators = Set("ir", "dbg_ir", "code", "c")
 }
 class QuasiMacros(val c: whitebox.Context) {
   import c.universe._
@@ -96,8 +96,25 @@ class QuasiMacros(val c: whitebox.Context) {
     //val code = tree transform { case q"$qc.$$[$typ,$ctx](..$xs)" if xs.size != 1 => ??? }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = Embedder(base, code, Nil,
-       config, None, Map(), Set(), Seq(), Set(), Set(), Set(), code, code.tpe, Nil, Set(), Seq())
+    val res = Embedder(
+      baseTree = base,
+      rawTree = code,
+      termScopeParam = Nil,
+      config = config,
+      unapply = None,
+      typeSymbols = Map(),
+      holeSymbols = Set(),
+      holes = Seq(),
+      splicedHoles = Set(),
+      hopvHoles = Map(),
+      termHoles = Set(),
+      typeHoles = Set(),
+      typedTree = code,
+      typedTreeType = code.tpe,
+      stmts = Nil,
+      convNames = Set(),
+      unquotedTypes = Seq()
+    )
     
     debug("Generated:\n"+showCode(res))
     
@@ -161,8 +178,9 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val builder = new quasi.PgrmBuilder[c.type](c)(isUnapply)
     
-    var holes: List[(Either[TermName,TypeName], Tree)] = Nil // (Left: value hole; Right: type hole, original hole tree)
+    var holes: List[(Either[TermName,TypeName], Tree)] = Nil // (Left(value-hole) | Right(type-hole), original-hole-tree)
     val splicedHoles = mutable.Set[TermName]()
+    val hopvHoles = mutable.Map[TermName,List[List[TermName]]]()
     var typeBounds: List[(TypeName, EitherOrBoth[Tree,Tree])] = Nil
     
     // Keeps track of which holes still have not been found in the source code
@@ -259,6 +277,19 @@ class QuasiMacros(val c: whitebox.Context) {
       case Ident(name: TermName) if builder.holes.contains(name) =>
         mkTermHole(name, false)
         
+      // Identify and treat Higher-Order Pattern Variables (HOPV)
+      case q"${Ident(name: TermName)}(...$argss)" if isUnapply && builder.holes.contains(name) =>
+        val idents = argss map (_ map {
+          case Ident(name:TermName) => name
+          case e => throw EmbeddingException(s"Unexpected expression in higher-order pattern variable argument: ${showCode(e)}")
+        })
+        val hole = builder.holes(name)
+        val n = hole.name filter (_.toString != "_") getOrElse (
+          throw QuasiException("All higher-order holes should be named.") // Q: necessary restriction?
+        ) toTermName;
+        hopvHoles += n -> idents
+        mkTermHole(name, false)
+        
       // Interprets bounds on extracted types, like in: `case List[$t where (Null <:< t <:< AnyRef)]`:
       case tq"${Ident(name: TypeName)} where $bounds" if isUnapply && builder.holes.contains(name.toTermName) =>
         val HoleName = builder.holes(name.toTermName).name.get.toTypeName // FIXME
@@ -289,9 +320,9 @@ class QuasiMacros(val c: whitebox.Context) {
       //case t @ q"$$(..$args)" if unapply => throw EmbeddingException(s"Unsupported alternative unquoting syntax in unapply position: '$t'")
       case t @ q"$$(..$args)" => // alternative unquote syntax
         q"$base.$$(..$args)"
+        // ^ TODO remove this syntax
         
-        
-      case t @ q"${Ident(tn: TermName)}?" => // better FV syntax; TODO migrate away old syntax
+      case t @ q"${Ident(tn: TermName)}?" => // better FV syntax; TODO migrate away from old syntax
         if (!isUnapply) {
           holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
         }
@@ -342,7 +373,7 @@ class QuasiMacros(val c: whitebox.Context) {
     }
     
     object Embedder extends QuasiEmbedder[c.type](c)
-    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, typeBounds.toMap, unquotedTypes, scrutinee, config)
+    val res = try Embedder.applyQQ(base, code, holes.reverse map (_._1), splicedHoles, hopvHoles, typeBounds.toMap, unquotedTypes, scrutinee, config)
     catch {
       case e: EmbeddingException if hasStuckSemi.isDefined => 
         c.warning(c.enclosingPosition, s"It seems you tried to annotate free variable `${hasStuckSemi.get}` with `:`, " +

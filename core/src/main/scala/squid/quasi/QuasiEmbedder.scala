@@ -45,7 +45,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     * unquotedTypes contains the types unquoted in (in ction mode with $ and in xtion mode with $$)
     * TODO: actually use `unquotedTypes`!
     * TODO maybe this should go in QuasiMacros... */
-  def applyQQ(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName],
+  def applyQQ(Base: Tree, tree: c.Tree, holes: Seq[Either[TermName,TypeName]], 
+            splicedHoles: collection.Set[TermName], hopvHoles: collection.Map[TermName,List[List[TermName]]],
             typeBounds: Map[TypeName,EitherOrBoth[Tree,Tree]],
             unquotedTypes: Seq[(TypeName, Type, Tree)], unapply: Option[c.Tree], config: QuasiConfig): c.Tree = {
     
@@ -215,7 +216,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     
     
     apply(Base, finalTree, termScope, config, unapply, 
-      typeSymbols, holeSymbols, holes, splicedHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames, unquotedTypes)
+      typeSymbols, holeSymbols, holes, splicedHoles, hopvHoles, termHoles, typeHoles, typedTree, typedTreeType, stmts, convNames, unquotedTypes)
     
   }
   
@@ -231,7 +232,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   def apply(
     baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
     typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
-    holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], 
+    holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], hopvHoles: collection.Map[TermName,List[List[TermName]]],
     termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree], 
     convNames: Set[TermName], unquotedTypes: Seq[(TypeName, Type, Tree)]
   ): c.Tree = {
@@ -403,6 +404,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
               liftTerm(tree, parent, expectedType)
               
+            case q"$baseTree.$$[$tfrom,$tto,$scp]($fun).apply($arg)" => // Special case for inserting staged functions that are directly applied
+              val tree = q"$baseTree.$$[$tfrom => $tto,$scp]($baseTree.liftFun[$tfrom,$tto,$scp]($fun))"
+              val argl = liftTerm(arg, x, Some(tfrom.tpe)) // Q: use typeIfNotNothing?
+              b.tryInline(liftTerm(tree, parent, expectedType), argl)(liftType(tfrom.tpe))
+              
               
             // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`
             case q"$baseTree.$$$$(scala.Symbol($stringNameTree))" => lastWords("Scala type checking problem.")
@@ -446,25 +452,46 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               //if (splicedHoles(TermName(name))) throw EmbeddingException(s"Misplaced spliced hole: '$name'") // used to be: q"$Base.splicedHole[${_expectedType}](${name.toString})"
               
+              val termName = TermName(name)
               
-              if (unapply isEmpty) {
-                debug(s"Free variable: $name: $tpt")
-                freeVariableInstances ::= name -> holeType
-                // TODO maybe aggregate glb type beforehand so we can pass the precise type here... could even pass the _same_ hole!
-              } else {
-                val termName = TermName(name)
-                val scp = ctx.keys map (k => k.name -> k.typeSignature) toMap;
-                termHoleInfo get termName map { case (scp0, holeType0) =>
-                  val newScp = scp0 ++ scp.map { case (n,t) => lub(t :: scp0.getOrElse(n, Any) :: Nil) }
-                  newScp -> lub(holeType :: holeType0 :: Nil)
-                } getOrElse {
-                  termHoleInfo(termName) = scp -> holeType
-                }
+              hopvHoles get TermName(name) match {
+                case Some(idents) =>
+                  
+                  // TODO make sure HOPV holes withb the same name are not repeated? or at least have the same param types
+                  // TODO handle HOPV holes in spliced position?
+                  
+                  val scp = ctx map { case k -> v => k.name -> (k -> v) }
+                  val identVals = idents map (_ map scp)
+                  val yes = identVals map (_ map (_._2))
+                  val keys = idents.flatten.toSet
+                  val no = scp.filterKeys(!keys(_)).values.map(_._2).toList
+                  debug(s"HOPV: yes=$yes; no=$no")
+                  val List(identVals2) = identVals // FIXME generalize
+                  val hopvType = FunctionType(identVals2 map (_._1.typeSignature) : _*)(holeType)
+                  termHoleInfo(termName) = Map() -> hopvType
+                  b.hopHole(name, liftType(holeType), yes, no)
+                  
+                case _ =>
+                  if (unapply isEmpty) {
+                    debug(s"Free variable: $name: $tpt")
+                    freeVariableInstances ::= name -> holeType
+                    // TODO maybe aggregate glb type beforehand so we can pass the precise type here... could even pass the _same_ hole!
+                  } else {
+                    //val termName = TermName(name)
+                    val scp = ctx.keys map (k => k.name -> k.typeSignature) toMap;
+                    termHoleInfo get termName map { case (scp0, holeType0) =>
+                      val newScp = scp0 ++ scp.map { case (n,t) => lub(t :: scp0.getOrElse(n, Any) :: Nil) }
+                      newScp -> lub(holeType :: holeType0 :: Nil)
+                    } getOrElse {
+                      termHoleInfo(termName) = scp -> holeType
+                    }
+                  }
+                  
+                  if (splicedHoles(TermName(name)))
+                       b.splicedHole(name, liftType(holeType))
+                  else b.hole(name, liftType(holeType))
+                  
               }
-              
-              if (splicedHoles(TermName(name)))
-                   b.splicedHole(name, liftType(holeType))
-              else b.hole(name, liftType(holeType))
               
             /** Removes implicit conversions that were generated in order to apply the subtyping knowledge extracted from pattern matching */
             case q"${Ident(name:TermName)}.apply($x)" if convNames(name) => 

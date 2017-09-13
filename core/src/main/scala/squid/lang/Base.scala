@@ -69,6 +69,11 @@ trait Base extends TypingBase with quasi.QuasiBase {
   /** Function1 application */
   def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = methodApp(fun, Function1ApplySymbol, Nil, Args(arg)::Nil, retTp)
   
+  // TODO don't define here; force bases to implement explicitly
+  /** Override to allow Squid to inline things in places like inserted automatically-lifted functions 
+    * (e.g., {{{code"(x:Int) => ${(x:Code[Int]) => code"$x+1"}(x)"}}}) */
+  def tryInline(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = app(fun,arg)(retTp)
+  
   /** Let-binding of a value */
   def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = {
     app(lambda(bound::Nil, body), value)(bodyType)

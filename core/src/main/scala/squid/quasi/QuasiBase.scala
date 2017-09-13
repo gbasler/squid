@@ -4,6 +4,7 @@ package quasi
 import squid.ir.RewriteAbort
 import squid.ir.Transformer
 import utils._
+import utils.typing._
 import squid.lang.Base
 import squid.lang.InspectableBase
 import squid.lang.IntermediateBase
@@ -31,9 +32,18 @@ self: Base =>
   def substitute(r: => Rep, defs: Map[String, Rep]): Rep
   def substituteLazy(r: => Rep, defs: Map[String, () => Rep]): Rep = substitute(r, defs map (kv => kv._1 -> kv._2()))
   
+  /** Traditional hole with CMTT semantics, in general position; this should extract a `Rep` */
   def hole(name: String, typ: TypeRep): Rep
+  
+  /** Traditional hole with CMTT semantics, in spliced position (e.g., `$xs` in `ir"List($xs*)"`); this should extract a `Seq[Rep]` */
   def splicedHole(name: String, typ: TypeRep): Rep
   
+  /** Higher-Order Pattern (Variable) hole; 
+    * this should check that the extracted term does not contain any reference to a bound value contained in the `no` 
+    * parameter, and it should extract a function term with the arity of the `yes` parameter. */
+  def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep
+  
+  /** Pattern hole in type position */
   def typeHole(name: String): TypeRep
   
   
@@ -63,6 +73,14 @@ self: Base =>
   // Unsealed to allow for abstract constructs to inherit from IR, for convenience.
   abstract class IR[+T, -C] protected () extends TypeErased with ContextErased {
     type Typ <: T
+    
+    // Note: cannot put this in `IntermediateIROps`, because of the path-dependent type
+    def Typ(implicit ev: self.type <:< (self.type with IntermediateBase)): IRType[Typ] = {
+      // Ninja path-dependent typing (relies on squid.utils.typing)
+      val s: self.type with IntermediateBase = self
+      val r: s.Rep = substBounded[Base,self.type,s.type,({type λ[X<:Base] = X#Rep})#λ](rep)
+      s.`internal IRType`(s.repType(r))
+    }
     
     // type Ctx >: C
     /* ^ this is the 'type-correct' definition: given an x:IR[T,C], we cannot really conclude that the "real" context of
@@ -199,6 +217,8 @@ self: Base =>
       /** import this `implicitType` explicitly to shadow the non-debug one */ 
       @MacroSetting(debug = true) implicit def implicitType[T]: IRType[T] = macro QuasiBlackboxMacros.implicitTypeImpl[QC, T]
     }
+    
+    implicit def unliftFun[A,B:IRType,C](f: IR[A => B,C]): IR[A,C] => IR[B,C] = a => IR(tryInline(f.rep,a.rep)(typeRepOf[B]))
   }
   
   def `internal abort`(msg: String): Nothing = throw RewriteAbort(msg)
@@ -299,6 +319,15 @@ self: Base =>
         @MacroSetting(debug = true) def unapply(scrutinee: Any): Any = macro QuasiMacros.unapplyImpl[QC]
       }
       
+      object code {
+        def apply(inserted: Any*): SomeIR = macro QuasiMacros.applyImpl[QC]
+        def unapply(scrutinee: SomeIR): Any = macro QuasiMacros.unapplyImpl[QC]
+      }
+      object c {
+        def apply(inserted: Any*): SomeIR = macro QuasiMacros.applyImpl[QC]
+        def unapply(scrutinee: SomeIR): Any = macro QuasiMacros.unapplyImpl[QC]
+      }
+      
     }
     
   }
@@ -307,6 +336,9 @@ self: Base =>
     
     def ir[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
     @MacroSetting(debug = true) def dbg_ir[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
+    
+    def code[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
+    @MacroSetting(debug = true) def dbg_code[T](tree: T): IR[T, _] = macro QuasiMacros.quasicodeImpl[QC]
     
     def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forward$ // to conserve the same method receiver as for QQ (the real `Base`)
     def $[A,B,C](q: IR[A,C] => IR[B,C]): A => B = macro QuasiMacros.forward$2

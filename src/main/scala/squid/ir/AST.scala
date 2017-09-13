@@ -6,6 +6,8 @@ import utils._
 import utils.CollectionUtils._
 import utils.meta.{RuntimeUniverseHelpers => ruh}
 
+import scala.collection.mutable
+
 
 /** 
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
@@ -45,6 +47,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   override def ascribe(self: Rep, typ: TypeRep): Rep = if (self.typ =:= typ) self else self match {
     case RepDef(Ascribe(trueSelf, _)) => ascribe(trueSelf, typ) // Hopefully Scala's subtyping is transitive
     case _ => rep(Ascribe(self, typ))
+  }
+  override def tryInline(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = fun match {
+    case RepDef(a @ Abs(p,b)) => inline(p,b,arg)
+    case _ => super.tryInline(fun,arg)(retTp)
   }
   
   def newObject(tp: TypeRep): Rep = rep(NewObject(tp))
@@ -113,7 +119,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       // Currently the rewrite engine is unsound because one can match a term of type T1 with a hole typed Any and transform it to an unrelated T2 because T2 <: Any 
       if (wrtp =:= wtp) r
       else if (wrtp <:< wtp) ascribe(r,wtp)
-      else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a subtype.") thenReturn r
+      else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a known subtype.") thenReturn r
     }
     
     def apply(d: Def): Def = {
@@ -289,6 +295,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   case class SplicedHoleClass(name: String, typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
   
+  override def hopHole(name: String, typ: TypeRep, yes: List[List[Val]], no: List[Val]) = rep(new HOPHole(name, typ, yes, no))
+  class HOPHole(name: String, typ: TypeRep, val yes: List[List[Val]], val no: List[Val]) extends HoleClass(name, typ)()
+  
   case class Constant(value: Any) extends Def {
     lazy val typ = value match {
       case () => TypeRep(ruh.Unit)
@@ -377,6 +386,24 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           
         case (Ascribe(v,tp), _) =>
           mergeOpt(tp extract (d.typ, Covariant), v.extract(r))
+          
+        case (h:HOPHole, _) =>
+          typ extract (d.typ, Covariant) flatMap { e =>
+            val List(ps) = h.yes // FIXME: generalize
+            // This part is a little tricky: we have no easy way to retrieve the types of HOPV parameters...
+            // if some of these parameters do not even appear in the term, we give them type Any, which is sound thanks 
+            // to function parameter contravariance.
+            val psMap = mutable.Map[Val,Val]().withDefault(hs => hs.copy()(typ = Predef.implicitType[Any].rep,hs.annots))
+            val rebound = bottomUpPartial(r) {
+              case RepDef(h0:Hole) if h0.matchedSymbol exists (ps contains _) => 
+                psMap += h0.matchedSymbol.get -> h0.originalSymbol.get
+                readVal(h0.originalSymbol.get)
+              case RepDef(h0:Hole) if h0.matchedSymbol exists (h.no contains _) =>
+                return None
+            }
+            val f = lambda(ps map psMap, rebound)
+            merge(e, repExtract(h.name -> f))
+          }
           
         case (Hole(name), _) => // Note: will also extract holes... which is important to asses open term equivalence
           // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)

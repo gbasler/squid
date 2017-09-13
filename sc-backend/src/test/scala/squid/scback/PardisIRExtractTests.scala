@@ -26,17 +26,17 @@ class PardisIRExtractTests extends PardisTestSuite {
     
     q match {
       case ir"${Const(x)}" =>
-        x [Int]
+        x ofType[Int]()
     }
     
     q matches {
       case ir"42" =>
     } and {
       case ir"${Const(x)}:Double" => 
-        x [Double]
+        x ofType[Double]()
         fail
       case ir"${Const(x)}:Int" =>
-        x [Int]
+        x ofType[Int]()
         assert(x == 42)
     } and {
       case ir"$x:Double" => fail

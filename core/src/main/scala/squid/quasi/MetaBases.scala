@@ -96,6 +96,8 @@ trait MetaBases {
       $Base.letin(${bound._2}, $value, $body, $bodyType)
     """
     
+    override def tryInline(fun: Rep, arg: Rep)(retTp: TypeRep): Rep =
+      q"$Base.tryInline($fun, $arg)($retTp)"
     
     def newObject(tp: TypeRep): Rep = q"$Base.newObject($tp)"
     
@@ -166,6 +168,8 @@ trait MetaBases {
     
     
     def hole(name: String, typ: TypeRep): Rep = q"$Base.hole($name, $typ)"
+    def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep =
+      q"$Base.hopHole($name, $typ, ${yes map (_ map (_._2))}, ${no map (_._2)})"
     def splicedHole(name: String, typ: TypeRep): Rep = q"$Base.splicedHole($name, $typ)"
     
     def substitute(r: => Rep, defs: Map[String, Rep]): Rep =
@@ -310,6 +314,7 @@ trait MetaBases {
     
     
     def hole(name: String, typ: TypeRep): Rep = q"${TermName(name)}" // TODO ensure hygiene... (this should not clash!)
+    def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep = q"${TermName(name)}" // Q: hygiene, as above?
     def splicedHole(name: String, typ: TypeRep): Rep = q"${TermName(name)}: _*"
     
     def substitute(r: => Rep, defs: Map[String, Rep]): Rep = r transform {

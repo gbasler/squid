@@ -299,6 +299,7 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
   }
   
   def hole(name: String, typ: TypeRep): Rep = Hole(name, typ, None)
+  def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep = throw new IRException(s"Unsupported: HOPV")
   def splicedHole(name: String, typ: TypeRep): Rep = SplicedHole(name, typ)
   def typeHole(name: String): TypeRep = TypeHole(name)
   

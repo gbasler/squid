@@ -41,10 +41,10 @@ class Subs extends MyFunSuite {
     a2b subs 'a -> ir"$$a: Int" withContextOf a2b
     
     val t0 = a2b subs 'a -> ir"$$x: Int"
-    t0 [ Int IR Any{val x: Int; val b: Int} ] // Note: Any{...} is more general than {...}, so we need Any here
+    t0 ofType[ Int IR Any{val x: Int; val b: Int} ]() // Note: Any{...} is more general than {...}, so we need Any here
     
     val t1 = a2b subs 'a -> ir"($$b: Double) toInt"
-    t1 [ Int IR Any{val b: Int with Double} ]
+    t1 ofType[ Int IR Any{val b: Int with Double} ]()
     
   }
   
