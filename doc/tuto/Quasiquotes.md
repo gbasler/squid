@@ -1,14 +1,14 @@
-# Squid Quasiquotes Tutorial
+# Squid Contextual Quasiquotes Tutorial
 
 
 ## Summary
 
-###1. [Introduction](#introduction)
-###2. [Code Composition & Multi-Stage Programming](#code-composition--multi-stage-programming)
-###3. [Code Extraction with Pattern Matching](#code-extraction-with-pattern-matching)
-###4. [Term Rewriting](#term-rewriting)
-###5. [Advanced Topics on Term Rewriting](#advanced-topics-on-term-rewriting)
-###6. [Debugging Quasiquotes](#debugging-quasiquotes)
+### 1. [Introduction](#introduction)
+### 2. [Code Composition & Multi-Stage Programming](#code-composition--multi-stage-programming)
+### 3. [Code Extraction with Pattern Matching](#code-extraction-with-pattern-matching)
+### 4. [Term Rewriting](#term-rewriting)
+### 5. [Advanced Topics on Term Rewriting](#advanced-topics-on-term-rewriting)
+### 6. [Debugging Quasiquotes](#debugging-quasiquotes)
 
 
 
@@ -21,9 +21,9 @@
 All examples in this section can be executed in a REPL.
 Simply paste the following at the beginning of the session:
 ```scala
-object Code extends squid.ir.SimpleAST
-import Code.Predef._
-import Code.Quasicodes._
+object Embedding extends squid.ir.SimpleAST
+import Embedding.Predef._
+import Embedding.Quasicodes._
 ```
 
 
@@ -78,7 +78,7 @@ a: IR[Int,{}] = ir"2"
 b: IR[Int,{}] = ir"(2).+(2)"
 ```
 
-**Note**: for clarity, we have simplified the types displayed in the REPL (for example shortening `Code.IR` to `IR`).
+**Note**: for clarity, we have simplified the types displayed in the REPL (for example shortening `Embedding.IR` to `IR`).
 
 By looking at the types in the REPL, we can tell we are manipulating terms of type `Int`.
 We will see later what the second type parameter means (here `{}`).
@@ -631,7 +631,7 @@ Similarly, there is `dbg_rewrite`.
 
 To see why rewritings did not fire or how they fired,
 consider adding printing statements in the right-hand side of the rewriting,
-or use `base.debugFor(... code ...)` to generate precise logging information.
+or use `base.debugFor(... code ...)` to print precise logging information.
 
 
 

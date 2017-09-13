@@ -1,182 +1,189 @@
-# **Squid** — Scala Quoted DSL's
-<!-- TODOs
-# Squid – Scala DSL Compiler
+# **Squid** ― Scala Quoted DSLs
 
-Rename Quoted/dsl to Code/code
-eg:
-  val n = code"42"; code"$n * 2" : Code[Int,{}]
-or:
-  val n = rep"42"; rep"$n * 2" : Rep[Int,{}]
--->
 
 ## Introduction
 
-**Squid** – which stands for the approximative contraction of **Sc**ala **Qu**oted **D**SL's –
-is a framework for the optimization and compilation of
-Domain-Specific Languages (DSL) defined in Scala, based around the concept of quasiquotes.
-Squid implements both compile-time and runtime Multi-Stage Programming
-as well as type-safe pattern-matching of program fragments and type-safe program transformation.
-<!-- TODO: introduce first an example of optimization with @optimize -->
+**Squid** – which stands for the approximative contraction of **Sc**ala **Qu**ot**ed** **D**SLs –
+is a **metaprogramming** framework 
+that facilitates the **type-safe** manipulation of **Scala programs**.
+In particular, it is geared towards
+the implementation of **library-defined optimizations** [[2]](#gpce17) and 
+helps with the compilation of **Domain-Specific Languages** (DSL) embedded in Scala [[1]](#scala17).
 
-[TODO: complete presentation stub] 
+<!-- TODO: give concrete application examples to pique curiosity/generate interest -->
 
-Squid quasiquotes have the following properties:
-
- - They are **well-typed**: ensure gen pgrm well-typed
-
- - Hygienic: scope extrusion
-
- - Support for extraction
-
- - They support **multiple stages**: run
-
- - They are **IR-independent**: can use different backends
+**Caution:** Squid is still experimental, and the interfaces may change slightly in the future (especially those interfaces used to implement new intermediate representations).
 
 
+### Installation
 
+Squid currently supports Scala versions `2.11.3` to `2.11.8` 
+(more recent versions might work as well, but have not yet been tested).
 
-## Syntax and Semantics of Quasiquotes
+The project is not yet published on Maven, 
+so in order to use it you'll have to clone this repository
+and publish Squid locally,
+which can be done easily by executing the script in `bin/publishLocal.sh`.
 
-### Basics
+In your project, add the following to your `build.sbt`:
 
 ```scala
-> val f = dsl"(x: Int) => x + 1"
-f: Quoted[Int => Int, {}] = dsl"(x: Int) => x + 1"
+libraryDependencies += "ch.epfl.data" %% "squid" % "0.2-SNAPSHOT"
 ```
 
+Some features related to [library-defined optimizations](#qsr), 
+such as `@embed` and @macroDef, require the use of the macro-paradise  plugin.
+To use these features, add the following to your `build.sbt`:
 
 ```scala
-> val n = dsl"42"; val m = dsl"2 + $n"
-n: Quoted[Int, {}] = dsl"42"
-m: Quoted[Int, {}] = dsl"2 + 42"
-> dsl"2 + ${ Constant(7*6) }"
-res0: Quoted[Int, {}] = dsl"2 + 42"
-```
+val paradiseVersion = "2.1.0"
 
+autoCompilerPlugins := true
 
-### Term Composition
-
-
-### Term Extraction
-
-
-### Splicing
-
-```scala
-dsl"Seq(1,2,3)" match {
-  case dsl"Seq[Int]($xs: _*)" =>  xs : Q[Seq[Int], {}]  }
-```
-
-```scala
-dsl"Seq(1,2,3)" match {
-  case dsl"Seq[Int](${xs: __*})" =>  xs : Seq[Q[Int, {}]]
-  case dsl"Seq[Int]($xs*)" =>        xs : Seq[Q[Int, {}]]  }
+addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 ```
 
 
 
+## Squid Quasiquotes
 
-### Open Terms
+Quasiquotes are the main primitive tool of Squid. 
+They are used to construct, compose and decompose program fragments.
+Unlike the standard [Scala Reflection quasiquotes](https://docs.scala-lang.org/overviews/quasiquotes/intro.html),
+Squid's quasiquotes are statically-typed and hygienic, 
+ensuring that manipulated programs remain well-typed 
+and that variable bindings and other symbols do not get mixed up.
+(On the other hand, Squid quasiquotes can only manipulate expressions, not class/def/type definitions.)
 
-
-### Free variables
+To start using quasiquotes in their simplest configuration, 
+paste the following code in a file or REPL session:
 
 ```scala
-dsl"($$x: String).length"
+object Embedding extends squid.ir.SimpleAST
+import Embedding.Predef._
 ```
 
-they can be achieved anyway with something like:
+There are two forms of quasiquotes that co-exist in Squid:
+
+### Simple Quasiquotes
+
+Simple quasiquotes, written `code"t"` 
+– or just `c"t"` as a shorthand –
+have type `Code[T]`, 
+where `T` is the type of `t`, the quoted Scala term.
+
+Using unquotes within quasiquotes (syntax `${...}` or `$identifier`), 
+code fragments can be compose and decomposed.
+For example, the following program prints `Result: code"scala.io.StdIn.readInt()"`:
+
 ```scala
-//  open: Q[Int, {x: String}]
-val open = dsl"(x: String) => x.length" match {
-  case dsl"(x => $body: String)" => body
+import scala.io.StdIn.readInt // Squid QQs pick up local imports
+
+val inc = code"123" // a constant, equivalent to Const(123)
+
+code"readInt + $inc" match {
+  case code"($n: Int) + ${Const(m)}" =>
+    // in this scope, we have n: Code[Int] and m: Int
+    println("Result: " + n)
 }
 ```
 
+Quasiquotes can be used for [multi-stage programming (MSP)](https://en.wikipedia.org/wiki/Multi-stage_programming)
+– they have methods `run` and `compile` for interpreting and runtime-compiling terms, respectively.
+In fact, Squid quasiquotes are similar to [MetaOCaml](http://okmij.org/ftp/ML/MetaOCaml.html),
+except for a few major differences (see [[1]](#scala17)).
+Indeed, Squid quasiquotes:
 
-### Type Extraction
+ * can be used in pattern matching (which is not possible in MetaOCaml);
+ 
+ * are "reusable", in that they can manipulate different underlying intermediate representations;
+ 
+ * are implemented using macros 
+ (without modifying the Scala compiler).
 
+The latter point means that unlike MetaOCaml, 
+Squid quasiquotes do not support references that cross quotation boundaries.
+For example, given a function `foo` of type `Code[Int] => Code[Int]`, 
+the following is not valid:
 
-<!--def opt[C](ls: Q[List[_], C]) = ls match {-->
 ```scala
-def opt[C](x: Q[Any, C]) = x match {
-  case dsl"List[$t]($xs*).size" => dsl"${xs.size}"
-  case _ => x
+c"(x:Int) => ${ foo(c"x + 1") }"
+```
+
+Thankfully, we can use use the fact that Squid automatically lifts functions of type `Code[Int] => Code[Int]` to type `Code[Int => Int]` upon insertion (with `$`), and immediately inlines the result. So the following has the desired behavior:
+
+```scala
+c"(x:Int) => ${ (x0:Int) => foo(c"$x0 + 1") }(x)"
+```
+
+(Note that in the above, `x0` can be named simply `x`, which will not introduce name clashes.)  
+
+As a more complete example of this mechanism, the following function `pow` let-binds its `base` argument as `b` 
+before multiplying it `exp` times.
+The `for` loop happens at code-generation time, and thus does not appear as part of the generated code:
+
+```scala
+def power(base: Code[Double], exp: Int): Code[Double] = {
+  code"""val b = $base; ${ (x: Code[Double]) =>
+    var cur = c"1.0"
+    for (i <- 1 to exp) cur = c"$cur * $x"
+    cur
+  }(b)"""
 }
+
+assert (
+  power(c"readDouble", 3)
+    == 
+  c"val tmp = readDouble; 1.0 * tmp * tmp * tmp"
+)
 ```
 
 
 
 
-### Miscellaneous
+### Contextual Quasiquotes
 
-#### Varargs
+Contextual quasiquotes, written `ir"t"`, 
+have type `IR[T,C] <: Code[T]`
+where `C` is a type that encodes the _context requirements_ of term `t`.
+
+This is a yet safer flavor of quasiquotes, 
+which makes sure that no open programs (program that contain free variables) 
+are ever evaluated (with `.run` or `.compile`), 
+and that every variable reference in a closed program 
+is correctly scoped within its binder.
+
+A detailed tutorial on these more advanced of quasiquotes is available [here](doc/tuto/Quasiquotes.md).
 
 
 
-#### Alternative Unquote Syntax
+### Quasicode
+
+Another syntactic form for expressing code is available in Squid,
+called _quasicode_, as exemplified below:
 
 ```scala
-val x = dsl"42"
-dsl"Seq($x)" match {
-  case dsl"Seq($$x)" => ...
-}
+import Embedding.Quasicodes._
+val inc = code{123}
+code{ readInt + ${inc} }
 ```
 
-Another example, featuring type alternative unquote
+This syntax can be nicer to use when reifying big swathes of code,
+because it gets more support from IDEs:
+syntax coloring, click-to-definition, etc. – although IntelliJ's [language injection](https://www.jetbrains.com/help/idea/using-language-injections.html) feature can also help with the quoted form.
 
-```scala
-val x, y : Q[_,_] = ...
-x match {
-  case dsl"List[$t]($a,$b)" =>
-    y match {
-      case dsl"List[$$t]($c,$d)" =>
-        dsl"List($a,$c)" // : Q[List[t], _]
-    }
-}
-```
-
-As a particular case, if used for the value, the one for the type becomes unnecessary
-
-```scala
-...
-  case dsl"List[$t]($a,$b)" =>
-    y match {
-      case dsl"List($c,$$a)" =>
-        dsl"List($a,$c)" // : Q[List[t], _]
-    }
-```
-
-
-Note: this could be rewritten using *repeated holes*...
-
-
-#### Repeated Holes
+Quasicodes have some limitations when compared to quasiquotes.
+For example, they cannot be used in patterns, 
+and they can be less flexible with respect to type-checking in advanced cases.
 
 
 
-```scala
-val x, y : Q[_,_] = ...
-dsl"$x -> $y" match {
-  case dsl"List[$t]($a,$b) -> List[t]($c,a)" =>
-    dsl"List($a,$c)" // : Q[List[t], _]
-}
-```
 
-order does not matter
+## Program Transformation Support
 
+See the [detailed tutorial](doc/tuto/Transformers.md).
 
-#### Escaped Unquote Syntax
-
-```scala
-dsl""" println($$(dsl"1", dsl"2")) """
-```
-
-
-## Program Transformation
-
-Example
-
+<!-- give example, eg:
 ```scala
 object PowerOptim extends IR.TopDownTransfo {
   new Rewrite[Double] {
@@ -188,18 +195,62 @@ object PowerOptim extends IR.TopDownTransfo {
   }
 }
 ```
+-->
+
+
+## Squid Macros
+
+Squid offers an alternative to Scala macros,
+similar to [Scalameta](http://scalameta.org/) 
+but using Squid's type-safe, hygienic quasiquotes and infrastructure.
+
+The feature is not yet merged with the master branch.
+
+An example usage:
+
+```scala
+@macroDef(Embedding)
+def power(base: Double, exp: Int): Double = {
+  exp match {
+    case Const(exp) =>
+      code"""val b = $base; ${ (x: Code[Double]) =>
+        var cur = c"1.0"
+        for (i <- 1 to exp) cur = c"$cur * $x"
+        cur
+      }(b)"""
+    case _ => code"Math.pow($base, $exp.toDouble)"
+  }
+}
+```
 
 
 
-## Compilation to Heterogeneous Targets
+<a name="qsr"></a>
+## Library-Defined Optimizations (Quoted Staged Rewriting)
+
+Support for automatic library embedding, 
+controlled inlining
+and compile-time optimization,
+explained in [[2]](#gpce17).
 
 
-## Implementation Details
-
-The way types are loaded – need a stable base
 
 
-## References
+
+
+
+
+## Publications
+
+<a name="scala17">[1]</a>: 
+Lionel Parreaux, Amir Shaikhha, and Christoph Koch. 2017.
+[Squid: Type-Safe, Hygienic, and Reusable Quasiquotes](https://conf.researchr.org/event/scala-2017/scala-2017-papers-squid-type-safe-hygienic-and-reusable-quasiquotes). In Proceedings of the 2017 8th ACM SIGPLAN Symposium on Scala (SCALA 2017). 
+<!-- https://doi.org/10.1145/3136000.3136005 -->
+
+<a name="gpce17">[2]</a>: 
+Lionel Parreaux, Amir Shaikhha, and Christoph Koch. 2017.
+[Quoted Staged Rewriting: a Practical Approach to Library-Defined Optimizations](https://conf.researchr.org/event/gpce-2017/gpce-2017-gpce-2017-staged-rewriting-a-practical-approach-to-library-defined-optimization).
+In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017).  
 
 
 
