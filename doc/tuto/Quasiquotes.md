@@ -141,7 +141,7 @@ res: IR[Double,{}] = ir"1.0.*(3.0).*(3.0)"
 We will see in the next section how to
 use this code generator to great effect for optimizing our programs.
 
-###Nested Quasicode
+### Nested Quasicode
 
 Quasicode (but not quasiquotes) can be nested:
 ```scala
@@ -229,7 +229,7 @@ res: Int = 13
 ```
 
 
-### Free Variables Renaming and Substitution
+### Free Variables: Renaming and Substitution
 
 Given an open term, one can replace all its occurrences of a free variable by applying the `subs` method.
 
@@ -462,11 +462,6 @@ in which every non-trivial expressions is bound to a temporary values,
 so this problem could not exist.
 
 
-
-
-
-
-
 ## Term Rewriting
 
 Once you know how to use pattern matching on code, you can use the same syntax to do something more interesting:
@@ -647,7 +642,8 @@ is invalid (triggering an error `Embedding error: : Statement in expression posi
     f(42)
   }
 ```
-Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file.
+does work fine.
+Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define a Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file.
 ```scala
 object My{
   def Y[S,T](f: (S => T) => (S => T)): (S => T) = f(Y(f))(_:S)
@@ -656,7 +652,7 @@ object My{
 
 Now we can put factorial in a quasiquote:
 ```scala
-val factorial = ir{
+> val factorial = ir{
      My.Y[Int, Int] {
        (f: (Int => Int)) =>
          (n: Int) =>
