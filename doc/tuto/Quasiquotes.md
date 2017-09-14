@@ -78,7 +78,7 @@ a: IR[Int,{}] = ir"2"
 b: IR[Int,{}] = ir"(2).+(2)"
 ```
 
-**Note**: for clarity, we have simplified the types displayed in the REPL (for example shortening `Embedding.IR` to `IR`).
+**Note**: for clarity, here and below, we have simplified the types displayed in the REPL (for example shortening `Embedding.IR` to `IR`).
 
 By looking at the types in the REPL, we can tell we are manipulating terms of type `Int`.
 We will see later what the second type parameter means (here `{}`).
@@ -106,8 +106,6 @@ The `compile` method will compile and execute an program fragment.
 > b.compile
 res: Int = 4
 ```
-
-**Caveat: This syntax is currently unavailable as it has not yet been ported from an older version of the framework**
 
 
 These features allow what is commonly known as
@@ -143,6 +141,31 @@ res: IR[Double,{}] = ir"1.0.*(3.0).*(3.0)"
 We will see in the next section how to
 use this code generator to great effect for optimizing our programs.
 
+###Nested Quasicode
+
+Quasicode (but not quasiquotes) can be nested:
+```scala
+> val a = ir{ir{1}}
+a: IR[IR[Int,Any],Any] =
+ir"""{
+  val __b___0 = Quasicodes.qcbase;
+  Quasicodes.qcbase.`internal IR`[Int, Any](__b___0.wrapConstruct(__b___0.const(1)))
+}"""
+
+> val b = a.compile
+b: IR[Int,Any] = ir"1"
+
+> val c = b.compile
+c: Int = 1
+```
+This exposes Squid internals, but if you think of it, this has to be the case here.
+
+For more advanced uses of nested quasicode, Squid needs a static path to the `Embedding` object we defined above. Due to the ways the Scala REPL handles scopes (`Embedding` becoming a local variable when defined in the REPL), you may see errors. In that case, put
+
+```scala
+object Embedding extends squid.ir.SimpleAST
+```
+into a file and recompile.
 
 
 ### Contexts and Open Terms
@@ -240,7 +263,7 @@ q: IR[Int, {val y: Int}] = ir"($y: Int) + 1"
 q: IR[Int, {val y: Int}] = ir"($y: Int) + 1"
 ```
 
-These operations will turn out to be crucially essential in Section _Rewritings_.
+These operations will turn out to be crucial in Section _Rewritings_.
 
 
 
@@ -273,6 +296,8 @@ power: [C](n: Int, x: IR[Double,C])IR[Double,C]
 > val x_5 = power(5, ir"$$x: Double")
 res15: IR[Double,Any{val x: Double}] = ir"1.0.*($x).*($x).*($x).*($x).*($x)"
 ```
+
+**TODO**: Say somewhere how to use a different IR that partially evaluates away stuff like the `1.0 *`.
 
 We can now generate on the fly efficicent code for calculating the _n_-th power of any `Double`:
 
@@ -482,10 +507,10 @@ b: IR[Int, {val s: String; val x: Int}] = ir"scala.Predef.augmentString($s).take
 > val c = outro[{val x: Int}](b)
 c: IR[String => String, {val x: Int}] = ir"(s_0: java.lang.String) => scala.Predef.augmentString(s_0).take($x)"
 
-> ir"val x = 42; $c"
+> ir"val x = 3; $c"
 res0: IR[String => String, {}] =
 ir"""{
-  val x_0 = 42;
+  val x_0 = 3;
   (s_1: java.lang.String) => scala.Predef.augmentString(s_1).take(x_0)
 }"""
 
@@ -605,13 +630,56 @@ The code code demonstrating this example is also
 
 ## Advanced Topics on Term Rewriting
 
+### Definitions and Recursive functions
+
+Squid quasiquotes are for expressions; they do not directly support definitions (however, definitions annotated with `@embed` can be inlined). Thus,
+
+```scala
+  ir{
+    def f(i: Int) = 2 * i; // NOT SUPPORTED!
+    f(42)
+  }
+```
+is invalid (triggering an error `Embedding error: : Statement in expression position: def f(...)...`); however,
+```scala
+  ir{
+    val f = (i: Int) => 2 * i;
+    f(42)
+  }
+```
+Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file.
+```scala
+object My{
+  def Y[S,T](f: (S => T) => (S => T)): (S => T) = f(Y(f))(_:S)
+}
+```
+
+Now we can put factorial in a quasiquote:
+```scala
+val factorial = ir{
+     My.Y[Int, Int] {
+       (f: (Int => Int)) =>
+         (n: Int) =>
+           if(n <= 1) 1
+           else n * f(n - 1)
+     }
+}
+factorial: IR[Int => Int,Any] =
+ir"""My.Y[Int, Int](((f_0: Function1[Int, Int]) => ((n_1: Int) => if (n_1.<=(1))
+  1
+else
+  n_1.*(f_0(n_1.-(1))))))"""
+```
+
+
 
 ### Sequential Rewritings
 
 [TODO]
 
 ```scala
-  case ir"val arr = new collection.mutable.ArrayBuffer[$t]($v); arr.clear; arr" => ir"new collection.mutable.ArrayBuffer[$t]()"
+  case ir"val arr = new collection.mutable.ArrayBuffer[$t]($v); arr.clear; arr" =>
+       ir"new collection.mutable.ArrayBuffer[$t]()"
 ```
 
 
