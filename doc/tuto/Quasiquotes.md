@@ -115,7 +115,7 @@ We start from a normal, inefficient implementation of the power function for `Do
 
 ```scala
 > def power(n: Int, x: Double): Double =
-    if (n > 0) power(n-1)(x) * x
+    if (n > 0) power(n-1, x) * x
     else 1.0
 power: (n: Int, x: Double)Double
 
@@ -635,7 +635,7 @@ Squid quasiquotes are for expressions; they do not directly support definitions 
     f(42)
   }
 ```
-is invalid (triggering an error `Embedding error: : Statement in expression position: def f(...)...`); however,
+is invalid (triggering an error `Embedding error: Statement in expression position: def f(...)...`); however,
 ```scala
   ir{
     val f = (i: Int) => 2 * i;
