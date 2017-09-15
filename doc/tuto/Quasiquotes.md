@@ -643,7 +643,7 @@ is invalid (triggering an error `Embedding error: Statement in expression positi
   }
 ```
 does work fine.
-Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define a Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file.
+Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define a Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file, don't just type it in the REPL.
 ```scala
 object My{
   def Y[S,T](f: (S => T) => (S => T)): (S => T) = f(Y(f))(_:S)
