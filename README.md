@@ -1,6 +1,9 @@
 # **Squid** ― Scala Quoted DSLs
 
 
+**[Squid quasiquotes tutorial](doc/tuto/Quasiquotes.md)**
+
+
 ## Introduction
 
 **Squid** – which stands for the approximative contraction of **Sc**ala **Qu**ot**ed** **D**SLs –
@@ -153,7 +156,7 @@ are ever evaluated (with `.run` or `.compile`),
 and that every variable reference in a closed program 
 is correctly scoped within its binder.
 
-A detailed tutorial on these more advanced of quasiquotes is available [here](doc/tuto/Quasiquotes.md).
+[A detailed tutorial on these more advanced of quasiquotes is available here](doc/tuto/Quasiquotes.md).
 
 
 
