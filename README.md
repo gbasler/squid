@@ -6,7 +6,7 @@
 
 ## Introduction
 
-**Squid** – which stands for the approximative contraction of **Sc**ala **Qu**ot**ed** **D**SLs –
+**Squid** (for the approximative contraction of **Sc**ala **Qu**ot**ed** **D**SLs)
 is a **metaprogramming** framework 
 that facilitates the **type-safe** manipulation of **Scala programs**.
 In particular, it is geared towards
@@ -209,7 +209,7 @@ but using Squid's type-safe, hygienic quasiquotes and infrastructure.
 
 The feature is not yet merged with the master branch.
 
-An example usage:
+A usage example:
 
 ```scala
 @macroDef(Embedding)
