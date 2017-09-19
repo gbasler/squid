@@ -5,6 +5,9 @@ This means Squid quasiquotes and infrastructure can manipulate programs encoded 
 In addition, it is possible to customize an IR by adding online transformations that apply on the fly, as terms are constructed.
 <a name="qsr"></a>
 
+The associated examples can be found in the 
+[example](/example/src/main/scala/example) folder.
+
 
 ## Summary
 
