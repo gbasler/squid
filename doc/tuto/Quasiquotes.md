@@ -182,8 +182,8 @@ this definition needs to be accessible via a static path
 Open terms are terms that contain unbound variable references (free variables).
 Squid quasiquote disallow the implicit definition of open terms.
 For example, `ir"x + 1"` is illegal, because `x` is unbound.
-However, the `$$x` double-dollar syntax can be used to explicitly ask for a free variable, as in:
-`ir"($$str: String).length"`, which contains an unbound variable `str` of type `String`.
+However, the `x?` syntax can be used to explicitly ask for a free variable, as in:
+`ir"(str? : String).length"`, which contains an unbound variable `str` of type `String`.
 Scala's local type inference means we will usually need a type annotation with each explicit free variable introduction.
 
 In order to keep track of what free variables are contained in a term,
@@ -193,8 +193,8 @@ We write context requirements using Scala's syntax for structural types.
 For example, `{}` is the empty context and `{val n: Int}` is a context in which a value `n` of type `Int` must be defined.
 
 ```scala
-> val strlen = ir"($$str: String).length"
-strlen: IR[Int,{val str: String}] = ir"($str: String).length()"
+> val strlen = ir"(str? : String).length"
+strlen: IR[Int,{val str: String}] = ir"str.length()"
 ```
 
 The `IR` class is contravariant in its `Ctx` type argument,
@@ -242,7 +242,7 @@ res: Int = 13
 Given an open term, one can replace all its occurrences of a free variable by applying the `subs` method.
 
 ```scala
-> val q = ir"($$x: Int) + 1"
+> val q = ir"(x?: Int) + 1"
 q: IR[Int, {val x: Int}] = ir"($x: Int) + 1"
 
 > val s = q.subs((Symbol("x"), ir"42"))
@@ -265,10 +265,10 @@ It is also possible to only rename free variables. The two following lines are e
 
 ```scala
 > val q0 = q rename 'x -> 'y
-q: IR[Int, {val y: Int}] = ir"($y: Int) + 1"
+q: IR[Int, {val y: Int}] = ir"(y: Int) + 1"
 
-> val q1 = q subs 'x -> ir"$$y: Int"
-q: IR[Int, {val y: Int}] = ir"($y: Int) + 1"
+> val q1 = q subs 'x -> ir"y?: Int"
+q: IR[Int, {val y: Int}] = ir"(y: Int) + 1"
 ```
 
 These operations will turn out to be crucial in Section _Rewritings_.
@@ -301,8 +301,8 @@ in the context of the term it multiplies with itself (the body of the function d
     else ir"1.0"
 power: [C](n: Int, x: IR[Double,C])IR[Double,C]
 
-> val x_5 = power(5, ir"$$x: Double")
-res15: IR[Double,Any{val x: Double}] = ir"1.0.*($x).*($x).*($x).*($x).*($x)"
+> val x_5 = power(5, ir"x?: Double")
+res15: IR[Double,Any{val x: Double}] = ir"1.0.*(x).*(x).*(x).*(x).*(x)"
 ```
 
 Note that it would be easy to perform some rewriting after the fact to remove the useless `1.0 *` from the generated code, or even to partially evaluate it away automatically using an online transformer.
@@ -491,7 +491,7 @@ which makes it very handy to define context-polymorphic functions that refine th
 
 For instance, one can define:
 ```scala
-def intro[C](n: IR[Int, C]) = ir"($$s: String) take $n"
+def intro[C](n: IR[Int, C]) = ir"(s?: String) take $n"
 def outro[C](q: IR[String, C{val s: String}]) = ir"(s: String) => $q"
 ```
 
@@ -503,14 +503,14 @@ by constructing a bigger term and inserting `q` in a context where `y` is define
 Here are a few usage examples:
 
 ```scala
-> val a = ir"$$x: Int"
-a: IR[Int, {val x: Int}] = ir"$x"
+> val a = ir"x?: Int"
+a: IR[Int, {val x: Int}] = ir"x"
 
 > val b = intro(a)
-b: IR[Int, {val s: String; val x: Int}] = ir"scala.Predef.augmentString($s).take($x)"
+b: IR[Int, {val s: String; val x: Int}] = ir"scala.Predef.augmentString(s).take(x)"
 
 > val c = outro[{val x: Int}](b)
-c: IR[String => String, {val x: Int}] = ir"(s_0: java.lang.String) => scala.Predef.augmentString(s_0).take($x)"
+c: IR[String => String, {val x: Int}] = ir"(s_0: java.lang.String) => scala.Predef.augmentString(s_0).take(x)"
 
 > ir"val x = 3; $c"
 res0: IR[String => String, {}] =
@@ -530,7 +530,7 @@ We have `C{val x: A; val y: Int} with D{val x: B}` equivalent to `(C with D){val
 Also, double refinement `C{val x: A}{val y: B}` is just `C{val x: A; val y: B}`.
 
 
-### Rewriting Rules
+### Rewrite Rules
 
 To transform a term `t`, one can use the following syntax:
 
@@ -552,16 +552,16 @@ For example, notice how the result of the rewriting below has type `IR[Unit,{val
 This is because we have introduced a free variable in the right-hand side of the rewriting rule.
 
 ```scala
-ir"val x = 42; println(x.toDouble)" rewrite { case ir"($n:Int).toDouble" => ir"($$d: Double)+1" }
+ir"val x = 42; println(x.toDouble)" rewrite { case ir"($n:Int).toDouble" => ir"(d?: Double)+1" }
 res: IR[Unit,{val d: Double}] =
 ir"""{
   val x_0 = 42;
-  scala.Predef.println(($d).+(1))
+  scala.Predef.println(d.+(1))
 }"""
 ```
 
 In the code above, the type of extracted term `n` is `IR[Double,<context @ 1:16>]` and
-the type of the rewritten term `ir"($$d: Double)+1"` has its context requirement refined as `IR[Double,<context @ 1:y>{val d: Double}]`.
+the type of the rewritten term `ir"(d?: Double)+1"` has its context requirement refined as `IR[Double,<context @ 1:y>{val d: Double}]`.
 
 
 A similar macro, `fix_rewrite`, does the same as `rewrite` but applies the rewriting over and over again until the program stops changing (it reaches a fixed point).
@@ -640,51 +640,70 @@ The code code demonstrating this example is also
 
 
 
-## Advanced Topics on Term Rewriting
+## Advanced Topics
 
-### Definitions and Recursive functions
+### Definitions and Recursive Functions
 
-Squid quasiquotes are for expressions; they do not directly support definitions (however, definitions annotated with `@embed` can be inlined). Thus,
+Squid quasiquotes are for expressions; they do not directly support definitions.
+However, quasiquotes can very well refer to definitions defined outside of them (as long as these can be accessed via a static path).
+
+For example,
 
 ```scala
-  ir{
+  ir {
     def f(i: Int) = 2 * i; // NOT SUPPORTED!
     f(42)
   }
 ```
-is invalid (triggering an error `Embedding error: Statement in expression position: def f(...)...`); however,
+
+is invalid (triggering an error `Embedding error: Statement in expression position: def f(...)...`); however, this works:
+
 ```scala
-  ir{
+  ir {
     val f = (i: Int) => 2 * i;
     f(42)
   }
 ```
-does work fine.
-Recursive vals/functions are not supported, but you can work with them using a fixpoint operator. Here is an example, factorial. We first define a Y combinator. It needs a static path to be accessible from quasiquotes, so put the definition of `Y` in a file, don't just type it in the REPL.
+
+Recursive functions and lazy values are not supported, but you can emulate them using a fixpoint combinator and an ad-hoc `Lazy` data type.
+As an example, we will define the factorial function.
+We first define a Y combinator. 
+
 ```scala
-object My{
+object My {
   def Y[S,T](f: (S => T) => (S => T)): (S => T) = f(Y(f))(_:S)
 }
 ```
 
+(Again, object `My` needs a static path to be accessible from quasiquotes, 
+so it has to be defined in a file of its own, not in the REPL.)  
 Now we can put factorial in a quasiquote:
+
 ```scala
-> val factorial = ir{
-     My.Y[Int, Int] {
-       (f: (Int => Int)) =>
-         (n: Int) =>
-           if(n <= 1) 1
-           else n * f(n - 1)
-     }
+> val factorial = ir { My.Y[Int, Int] {
+    (f: (Int => Int)) =>
+      (n: Int) =>
+        if (n <= 1) 1
+        else n * f(n - 1)
+  }
 }
 factorial: IR[Int => Int,Any] =
-ir"""My.Y[Int, Int](((f_0: Function1[Int, Int]) => ((n_1: Int) => if (n_1.<=(1))
-  1
-else
-  n_1.*(f_0(n_1.-(1))))))"""
+ir"""My.Y[Int, Int](((f_0: Function1[Int, Int]) => ((n_1: Int) => 
+  if (n_1.<=(1)) 1
+  else n_1.*(f_0(n_1.-(1))))))"""
 ```
 
+In addition,
+method definitions that live in an object or a class annotated with `@embed` 
+have automatic support for inlining,
+as explained in the [documentation on lowering transformers](/doc/Transformers.md#lowering-transformers).
 
+
+
+
+
+
+<!-- 
 
 ### Sequential Rewritings
 
@@ -694,11 +713,83 @@ else
   case ir"val arr = new collection.mutable.ArrayBuffer[$t]($v); arr.clear; arr" =>
        ir"new collection.mutable.ArrayBuffer[$t]()"
 ```
+ -->
+ 
+ 
 
 
-### Speculative Rewritings
+### Speculative Rewrite Rules
 
-[TODO]
+It is possible to define rewrite rules that try to apply some transformations,
+but abort in the middle if it turns out that these transformations cannot be carry out completely.
+
+For this, one uses the `Abort()` construct, which throws an exception that will be caught by the innermost rewriting.
+
+A typical application of speculative rewrite rules is the rewriting of some let-bound construct that is used in a specific way, aborting if the construct is used in unexpected ways.
+For example, the following tries to rewrite any `Array[(Int,Int)]` into two `Array[Int]`,
+assuming that the original array `arr` is only used in expressions of the form 
+`arr.length`,
+`arr(i)._1`,
+`arr(i)._2` and
+`arr(i) = (x,y)`.
+
+```scala
+> def rewriteArrayOfTuples[T,C](pgrm: IR[T,C]) = pgrm rewrite {
+    case ir"val $arr = new Array[(Int,Int)]($len); $body : $bt" =>
+      //        ^ we extract the binding for arr; equivalent to a free variable
+      
+      // boilerplate for the free variables that refer to the future replacement arrays:
+      val a = ir"a? : Array[Int]"
+      val b = ir"b? : Array[Int]"
+      
+      val body0 = body rewrite {
+        case ir"$$arr.length" => len
+        //      ^ double dollar inserts a term in a pattern
+        case ir"$$arr($i)._1" => ir"$a($i)"
+        case ir"$$arr($i)._2" => ir"$b($i)"
+        case ir"$$arr($i) = ($x:Int,$y:Int)" => ir"$a($i) = $x; $b($i) = $y"
+      }
+      
+      // abort if there are still `arr` free variables left in `body0`:
+      val body1 = body0 subs 'arr -> Abort()
+      // ^ also written: body0.subs(Symbol("arr") -> )
+      // 'subs' lazily evaluates its right-hand side argument
+      
+      // reconstruct the final program
+      ir"val a = new Array[Int]($len); val b = new Array[Int]($len); $body1"
+      
+}
+> rewriteArrayOfTuples(ir{
+  val l = readInt
+  val xs = new Array[(Int,Int)](l)
+  var i = 0
+  while(i < xs.length) {
+    xs(i) = (i,i+1)
+    i += 1
+  }
+  val idx = new scala.util.Random().nextInt(xs.length)
+  xs(idx)._1 + xs(idx)._2
+})
+res0: IR[Int,{}] = ir"""{
+  val l_0 = scala.Predef.readInt();
+  val a_1 = new scala.Array[scala.Int](l_0);
+  val b_2 = new scala.Array[scala.Int](l_0);
+  var i_3: scala.Int = 0;
+  while (i_3.<(l_0)) 
+    {
+      {
+        a_1.update(i_3, i_3);
+        b_2.update(i_3, i_3.+(1))
+      };
+      i_3 = i_3.+(1)
+    }
+  ;
+  {
+    val idx_4 = new scala.util.Random().nextInt(l_0);
+    a_1.apply(idx_4).+(b_2.apply(idx_4))
+  }
+}"""
+```
 
 
 
