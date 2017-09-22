@@ -10,16 +10,15 @@ import utils.Debug.show
   * TODO? move to anf.transfo.StandardNormalizer
   */
 /* 
-  TODO: have specialized treatment of booleans and logic in the IR
-    Some things like `x>0 || ... || !(x>0) || ...` are not syntactic enough to optimize with these rules
-    In general, we need to allow extension to, eg, make special support for numeric types and make `x==0` equivalent to `x>=0 && x<=0`
-  ... actually can do this with a better analysing pass – see LogicFlowNormalizer
+  Note: LogicFlowNormalizer has more advanced treatment of booleans and logic, 
+  because some things like `x>0 || ... || !(x>0) || ...` are not syntactic enough to optimize with these rules.
   
   Note: IF-THEN-ELSE returning Bool is normalized using `&&` and `!`
   
-  TODO: normalize `false` to `!true`?
+  Future: normalize `false` to `!true`?
   
-  TODO: normalize `while` loops to put all code in the condition? (it's more general than everything in the body)
+  Future: normalize `while` loops to put all code in the condition? (it's more general than everything in the body)
+    -> no, it turns out that Scala generates worse code for such loops...
   
 */
 trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
@@ -104,9 +103,9 @@ trait LogicNormalizer extends SimpleRuleBasedTransformer { self =>
   
 }
 
-/** Types like Int have their own == symbol, different from Any.==, which is very annoying when wanting to treat 
-  * equality uniformly. So this replaces all == and != method calls by calls to `Any.equals`, for consistency.
-  * This also normalizes if-then-else.equals and partially evaluates constant equality tests. */
+/** Types like Int have their own overloaded == symbols, different from Any.==, which is very annoying when wanting to 
+  * treat equality uniformly. So this replaces all == and != method calls by calls to `Any.equals`, for consistency.
+  * This also normalizes .equals calls on if-then-else and partially evaluates constant equality tests. */
 trait EqualityNormalizer extends SimpleRuleBasedTransformer { self =>
   
   val base: anf.analysis.BlockHelpers with lang.ScalaCore
@@ -132,7 +131,7 @@ trait EqualityNormalizer extends SimpleRuleBasedTransformer { self =>
 
 /** Traverses a program and its expressions, accumulating what is known to be true or false if the current code is being
   * executed. For example, will rewrite {{{ n > 0 && {assert(m != 0); (n > 0)} && m != 0 }}} to {{{ n > 0 && {assert(m != 0); true} && true }}}.
-  * Best used along with LogicNormalizer because this only deals with `. && .` and `!.` but not with `. || .`.
+  * Best used along with LogicNormalizer because this only deals with `_ && _` and `!_` but not with `_ || _`.
   * Only supposed to work in ANF or any other IR where by-value conditions (eg to an IF-THEN-ELSE) are guaranteed to be pure. */
 trait LogicFlowNormalizer extends IRTransformer { self =>
   /*
@@ -141,6 +140,8 @@ trait LogicFlowNormalizer extends IRTransformer { self =>
     At the very least, consider anything not pure can change value and either:
      - don't record it, or
      - invalidate it as soon as anything impure is executed
+  
+  Future: allow extensions to add, e.g., special support for numeric types where `x==0` is equivalent to `x>=0 && x<=0`
   
   */
   
