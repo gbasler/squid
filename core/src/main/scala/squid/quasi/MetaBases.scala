@@ -216,6 +216,8 @@ trait MetaBases {
     
     val startPathsFromRoot = false
     
+    val markHolesWith_? = false
+    
     type Rep = Tree
     type BoundVal = (TermName, TypeRep)
     type TypeRep = Tree
@@ -313,9 +315,17 @@ trait MetaBases {
     def repType(r: Rep): TypeRep = ??? // TODO impl (store types using internal)
     
     
-    def hole(name: String, typ: TypeRep): Rep = q"${TermName(name)}" // TODO ensure hygiene... (this should not clash!)
-    def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep = q"${TermName(name)}" // Q: hygiene, as above?
-    def splicedHole(name: String, typ: TypeRep): Rep = q"${TermName(name)}: _*"
+    /* Note about hygiene: typically when using ScalaReflectionBase, we already ensure that there are no free variables
+     * lying around (cf. implicit evidence in method `compile`); the other main use case is pretty-printing, where
+     * `markHolesWith_?` will typically be turned on so we can clearly identify free variables. */
+    private def holeName(name: String) = 
+      if (markHolesWith_?) "?"+name else name
+    def hole(name: String, typ: TypeRep): Rep = 
+      q"${TermName(name |> holeName)}"
+    def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep = 
+      q"${TermName(name |> holeName)}"
+    def splicedHole(name: String, typ: TypeRep): Rep = 
+      q"${TermName(name |> holeName)}: _*"
     
     def substitute(r: => Rep, defs: Map[String, Rep]): Rep = r transform {
       //case h @ q"${TermName(name)}" =>  // Weird! this does not seem to match...

@@ -18,7 +18,7 @@ class PrettyPrinting extends MyFunSuite {
       .rep |> showRep, "scala.Option.empty[java.lang.Object]")
     
   }
-    
+  
   test("Null variables") {
     
     same(ir"var x: Int = ${nullValue[Int]}; x+1"
@@ -47,6 +47,12 @@ class PrettyPrinting extends MyFunSuite {
       |  var x_0: java.lang.String = null;
       |  x_0.+(1)
       |}""".stripMargin)
+    
+  }
+  
+  test("Free variables") {
+    
+    same(ir"(x?:Int)+1".toString, """ir"?x.+(1)"""")
     
   }
   

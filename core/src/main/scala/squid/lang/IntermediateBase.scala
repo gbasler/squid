@@ -28,7 +28,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   @volatile private var showing = false
   protected def isShowing = showing
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
-  def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?"))) )}
+  def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?")), markHoles = true) )}
   
   
   implicit class IntermediateRepOps(private val self: Rep) {
@@ -74,9 +74,10 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   final def scalaTreeInWTFScala[MBM <: MetaBases](MBM: MBM)(SRB: MBM#ScalaReflectionBase, rep: Rep, extrudedHandle: (BoundVal => MBM#U#Tree) = DefaultExtrudedHandler): MBM#U#Tree =
     scalaTreeIn(MBM)(SRB.asInstanceOf[MBM.ScalaReflectionBase], rep, extrudedHandle.asInstanceOf[BoundVal => MBM.u.Tree])
   
-  final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler, hideCtors0: Bool = false): sru.Tree =
+  final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler, hideCtors0: Bool = false, markHoles: Bool = false): sru.Tree =
     scalaTreeIn(quasi.MetaBases.Runtime)(new ScalaReflectionBaseWithOwnNames {
       override val hideCtors: Boolean = hideCtors0
+      override val markHolesWith_? : Boolean = markHoles
     }, rep, extrudedHandle)
   
   
