@@ -114,9 +114,10 @@ The canonical example of MSP is that of the _power_ function.
 We start from a normal, inefficient implementation of the power function for `Double` precision numbers:
 
 ```scala
-> def power(n: Int, x: Double): Double =
+> def power(n: Int, x: Double): Double = {
     if (n > 0) power(n-1, x) * x
     else 1.0
+  }
 power: (n: Int, x: Double)Double
 
 > power(2, 3)
@@ -129,9 +130,10 @@ we construct a _code generator_, that given any program fragment of type `Double
 constructs a sequence of multiplications of that number.
 
 ```scala
-> def power(n: Int, x: IR[Double,{}]): IR[Double,{}] =
+> def power(n: Int, x: IR[Double,{}]): IR[Double,{}] = {
     if (n > 0) ir"${power(n-1, x)} * $x"
     else ir"1.0"
+  }
 power: (n: Int, x: IR[Double,{}])IR[Double,{}]
 
 > power(2, ir"3.0")
@@ -296,9 +298,10 @@ To allow for this, we make `power` polymorphic
 in the context of the term it multiplies with itself (the body of the function does not change):
 
 ```scala
-> def power[C](n: Int, x: IR[Double,C]): IR[Double,C] =
+> def power[C](n: Int, x: IR[Double,C]): IR[Double,C] = {
     if (n > 0) ir"${power(n-1, x)} * $x"
     else ir"1.0"
+  }
 power: [C](n: Int, x: IR[Double,C])IR[Double,C]
 
 > val x_5 = power(5, ir"x?: Double")
@@ -397,7 +400,7 @@ and  method * in class Long of type (x: Byte)Long
 match argument types (Nothing)
 ```
 
-**Caveat**: Because of the infamous `any2stringadd` implicit convertion, syntax `ir"($x: Int) + $y"` will make Scala think that
+**Caveat**: Because of the infamous `any2stringadd` implicit conversion, syntax `ir"($x: Int) + $y"` will make Scala think that
 `y` has type `String` and `+` is string concatenation...
 
 
@@ -635,7 +638,7 @@ res: Double = 2.23606797749979
 ```
 
 
-The code code demonstrating this example is also
+The code demonstrating this example is also
 [available in the example package](https://github.com/LPTK/Squid/blob/master/example/src/main/scala/example/PowOptim.scala).
 
 
