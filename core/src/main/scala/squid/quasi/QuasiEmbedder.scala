@@ -449,6 +449,23 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                 }}
               liftTerm(q"$baseTree.$$$$[${TypeTree(Nothing)}]($nameTree)", parent, notSeqNothingExpectedType) // No need to pass `tp` as the type argument; it ensures there will be a warning if hole has no type
               
+              
+              
+            /** Handling of the new new FV syntax: */
+            
+            // Correct usage of the `?` FV prefix
+            case q"$baseTree.Predef.?.selectDynamic($nameTree)" => // TODO check baseTree
+              val name = nameTree match { case Literal(Constant(str:String)) => str  case _ => 
+                throw EmbeddingException("Free variable introduced with `?` should have a constant literal name.") }
+              val tree = q"$baseTree.$$$$[${TypeTree(Nothing)}](scala.Symbol.apply(${name}))"
+              liftTerm(tree, parent, expectedType)
+            
+            // Incorrect usage of the `?` FV prefix
+            case q"$baseTree.Predef.?" if x.symbol.fullName == "squid.quasi.QuasiBase.Predef.$qmark" =>
+              throw QuasiException("Unknown use of free variable syntax operator `?`.")
+              
+              
+              
             /** Replaces calls to $$(name) with actual holes */
             case q"$baseTree.$$$$[$tpt]($nameTree)" => // TODO check baseTree
               

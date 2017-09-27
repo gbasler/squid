@@ -11,6 +11,7 @@ import squid.lang.IntermediateBase
 import utils.MacroUtils.MacroSetting
 
 import scala.annotation.StaticAnnotation
+import scala.annotation.compileTimeOnly
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable
 
@@ -31,6 +32,9 @@ self: Base =>
   //def substituteLazy(r: Rep, defs: Map[String, () => Rep]): Rep
   def substitute(r: => Rep, defs: Map[String, Rep]): Rep
   def substituteLazy(r: => Rep, defs: Map[String, () => Rep]): Rep = substitute(r, defs map (kv => kv._1 -> kv._2()))
+  
+  /** Not yet used: should eventually be defined by all IRs as something different than hole */
+  def freeVar(name: String, typ: TypeRep) = hole(name, typ)
   
   /** Traditional hole with CMTT semantics, in general position; this should extract a `Rep` */
   def hole(name: String, typ: TypeRep): Rep
@@ -229,6 +233,12 @@ self: Base =>
       }
     }
     
+    import scala.language.dynamics
+    object ? extends Dynamic {
+      @compileTimeOnly("The `?` syntax can only be used inside quasiquotes and quasicode.")
+      def selectDynamic(name: String): Nothing = ???
+    }
+    
     import scala.language.experimental.macros
     
     implicit class QuasiContext(private val ctx: StringContext) extends self.Quasiquotes.QuasiContext(ctx)
@@ -380,7 +390,6 @@ self: Base =>
     //def $[T,C](q: IR[T,C]): T = macro QuasiMacros.forward$ // Actually unnecessary
     //def $[T,C](q: IR[T,C]*): T = macro QuasiMacros.forwardVararg$ // Actually unnecessary
     def $$[T](name: Symbol): T = macro QuasiMacros.forward$$
-    def ?[T](name: Symbol): T = macro QuasiMacros.forward$$
     
     type $[QT <: TypeErased] = TypeOf[QT]
     
