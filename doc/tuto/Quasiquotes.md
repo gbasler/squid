@@ -308,7 +308,9 @@ power: [C](n: Int, x: IR[Double,C])IR[Double,C]
 res15: IR[Double,Any{val x: Double}] = ir"1.0.*(x).*(x).*(x).*(x).*(x)"
 ```
 
-Note that it would be easy to perform some rewriting after the fact to remove the useless `1.0 *` from the generated code, or even to partially evaluate it away automatically using an online transformer.
+Note that it would be easy to perform some rewriting after the fact to remove the useless `1.0 *` from the generated code, 
+or even to partially evaluate it away automatically using an online transformer 
+(like in [this example](https://github.com/epfldata/squid/blob/2def7fc33798dd1dcb4f74df83a53171fae1a5bc/src/test/scala/squid/ir/OnlineTransfo.scala#L54-L78)).
 For more details on this subject, see the [documentation on transformers](/doc/Transformers.md).
 
 
@@ -760,8 +762,8 @@ assuming that the original array `arr` is only used in expressions of the form
       
       // reconstruct the final program
       ir"val a = new Array[Int]($len); val b = new Array[Int]($len); $body1"
-      
 }
+
 > rewriteArrayOfTuples(ir{
   val l = readInt
   val xs = new Array[(Int,Int)](l)

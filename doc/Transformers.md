@@ -1,7 +1,7 @@
 # Squid Transformers
 
 This document introduces the transformation API and capabilities of Squid.  
-Prerequisite: [Squid Quasiquotes](doc/tuto/Quasiquotes.md).  
+Prerequisite: [Squid Quasiquotes](/doc/tuto/Quasiquotes.md).  
 The associated examples can be found in the 
 [example](/example/src/main/scala/example) folder.
 
@@ -35,7 +35,7 @@ while `Code[T]` and `IR[T,C]` are the corresponding high-level types
 
 When designing and composing Squid transformers, 
 one will generally not need to worry about the `transform` method, 
-which is already implemented by the main transformer classes and overridden by [transformer modifiers](#TransformerModifiers).
+which is already implemented by the main transformer classes and overridden by [transformer modifiers](#transformer-modifiers).
 
 A high-level transformer interface is also available as 
 `squid.ir.IRTransformer`, which has one abstract method `transform[T,C](code: IR[T,C]): IR[T,C]`.
@@ -91,7 +91,7 @@ println(code"Nil.size + Nil.size".transformWith(MyTransformer))
 Note that this transformer only affects the top-level term.
 For example, it will leave the term `code"print(Nil.size+Nil.size)"` unchanged.
 In order to automatically recurse down inside sub-terms, see the section on 
-[Transformer Modifiers](#TransformerModifiers).
+[Transformer Modifiers](#transformer-modifiers).
 
 
 <!-- **Limitations:**  -->
@@ -136,7 +136,7 @@ t.transformWith(LocalTransformer)
 The `t fix_rewrite { ... }` syntax expands to similar code, 
 but with `FixPointRuleBasedTransformer` instead of `SimpleRuleBasedTransformer`.
 
-We describe `TopDownTransformer` in the [Transformer Modifiers](#TransformerModifiers) section.
+We describe `TopDownTransformer` in the [Transformer Modifiers](#transformer-modifiers) section.
 
 
 
@@ -148,7 +148,7 @@ We describe `TopDownTransformer` in the [Transformer Modifiers](#TransformerModi
 Class `squid.ir.Lowering` provides built-in facilities to automatically inline functions defined in your libraries.
 To do that, you first need to `@embed` the class or object of your choice and annotate its methods with a `@phase('SomePhaseName)`, 
 then construct a `Lowering('SomePhaseName)` which effect is to perform the inlining
-(n.b., by default only on the top-level term, _not_ recursively and _not_ in a fixed point unless modified with teh appropriate traits).
+(n.b., by default only on the top-level term, _not_ recursively and _not_ in a fixed point unless modified with the appropriate traits).
 
 Note that given some IR base object `Embedding`,
 class `Embedding.Lowering` is equivalent to `Embedding.SelfTransformer with squid.ir.Lowering`.
