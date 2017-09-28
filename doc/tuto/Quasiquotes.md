@@ -184,8 +184,8 @@ this definition needs to be accessible via a static path
 Open terms are terms that contain unbound variable references (free variables).
 Squid quasiquote disallow the implicit definition of open terms.
 For example, `ir"x + 1"` is illegal, because `x` is unbound.
-However, the `x?` syntax can be used to explicitly ask for a free variable, as in:
-`ir"(str? : String).length"`, which contains an unbound variable `str` of type `String`.
+However, the `?x` syntax can be used to explicitly ask for a free variable, as in:
+`ir"(?str: String).length"`, which contains an unbound variable `str` of type `String`.
 Scala's local type inference means we will usually need a type annotation with each explicit free variable introduction.
 
 In order to keep track of what free variables are contained in a term,
@@ -195,8 +195,8 @@ We write context requirements using Scala's syntax for structural types.
 For example, `{}` is the empty context and `{val n: Int}` is a context in which a value `n` of type `Int` must be defined.
 
 ```scala
-> val strlen = ir"(str? : String).length"
-strlen: IR[Int,{val str: String}] = ir"str.length()"
+> val strlen = ir"(?str: String).length"
+strlen: IR[Int,{val str: String}] = ir"?str.length()"
 ```
 
 The `IR` class is contravariant in its `Ctx` type argument,
@@ -244,8 +244,8 @@ res: Int = 13
 Given an open term, one can replace all its occurrences of a free variable by applying the `subs` method.
 
 ```scala
-> val q = ir"(x?: Int) + 1"
-q: IR[Int, {val x: Int}] = ir"($x: Int) + 1"
+> val q = ir"(?x: Int) + 1"
+q: IR[Int, {val x: Int}] = ir"?x + 1"
 
 > val s = q.subs((Symbol("x"), ir"42"))
 s: IR[Int, {}] = ir"42 + 1"
@@ -269,8 +269,8 @@ It is also possible to only rename free variables. The two following lines are e
 > val q0 = q rename 'x -> 'y
 q: IR[Int, {val y: Int}] = ir"(y: Int) + 1"
 
-> val q1 = q subs 'x -> ir"y?: Int"
-q: IR[Int, {val y: Int}] = ir"(y: Int) + 1"
+> val q1 = q subs 'x -> ir"?y: Int"
+q: IR[Int, {val y: Int}] = ir"?y + 1"
 ```
 
 These operations will turn out to be crucial in Section _Rewritings_.
@@ -304,8 +304,8 @@ in the context of the term it multiplies with itself (the body of the function d
   }
 power: [C](n: Int, x: IR[Double,C])IR[Double,C]
 
-> val x_5 = power(5, ir"x?: Double")
-res15: IR[Double,Any{val x: Double}] = ir"1.0.*(x).*(x).*(x).*(x).*(x)"
+> val x_5 = power(5, ir"?x: Double")
+res15: IR[Double,Any{val x: Double}] = ir"1.0.*(?x).*(?x).*(?x).*(?x).*(?x)"
 ```
 
 Note that it would be easy to perform some rewriting after the fact to remove the useless `1.0 *` from the generated code, 
@@ -378,7 +378,7 @@ will give to the extracted sybterm a type that reflects the potential dependency
 
 ```scala
 > val funBody = ir"(x: Int) => x + 1" match { case ir"(y: Int) => $b" => b }
-funBody: IR[Int, {val y: Int}] = ir"($y: Int) + 1"
+funBody: IR[Int, {val y: Int}] = ir"?y + 1"
 ```
 
 Notice in the code above that _**bound variable names do not matter**_:
@@ -390,7 +390,7 @@ we can also use it to _extract_ constant current-stage values:
 
 ```scala
 > funBody match { case ir"($z: Int) + (${Const(k)}: Int)" => (z,k) }
-res: (IR[Int, {val y: Int}], Int) = (ir"$y: Int", 1)
+res: (IR[Int, {val y: Int}], Int) = (ir"?y", 1)
 ```
 
 Notice that in the examples above, it is necessary to provide the type of extraction holes because the `+` operation
@@ -444,14 +444,14 @@ res: IR[Int,{}] = ir"scala.Predef.readInt().+(scala.Predef.readInt()).+(1)"
 ```
 
 In the right-hand side of this `case` expression,
-extracted value `body` has type `IR[T,C{val x: t}]` (see the section on [Context Polymorphism](#context-polymorphism) to understand `C{val x: t}`)
-where `t` is some locally-defined abstract type (introduce by the `ir` pattern macro),
-and extracted value `t` is a representation of that type, of type `IRType[t]`.
+extracted value `body` has type `IR[T,C{val x: t.Typ}]` (see the section on [Context Polymorphism](#context-polymorphism) to understand syntax `C{val x: t}`)
+where `t` is the local extracted type representation (introduced by the `ir` pattern macro).
+Note that `t` is a _value_ representing a type, not a type per se. 
+So one cannot write `Option[IR[t,C]]`, for example; instead one has to write `Option[IR[t.Typ,C]]`
+where path-dependent type `t.Typ` _reflects_ in the type system what `t` represents at runtime,
+a.k.a what `t` _reifies_.
+Perhaps paradoxically, `t` can be viewed as having type `t: IRType[t.Typ]`.
 
-It is sometimes useful to use an extracted type in type position outside of a quasiquote.
-This is not possible directly, as an extracted type `t` is a type representation _value_ (of type `IRType`), not a proper Scala _type_. 
-In order to do that, one will have to use the `Typ` type member defined in every `IRType`.
-For instance, `Option[IR[t.Typ,C]]` is equivalent to `Option[IR[t,C]]`, althought the latter cannot be written directly.
 
 Thanks to an implicit macro provided by Squid,
 extracted types will be picked up automatically from the context in which they appear and used as implicit type representation evidence.
@@ -496,7 +496,7 @@ which makes it very handy to define context-polymorphic functions that refine th
 
 For instance, one can define:
 ```scala
-def intro[C](n: IR[Int, C]) = ir"(s?: String) take $n"
+def intro[C](n: IR[Int, C]) = ir"(?s: String) take $n"
 def outro[C](q: IR[String, C{val s: String}]) = ir"(s: String) => $q"
 ```
 
@@ -508,14 +508,14 @@ by constructing a bigger term and inserting `q` in a context where `y` is define
 Here are a few usage examples:
 
 ```scala
-> val a = ir"x?: Int"
-a: IR[Int, {val x: Int}] = ir"x"
+> val a = ir"?x: Int"
+a: IR[Int, {val x: Int}] = ir"?x"
 
 > val b = intro(a)
-b: IR[Int, {val s: String; val x: Int}] = ir"scala.Predef.augmentString(s).take(x)"
+b: IR[Int, {val s: String; val x: Int}] = ir"scala.Predef.augmentString(?s).take(?x)"
 
 > val c = outro[{val x: Int}](b)
-c: IR[String => String, {val x: Int}] = ir"(s_0: java.lang.String) => scala.Predef.augmentString(s_0).take(x)"
+c: IR[String => String, {val x: Int}] = ir"(s_0: java.lang.String) => scala.Predef.augmentString(s_0).take(?x)"
 
 > ir"val x = 3; $c"
 res0: IR[String => String, {}] =
@@ -557,16 +557,16 @@ For example, notice how the result of the rewriting below has type `IR[Unit,{val
 This is because we have introduced a free variable in the right-hand side of the rewriting rule.
 
 ```scala
-ir"val x = 42; println(x.toDouble)" rewrite { case ir"($n:Int).toDouble" => ir"(d?: Double)+1" }
+ir"val x = 42; println(x.toDouble)" rewrite { case ir"($n:Int).toDouble" => ir"(?d: Double)+1" }
 res: IR[Unit,{val d: Double}] =
 ir"""{
   val x_0 = 42;
-  scala.Predef.println(d.+(1))
+  scala.Predef.println(?d.+(1))
 }"""
 ```
 
 In the code above, the type of extracted term `n` is `IR[Double,<context @ 1:16>]` and
-the type of the rewritten term `ir"(d?: Double)+1"` has its context requirement refined as `IR[Double,<context @ 1:y>{val d: Double}]`.
+the type of the rewritten term `ir"(?d: Double)+1"` has its context requirement refined as `IR[Double,<context @ 1:y>{val d: Double}]`.
 
 
 A similar macro, `fix_rewrite`, does the same as `rewrite` but applies the rewriting over and over again until the program stops changing (it reaches a fixed point).
@@ -740,12 +740,12 @@ assuming that the original array `arr` is only used in expressions of the form
 
 ```scala
 > def rewriteArrayOfTuples[T,C](pgrm: IR[T,C]) = pgrm rewrite {
-    case ir"val $arr = new Array[(Int,Int)]($len); $body : $bt" =>
+    case ir"val $arr = new Array[(Int,Int)]($len); $body: $bt" =>
       //        ^ we extract the binding for arr; equivalent to a free variable
       
       // boilerplate for the free variables that refer to the future replacement arrays:
-      val a = ir"a? : Array[Int]"
-      val b = ir"b? : Array[Int]"
+      val a = ir"?a: Array[Int]"
+      val b = ir"?b: Array[Int]"
       
       val body0 = body rewrite {
         case ir"$$arr.length" => len
