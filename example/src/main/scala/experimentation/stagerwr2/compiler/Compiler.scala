@@ -103,7 +103,7 @@ object ImplCtorInline extends Embedding.SelfIRTransformer with IRTransformer wit
       import base.SimplePredef.unsound
       import base.SimplePredef.{Rep=>Code}
       
-      val r = NeatClosure2.doFlatMapStaged(pa,(x:Code[ta.Typ]) => body subs 'a -> x)
+      val r = NeatClosure2.doFlatMapStaged(pa,(x:Code[ta.Typ]) => body subs 'a -> x.asClosedIR)
       println(r)
       
       r
