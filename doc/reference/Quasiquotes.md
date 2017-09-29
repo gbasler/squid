@@ -3,7 +3,7 @@
 
 ## Intermediate Representation Base
 
-In order to manipulate code fragments, one has to chose an intermediate representation (IR) in which these are to be encoded. (For more details, see the [documentation about IRs](/doc/Intermediate%20Representations.md).)
+In order to manipulate code fragments, one has to chose an intermediate representation (IR) in which these are to be encoded. (For more details, see the [documentation about IRs](/doc/Intermediate_Representations.md).)
 
 Once an IR is created and named (for example) `Embedding`, the use of quasiquotes and related features is enabled by importing `Embedding.Predef._`.
 The use of quasicode (presented below) is enabled by importing `Embedding.Quasicode._`.
