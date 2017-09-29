@@ -88,7 +88,7 @@ Both forms of quasiquotes support a flexible pattern-matching syntax
 and facilities to traverse programs recursively while applying transformations.
 
 As a quick reference available to all Squid users, 
-we provide a [cheat sheet](doc/reference/Quasiquotes.md) that summarizes the features of each system.
+we provide a [cheat sheet](doc/reference/Quasiquotes.md) that summarizes the features of each system. Also see the [quasiquotes tutorial](/doc/tuto/Quasiquotes.md).
 
 
 
@@ -125,9 +125,9 @@ TODO
 
 
 
+## Applications of Squid
 
-
-
+Squid is new. See the [examples folder](example/src/main/scala/) for examples. A little query compiler built with Squid can be found [here](https://github.com/epfldata/sc-public/tree/master/relation-dsl-squid).
 
 
 
