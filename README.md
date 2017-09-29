@@ -108,7 +108,7 @@ TODO
 
 TODO
 
-[Link to IR documentation](doc/Intermediate Representations.md)
+[Link to IR documentation](doc/Intermediate_Representations.md)
 
 
 <a name="qsr"/>
