@@ -7,10 +7,10 @@ import ruh.sru
 import squid.lang.InspectableBase
 
 /** Encodes multi-parameter lambdas as curried functions and calls to `uncurry` */
-trait CurryEncoding extends InspectableBase 
-  with ScalaTyping /*with RuntimeSymbols*/ { // TODO rm
+trait CurryEncoding extends InspectableBase { 
   
   def abs(param: BoundVal, body: => Rep): Rep
+  def lambdaType(paramTyps: List[TypeRep], ret: TypeRep): TypeRep
   
   def lambda(params: List[BoundVal], bodyThunk: => Rep): Rep = {
     
