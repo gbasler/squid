@@ -19,7 +19,7 @@ In addition, it has an advanced static typing capabilities that reduce common me
 
 ## Installation
 
-Squid currently supports Scala versions `2.11.3` to `2.11.8` 
+Squid currently supports Scala versions `2.11.3` to `2.11.11`
 (more recent versions might work as well, but have not yet been tested).
 
 The project is not yet published on Maven, 

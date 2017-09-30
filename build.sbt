@@ -4,7 +4,7 @@ val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(
   version := squidVersion,
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.11.11",
   organization := "ch.epfl.data",
   autoCompilerPlugins := true,
   scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"
