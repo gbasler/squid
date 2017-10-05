@@ -52,8 +52,10 @@ addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVe
 
 ### Squid Quasiquotes
 
-Quasiquotes are the main primitive tool that Squid provides to manipulate programs.
-They are used to construct, compose and decompose program fragments.
+Quasiquotes are the primitive tool that Squid provides to manipulate program fragments 
+–– building, composing and decomposing them.
+Quasiquotes are central to most aspects of program transformation in Squid.
+
 
 #### Type-Safe Code Manipulation
 
@@ -61,11 +63,7 @@ Unlike the standard [Scala Reflection quasiquotes](https://docs.scala-lang.org/o
 Squid quasiquotes are statically-typed and hygienic, 
 ensuring that manipulated programs remain well-typed 
 and that variable bindings and other symbols do not get mixed up.
-The downside is that Squid quasiquotes can only manipulate **expressions**
-–– meaning that while **definitions** (of classes, traits, objects, methods and types) can be _used_ inside quasiquotes,
-they cannot be manipulated directly by them.
-If you want to manipulate definitions, other tools exist –– though they typically have much weaker guarantees (for example, see [Scalameta](http://scalameta.org/)).
-
+Squid quasiquotes focus on expressions (not definitions), but Squid provides way to _embed_ arbitrary class and object definitions so that their methods can be inlined at any point (or even automatically).
 
 
 #### Flavors of Quasiquotes

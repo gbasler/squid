@@ -74,6 +74,14 @@ All features available to simple quasiquotes are also available to contextual qu
 
 ### Supported Scala Features
 
+Squid quasiquotes are for manipulating **expressions**
+–– meaning that **definitions** (of classes, traits, objects, methods and types)
+cannot appear inside quasiquotes, though _references_ to external definitions can.
+If you want to manipulate definitions, other tools exist (for example, see [Scalameta](http://scalameta.org/)). These tools typically have much weaker guarantees.
+Indeed, by its very nature, manipulating definitions cannot usually be type-preserving and type-safe 
+(e.g., changing the fields of a class will likely break programs that used the old field definitions).
+
+
 Currently supported term-level features:
  
  * constant literals
