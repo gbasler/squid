@@ -40,6 +40,11 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     def unapply[T: IRType](ir: IR[T,_]): Option[T]
   }
   
+  val FreeVar: FreeVarAPI
+  trait FreeVarAPI extends super.FreeVarAPI {
+    //def unapply(ir: SomeIR): Option[String]
+    def unapply(ir: SomeIR): Option[String]
+  }
   
   /** The top-level function called by quasiquotes extractors */
   def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = {

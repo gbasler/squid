@@ -11,6 +11,14 @@ object DeepTests2 extends App {
   import Embedding.Quasicodes._
   import Strm._
   
+  val term =
+  code"123.toDouble" : Code[Double]
+  
+  term match {
+    case code"($n:Int).toDouble" =>
+      ...
+  }
+  
   
   // Simple example for paper
   //val pgrm0 = ir{ (xs:IndexedSeq[Int]) => 

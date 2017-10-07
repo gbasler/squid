@@ -6,6 +6,7 @@ import ruh.{srum, sru}
 import utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
 import lang._
 import quasi._
+import squid.ir.EmbeddedableClass
 import squid.lang.Optimizer
 
 import scala.language.experimental.macros
@@ -37,6 +38,12 @@ class optimize(stopt: StaticOptimizer[_]) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizeAnnotImpl
 }
 
+@compileTimeOnly("Enable macro paradise to expand macro annotations.")
+//class optimized[ClassType] extends StaticAnnotation {
+class optimized(cls: Any) extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro StaticOptimizerMacros.optimizedAnnotImpl
+}
+
 import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
@@ -57,6 +64,72 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       case DefDef(mods, name, tparams, vparamss, tpt, rhs) :: Nil =>
         DefDef(mods, name, tparams, vparamss, tpt, q"$stopt.optimize { $rhs }")
     }
+  }
+  
+  def optimizedAnnotImpl(annottees: Tree*) = {
+    
+    //val stopt = 
+    c.macroApplication match {
+        /*
+      case q"new optimized[$t].macroTransform(..$_)" =>
+        println(t)
+        //val tpt = c.typecheck(t, c.TYPEmode)
+        val tpt = c.typecheck(t)
+        println(tpt)
+        println(tpt.tpe)
+        println(tpt.symbol)
+        //???
+        //q"println(new ${tpt.symbol})"
+        //val cde = q"$t.EmbeddedIn"
+        //val cde = q"${tpt.symbol}.EmbeddedIn"
+        val cde = q"${tpt}.EmbeddedIn"
+        println(cde)
+        println(c.eval(c.Expr(cde)))
+        */
+      case q"new optimized($cls).macroTransform(..$_)" =>
+        println("C "+cls)
+        val tpt = c.typecheck(cls)
+        println("T "+tpt)
+        println("S "+tpt.symbol.fullName)
+        //val cde = q"${tpt}.EmbeddedIn"
+        val cde = c.parse(tpt.symbol.fullName)
+        //println("Cde "+cde)
+        //println(c.eval(c.Expr(cde)))
+        val obj = c.eval(c.Expr[EmbeddedableClass[_]](cde))
+        println(obj)
+        //println(obj.asInstanceOf[EmbeddedableClass[_]].OptMethods)
+        println(obj.OptMethods)
+        val gen = annottees match {
+          case ModuleDef(mods, name, Template(parents, self, body)) :: Nil =>
+            //ModuleDef(mods, name, Template(parents, self, (body :+ q"val Object = $cde") ++ obj.OptMethods.map(str => c.parse(str))))
+            val defObjName = TermName(s"${name}_Defs_")
+            val mtdMirrors -> mtds = obj.OptMethods.map(str => c.parse(str) match {
+              case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+                //name -> DefDef(mods, TermName(name+"_Opt_"), tparams, vparamss, tpt, rhs)
+                val optName = TermName(name+"_Opt_")
+                DefDef(mods, name, tparams, vparamss, tpt, q"$defObjName.$optName") -> DefDef(mods, optName, tparams, vparamss, tpt, rhs)
+            }).unzip
+            val cdeImport = cde match {
+              case Select(root,nme) => q"import $root.{$nme => Object}"
+            }
+            //val res = q"object $defObjName { val Object = $cde; ..${
+            val res = q"object $defObjName { $cdeImport; ..${
+              mtds
+            } }" ::
+            ModuleDef(mods, name, Template(parents, self, body ++ mtdMirrors)) :: Nil
+            q"..$res"
+        }
+        println("GEN "+gen)
+        gen
+    }
+    
+    //annottees match {
+    //  case DefDef(mods, name, tparams, vparamss, tpt, rhs) :: Nil =>
+    //    DefDef(mods, name, tparams, vparamss, tpt, q"$stopt.optimize { $rhs }")
+    //}
+    
+    //q"..$annottees"
+    //q"???"
   }
   
   

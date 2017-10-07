@@ -451,14 +451,22 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               
               
-            /** Handling of the new new FV syntax: */
+            /** Handling of the new new FV syntax: */ // TODO do NOT convert to hole, but to freeVar...
             
             // Correct usage of the `?` FV prefix
             case q"$baseTree.Predef.?.selectDynamic($nameTree)" => // TODO check baseTree
+              //if (unapply.isDefined)
               val name = nameTree match { case Literal(Constant(str:String)) => str  case _ => 
                 throw EmbeddingException("Free variable introduced with `?` should have a constant literal name.") }
-              val tree = q"$baseTree.$$$$[${TypeTree(Nothing)}](scala.Symbol.apply(${name}))"
-              liftTerm(tree, parent, expectedType)
+              //val tree = q"$baseTree.$$$$[${TypeTree(Nothing)}](scala.Symbol.apply(${name}))"
+              //liftTerm(tree, parent, expectedType)
+
+              // TODO port the warning
+              val holeType = expectedType.getOrElse(???) // TODO
+              debug(s"Free variable: $name: $holeType")
+              freeVariableInstances ::= name -> holeType
+              b.freeVar(name, liftType(holeType))
+              
             
             // Incorrect usage of the `?` FV prefix
             case q"$baseTree.Predef.?" if x.symbol.fullName == "squid.quasi.QuasiBase.Predef.$qmark" =>

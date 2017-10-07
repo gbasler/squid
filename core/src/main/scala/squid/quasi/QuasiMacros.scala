@@ -63,6 +63,120 @@ class QuasiMacros(val c: whitebox.Context) {
   }
   
   
+  def testImpl: Tree = wrapError {
+    ???
+  }
+  
+  def selectIR(field: Tree): Tree = wrapError {
+    
+    debug(s"Select(${field}) { ${c.macroApplication} }")
+    
+    c.macroApplication match {
+      case q"$t.selectDynamic.apply(${Literal(Constant(fieldNameStr:String))})" =>
+        //println(q"$t.base")
+        //debug(c.typecheck(q"$t.base").tpe)
+        //val baseType = c.typecheck(q"$t.base").tpe
+        val base = c.typecheck(q"$t.base")
+        val baseType = base.tpe
+        
+        //mkContext()
+        //debug(s"T ${t.tpe.widen} ${t.tpe.widen.getClass}")
+        //debug("BV "+bases_variables(t.tpe))
+        //t.tpe
+        
+        object AsIR extends AsIR(baseType)
+        
+        //t.tpe.baseType(IRSym) match {
+        //  case NoType => ???
+        //  case NoType => ???
+        //}
+        
+        t.tpe match {
+          case AsIR(tp,cx) =>
+            debug(s"$tp $cx")
+            val (bs,vs) = bases_variables(cx)
+            debug(s"$bs $vs")
+            //debug(mergeVars(vs)get(TermName(fieldName)))
+            //mergeVars(vs).get(TermName(fieldName)).fold(???) { typ =>
+            //mergeVars(vs).getOrElse(TermName(fieldName), ???) { typ =>
+            val fieldName = TermName(fieldNameStr)
+            val mvs = mergeVars(vs)
+            val fvTyp = mvs.getOrElse(fieldName, ???)
+            val fvCx = tq"Any{val $fieldName: $fvTyp}"
+            val newCx = mkContext(bs,mvs.iterator.filterNot(_._1 == fieldName).toList)
+            //val gen = q"$base.`internal IR`[$typ,{val $fieldName: $typ}]($t.base.freeVar($fieldNameStr,typeRepOf[$typ]))"
+            //val gen = q"$base.FreeVarAccessWrapper($base.`internal IR`[$typ,{val $fieldName: $typ}]($t.base.freeVar($fieldNameStr,typeRepOf[$typ])))"
+            val gen = q"""new $base.FreeVarAccessWrapper[$tp,$fvTyp,$cx,$fvCx](
+              $t,
+              $base.`internal IR`[$fvTyp,$fvCx]($t.base.freeVar($fieldNameStr,typeRepOf[$fvTyp]))
+            ){
+              def ~> [C](x: $base.IR[$fvTyp,C]): $base.IR[$tp,C with $newCx] =
+                cde.subs(scala.Symbol(${fieldNameStr})->x)
+            }
+            """
+            //$base.`internal IR`[$tp,C with $newCx]()
+            //cde.subs(scala.Symbol(${fieldNameStr}),x)
+            
+            debug(s"Gen ${showCode(gen)}")
+            gen
+        }
+        
+    }
+    
+    //???
+  }
+  def unselectIR(cde: Tree): Tree = wrapError {
+    debug(s"Unselect(${cde}) { ${c.macroApplication} }")
+    
+    val gen =
+    c.macroApplication match {
+      case q"$t.selectDynamic.unapply($selector)" =>
+        val base = q"$t.base"
+        //println(selector, selector.tpe)
+        debug(s"T ${t.tpe} ${selector} ${selector.tpe} ${selector.getClass}")
+        //pq"$t.base($selector)"
+        //q"new { def unapply(cde:$base.SomeIR):Option[$base.SomeIR]=Some(cde) }.unapply($selector)"
+        //q"new { def unapply(cde:Any):Option[Any]=Some(cde) }.unapply($selector)"
+        //q"""new { def unapply(cde:Any):Option[String]={println("> "+cde);Some("n")} }.unapply($selector)"""
+        //q"""$t.matchFreeVar().unapply($selector)"""
+        q"""$t.base.FreeVar.unapply($selector)"""
+    }
+    
+    debug(s"Gen: $gen")
+    gen
+    
+    //pq"aaa:Int"
+    //???
+  }
+  
+  def updateIR(field: Tree)(value: Tree): Tree = wrapError {
+    debug(s"Update(${field},$value) { ${c.macroApplication} }")
+    
+    c.macroApplication match {
+      case q"$t.updateDynamic(${Literal(Constant(fieldNameStr:String))})($v)" =>
+        val base = c.typecheck(q"$t.base")
+        val baseType = base.tpe
+        object AsIR extends AsIR(baseType)
+        
+        //t.tpe match {
+        //  case AsIR(tp,c) =>
+        //    val (b,vs) = bases_variables(c)
+        //    val fieldName = TermName(fieldNameStr)
+        //    val typ = mergeVars(vs).getOrElse(fieldName, ???)
+        //    v.tpe.baseType()
+        //    val gen = q"???"
+        //    debug(s"Gen $gen")
+        //    ???
+        //}
+        
+        val gen = q"$t subs scala.Symbol($fieldNameStr) -> $v"
+        debug(s"Gen $gen")
+        gen
+        
+    }
+  }
+  
+  
   def forward$(q: Tree*): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
   }
@@ -229,6 +343,14 @@ class QuasiMacros(val c: whitebox.Context) {
       
       if (isUnapply) {
         
+      // Doesn't work: needs to extract something!
+      //  h.tree match { // TODO also do the right thing for varargs? (if any -- not sure)
+      //case q"${t @ Ident(term)}.$ident" =>
+      //  val ty -> cx = asIR(c.typecheck(t).tpe, base.tpe).getOrElse(???) // TODO B/E
+      //  val n = h.name.getOrElse(???) // TODO B/E
+      //  q"$base.Predef.?.selectDynamic(${n.toString}):$ty"
+      //case _ =>
+        
         val n = h.name filter (_.toString != "_") getOrElse c.freshName(TermName("ANON_HOLE")) toTermName;
         holes ::= Left(n) -> h.tree
         
@@ -238,12 +360,38 @@ class QuasiMacros(val c: whitebox.Context) {
           q"$base.$$$$_*(${Symbol(n toString)}): _*"
         }
         else  {
+          //h.tree match {
+          //  case q"${t @ Ident(term)}.$ident" => debug(s"!!!!!!!!!!! $term.$ident ${t.tpe} ${c.typecheck(t).tpe}")
+          //  case _ => 
+          //}
           if (h.vararg) splicedHoles += n
           else h.tree match { case pq"$p @ __*" => splicedHoles += n   case _ => }
           if (splicedHoles(n)) q"$base.$$$$_*(${Symbol(n toString)}): _*"
           else
-          q"$base.$$$$(${Symbol(n toString)})"
+          //q"$base.$$$$(${Symbol(n toString)})"
+          h.tree match { // TODO also try to match potential scrutinee types for varargs? 
+            case q"${t @ Ident(term)}.$ident" => 
+              //debug(s"!!!!!!!!!!! $term.$ident ${t.tpe} ${c.typecheck(t).tpe}")
+              //asIR(c.typecheck(t).tpe, base.tpe) match {
+              //  case (t,c) => q"$base.$$$$[$t](${Symbol(n toString)})"
+              //  case NoType => ???
+              //}
+              val tTyp = c.typecheck(t).tpe
+              val ty -> cx = asIR(tTyp, base.tpe).getOrElse(???) // TODO B/E
+              
+              // Check that the term has suchb FV; the selectDynamic.unapply xtor cannot do it because it does not see its parameter!
+              debug(s"HOLE FV $ty $cx")
+              val (b,vs) = bases_variables(cx)
+              val vtp = mergeVars(vs).get(ident).getOrElse(throw QuasiException(s"No free variable named '${ident}' exists in term '${showCode(t)}' of type '$tTyp'."))
+              
+              q"$base.$$$$[$vtp](${Symbol(n toString)})"
+              //q"$base.$$[$ty,$cx](${Symbol(n toString)})"
+              //q"$base.Predef.?.${n}:$ty"
+              //q"$base.Predef.?.selectDynamic(${n.toString}):$ty"
+            case _ => q"$base.$$$$(${Symbol(n toString)})"
+          }
         }
+        //}
         
       } else {
         h.tree match {
@@ -467,6 +615,8 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val name -> term = s match {
       case q"scala.this.Predef.ArrowAssoc[$_](scala.Symbol.apply(${Literal(Constant(name: String))})).->[$_]($term)" =>
+        name -> term
+      case q"scala.Tuple2.apply[$_,$_](scala.Symbol.apply(${Literal(Constant(name: String))}),$term)" =>
         name -> term
       case _ => c.abort(s.pos, "Illegal syntax for `subs`; Expected: `term0.subs 'name -> term1`")
     }

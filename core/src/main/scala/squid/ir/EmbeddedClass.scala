@@ -22,6 +22,7 @@ abstract class EmbeddedClass[B <: Base](val base: B) {
 
 abstract trait EmbeddedableClass[B <: Base] {
   def embedIn(base: B): EmbeddedClass[base.type]
+  def OptMethods: Seq[String]
 }
 
 /** Just a small class to help the IDE feel less confused about the @embed macro annotation... */

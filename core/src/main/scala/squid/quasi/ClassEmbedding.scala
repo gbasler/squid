@@ -252,8 +252,20 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
       
     }
     
+    //val text = ModuleDef(objDef.mods, objDef.name, Template(objDef.impl.parents, objDef.impl.self, objDef.impl.body map {
+    //val text = (Template(objDef.impl.parents, objDef.impl.self, objDef.impl.body map {
+    val text = ((objDef.impl.body collect {
+      //case d: DefDef => DefDef()
+      case DefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR => DefDef(mods, name, tparams, vparamss, tpt, 
+        //q"optimize($rhs)")
+        q"dbg_optimize{import Object._; $rhs}")
+      //case _ => ???
+    }))
+    //debug("TEXT "+showCode(text))
     
-    val newModuleBody = q"""
+    
+    
+    val newModuleBody = q"val OptMethods = Seq(..${text map (showCode(_))})" :: q"""
     def embedIn(base: $BaseType): EmbeddedIn[base.type] = EmbeddedIn[base.type](base)""" :: q"""
     case class EmbeddedIn[B <: $BaseType](override val base: B) extends $squid.ir.EmbeddedClass[B](base) {
       import base.Predef.implicitType

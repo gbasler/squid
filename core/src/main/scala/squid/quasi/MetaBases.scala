@@ -167,6 +167,8 @@ trait MetaBases {
     
     
     
+    override def freeVar(name: String, typ: TypeRep): Rep = q"$Base.freeVar($name, $typ)"
+    
     def hole(name: String, typ: TypeRep): Rep = q"$Base.hole($name, $typ)"
     def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep =
       q"$Base.hopHole($name, $typ, ${yes map (_ map (_._2))}, ${no map (_._2)})"
@@ -196,6 +198,9 @@ trait MetaBases {
           Some(value.asInstanceOf[T])
         case _ => None
       }
+    }
+    object FreeVar extends FreeVarAPI {
+      def unapply(ir: SomeIR): Option[String] = ??? // TODO
     }
     
   }
@@ -346,6 +351,9 @@ trait MetaBases {
         case Literal(Constant(v)) => Some(v.asInstanceOf[T]) // TODO check type?
         case _ => None
       }
+    }
+    object FreeVar extends FreeVarAPI {
+      def unapply(ir: SomeIR): Option[String] = ??? // TODO
     }
     
     

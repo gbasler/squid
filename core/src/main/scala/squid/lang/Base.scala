@@ -56,6 +56,11 @@ trait Base extends TypingBase with quasi.QuasiBase {
   }
   val Const: ConstAPI
   
+  trait FreeVarAPI {
+    //def apply[T: IRType](v: T): IR[T,Any] = `internal IR`(const(v))
+  }
+  val FreeVar: FreeVarAPI //= new FreeVarAPI{}
+  
   /** High-level interface which implementation should specify how to construct (and potentially also deconstruct) constants */
   def repEq(a: Rep, b: Rep): Boolean
   

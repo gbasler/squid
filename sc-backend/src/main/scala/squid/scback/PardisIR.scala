@@ -165,6 +165,12 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     }
   }
   
+  object FreeVar extends FreeVarAPI {
+    def unapply(ir: SomeIR): Option[String] = ir |>? {
+      case h: AnyHole[_] => h.name
+    }
+  }
+  
   def repEq(a: Rep, b: Rep): Boolean = a == b
   
   

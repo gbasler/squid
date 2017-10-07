@@ -249,6 +249,14 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
   }
   
+  object FreeVar extends FreeVarAPI {
+    def unapply(ir: SomeIR): Option[String] = ir.rep |> dfn |>? {
+      case Hole(name) => name
+      case SplicedHole(name) => name
+      //case _ => None
+    }
+  }
+  
   
   /* --- --- --- Node Definitions --- --- --- */
   

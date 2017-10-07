@@ -4,6 +4,8 @@ object StaticOptTestsOptimizer extends squid.StaticOptimizer[stagerwr2.compiler.
 
 import StaticOptTestsOptimizer.{dbg_optimize, optimize, optimizeAs}
 import squid.DumpFolder
+import squid.quasi.dbg_embed
+import squid.quasi.embed
 
 /**
   * Created by lptk on 30/06/17.
@@ -31,3 +33,14 @@ object StaticOptTests extends App {
   println(r)
   
 }
+
+//@embed
+//@dbg_embed
+//object StoptTest {
+//  
+//  def foo = optimize { 123 }
+//  
+//}
+//object StoptTestApp extends App {
+//  println(StoptTest.foo)
+//}
