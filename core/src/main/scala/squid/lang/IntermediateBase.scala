@@ -57,7 +57,9 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def compile(implicit ev: {} <:< Ctx): Typ = {
       // TODO make `compile` a macro that can capture surrounding vars!!
       val s = scalaTree(self.rep,hideCtors0 = false) // note ctor
+      /*
       System.err.println("Compiling tree: "+sru.showCode(s))
+      */
       IntermediateBase.toolBox.eval(s).asInstanceOf[Typ]
     }
     
