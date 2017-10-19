@@ -28,7 +28,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   @volatile private var showing = false
   protected def isShowing = showing
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
-  def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?")), markHoles = true) )}
+  def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(bv.toString)), markHoles = true) )}
   
   
   implicit class IntermediateRepOps(private val self: Rep) {
@@ -57,15 +57,64 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def compile(implicit ev: {} <:< Ctx): Typ = {
       // TODO make `compile` a macro that can capture surrounding vars!!
       val s = scalaTree(self.rep,hideCtors0 = false) // note ctor
-      /*
+      ///*
       System.err.println("Compiling tree: "+sru.showCode(s))
-      */
+      //*/
       IntermediateBase.toolBox.eval(s).asInstanceOf[Typ]
     }
     
     def showScala: String = ibase.showScala(self rep)
     
   }
+  
+  
+  // Make this a trait?
+  class Variable[Typ:IRType](name: String = "x") { vari =>
+    type Ctx
+    protected val bound: BoundVal = bindVal(name, typeRepOf[Typ], Nil) // TODO annot?
+    def toCode: IR[Typ,Ctx] = IR(readVal(bound))
+    def withValue(v: Typ) = new AssignmentBase {
+      type Ctx = vari.Ctx
+      type Abstracted[T] = Typ => T
+      def abstracted[T,D](pgrm: IR[T,Ctx with D]): IR[Abstracted[T], D] =
+        IR(lambda(bound::Nil, pgrm.rep))
+      protected def applyAbstracted[T](abs: Abstracted[T]): T = abs(v)
+      override def toString = s"Valuation($bound = $v)"
+    }
+    def -> (v: Typ) = withValue(v)
+  }
+  object Variable {
+    implicit def toIR[T](fv: Variable[T]): IR[T,fv.Ctx] = fv.toCode
+    // TODO:
+    //def unapply[T,C](x: IR[T,C]): Option[Variable[T,C]] = ???
+    //def of[T](bound: BoundVal) = new Variable[T](bound)
+  }
+  class SelfAssignedVariable[Typ:IRType] extends Variable[Typ] with AssignmentBase { self: Typ =>
+    type Abstracted[T] = Typ => T
+    def abstracted[T,D](pgrm: IR[T,Ctx with D]): IR[Abstracted[T], D] =
+      IR(lambda(bound::Nil, pgrm.rep))
+    protected def applyAbstracted[T](abs: Abstracted[T]): T = abs(self)
+  }
+  type Assignment[+C] = AssignmentBase { type Ctx <: C }
+  trait AssignmentBase { self =>
+    type Ctx
+    type Abstracted[T]
+    def abstracted[T,D](pgrm: IR[T,Ctx with D]): IR[Abstracted[T], D]
+    def & [D] (that: Assignment[D]) = new AssignmentBase {
+      type Ctx = self.Ctx with D
+      type Abstracted[T] = self.Abstracted[that.Abstracted[T]]
+      def abstracted[T,E](pgrm: IR[T,Ctx with E]): IR[Abstracted[T], E] = {
+        val a = that.abstracted[T,self.Ctx with E](pgrm)
+        self.abstracted[that.Abstracted[T],E](a)
+      }
+      protected def applyAbstracted[T](abs: Abstracted[T]): T = that.applyAbstracted(self.applyAbstracted(abs))
+      override def toString = ???
+    }
+    def run[T](pgrm: IR[T,Ctx]): T = applyAbstracted[T](abstracted(pgrm).run)
+    def compile[T](pgrm: IR[T,Ctx]): T = applyAbstracted(abstracted(pgrm).compile)
+    protected def applyAbstracted[T](abs: Abstracted[T]): T
+  }
+  
   
   import quasi.MetaBases.Runtime.ScalaReflectionBaseWithOwnNames
   

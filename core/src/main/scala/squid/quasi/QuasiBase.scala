@@ -208,6 +208,10 @@ self: Base =>
   def typeRepOf[T: IRType] = implicitly[IRType[T]].rep
   
   
+  type Variable[T]
+  type Assignment[C]
+  
+  
   val Predef  = new Predef[DefaultQuasiConfig]
   class Predef[QC <: QuasiConfig] {
     val base: self.type = self // macro expansions will make reference to it
@@ -232,6 +236,9 @@ self: Base =>
     //def nullValue[T: IRType]: IR[T,{}] = {
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.IRType[T]]) }
+    
+    type Variable[T] = self.Variable[T]
+    type Assignment[C] = self.Assignment[C]
     
     // Could also use compileTimeOnly here:
     @deprecated("Abort(msg) should only be called from the body of a rewrite rule. " +

@@ -279,6 +279,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
+    
+    override def toString: String = s"$name@${System.identityHashCode(this).toLong.toHexString}"
   }
   def boundValType(bv: BoundVal) = bv.typ
   

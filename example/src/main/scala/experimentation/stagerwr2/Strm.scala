@@ -64,7 +64,7 @@ class Strm[A](val producer: () => Producer[A]) {
     }
   })
 
-@phase('Fusion) def take(n: Int): Strm[A] =   ...
+//@phase('Fusion) def take(n: Int): Strm[A] =   ...
   
   @phase('Impl)
   @transparencyPropagating
