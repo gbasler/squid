@@ -110,7 +110,7 @@ The `rewrite` macro currently has a few limitations, including:
  extract the body of the rewrite rule into a separate helper function.
  
  * the shape of patterns inside unquotes still has some unsupported cases,
- such as `case code"(${Const(`a`)}:Int"` in a context where `val a = 3`;
+ such as ``case code"(${Const(`a`)}:Int"`` in a context where `val a = 3`;
  however, note that ``case code"(${Const(42)}:Int"`` works.
 
 For a full description of the limitations of different Squid constructs, 
@@ -139,6 +139,12 @@ but with `FixPointRuleBasedTransformer` instead of `SimpleRuleBasedTransformer`.
 We describe `TopDownTransformer` in the [Transformer Modifiers](#transformer-modifiers) section.
 
 
+### Fine-Grained Transformation Control (experimental)
+
+Squid provides some ways to control the way recursive transformers are applied:
+`Abort`, `Return`, `Return.transforming` and `Return.recursing` –– [see here](/doc/reference/experimental/Transformation_Control.md) for more details.
+
+However, these capabilities are experimental and currently, only the `SimpleANF`/`SchedulingANF` IRs handle all of them.
 
 
 

@@ -1,17 +1,14 @@
-# Transforming Code
+# Fine-Grained Transformation Control with Squid Transformers
 
-## Term Rewriting
-
-### Basic Operators
-
-`rewrite` and `fix_rewrite`
-
-other traversal orders...
-
-
-### Transformation Control Operators
+### Experimental: Transformation Control Operators
 
 `Abort`, `Return`, `Return.transforming` and the generalization `Return.recursing`.
+
+Can be called from the right-hand side of a rewrite rule.
+`Abort` in particular is used to define speculative rewrite rules (cf. [our POPL'18 paper](/README.md#popl18)).
+
+Currently implemented fully only in the `SimpleANF`/`SchedulingANF` IRs.
+
 
 #### Caveat about `Return.transforming` and `Return.recursing`
 
@@ -36,10 +33,6 @@ res0: ir"val x_0 = readDouble.toInt; val x_1 = readDouble.toInt; print(x_1)"  //
   }
 res1: ir"val x_0 = readDouble.toInt; val x_1 = readDouble.toInt; print(x_0)"  // prints `x_0`, okay
 ```
-
-## Transformer Classes
-
-underlie term rewriting
 
 
 

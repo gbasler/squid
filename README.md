@@ -96,8 +96,7 @@ we provide a [cheat sheet](doc/reference/Quasiquotes.md) that summarizes the fea
 
 TODO
 
-[First link to transformers documentation](doc/Transformers.md),
-[second link to transformers documentation](doc/reference/Transformers.md)
+[Link to transformers documentation](doc/Transformers.md).
 
 
 <a name="irs"/>
