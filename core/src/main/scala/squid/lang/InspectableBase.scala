@@ -92,6 +92,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     @MacroSetting(debug = true) def dbg_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
     @RecRewrite def fix_rewrite(tr: IR[Any,utils.UnknownContext] => IR[Any,_]): IR[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
     
+    @inline final def analyze(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = analyseTopDown(pf)
     @inline final def analyse(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = analyseTopDown(pf)
     def analyseTopDown(pf: PartialFunction[IR[T,_ <: C],Unit]): Unit = 
       traverseTopDown(r => pf.runWith(identity)(IR(r)) thenReturn Unit)(self.rep)
