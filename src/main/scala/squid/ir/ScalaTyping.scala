@@ -22,6 +22,8 @@ import ScalaTyping._
 trait ScalaTyping extends Base with TraceDebug {
 self: IntermediateBase => // for 'repType' TODO rm
   
+  val widenConstantTypes = true
+  
   type TypSymbol = sru.TypeSymbol
   //type TypeRep = ScalaType
   implicit class TypeRep(val tpe: ScalaType) {
@@ -95,7 +97,9 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   
   def constType(value: Any, underlying: TypeRep): TypeRep = constType(value)
-  def constType(value: Any): TypeRep = sru.internal.constantType(sru.Constant(value))
+  def constType(value: Any): TypeRep = sru.internal.constantType(sru.Constant(value)) |> { r => 
+    if (widenConstantTypes) r.widen else r 
+  }
   
   
   def typeHole(name: String): TypeRep = TypeHoleRep(name)
@@ -170,7 +174,8 @@ self: IntermediateBase => // for 'repType' TODO rm
         if (xtyp.typeSymbol.isParameter) return None alsoDo debug(s"Cannot match parameter type `$xtyp`.")
         // ^ Sometimes we get this kind of types because of type-tag-based uninterpretedType
         
-        if (xtyp =:= ruh.Null) return None alsoDo debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
+        //if (xtyp =:= ruh.Null) return None alsoDo debug(s"Cannot match type `Null`.") // TODO actually allow this match (but soundly)
+        // ^ not sure why we failed matching here; was not a problem before because `ir"null"` had type `Null(null)` instead of `Null`!
         
         def erron = None alsoDo debug(s"Method `baseType` returned an erroneous type.")
         

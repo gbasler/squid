@@ -22,7 +22,7 @@ class Subs extends MyFunSuite {
         eqt(r, f)
     }
     
-    assertDoesNotCompile(""" a2b subs ('a, ir"42") """) // Error:(26, 9) Illegal syntax for `subs`; Expected: `term0.subs 'name -> term1`
+    //assertDoesNotCompile(""" a2b subs ('a, ir"42") """) // Error:(26, 9) Illegal syntax for `subs`; Expected: `term0.subs 'name -> term1` -- syntax was made legal
     assertDoesNotCompile(""" ir"42" subs 'a -> ir"42" """) // Error:(9, 10) This term does not have a free variable named 'a' to substitute.
     assertDoesNotCompile(""" a2b subs 'b -> ir"4.2" """) // Error:(27, 20) Cannot substitute free variable `b: Int` with term of type `Double`
     

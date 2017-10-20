@@ -392,6 +392,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         case (_, Ascribe(v,tp)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
           //mergeOpt(typ extract (tp, Covariant), extractImpl(v))
           /** ^ It should not matter what the matchee is ascribed to. We'd like `42` and `42:Any` to be equi-matchable */
+          // Note that this may produce unwanted effects; 
+          // for example, matching `Some(Nil:List[Int])` with pattern `Some[$t]($x)` will resolve `t = +Nil.type`,
+          // which may cause problems if the type `t` is also matched as `List[Int]` at the same time in a contravariant position! 
           extractImpl(v)
           
         case (Ascribe(v,tp), _) =>

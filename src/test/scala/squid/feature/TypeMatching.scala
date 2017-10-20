@@ -4,9 +4,8 @@ package feature
 import squid.utils.meta.RuntimeUniverseHelpers
 import utils.Debug._
 
-class TypeMatching extends MyFunSuite {
-  import TypeMatching._
-  import TestDSL.Predef._
+class TypeMatchingWithConstantTypes extends MyFunSuite(TestDSLWithConstantTypes) {
+  import DSL.Predef._
   
   test("Trivial") {
     ir"42" matches {
@@ -23,6 +22,30 @@ class TypeMatching extends MyFunSuite {
         
         // Note that opt.typ is `Option[Int(42)]`, so:
         assert(!(typeRepOf[Option[Int]] <:< opt.trep))
+        subt(opt.trep, typeRepOf[Option[Int]])
+    }
+  }
+  
+}
+class TypeMatching extends MyFunSuite {
+  import TypeMatching._
+  import TestDSL.Predef._
+  
+  test("Trivial") {
+    ir"42" matches {
+      case ir"$x: Any" => eqt(x, ir"42")
+    } and {
+      case ir"$x: AnyVal" => eqt(x, ir"42")
+    } and {
+      case ir"$x: $t" =>
+        eqt(t.rep, typeRepOf[Int])
+        eqt(t.rep, x.trep)
+        
+        val opt = ir"Option.empty[$t]"
+        eqt(opt, ir"Option.empty[Int]")
+        
+        // opt.typ is `Option[Int]`
+        assert(typeRepOf[Option[Int]] <:< opt.trep)
         subt(opt.trep, typeRepOf[Option[Int]])
     }
   }
@@ -305,6 +328,21 @@ class TypeMatching extends MyFunSuite {
     
   }
   
+  test("Contravariant, covariant and Constant Type") {
+    
+    val e = ir"apply[Int, Int]((x: Int) => x + 1, 1: Int)"
+    e matches {
+      case ir"apply[$a, $b]($f, $x)" =>
+        // ^ this used to fail when matched expression `1` and function type parameter were fixing `a -> =Int(1)` and 
+        // failing to merge with `a -> +Int` from the type parameter 
+        // (note: type params are currently matched covariantly; but it's not relevant here)
+        // This is arguably a limitation of the type extraction algorithm, which should ideally have made the match work (with `a -> Int`)
+        eqt(a, irTypeOf[Int])
+        eqt(b, irTypeOf[Int])
+    }
+    
+  }
+  
 }
 
 object TypeMatching {
@@ -316,6 +354,8 @@ object TypeMatching {
   
   def foo[T <: Seq[Int]] = ()
   def bar[A,B,T >: Abst[A,B] <: Expr[Any]] = ()
+  
+  def apply[A, B](f: A => B, x: A): B = f(x)
 }
 
 
