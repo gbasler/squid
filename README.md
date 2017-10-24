@@ -145,7 +145,7 @@ Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
 <a name="gpce17">[2]</a>: 
 Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
 [Quoted Staged Rewriting: a Practical Approach to Library-Defined Optimizations](https://conf.researchr.org/event/gpce-2017/gpce-2017-gpce-2017-staged-rewriting-a-practical-approach-to-library-defined-optimization).
-In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017).  
+In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017). Best Paper Award.
 (Get the paper [here](https://infoscience.epfl.ch/record/231076).)
 
 <a name="popl18">[3]</a>:
