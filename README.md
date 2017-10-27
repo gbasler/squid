@@ -75,7 +75,7 @@ Two forms of quasiquotes co-exist in Squid:
    They support both runtime interpretation, runtime compilation and static code generation.
    For more information, see [[1]](#scala17).
 
- * **Contextual Quasiquotes [(tutorial)](/doc/tuto/ContextualQuasiquotes.md)** 
+ * **Contextual Quasiquotes [(tutorial)](/doc/tuto/Quasiquotes.md)** 
    push the type-safety guarantees already offered by simple quasiquotes even further,
    making sure that all generated programs are well-scoped in addition to being well-typed.
    While they are slightly less ergonomic than the previous flavor, 
