@@ -140,7 +140,7 @@ Squid is new. See the [examples folder](example/src/main/scala/) for examples. A
 
 <a name="scala17">[1]</a>: 
 Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
-[Squid: Type-Safe, Hygienic, and Reusable Quasiquotes](https://conf.researchr.org/event/scala-2017/scala-2017-papers-squid-type-safe-hygienic-and-reusable-quasiquotes). In Proceedings of the 2017 8th ACM SIGPLAN Symposium on Scala (SCALA 2017).  
+[Squid: Type-Safe, Hygienic, and Reusable Quasiquotes](https://conf.researchr.org/event/scala-2017/scala-2017-papers-squid-type-safe-hygienic-and-reusable-quasiquotes). In Proceedings of the 2017 8th ACM SIGPLAN Symposium on Scala (SCALA 2017).
 (Get the paper [here](https://infoscience.epfl.ch/record/231700).)
 <!-- https://doi.org/10.1145/3136000.3136005 -->
 
@@ -152,7 +152,7 @@ In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Pr
 
 <a name="popl18">[3]</a>:
 Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch.
-Unifying Analytic and Statically-Typed Quasiquotes. To appear in Proc. POPL 2018.  
+Unifying Analytic and Statically-Typed Quasiquotes. To appear in Proc. POPL 2018.
 (Get the paper [here](https://infoscience.epfl.ch/record/232427).)
 
 
