@@ -81,15 +81,15 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     debug("outputContext:",outputContext)
     
     val recursive = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[RecRewrite])
-    val RuleBasedTrans = if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer"
-      else tq"_root_.squid.ir.SimpleRuleBasedTransformer"
+    val RuleBasedTrans = if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer" :: tq"_root_.squid.ir.BottomUpTransformer" :: Nil
+      else tq"_root_.squid.ir.SimpleRuleBasedTransformer" :: tq"_root_.squid.ir.TopDownTransformer" :: Nil
     
     //val $transName = new _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {
     //val $transName: _root_.scp.ir.Transformer{val base: ${base.tpe} } = new _root_.scp.ir.SimpleTransformer {
     //object $transName extends _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
     // TODO give possibility to chose transformer (w/ implicit?)
     val res = q""" 
-    object $transName extends $RuleBasedTrans with _root_.squid.ir.TopDownTransformer {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
+    object $transName extends ..$RuleBasedTrans {  // Note: when erroneous, raises weird "no progress" compiler error that a `val _ = new _` would not
       val base: ${base.tpe} = $base
     }
     ${rwTree}
