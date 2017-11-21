@@ -12,11 +12,61 @@ that facilitates the **type-safe** manipulation of **Scala programs**.
 Squid is geared towards
 the implementation of **library-defined optimizations** [[2]](#gpce17) and 
 helps with the compilation of **Domain-Specific Languages** (DSL) embedded in Scala [[1]](#scala17).
-In addition, it has an advanced static typing capabilities that reduce common metaprogramming errors [[3]](#popl18).
+In addition, it uses **advanced static typing** techniques to prevent common metaprogramming errors [[3]](#popl18).
 
 <!-- TODO: give concrete application examples to pique curiosity/generate interest -->
 
-**Caution:** Squid is still experimental, and the interfaces it exposes may change in the future (especially the semi-internal interfaces used to implement intermediate representation backends).
+**Caution:** Squid is still experimental, and the interfaces it exposes may change in the future. This applies especially to the semi-internal interfaces used to implement intermediate representation backends (the `Base` trait and derived).
+
+
+## A Short Example
+
+To give a quick taste of Squid's capabilities,
+here is a very basic example of program manipulation.
+The full source code can be [found in the example folder](/example/src/main/scala/example/doc/IntroExample.scala).
+
+Assume we define some library function `foo` as below:
+
+```scala
+@embed  // `embed` allows Squid to see method implementations
+object Test {
+  @phase('MyPhase) // phase specification helps with mechanized inlining
+  def foo[T](xs: List[T]) = xs.head
+}
+```
+
+What follows is an example REPL session demonstrating some program manipulation using Squid quasiquotes/quasicode, 
+transformers and first-class term rewriting:
+
+```scala
+// Syntax `code"t"` represents term `t` in some specified intermediate representation
+> val pgrm0 = code"Test.foo(1 :: 2 :: 3 :: Nil) + 1"
+pgrm0: Code[Double] = code"""
+  val x_0 = Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
+  x_0.+(1).toDouble
+"""
+// ^ triple-quotation """ is for multi-line strings
+
+// `Lowering('P)` builds a transformer that inlines all functions marked with phase `P`
+// Here we inline `Test.foo`, which is annotated at phase `'MyPhase`
+> val pgrm1 = pgrm0 transformWith (new Lowering('MyPhase) with BottomUpTransformer)
+pgrm1: Code[Double] = code"scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1).head.+(1).toDouble"
+
+// Next, we perform a fixed-point rewriting to partially-evaluate
+// the statically-known parts of our program:
+> val pgrm2 = pgrm1 rewrite {
+    case code"($xs:List[$t]).::($x).head" => x
+    case code"(${Const(n)}:Int) + (${Const(m)}:Int)" => Const(n+m)
+  }
+pgrm2: Code[Double] = code"2.toDouble"
+
+// Finally, let's runtime-compile and evaluate that program!
+> pgrm2.compile
+res0: Double = 2.0
+```
+
+Naturally, this simple REPL session can be generalized into a proper domain-specific compiler that will work on any input program 
+(for example, see [the stream fusion compiler](#qsr)).
 
 
 ## Installation
