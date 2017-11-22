@@ -19,6 +19,8 @@ In addition, it uses **advanced static typing** techniques to prevent common met
 **Caution:** Squid is still experimental, and the interfaces it exposes may change in the future. This applies especially to the semi-internal interfaces used to implement intermediate representation backends (the `Base` trait and derived).
 
 
+<a name="early-example">
+
 ## A Short Example
 
 To give a quick taste of Squid's capabilities,
@@ -34,7 +36,7 @@ Assume we define some library function `foo` as below:
 }
 ```
 
-The `@embed` method allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
+The `@embed` annotation allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
 –– note that this annotation is _not_ required when we just want to use these methods in a quasiquote!
 
 What follows is an example REPL session demonstrating some program manipulation
@@ -72,7 +74,7 @@ Naturally, this simple REPL session can be generalized into a proper domain-spec
 (for example, see the stream fusion compiler [[2]](#gpce17)).
 
 It is then possible to turn this into a static program optimizer,
-so that writing the following expands at compile time into just `println(2)`:
+so that writing the following expression expands at compile time into just `println(2)`:
 
 ```scala
 MyOptimizer.optimize{ println(Test.foo(1 :: 2 :: 3 :: Nil) + 1) }
@@ -121,6 +123,8 @@ Quasiquotes are the primitive tool that Squid provides to manipulate program fra
 –– building, composing and decomposing them.
 Quasiquotes are central to most aspects of program transformation in Squid.
 
+**Note:** in our POPL paper [[3]](popl18), we refer to code types as `Code[T,C]`; in the actual implementation presented here, these types are written `IR[T,C]` 
+(and `Code[T]` is used for non-contextual code types).
 
 #### Type-Safe Code Manipulation
 
@@ -155,29 +159,58 @@ we provide a [cheat sheet](doc/reference/Quasiquotes.md) that summarizes the fea
 
 
 
+<a name="msp"/>
+<a name="qsr"/>
+
+### Multi-Stage Programming and Quoted Staged Rewriting
+
+Squid fully support the multi-staged programming paradigm (MSP), 
+allowing the composition and evaluation of program fragments at runtime
+(via runtime compilation or reflective interpretation).
+
+In addition, since Squid provides type-safe code inspection capabilities
+(a novelty in the field of statically-typed staging),
+it can be used to achieve quoted staged rewriting (QSR) [[2]](#gpce17),
+an approach to program optimization that mixes the advantages of user-defined rewrite rules, strategic program transformation and MSP.
+
+
+
+<a name="ldo"/>
+
+### Library-Defined Optimizations
+
+Squid provides tools to create _static optimizers_, 
+which are used to optimize _at compile time_ delimited portions of a user's codebase.
+Together with quoted staged rewriting, 
+this capability allows for quite flexible and safe library-defined optimizations [[2]](#gpce17).
+
+[Click here to learn more about static optimizers.](doc/Transformers.md#static-optimizers)
+
+
+
 <a name="transformers"/>
 
 ### Program Transformation Support
 
-TODO
+Squid supports the definition and composition of custom program transformers and transformation strategies.
+This is achieved via Scala mixin-composition and quasiquote-based rewriting declarations.
+Squid transformers are type-preserving, 
+and they make sure that transformed programs remain well-typed and well-scoped.
 
-[Link to transformers documentation](doc/Transformers.md).
+[Click here to learn more about Squid transformers.](doc/Transformers.md)
 
 
 <a name="irs"/>
 
 ### Intermediate Representations
 
-TODO
+Squid quasiquotes, and Squid's infrastructure in general, are unique 
+in that they are generic in the actual intermediate representation (IR)
+used to encode program fragments.
+Custom IRs can be implemented and plugged into Squid to gain the high-level, type-safe features offered by Squid. 
+This is done by implementing Squid's object algebra interface [[1]](#scala17).
 
-[Link to IR documentation](doc/Intermediate_Representations.md)
-
-
-<a name="qsr"/>
-
-### Library-Defined Optimizations with Quoted Staged Rewriting (QSR)
-
-TODO
+[Click here to learn more about Squid intermediate representations.](doc/Intermediate_Representations.md)
 
 
 
@@ -185,12 +218,17 @@ TODO
 
 ### Squid Macros
 
-TODO
+Squid macros are an experimental type-safe alternative to legacy scala-reflect macros, based on Squid's infrastructure.
+The current implementation is a very rough prototype that should not yet be relied upon.
 
+As an example, here is [the short program transformation](#early-example) 
+showed at the beginning of this document,
+rewritten as a Squid macro:
 
 ```scala
 @macroDef(Embedding)
 def myMacro(pgrm0: Double) = {
+  // in this scope, `pgrm0` has type `Code[Double]`
   val pgrm1 = pgrm0 transformWith (new Lowering('MyPhase) with BottomUpTransformer)
   val pgrm2 = pgrm1 rewrite {
     case code"($xs:List[$t]).::($x).head" => x
@@ -203,7 +241,7 @@ def myMacro(pgrm0: Double) = {
 myMacro(Test.foo(1 :: 2 :: 3 :: Nil) + 1) // expands into `2.toDouble`
 ```
 
-(Note: the macro feature currently lives in experimental branch `squid-macros`.)
+(Note: the `macroDef` feature currently lives in experimental branch `squid-macros`.)
 
 
 

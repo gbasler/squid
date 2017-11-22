@@ -7,7 +7,7 @@
 Can be called from the right-hand side of a rewrite rule.
 `Abort` in particular is used to define speculative rewrite rules (cf. [our POPL'18 paper](/README.md#popl18)).
 
-Currently implemented fully only in the `SimpleANF`/`SchedulingANF` IRs.
+Currently, these are implemented fully only in the `SimpleANF`/`SchedulingANF` IRs.
 
 
 #### Caveat about `Return.transforming` and `Return.recursing`

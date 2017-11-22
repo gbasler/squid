@@ -29,7 +29,7 @@ In the meantime, one can build transformers using the more general tools describ
 
 The main trait for all low-level Squid transformers is `squid.ir.Transformer`.
 This trait has a single abstract method `transform(rep: Rep): Rep` 
-that describes how to process IR terms. (The internal representation of IR terms uses type `Rep`,
+that describes how to process program fragments. (The internal representation of program fragments uses type `Rep`,
 while `Code[T]` and `IR[T,C]` are the corresponding high-level types 
 –– both have a `.rep` method to access their internal `Rep`.)
 
@@ -39,7 +39,7 @@ which is already implemented by the main transformer classes and overridden by [
 
 A high-level transformer interface is also available as 
 `squid.ir.IRTransformer`, which has one abstract method `transform[T,C](code: IR[T,C]): IR[T,C]`.
-This interface is used by high-level Squid functionalities, so that users can use high-level types instead of `Rep`.
+This interface is used by high-level Squid functionalities, so that users are only exposed to the high-level `IR` abstraction instead of `Rep`.
 
 
 
@@ -134,9 +134,9 @@ t.transformWith(LocalTransformer)
 ```
 
 The `t fix_rewrite { ... }` syntax expands to similar code, 
-but with `FixPointRuleBasedTransformer` instead of `SimpleRuleBasedTransformer`.
+but with `FixPointRuleBasedTransformer with BottomUpTransformer` instead of `SimpleRuleBasedTransformer with TopDownTransformer`.
 
-We describe `TopDownTransformer` in the [Transformer Modifiers](#transformer-modifiers) section.
+We describe `TopDownTransformer` and `BottomUpTransformer` in the [Transformer Modifiers](#transformer-modifiers) section.
 
 
 ### Fine-Grained Transformation Control (experimental)
@@ -148,12 +148,12 @@ However, these capabilities are experimental and currently, only the `SimpleANF`
 
 
 
-## Lowering Transformers
+## Lowering Transformers (auto-inlining)
 
 <!-- Lowering transformers (of class `squid.ir.Lowering`) a -->
 Class `squid.ir.Lowering` provides built-in facilities to automatically inline functions defined in your libraries.
-To do that, you first need to `@embed` the class or object of your choice and annotate its methods with a `@phase('SomePhaseName)`, 
-then construct a `Lowering('SomePhaseName)` which effect is to perform the inlining
+To do that, you first need to `@embed` the class or object of your choice and annotate its methods with `@phase('SomePhaseName)`, 
+then construct a `Lowering('SomePhaseName)` –– its effect is to perform the inlining of the corresponding methods
 (n.b., by default only on the top-level term, _not_ recursively and _not_ in a fixed point unless modified with the appropriate traits).
 
 Note that given some IR base object `Embedding`,
@@ -187,7 +187,7 @@ object MyTests extends App {
 }
 ```
 
-(Note: in order to remove the block structure, 
+(Note: in order to automatically simplify the block structure of the transformed program, 
 you can apply normalizing rewritings or use an [ANF IR](/doc/Intermediate%20Representations.md#the-a-normal-form-anf))
 
 
