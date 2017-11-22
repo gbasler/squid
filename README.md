@@ -271,7 +271,7 @@ In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Pr
 
 <a name="popl18">[3]</a>:
 Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch.
-Unifying Analytic and Statically-Typed Quasiquotes. To appear in Proc. POPL 2018.
+[Unifying Analytic and Statically-Typed Quasiquotes](https://popl18.sigplan.org/event/popl-2018-papers-unifying-analytic-and-statically-typed-quasiquotes). To appear in Proc. POPL 2018.
 (Get the paper [here](https://infoscience.epfl.ch/record/232427).)
 
 
