@@ -23,19 +23,22 @@ In addition, it uses **advanced static typing** techniques to prevent common met
 
 To give a quick taste of Squid's capabilities,
 here is a very basic example of program manipulation.
-The full source code can be [found in the example folder](/example/src/main/scala/example/doc/IntroExample.scala).
+The full source code can be [found here, in the example folder](/example/src/main/scala/example/doc/IntroExample.scala).
 
 Assume we define some library function `foo` as below:
 
 ```scala
-@embed  // `embed` allows Squid to see method implementations
-object Test {
+@embed object Test {
   @phase('MyPhase) // phase specification helps with mechanized inlining
   def foo[T](xs: List[T]) = xs.head
 }
 ```
 
-What follows is an example REPL session demonstrating some program manipulation using Squid quasiquotes/quasicode, 
+The `@embed` method allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
+–– note that this annotation is _not_ required when we just want to use these methods in a quasiquote!
+
+What follows is an example REPL session demonstrating some program manipulation
+using Squid quasiquotes, 
 transformers and first-class term rewriting:
 
 ```scala
@@ -54,7 +57,7 @@ pgrm1: Code[Double] = code"scala.collection.immutable.Nil.::[scala.Int](3).::[sc
 
 // Next, we perform a fixed-point rewriting to partially-evaluate
 // the statically-known parts of our program:
-> val pgrm2 = pgrm1 rewrite {
+> val pgrm2 = pgrm1 fix_rewrite {
     case code"($xs:List[$t]).::($x).head" => x
     case code"(${Const(n)}:Int) + (${Const(m)}:Int)" => Const(n+m)
   }
@@ -66,7 +69,17 @@ res0: Double = 2.0
 ```
 
 Naturally, this simple REPL session can be generalized into a proper domain-specific compiler that will work on any input program 
-(for example, see [the stream fusion compiler](#qsr)).
+(for example, see the stream fusion compiler [[2]](#gpce17)).
+
+It is then possible to turn this into a static program optimizer,
+so that writing the following expands at compile time into just `println(2)`:
+
+```scala
+MyOptimizer.optimize{ println(Test.foo(1 :: 2 :: 3 :: Nil) + 1) }
+```
+
+We can also make this into a proper [Squid macro](#smacros),
+an alternative to the current Scala-reflection macros.
 
 
 ## Installation
@@ -173,6 +186,24 @@ TODO
 ### Squid Macros
 
 TODO
+
+
+```scala
+@macroDef(Embedding)
+def myMacro(pgrm0: Double) = {
+  val pgrm1 = pgrm0 transformWith (new Lowering('MyPhase) with BottomUpTransformer)
+  val pgrm2 = pgrm1 rewrite {
+    case code"($xs:List[$t]).::($x).head" => x
+    case code"(${Const(n)}:Int) + (${Const(m)}:Int)" => Const(n+m)
+  }
+  pgrm2
+}
+
+// the following should appear in a different project:
+myMacro(Test.foo(1 :: 2 :: 3 :: Nil) + 1) // expands into `2.toDouble`
+```
+
+(Note: the macro feature currently lives in experimental branch `squid-macros`.)
 
 
 
