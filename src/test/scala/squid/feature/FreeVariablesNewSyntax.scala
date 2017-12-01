@@ -12,10 +12,10 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     
     val model = code"${base.AnyCode[Int](base.freeVar("x",typeRepOf[Int]))} + 1"
     code"(?x : Int) + 1" eqt model
-    ir{(?x : Int) + 1} eqt model
+    code{(?x : Int) + 1} eqt model
     
-    assertDoesNotCompile("ir{ println(?) }") // Error: Quasiquote Error: Unknown use of free variable syntax operator `?`.
-    assertDoesNotCompile("ir{ println(?.selectDynamic(42.toString)) }") // Error:(18, 7) Embedding Error: Free variable introduced with `?` should have a constant literal name.
+    assertDoesNotCompile("code{ println(?) }") // Error: Quasiquote Error: Unknown use of free variable syntax operator `?`.
+    assertDoesNotCompile("code{ println(?.selectDynamic(42.toString)) }") // Error:(18, 7) Embedding Error: Free variable introduced with `?` should have a constant literal name.
     
     // Note: old FV syntax currently still works:
     code"(?x: Int) + 1" eqt model

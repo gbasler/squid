@@ -57,7 +57,7 @@ object Main extends App {
   //val c0 = ir{ (xs: IndexedSeq[Int], ys: IndexedSeq[Int]) => 
   //  (fromIndexed(xs).flatMap(x => fromIndexed(ys).map(_ + x)) zipWith fromIndexed(xs))(_ + _).fold(0)(_ + _) } alsoApply println
   
-  val c0 = ir{ (xs: IndexedSeq[IndexedSeq[String]], ys: IndexedSeq[IndexedSeq[String]]) => 
+  val c0 = code{ (xs: IndexedSeq[IndexedSeq[String]], ys: IndexedSeq[IndexedSeq[String]]) => 
     (fromIndexed(xs).flatMap(fromIndexed(_).map(_.length)) zipWith fromIndexed(ys).flatMap(fromIndexed(_).map(_.length)))(_ + _).fold(0)(_ + _) } alsoApply println
   
   

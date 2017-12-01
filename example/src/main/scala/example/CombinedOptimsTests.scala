@@ -18,7 +18,7 @@ object CombinedOptimsTests extends App {
   object Optim extends DSL.SelfTransformer with ListOptims with TupleVarOptim with TopDownTransformer
   object BindNorm extends DSL.SelfTransformer with BindingNormalizer with TopDownTransformer
   
-  var pgrm = ir{
+  var pgrm = code{
     List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x))
   }
   
@@ -48,7 +48,7 @@ object CombinedOptimsTestsSimpleANF extends App {
     with TopDownTransformer
     with FixPointTransformer // Q: why not FixPointRuleBasedTransformer?
   
-  var pgrm = ir{
+  var pgrm = code{
     List(1,2,3).foldLeft((0,0))((acc,x) => (acc._2, acc._1+x))
     //println(1,2)
   }

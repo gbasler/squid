@@ -11,7 +11,7 @@ class CompilationTests extends MyFunSuite {
   
   test("Miscellaneous") {
     
-    val q = ir{
+    val q = code{
       val buff = new mutable.ArrayBuffer[Int]()
       for (i <- 1 to 11) buff += i * 2
       buff.reduce(_ + _)

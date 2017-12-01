@@ -14,11 +14,11 @@ class SimpleRepTests extends MyFunSuite {
   
   test("Simple Rep") {
     
-    val t = optim(ir{
+    val t = optim(code{
       val lss = List(1,2,3).size
     })
     
-    t eqt ir{val lss_0 = 3}
+    t eqt code{val lss_0 = 3}
     
   }
   

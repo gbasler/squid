@@ -24,7 +24,7 @@ class PardisIRTests extends PardisTestSuite {
     assert(stmts(b) match {
       case s :: Nil =>
         //println(s.rhs,stmts(ir{println(42)}).head.rhs)
-        s.rhs == stmts(ir{println(42)}).head.rhs
+        s.rhs == stmts(code{println(42)}).head.rhs
       case _ => fail
     })
     assert(ret(a) == base.const(42))
@@ -34,9 +34,9 @@ class PardisIRTests extends PardisTestSuite {
   
   test("Code Insertion") {
     
-    def f(a: Code[Int,{}], b: Code[Int,{}]) = ir{ $(a) + $(a) + $(b) }
+    def f(a: Code[Int,{}], b: Code[Int,{}]) = code{ $(a) + $(a) + $(b) }
     
-    val q = ir{ $( f(ir{1.5.toInt}, ir{666}) ) + 1 }
+    val q = code{ $( f(code{1.5.toInt}, code{666}) ) + 1 }
     //println(q)
     
     assert(stmts(q).size == 4)
@@ -82,7 +82,7 @@ class PardisIRTests extends PardisTestSuite {
   
   test("Blocks & Bindings") {
     
-    val q = block(ir{ val n = 0; val a = new ArrayBuffer[Int](n); val b = 1; val c = a append 1; println(c) })
+    val q = block(code{ val n = 0; val a = new ArrayBuffer[Int](n); val b = 1; val c = a append 1; println(c) })
     //println(q)  // ir"{ val a2 = new ArrayBuffer[Int](0); val c5 = a2.append(1); val x7 = println(c5); x7 }"
     assert(stmts(q).size == 3)
     
@@ -94,20 +94,20 @@ class PardisIRTests extends PardisTestSuite {
   
   test("Scheduling Subexpressions") {
     
-    sameDefs(ir{ println(1.toDouble);println(2.toDouble) },
-             ir{ val n1 = 1.toDouble; val p1 = println(n1); val n2 = 2.toDouble; val p2 = println(n2); p2 })
+    sameDefs(code{ println(1.toDouble);println(2.toDouble) },
+             code{ val n1 = 1.toDouble; val p1 = println(n1); val n2 = 2.toDouble; val p2 = println(n2); p2 })
     
-    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val o = Option(arr.size) },
-             ir{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; val o = Option(s); () })
+    sameDefs(code{ val arr = new ArrayBuffer[Int](); arr append 1; val o = Option(arr.size) },
+             code{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; val o = Option(s); () })
     
-    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; arr.size+1 },
-             ir{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; s+1 })
+    sameDefs(code{ val arr = new ArrayBuffer[Int](); arr append 1; arr.size+1 },
+             code{ val arr = new ArrayBuffer[Int](); val a = arr append 1; val s = arr.size; s+1 })
     
-    sameDefs(ir{ (1.toDouble+1.0,2.toDouble+2.0) },
-             ir{ val n1 = 1.toDouble; val n11 = n1+1.0; val n2 = 2.toDouble; val n22 = n2+2.0; Tuple2(n11,n22) })
+    sameDefs(code{ (1.toDouble+1.0,2.toDouble+2.0) },
+             code{ val n1 = 1.toDouble; val n11 = n1+1.0; val n2 = 2.toDouble; val n22 = n2+2.0; Tuple2(n11,n22) })
     
-    sameDefs(ir{ 1.toDouble+2.toDouble+3.toDouble },
-             ir{ val n1 = 1.toDouble; val n2 = 2.toDouble; val p1 = n1 + n2; val n3 = 3.toDouble; val p2 = p1 + n3; p2 })
+    sameDefs(code{ 1.toDouble+2.toDouble+3.toDouble },
+             code{ val n1 = 1.toDouble; val n2 = 2.toDouble; val p1 = n1 + n2; val n3 = 3.toDouble; val p2 = p1 + n3; p2 })
     
   }
   
@@ -136,11 +136,11 @@ class PardisIRTests extends PardisTestSuite {
     
     val ABI = SC.typeArrayBuffer(SC.typeInt)
     
-    assert(ir{ new ArrayBuffer[Int] }.typ.rep == ABI)
+    assert(code{ new ArrayBuffer[Int] }.typ.rep == ABI)
     
-    assert(ir{ val n1 = 1.toDouble.toInt; ArrayBuffer(n1) }.typ.rep == ABI)
+    assert(code{ val n1 = 1.toDouble.toInt; ArrayBuffer(n1) }.typ.rep == ABI)
     
-    assert(stmts(ir{ val n1 = 1.toDouble }).head.typeT == typeRepOf[Double])
+    assert(stmts(code{ val n1 = 1.toDouble }).head.typeT == typeRepOf[Double])
     
   }
   
@@ -245,22 +245,22 @@ class PardisIRTests extends PardisTestSuite {
     import SC.{ AllRepOps, DoubleRep, infix_hashCode, infix_toString, infix_asInstanceOf, arrayBufferNew2, arrayBufferApplyObject, typeArrayBuffer }
     import SC.Predef._
     
-    sameDefs(ir{ 42 == 42.0.toInt },
+    sameDefs(code{ 42 == 42.0.toInt },
       scBlock { unit(42) __== unit(42.0).toInt })
     
-    sameDefs(ir{ 42## },
+    sameDefs(code{ 42## },
       scBlock { infix_hashCode(unit(42)) })
     
-    sameDefs(ir{ "ok"## },
+    sameDefs(code{ "ok"## },
       scBlock { infix_hashCode(unit("ok")) })
     
-    sameDefs(ir{ true.toString },
+    sameDefs(code{ true.toString },
       scBlock { infix_toString(unit(true)) })
     
-    sameDefs(ir{ ArrayBuffer().toString },
+    sameDefs(code{ ArrayBuffer().toString },
       scBlock { infix_toString(arrayBufferApplyObject[Nothing]())(typeArrayBuffer[Nothing](typeNothing)) })
     
-    sameDefs(ir{ (new ArrayBuffer).asInstanceOf[ArrayBuffer[Int]] },
+    sameDefs(code{ (new ArrayBuffer).asInstanceOf[ArrayBuffer[Int]] },
       scBlock { infix_asInstanceOf[ArrayBuffer[Int]](arrayBufferNew2[Nothing]) })
     
   }
@@ -314,7 +314,7 @@ class PardisIRTests extends PardisTestSuite {
       if (n > 0) code"${power(n-1, x)} * $x"
       else code"1.0"
 
-    sameDefs(ir{
+    sameDefs(code{
       val x = 5.0
       val x_3 = ${power(3, code"?x : Double")}
     }, code"val x = 5.0; val x_3 = 1.0 * x * x * x")
@@ -323,11 +323,11 @@ class PardisIRTests extends PardisTestSuite {
   test("SC.Rep[T] Function Helper") {
     import SC.Predef._
     
-    sameDefs(ir{
+    sameDefs(code{
       val n = ArrayBuffer(1)(0)
       val r = $(mapLambda(code"?n:Int")(x => SC.IntRep(x)+SC.unit(42)))
       r/2
-    }, ir{
+    }, code{
       val m = ArrayBuffer(1)(0)
       (m+42)/2
     })

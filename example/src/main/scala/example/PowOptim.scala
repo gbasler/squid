@@ -23,7 +23,7 @@ object PowOptim extends App {
   }
   
   import Math._
-  val normCode = opt(ir{ (x:Double,y:Double) => sqrt(pow(x,2) + pow(y,2)) })
+  val normCode = opt(code{ (x:Double,y:Double) => sqrt(pow(x,2) + pow(y,2)) })
   println(normCode)
   
   //val norm = normCode.compile  // TODO port from SCP

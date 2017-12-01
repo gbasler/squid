@@ -30,11 +30,11 @@ class BooleanFlowTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
   
   test("Options Stuff") {
     
-    val a = ir{Option(42) orElse Option(666) orElse Some(0) orElse Some(1)} //and println
+    val a = code{Option(42) orElse Option(666) orElse Some(0) orElse Some(1)} //and println
     
     val b = a transformWith Opt
     
-    b eqt ir[Option[Int]]{ // Notice that if type param is ommitted, we get a difft result type for the ITE, which makes the code not equivalent!!
+    b eqt code[Option[Int]]{ // Notice that if type param is ommitted, we get a difft result type for the ITE, which makes the code not equivalent!!
       if ((42).==(null).&&((42).==(null).&&((666).==(null).`unary_!`).`unary_!`))
         scala.Some.apply[scala.Int](0)
       else
@@ -54,7 +54,7 @@ class BooleanFlowTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     
     val d = c transformWith Opt
     
-    d eqt ir[Option[Int]]{
+    d eqt code[Option[Int]]{
       if ((42).==(null).&&((666).==(null)))
         scala.Some.apply[scala.Int](0) : Option[Int] // also needed, otherwise this ITE is inferred of type Some[Int]...
       else

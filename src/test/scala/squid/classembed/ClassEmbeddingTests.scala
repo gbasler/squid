@@ -190,7 +190,7 @@ class ClassEmbeddingTests extends MyFunSuite {
     val Desugaring = new TestDSL.Desugaring with TopDownTransformer
     
     code"(mc:MyClass) => mc.lol(42,142.toString)" transformWith Desugaring eqt
-      ir{ (mc:MyClass) => {
+      code{ (mc:MyClass) => {
           val __self_1 = mc;
           ((b_2: scala.Int, c_3: java.lang.String) => {
             val a_4 = 0;

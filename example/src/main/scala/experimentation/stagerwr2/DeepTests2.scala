@@ -55,7 +55,7 @@ object DeepTests2 extends App {
   //}
   
   // flatMap streamlining
-  val pgrm0 = ir{ (n:Int) =>
+  val pgrm0 = code{ (n:Int) =>
     //val p = range(0,n).flatMap(i => range(0,i)).producer() // simplest case -- only state is variable i
     //val p = range(0,n).flatMap{i => fromIndexed(0 to i)}.producer()
     val p = range(0,n).flatMap{i => val r = 0 to i; println("-- "+r.length+" --");fromIndexed(r)}.producer() // with effect capturing local val

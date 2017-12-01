@@ -22,7 +22,7 @@ class PardisIRExtractTests extends PardisTestSuite {
   
   test("Constants") {
     
-    val q = ir{42}
+    val q = code{42}
     
     q match {
       case code"${Const(x)}" =>
@@ -68,8 +68,8 @@ class PardisIRExtractTests extends PardisTestSuite {
     // Specializes Seq constructions to ArrayBuffer
     object Tr extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite {
-        case code"($arr: ArrayBuffer[Int]) append 42" => ir{ println("nope!") }
-        case code"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" => ir{ $(arr).clear }
+        case code"($arr: ArrayBuffer[Int]) append 42" => code{ println("nope!") }
+        case code"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" => code{ $(arr).clear }
           
         //case ir"val s = ($arr: ArrayBuffer[$t]).size; (arr:ArrayBuffer[t]) append $x; s" => ir{ $(arr) append $(x); $(arr).size-1 }
         // ^ Note, as expected (because of $x):
@@ -77,29 +77,29 @@ class PardisIRExtractTests extends PardisTestSuite {
           
         case code"val s = ($arr: ArrayBuffer[$t]).size; (arr:ArrayBuffer[t]) append $x; s" =>
           val x2 = x subs 's -> ((throw new RewriteAbort): Code[Int,{}])
-          ir{ $(arr) append $(x2); $(arr).size-1 }
+          code{ $(arr) append $(x2); $(arr).size-1 }
           
       }}
     
-    sameDefs(ir{ val arr = ArrayBuffer(1,2,3); arr append 42;    arr.size } transformWith Tr,
-             ir{ val arr = ArrayBuffer(1,2,3); println("nope!"); arr.size })
+    sameDefs(code{ val arr = ArrayBuffer(1,2,3); arr append 42;    arr.size } transformWith Tr,
+             code{ val arr = ArrayBuffer(1,2,3); println("nope!"); arr.size })
     
     sameDefsAfter(
-             ir{ val arr = ArrayBuffer(1,2,3); arr append 43;    arr.size }, _ transformWith Tr)
+             code{ val arr = ArrayBuffer(1,2,3); arr append 43;    arr.size }, _ transformWith Tr)
     
     // Tries to rm pure stmts referring to rm'd syms (trans clos):
-    sameDefs(ir{ val arr = new ArrayBuffer[Int](); Option(arr append 1); arr.clear; arr.size } transformWith Tr,
-             ir{ val arr = new ArrayBuffer[Int]();                       arr.clear; arr.size })
+    sameDefs(code{ val arr = new ArrayBuffer[Int](); Option(arr append 1); arr.clear; arr.size } transformWith Tr,
+             code{ val arr = new ArrayBuffer[Int]();                       arr.clear; arr.size })
     
     sameDefsAfter( // should not apply (cf later usage of `lol`; can't be removed):
-             ir{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}, _ transformWith Tr)
+             code{val arr = new ArrayBuffer[Int](); val lol = arr append 1; arr.clear; println(lol); arr.size}, _ transformWith Tr)
     
     // Update the Option to apply on the new `clear` statement!
-    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
-             ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
+    sameDefs(code{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
+             code{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
     
     
-    sameDefsAfter(ir{
+    sameDefsAfter(code{
       val arr = new ArrayBuffer[Int]()
       arr append 2
       arr.size  // viewed as effectful; in fact it could be removed (needs a better effect system)
@@ -107,7 +107,7 @@ class PardisIRExtractTests extends PardisTestSuite {
       42
     }, _ transformWith Tr)
     
-    sameDefs(ir{
+    sameDefs(code{
       val arr = new ArrayBuffer[Int]()
       arr append 2
       val s = arr.size
@@ -115,7 +115,7 @@ class PardisIRExtractTests extends PardisTestSuite {
       arr append o.get
       arr.clear
       o
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       arr append 2
       val s = arr.size
@@ -127,8 +127,8 @@ class PardisIRExtractTests extends PardisTestSuite {
     
     
     // Testing the "size-commuting" rewriting
-    val y0 =     ir{ val arr = new ArrayBuffer[Int](); val s = arr.size; arr append 1;                                 println(s)  } transformWith Tr
-    sameDefs(y0, ir{ val arr = new ArrayBuffer[Int]();                   arr append 1; val s = arr.size; val s0 = s-1; println(s0) })
+    val y0 =     code{ val arr = new ArrayBuffer[Int](); val s = arr.size; arr append 1;                                 println(s)  } transformWith Tr
+    sameDefs(y0, code{ val arr = new ArrayBuffer[Int]();                   arr append 1; val s = arr.size; val s0 = s-1; println(s0) })
     stmts(y0) |> {
       case (s @ SC.Stm(a0, d)) :: _ :: SC.Stm(r0, SC.ArrayBufferSize(a1)) :: SC.Stm(s0, SC.`Int-1`(r1, t0)) :: SC.Stm(_, Println(s1)) :: Nil =>
         assert(s.typeT == SC.ArrayBufferType(SC.typeInt))
@@ -140,14 +140,14 @@ class PardisIRExtractTests extends PardisTestSuite {
     
     
     // More complicated, with nested blocks:
-    sameDefs(ir{
+    sameDefs(code{
       if (42.toDouble < 43) {
         println("hey")
         val arr = new ArrayBuffer[Int]()
         Option(arr append 1)
         arr.clear
       } else println("yo")
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       if (42.toDouble < 43) {
         println("hey")
         val arr = new ArrayBuffer[Int]()
@@ -162,12 +162,12 @@ class PardisIRExtractTests extends PardisTestSuite {
     object Tr2 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite {
         case code"val s = Seq[$t]($xs*); s" =>
-          ir{ ArrayBuffer($(xs:_*)) }
+          code{ ArrayBuffer($(xs:_*)) }
           //ir"ArrayBuffer($xs*)"       // other way, with QQs
       }}
     
-    val a0 = ir{ val s = Seq(1,2,3);         println(s(0)); s.size }
-    val ar = ir{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
+    val a0 = code{ val s = Seq(1,2,3);         println(s(0)); s.size }
+    val ar = code{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
     val a1 = a0 transformWith Tr2
     sameDefs(a1, ar)
     
@@ -176,21 +176,21 @@ class PardisIRExtractTests extends PardisTestSuite {
     object Tr3 extends SimpleRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite {
         case code"val a = new Cont[Double]($n, null); new Cont[Double](n, a)" =>  // works as expected
-          ir{ new Cont($(n), null) }
+          code{ new Cont($(n), null) }
         case code"val a = new Cont[Int]($n, null); val b = new Cont[Int](n, a); a" =>
-          ir{ new Cont($(n)+1, null) }
+          code{ new Cont($(n)+1, null) }
       }}
     
-    sameDefs(ir{ new Cont(42.0, new Cont(42.0, null)) } transformWith Tr3,
-             ir{ new Cont(42.0, null) } transformWith Tr3)
+    sameDefs(code{ new Cont(42.0, new Cont(42.0, null)) } transformWith Tr3,
+             code{ new Cont(42.0, null) } transformWith Tr3)
     
-    sameDefsAfter(ir{ new Cont(42, new Cont(42, null)) }, _ transformWith Tr3)
+    sameDefsAfter(code{ new Cont(42, new Cont(42, null)) }, _ transformWith Tr3)
     
-    sameDefs(ir{ val inner = new Cont(42, null); new Cont(42, inner); inner } transformWith Tr3,
-             ir{ new Cont((42:Int)+1, null) } transformWith Tr3)
+    sameDefs(code{ val inner = new Cont(42, null); new Cont(42, inner); inner } transformWith Tr3,
+             code{ new Cont((42:Int)+1, null) } transformWith Tr3)
     
-    sameDefs(ir{ val inner = new Cont(42, null); new Cont(42, inner); inner.elem } transformWith Tr3,
-             ir{ new Cont((42:Int)+1, null).elem } transformWith Tr3)
+    sameDefs(code{ val inner = new Cont(42, null); new Cont(42, inner); inner.elem } transformWith Tr3,
+             code{ new Cont((42:Int)+1, null).elem } transformWith Tr3)
     
     
   }
@@ -207,8 +207,8 @@ class PardisIRExtractTests extends PardisTestSuite {
       }}
     
     
-    val a0 = ir{ val s = Seq(1,2,3);         println(s(0)); s.size }
-    val ar = ir{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
+    val a0 = code{ val s = Seq(1,2,3);         println(s(0)); s.size }
+    val ar = code{ val s = ArrayBuffer(1,2,3); println(s(0)); s.size }
     val a1 = a0 transformWith Tr
     
     sameDefs(a1, ar)
@@ -227,19 +227,19 @@ class PardisIRExtractTests extends PardisTestSuite {
     sameDefs(a0 rewrite { case code"val x = Seq[$t]($xs*); $body: $bt"  =>  code"val x = ArrayBuffer($xs*); $body" }, ar)
     
     
-    sameDefs(ir{         Seq(1,2,3).filter(_ > 0) } transformWith Tr,
-             ir{ ArrayBuffer(1,2,3).filter(_ > 0) })
+    sameDefs(code{         Seq(1,2,3).filter(_ > 0) } transformWith Tr,
+             code{ ArrayBuffer(1,2,3).filter(_ > 0) })
     
     
     // Note: this transfo used to reorder the stmts (the pure lambda statement was ignored and then reintroduced at the beginning)
-    sameDefs(ir{ val s = Seq(1,2,3);         val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
-             ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
+    sameDefs(code{ val s = Seq(1,2,3);         val f: Int => Bool = _ > 0; s.filter(f) } transformWith Tr,
+             code{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > 0; a.filter(f) })
     
-    sameDefs(ir{ val s =         Seq(1,2,3); val f: Int => Bool = _ > s.size; s.filter(f) } transformWith Tr,
-             ir{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > a.size; a.filter(f) })
+    sameDefs(code{ val s =         Seq(1,2,3); val f: Int => Bool = _ > s.size; s.filter(f) } transformWith Tr,
+             code{ val a = ArrayBuffer(1,2,3); val f: Int => Bool = _ > a.size; a.filter(f) })
     
-    sameDefs(ir{ Seq(1,2,3)        .map(_ + 1)                        } transformWith Tr, 
-             ir{ ArrayBuffer(1,2,3).map(_ + 1)(Seq.canBuildFrom[Int]) })
+    sameDefs(code{ Seq(1,2,3)        .map(_ + 1)                        } transformWith Tr, 
+             code{ ArrayBuffer(1,2,3).map(_ + 1)(Seq.canBuildFrom[Int]) })
     
     
     
@@ -249,17 +249,17 @@ class PardisIRExtractTests extends PardisTestSuite {
           code"println(42)"
       }}
     
-    val b0 = ir{
+    val b0 = code{
       println(1)
       println(666)
       println(2)
       println(3)
     }
-    val b1 = ir{ println(1); println(42) }
+    val b1 = code{ println(1); println(42) }
     sameDefs(b0 transformWith Tr2, b1)
     stmts_ret(b1) match { case (_ :: SC.Stm(s0, _) :: Nil) -> s1 => assert(s0 == s1) }
     
-    sameDefs(ir{
+    sameDefs(code{
       println(1)
       println(666)
     } transformWith Tr2, b1)
@@ -267,13 +267,13 @@ class PardisIRExtractTests extends PardisTestSuite {
     
     // The RwR used to trigger for the following, because it used to interpret the `println(666)` Def as a block
     // with a single statement by introducing a new freshVar. However, this was dubious behavior, so it no longer works. 
-    sameDefsAfter(ir{
+    sameDefsAfter(code{
       println(666)
       "ok"
     }, _ transformWith Tr2)
     
     // currently, if the `body` hole cannot match the _entire_ block remainder (here there is a type mismatch), we don't get binding-rw
-    sameDefsAfter(ir{
+    sameDefsAfter(code{
       println(666)
       println(1)
       "ok"
@@ -289,39 +289,39 @@ class PardisIRExtractTests extends PardisTestSuite {
     object Tr extends FixPointRuleBasedTransformer with TopDownTransformer with Sqd.SelfTransformer {
       rewrite {
         case code"($arr: ArrayBuffer[$t]) append $x; (arr:ArrayBuffer[t]).clear" =>  // println(s"Running rwr code!! body = $body")
-          ir{ $(arr).clear }
+          code{ $(arr).clear }
         case code"val arr = new ArrayBuffer[$t](); arr.clear; $body: $bt" =>
-          ir{ val arr = new ArrayBuffer[t.Typ](); $(body) }
+          code{ val arr = new ArrayBuffer[t.Typ](); $(body) }
       }
     }
     
     // should not apply
-    sameDefsAfter( ir{
+    sameDefsAfter( code{
       val arr = ArrayBuffer(1,2,3)
       arr append 1
       arr.size
     }, _ transformWith Tr )
     
     // should remove the option
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       Option(arr append 1)
       arr.clear
       arr.size
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       arr.size
     })
     
     // should keep the option (used later by effectful expr)
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
       arr append 1
       val opt = Option(a1)
       arr.clear
       println(opt)
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
       val opt = Option(a1)
@@ -330,14 +330,14 @@ class PardisIRExtractTests extends PardisTestSuite {
     })
     
     // should keep the option (returned)
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
       arr append 1
       val opt = Option(a1)
       arr.clear
       opt
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       val a1 = arr(1)
       val opt = Option(a1)
@@ -346,7 +346,7 @@ class PardisIRExtractTests extends PardisTestSuite {
     })
     
     // should not apply (Option returned)
-    sameDefsAfter( ir{
+    sameDefsAfter( code{
       val arr = new ArrayBuffer[Int]()
       val opt = Option(arr append 1)
       arr.clear
@@ -354,7 +354,7 @@ class PardisIRExtractTests extends PardisTestSuite {
     }, _ transformWith Tr )
     
     // should not apply
-    sameDefsAfter( ir{
+    sameDefsAfter( code{
       val arr = new ArrayBuffer[Int]()
       val lol = arr append 1
       arr.clear
@@ -363,17 +363,17 @@ class PardisIRExtractTests extends PardisTestSuite {
     }, _ transformWith Tr )
     
     // should not remove the `clear` cf returned
-    val a0 = ir{
+    val a0 = code{
       val arr = new ArrayBuffer[Int]()
       arr.clear
     }
     sameDefsAfter( a0, _ transformWith Tr )
     
     // Should apply the first rewrite and update the Option, but keep the clear (don't apply second rewrite)
-    sameDefs(ir{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
-             ir{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
+    sameDefs(code{ val arr = new ArrayBuffer[Int](); arr append 1; val cl = arr.clear; Option(cl) } transformWith Tr,
+             code{ val arr = new ArrayBuffer[Int]();               val c  = arr.clear; Option(c)  })
     
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       arr append 1
       arr append 2
@@ -381,30 +381,30 @@ class PardisIRExtractTests extends PardisTestSuite {
       arr.clear
     } transformWith Tr, a0)
     
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       arr append 1
       arr.clear
       arr append 2
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       arr append 2
     })
     
     // should apply both (but keep one append)
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       arr append 1
       arr append 2
       arr.clear
       arr append 3
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val arr = new ArrayBuffer[Int]()
       arr append 3
     })
     
     // should apply several times
-    sameDefs( ir{
+    sameDefs( code{
       val arr = new ArrayBuffer[Int]()
       arr append 1
       arr.clear
@@ -413,7 +413,7 @@ class PardisIRExtractTests extends PardisTestSuite {
       arr append 3
       arr.clear
       arr.size
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       new ArrayBuffer[Int]().size
     })
     
@@ -466,17 +466,17 @@ class PardisIRExtractTests extends PardisTestSuite {
       }
     }
     
-    sameDefsAfter( ir{
+    sameDefsAfter( code{
       val arr = ArrayBuffer(1,2,3)
       arr append 1
       arr.size
     }, _ transformWith Tr)
     
-    sameDefs( ir{
+    sameDefs( code{
       //val arr = ArrayBuffer(1,2,3) // produces an annoying Vararg node...
       val arr = new ArrayBuffer[Int]
       arr.size + arr.size
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       (42:Int) + 42
     })
     
@@ -526,14 +526,14 @@ class PardisIRExtractTests extends PardisTestSuite {
     // FIXME make it work when the xtor does not have the same name!! (cf: proper hole memory)
     
     //base debugFor 
-    sameDefs( ir{
+    sameDefs( code{
       //val arr = ArrayBuffer(1,2,3) // produces an annoying Vararg node...
       val arr = new ArrayBuffer[Int]
       arr append 0
       arr append 1
       arr.size
       42
-    } transformWith Tr, ir{
+    } transformWith Tr, code{
       val buf = new ArrayBuffer[Int]
       buf append ((0:Int)+1)
       buf append ((1:Int)+1)

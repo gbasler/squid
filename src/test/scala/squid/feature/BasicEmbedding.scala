@@ -115,12 +115,12 @@ class BasicEmbedding extends MyFunSuite {
     /* ^ the type for foo1's hole as seen from inside ClassA is `ClassA.this.type`;
      * however, when used from here apparently becomes `scp.feature.BasicEmbedding.ClassA`... */
     
-    aa.foo1 eqt ir{(? `ClassA.this` : ClassA).bar}
+    aa.foo1 eqt code{(? `ClassA.this` : ClassA).bar}
     
     intercept[NullPointerException](aa.foo1 subs Symbol("ClassA.this") -> code"null" run)
     same(aa.foo1 subs Symbol("ClassA.this") -> code"clA" run, 1)
     
-    aa.foo2 eqt ir{(? `ClassA.this` : clA.ClassA).bar}
+    aa.foo2 eqt code{(? `ClassA.this` : clA.ClassA).bar}
     
     assertDoesNotCompile(""" same(aa.foo2 subs Symbol("ClassA.this") -> code"clAclA" run, 0) """) // Error:(115, 48) Cannot substitute free variable `ClassA.this: aa.type` with term of type `scp.feature.BasicEmbedding.clAclA.type`
     same(clAclA.foo2 subs Symbol("ClassA.this") -> code"clAclA" run, 0)

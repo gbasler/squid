@@ -199,17 +199,17 @@ abstract class StagedProducer[+A:CodeType,C] { parent =>
   val step: Code[Env[Option[A]],C]
   //val init_step: IR[Env[Unit -> Option[A]],C]
   //val fail: IR[Env[None.type],C]
-  def make[R:CodeType](code: Code[Env[R],C]): Code[R,C]
+  def make[R:CodeType](cde: Code[Env[R],C]): Code[R,C]
   //def make2[R:CodeType](code: IR[(() => Unit, () => Option[A]) => R,C]): IR[R,C] = ir{ val ab = $(flatMapEnv(init,step)); $(code)(ab._1,ab._2) }
-  def make2[R:CodeType](code: Code[(() => Unit, () => Option[A]) => R,C]): Code[R,C] = 
+  def make2[R:CodeType](cde: Code[(() => Unit, () => Option[A]) => R,C]): Code[R,C] = 
     //flatMapEnv(init,step)(code)
     //flatMapEnv(mapEnv2(init)(ir{x => () => x}),???)(code)
     //make(flatMapEnv(mapEnv(init,ir{(x:Unit) => () => x}),mapEnv(step,ir{(x:Option[A]) => () => x}))(code))
     //make(ir{$(flatMapEnv(code))(() => $(init),() => $(step))})
   {
-    val in = mapEnv(init,ir{(x:Unit) => () => x})
-    val st = mapEnv(step,ir{(x:Option[A]) => () => x})
-    make(ir{$(flatMapEnv(code))($(in),$(st))})
+    val in = mapEnv(init,code{(x:Unit) => () => x})
+    val st = mapEnv(step,code{(x:Option[A]) => () => x})
+    make(code{$(flatMapEnv(cde))($(in),$(st))})
   }
   
   def take(n: Code[Int,C]): StagedProducer[A,C] = new StagedProducer[A,C] {
@@ -221,23 +221,23 @@ abstract class StagedProducer[+A:CodeType,C] { parent =>
     implicit def EnvType[R:CodeType]: CodeType[Env[R]] = ??? // FIXME
     //def EnvType[R:CodeType]: CodeType[Env[R]] = ??? // FIXME
     def mapEnv[A:CodeType,B:CodeType](e: Code[Env[A],C], f: Code[A => B,C]): Code[Env[B],C] = ???
-    def liftEnv[A](a: Code[A,C]): Code[Env[A],C] = ir[Env[A]]{ _ => $(parent.liftEnv(a)) }
+    def liftEnv[A](a: Code[A,C]): Code[Env[A],C] = code[Env[A]]{ _ => $(parent.liftEnv(a)) }
     //def flatMapEnv[A:CodeType,B:CodeType,R:CodeType](lhs: IR[Env[A],C], rhs: IR[Env[B],C])(combine: IR[(A,B)=>R,C]): IR[Env[R],C] = 
     //  ir{(v:Var[Int]) => $(parent.flatMapEnv(lhs,rhs)())} ...
     def flatMapEnv[A:CodeType,B:CodeType,R:CodeType](combine: Code[(A,B)=>R,C]): Code[(Env[A],Env[B])=>Env[R],C] =
-      ir{(ea:Env[A],eb:Env[B]) => (v:Var[Int]) => $(parent.flatMapEnv(combine))(ea(v),eb(v))}
+      code{(ea:Env[A],eb:Env[B]) => (v:Var[Int]) => $(parent.flatMapEnv(combine))(ea(v),eb(v))}
     
     implicit val WAT = parentEnvType[Unit]
     implicit val WAT2 = parentEnvType[Option[A]]
     //Embedding.Predef.dbg.implicitType[parent.Env[Unit]]
     
-    val init = ir[Env[Unit]]{ e => e := 0; $(parent.init) }
-    //val step = ir"e => { val i = e.!; if (i < $xs.length) { val r = $xs(i); e := i+1; r } else None }"
-    //val step = ir[Env[Option[A]]]{ e => val taken = e.!; if (taken < $(n)) { e := taken + 1; $(parent.step) } else $(parent.fail) }
-    val step = ir[Env[Option[A]]]{ e => val taken = e.!; if (taken < $(n)) { e := taken + 1; $(parent.step) } else $(parent.liftEnv(code"None")) }
-    //val init_step = ir[Env[Unit -> Option[A]]]{ e =>  }
-    //val fail = ir[Env[None.type]]{ _ => $(parent.fail) }
-    //def make[R](code: IR[Env[R],C]): IR[R,C] = parent.make(ir"$code(Var(0))")
+    val init = code[Env[Unit]]{ e => e := 0; $(parent.init) }
+    //val step = code"e => { val i = e.!; if (i < $xs.length) { val r = $xs(i); e := i+1; r } else None }"
+    //val step = code[Env[Option[A]]]{ e => val taken = e.!; if (taken < $(n)) { e := taken + 1; $(parent.step) } else $(parent.fail) }
+    val step = code[Env[Option[A]]]{ e => val taken = e.!; if (taken < $(n)) { e := taken + 1; $(parent.step) } else $(parent.liftEnv(code"None")) }
+    //val init_step = code[Env[Unit -> Option[A]]]{ e =>  }
+    //val fail = code[Env[None.type]]{ _ => $(parent.fail) }
+    //def make[R](code: IR[Env[R],C]): IR[R,C] = parent.make(code"$code(Var(0))")
     def make[R:CodeType](code: Code[Env[R],C]): Code[R,C] = parent.make(code"val vtaken = Var(0); $code(vtaken)")
   }
   
@@ -249,9 +249,9 @@ abstract class StagedProducer[+A:CodeType,C] { parent =>
     def flatMapEnv[A:CodeType,B:CodeType,R:CodeType](combine: Code[(A,B)=>R,C]): Code[(Env[A],Env[B])=>Env[R],C] = parent.flatMapEnv(combine)
     
     val init = parent.init
-    //val step = ir{ $(parent.step) map $f }
-    //val step = mapEnv[Option[A],Option[B]](parent.step, ir{ _ map f })
-    val step = mapEnv(parent.step, ir{ (_:Option[A]) map $(f) })
+    //val step = code{ $(parent.step) map $f }
+    //val step = mapEnv[Option[A],Option[B]](parent.step, code{ _ map f })
+    val step = mapEnv(parent.step, code{ (_:Option[A]) map $(f) })
     //val fail = parent.fail
     def make[R:CodeType](code: Code[Env[R],C]): Code[R,C] = parent.make(code)
   }
@@ -262,14 +262,14 @@ case class IndexedProducer[+A:CodeType,C](xs: Code[IndexedSeq[A],C]) extends Sta
   //implicit def EnvType[R]: IRType[Env[R]] = { import IndexedProducer.this.{EnvType => _}; implicitly }
   //def EnvType[R]: IRType[Env[R]] = ??? //implicitly // FIXME
   def EnvType[R:CodeType]: CodeType[Env[R]] = implicitType[Env[R]]
-  def mapEnv[A:CodeType,B:CodeType](e: Code[Env[A],C], f: Code[A => B,C]): Code[Env[B],C] = ir[Env[B]]{ v => $(f)($(e)(v)) }
-  def liftEnv[A](a: Code[A,C]): Code[Env[A],C] = ir[Env[A]]{ _ => $(a) }
+  def mapEnv[A:CodeType,B:CodeType](e: Code[Env[A],C], f: Code[A => B,C]): Code[Env[B],C] = code[Env[B]]{ v => $(f)($(e)(v)) }
+  def liftEnv[A](a: Code[A,C]): Code[Env[A],C] = code[Env[A]]{ _ => $(a) }
   def flatMapEnv[A:CodeType,B:CodeType,R:CodeType](combine: Code[(A,B)=>R,C]): Code[(Env[A],Env[B])=>Env[R],C] =
-    ir{(ea:Env[A],eb:Env[B]) => (v:Var[Int]) => $(combine)(ea(v),eb(v))}
+    code{(ea:Env[A],eb:Env[B]) => (v:Var[Int]) => $(combine)(ea(v),eb(v))}
   
-  val init = ir[Env[Unit]]{ e => e := 0 }
-  val step = ir[Env[Option[A]]]{ e => { val i = e.!; if (i < $(xs).length) { val r = $(xs)(i); e := i+1; Some(r) } else None } }
-  //val fail = ir[Env[None.type]]{ _ => None }
+  val init = code[Env[Unit]]{ e => e := 0 }
+  val step = code[Env[Option[A]]]{ e => { val i = e.!; if (i < $(xs).length) { val r = $(xs)(i); e := i+1; Some(r) } else None } }
+  //val fail = code[Env[None.type]]{ _ => None }
   def make[R:CodeType](code: Code[Env[R],C]): Code[R,C] = code"val vi = Var(0); $code(vi)"
   
   //def map[B](f: IR[A => B,C]): IndexedProducer[B,C]

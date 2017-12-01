@@ -46,7 +46,7 @@ object ListOptimTests extends App {
   object Optim extends DSL.SelfTransformer with ListOptims with TopDownTransformer
   object BindNorm extends DSL.SelfTransformer with BindingNormalizer with TopDownTransformer
   
-  var pgrm = ir{
+  var pgrm = code{
     val f = (x: List[Int]) => x.foldLeft(0)(_ + _)
     f(List(1,2,3))
   }
@@ -76,7 +76,7 @@ object ListOptimTestsOnline extends App {
   import DSL.Predef._
   import DSL.Quasicodes._
   
-  val pgrm = ir{
+  val pgrm = code{
     val f = (x: List[Int]) => x.foldLeft(0)(_ + _)
     f(List(1,2,3))
   }
@@ -96,7 +96,7 @@ object ListOptimTestsANF extends App {
   object Optim extends DSL.SelfTransformer with ListOptims with TopDownTransformer
   //object Optim extends DSL.SelfTransformer with ListOptims with BottomUpTransformer
   
-  var pgrm = ir{
+  var pgrm = code{
     val f = (x: List[Int]) => x.foldLeft(0)(_ + _)
     f(List(1,2,3))
   }

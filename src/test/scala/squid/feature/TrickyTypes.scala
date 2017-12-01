@@ -44,7 +44,7 @@ class TrickyTypes extends MyFunSuite {
   test("Lambda with Expected Type") {
     import base.Quasicodes._
     
-    val c1: Code[Int => Int => Bool => Bool,_] = ir{ (s:Int) =>
+    val c1: Code[Int => Int => Bool => Bool,_] = code{ (s:Int) =>
       val n = 42
       k => { b => b }
     }

@@ -35,7 +35,7 @@ class OptimTests extends FunSuite {
   
   test("Sieve") {
     
-    val c0 = ir{algo.primeSum(100)}
+    val c0 = code{algo.primeSum(100)}
     assert(c0.run == 101)
     
     val res = Compiler.wrapOptim("Sieve") {
@@ -52,7 +52,7 @@ class OptimTests extends FunSuite {
     val ls = List("lol","okay","test")
     val res = "lol\nokay\ntest"
     
-    val c0 = ir{algo.joinLinesSimple(_:Iterable[String])}
+    val c0 = code{algo.joinLinesSimple(_:Iterable[String])}
     val r0 = algo.joinLinesSimple(ls)
     
     assert(r0 == res)
@@ -69,7 +69,7 @@ class OptimTests extends FunSuite {
       // ^ Note: when not inlined completely, `run` throws: scala.ScalaReflectionException: expected a member of class Boolean, you provided method squid.lib.And
     }
     
-    val c1 = ir{algo.joinLinesComplex(_:Iterable[String])}
+    val c1 = code{algo.joinLinesComplex(_:Iterable[String])}
     val r1 = algo.joinLinesComplex(ls)
     
     assert(r1 == res)
@@ -99,7 +99,7 @@ class OptimTests extends FunSuite {
     */
     
     
-    val c1 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
+    val c1 = code{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
       fromIndexed(xs).flatMap(a => fromIndexed(a).flatMap(b => fromIndexed(b))).fold(123)(_ + _)
     }
     
@@ -112,7 +112,7 @@ class OptimTests extends FunSuite {
     
     
     //val c2 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
-    val c2 = ir{ (xs: IndexedSeq[IndexedSeq[Int]]) => 
+    val c2 = code{ (xs: IndexedSeq[IndexedSeq[Int]]) => 
       //fromIndexed(xs).flatMap(a => fromIndexed(a)).flatMap(b => fromIndexed(b)).fold(123)(_ + _)
       //fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
       fromIndexed(xs).map(fromIndexed).flatMap(b => b).fold(123)(_ + _) // FIXedME doesn't fuse
@@ -127,7 +127,7 @@ class OptimTests extends FunSuite {
     }
     
     
-    val c3 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
+    val c3 = code{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
       fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
     }
     
@@ -159,7 +159,7 @@ class OptimTests extends FunSuite {
     }
     */
     
-    val c1 = ir{(xs:IndexedSeq[Int],ys:Iterable[Int]) => 
+    val c1 = code{(xs:IndexedSeq[Int],ys:Iterable[Int]) => 
       fromIndexed(xs).flatMap(x => fromIterable(ys).map(_ + x)).zip(fromIterable(ys)).fold("")((acc,xy) => acc + xy._1 + xy._2)}
     
     Compiler.wrapOptim("ZipFlatmapLinear") {

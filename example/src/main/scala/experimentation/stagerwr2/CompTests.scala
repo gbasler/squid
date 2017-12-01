@@ -74,7 +74,7 @@ object CompTests extends App {
   //println(r.compile apply (A0,A1))
   
   // original from benchmarks:
-  val zip_flat_flat_rewritten = ir{ (xs : Array[Int], ys : Array[Int]) =>
+  val zip_flat_flat_rewritten = code{ (xs : Array[Int], ys : Array[Int]) =>
       Strm.fromArray[Int](xs)
       .flatMap(x => Strm.fromArray[Int](ys).map(y => (x * y)))
       .zipWith(

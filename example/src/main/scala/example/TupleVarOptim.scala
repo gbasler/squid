@@ -103,7 +103,7 @@ object TupleVarOptimTests extends App {
   
   object Optim extends DSL.SelfTransformer with TupleVarOptim with TopDownTransformer
   
-  var pgrm = ir{
+  var pgrm = code{
     var t = (readInt, readInt)
     if (t._1 > t._2) t = (t._2, t._1)
     t._1 to t._2
@@ -127,7 +127,7 @@ object TupleVarOptimTestsANF extends App {
   
   object Optim extends DSL.SelfTransformer with TupleVarOptim with TopDownTransformer
   
-  var pgrm = ir{
+  var pgrm = code{
     var t = (readInt, readInt)
     if (t._1 > t._2) t = (t._2, t._1)
     t._1 to t._2

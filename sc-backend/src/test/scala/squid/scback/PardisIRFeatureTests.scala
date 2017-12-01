@@ -12,7 +12,7 @@ class PardisIRFeatureTests extends PardisTestSuite {
   
   
   test("If Then Else") {
-    val q = pardisBlock(ir{ if (1.5.toInt > 0) println("ok") else "ko" })
+    val q = pardisBlock(code{ if (1.5.toInt > 0) println("ok") else "ko" })
     assert(q.stmts.size == 3)
   }
   
@@ -22,10 +22,10 @@ class PardisIRFeatureTests extends PardisTestSuite {
 
   test("Lambdas & Applications") {
     
-    def f = ir{ (a: Int) => a+1 }
+    def f = code{ (a: Int) => a+1 }
     
     val q0 = block(f)
-    val q1 = block(ir{ $(f)(42) })
+    val q1 = block(code{ $(f)(42) })
     
     //println(q0)
     //println(q1)
@@ -36,7 +36,7 @@ class PardisIRFeatureTests extends PardisTestSuite {
   test("Methods") {
     
     //val q = block(ir{ println(new ArrayBuffer[Int](0) append 1) })
-    val q = ir{ println(new ArrayBuffer[Int](0) append 1) }
+    val q = code{ println(new ArrayBuffer[Int](0) append 1) }
     //println(q)
     
   }
@@ -44,7 +44,7 @@ class PardisIRFeatureTests extends PardisTestSuite {
   
   test("Constructors") {
     
-    val q = block(ir{ new ArrayBuffer(42) })
+    val q = block(code{ new ArrayBuffer(42) })
     
     q.rep match {
       //case SDSL.TopLevelBlock(b) =>
@@ -61,8 +61,8 @@ class PardisIRFeatureTests extends PardisTestSuite {
     // Note: both `apply` methods mirrored in MirrorSeq and MirrorArrayBuffer refer to the _same_ method defined in GenericCompanion
     // so one will overwrite the other; to avoid that we'll have to manually make the binding by overriding `methodApp`
     
-    val q0 = block(ir{ Seq(1,2,3) })         // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
-    val q1 = block(ir{ ArrayBuffer(1,2,3) }) // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
+    val q0 = block(code{ Seq(1,2,3) })         // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
+    val q1 = block(code{ ArrayBuffer(1,2,3) }) // ir"{ val x23 = ArrayBuffer.apply(1, 2, 3) x23 }"
     
     //println(q0)
     //println(q1)
@@ -76,7 +76,7 @@ class PardisIRFeatureTests extends PardisTestSuite {
   
   test("String") {
     
-    val q = block(ir{ println(((x: String) => x.length)("ok")) })
+    val q = block(code{ println(((x: String) => x.length)("ok")) })
     //println(q)
     
   }

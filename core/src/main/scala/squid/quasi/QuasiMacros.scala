@@ -12,7 +12,8 @@ import scala.reflect.macros.blackbox
 
 
 object QuasiMacros {
-  val dslInterpolators = Set("ir", "dbg_ir", "code", "dbg_code", "c")
+  val deprecated_qqInterpolators = Set("ir", "dbg_ir")
+  val qqInterpolators = deprecated_qqInterpolators ++ Set("code", "dbg_code", "c")
 }
 class QuasiMacros(val c: whitebox.Context) {
   import c.universe._
@@ -80,6 +81,10 @@ class QuasiMacros(val c: whitebox.Context) {
     }
   }
   
+  def isQQInterpolators(str: String) = {
+    if (deprecated_qqInterpolators(str)) deprecated(s"Use the `code` quasiquote/quasicode interpolator instead of the deprecated `$str`.", "0.2.0")
+    qqInterpolators(str)
+  }
   
   lazy val SubstituteVarargSym = typeOf[QuasiBase].member(TypeName("__*").encodedName)
   //lazy val SubstituteVarargSym = symbolOf[QuasiBase#__*] // nope: gets 'trait Seq' (dealias) ...
@@ -90,7 +95,7 @@ class QuasiMacros(val c: whitebox.Context) {
     debug(s"Typed[${tree.tpe}]: "+showCode(tree))
     
     val quasiBase = c.macroApplication match {
-      case x @ q"$qc.${id @ TermName(name)}[$tp]($code)" if dslInterpolators(name) =>
+      case x @ q"$qc.${id @ TermName(name)}[$tp]($code)" if isQQInterpolators(name) =>
         debug("Found quasicode base: "+qc)
         qc
     }
@@ -157,7 +162,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val quasiBase = c.macroApplication match {
       case x @ q"$base.QuasiContext(scala.StringContext.apply(..$_)).${id @ TermName(name)}.unapply($_)"
-      if dslInterpolators(name)
+      if isQQInterpolators(name)
       =>
         debug("Found xtion base: "+base)
         base
@@ -184,7 +189,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     val quasiBase = c.macroApplication match {
       case x @ q"$base.QuasiContext(scala.StringContext.apply(..$_)).${id @ TermName(name)}.apply(..$_)"
-      if dslInterpolators(name)
+      if isQQInterpolators(name)
       =>
         debug("Found ction base: "+base)
         base

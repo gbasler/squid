@@ -41,7 +41,7 @@ object DeepTests extends App {
   //}
   
   // Typical flatMap blunder
-  val pgrm0 = ir{ 
+  val pgrm0 = code{ 
     val s0 = range(0,3).map(n => range(0,n)).flatMap(identity)
     //s0.foreach(println)
     s0.zip(range(0,100)).foreach(println) // with zip

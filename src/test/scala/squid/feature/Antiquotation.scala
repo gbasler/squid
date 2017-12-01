@@ -67,12 +67,12 @@ class Antiquotation extends MyFunSuite {
       }
     """) // Error:(64, 12) Quasiquote Error: Vararg splice unexpected in that position: $(x, y)
     
-    eqt(ir{List(${Seq(x,y):_*})}, code"List(1,2)")
+    eqt(code{List(${Seq(x,y):_*})}, code"List(1,2)")
     eqt(code"List($$(x,y))", code"List(1,2)")
     
     val seq = Seq(x,y)
     
-    assertDoesNotCompile(""" ir{println($(seq:_*))} """) // Error:(87, 7) Quasiquote Error: Vararg splice unexpected in that position: ((seq): _*)
+    assertDoesNotCompile(""" code{println($(seq:_*))} """) // Error:(87, 7) Quasiquote Error: Vararg splice unexpected in that position: ((seq): _*)
     assertDoesNotCompile(""" code"println(${seq:_*})" """) // Error:(87, 7) Quasiquote Error: Vararg splice unexpected in that position: ((seq): _*)
     
     eqt(code"(?x:Int)+$x", code"(?x:Int)+1")
@@ -90,11 +90,11 @@ class Antiquotation extends MyFunSuite {
     
     var count = 0
     
-    code"$${count += 1; ir{42}}" matches {
+    code"$${count += 1; code{42}}" matches {
       case code"$${count += 1; x}" => fail
       case code"$${count += 1; n}" =>
     } and {
-      case code"$${count += 1; ir{42}}" =>
+      case code"$${count += 1; code{42}}" =>
     }
     
     assertDoesNotCompile(""" (??? : Code[Int,_]) match { case code"$${count += 1; $m}" => } """) // Error:(159, 36) Quasiquote Error: Illegal hole position for: $m

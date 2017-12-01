@@ -392,9 +392,7 @@ self: Base =>
   class Quasicodes[QC <: QuasiConfig] {
     val qcbase: QuasiBase.this.type = QuasiBase.this // macro expansions will make reference to it
     
-    @deprecated("use the `code` macro instead", "0.2")
     def ir[T](tree: T): Code[T, _] = macro QuasiMacros.quasicodeImpl[QC]
-    @deprecated("use the `code` macro instead", "0.2")
     @MacroSetting(debug = true) def dbg_ir[T](tree: T): Code[T, _] = macro QuasiMacros.quasicodeImpl[QC]
     
     def code[T](tree: T): Code[T, _] = macro QuasiMacros.quasicodeImpl[QC]

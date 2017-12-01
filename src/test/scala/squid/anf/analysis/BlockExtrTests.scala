@@ -89,7 +89,7 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
     }
     
     val r0 = code"Option(42).map { n => val r = Nil.size; (m:Int) => n+m+r }" |> f
-    r0 eqt ir{
+    r0 eqt code{
       val x_0 = Option(42);
       var envVar_1: scala.Int = squid.lib.nullValue[scala.Int];
       if (x_0.isEmpty) scala.None
@@ -106,7 +106,7 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
     
     //println(r1.run.get(-1))  // not executing this because it contains a `readInt`
     
-    r1 eqt ir[Option[Int=>Int]]{ // Note: type ascription necessary, otherwise it types the block with `Any`! FIXME shoudn't the code still be equivalent
+    r1 eqt code[Option[Int=>Int]]{ // Note: type ascription necessary, otherwise it types the block with `Any`! FIXME shoudn't the code still be equivalent
       val x_0 = Option(42);
       var envVar_1 = squid.lib.nullValue[Int->Double];
       if (x_0.isEmpty) scala.None

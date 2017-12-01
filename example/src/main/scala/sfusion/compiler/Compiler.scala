@@ -133,7 +133,7 @@ class Compiler extends Optimizer {
       case code"fold[String,String]($s)($z)((acc,s) => ${StringAccAdd(body)})" => // TODO generalize... (statements?!)
         val strAcc = code"?strAcc: StringBuilder"
         val body2 = body subs 'acc -> code"$strAcc.result"
-        val zadd = if (z =~= ir{""}) code"()" else code"$strAcc ++= $z" // FIXME does not compile when inserted in-line... why?
+        val zadd = if (z =~= code{""}) code"()" else code"$strAcc ++= $z" // FIXME does not compile when inserted in-line... why?
         code"val strAcc = new StringBuilder; $zadd; foreach($s){ s => strAcc ++= $body2.toString }; strAcc.result"
     }
     
