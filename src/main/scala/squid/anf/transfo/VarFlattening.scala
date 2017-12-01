@@ -32,8 +32,8 @@ trait VarFlattening extends SimpleRuleBasedTransformer { self =>
     
     // Removal of Var[Option[_]]
     case code"var $v: Option[$t] = $init; $body: $bt" =>
-      val isDefined = code"isDefined? : Var[Bool]"
-      val optVal = code"optVal? : Var[$t]"
+      val isDefined = code"?isDefined: Var[Bool]"
+      val optVal = code"?optVal: Var[$t]"
       
       // Note: applying sub-rewritings sch as `case ir"$$v.!.isDefined" =>` is not going to work well, because it will
       // not rewrite cases such as `var a = Option(42); val v = a; (v.isDefined, v.isDefined)`...
@@ -88,8 +88,8 @@ trait VarFlattening extends SimpleRuleBasedTransformer { self =>
       
     // Removal of Var[Tuple2[_]]
     case code"var $v: ($ta,$tb) = $init; $body: $bt" =>
-      val lhs = code"lhs? : Var[$ta]"
-      val rhs = code"rhs? : Var[$tb]"
+      val lhs = code"?lhs: Var[$ta]"
+      val rhs = code"?rhs: Var[$tb]"
       
       val body2 = body rewrite {
         case code"val $x = $$v.! ; $sbody: $bt" =>
@@ -118,7 +118,7 @@ trait VarFlattening extends SimpleRuleBasedTransformer { self =>
       
     // Removal of Var[Var[_]] in some special cases
     case code"var $v: Var[$t] = $init; $body: $bt" =>
-      val flatVar = code"flatVar? : Var[$t]"
+      val flatVar = code"?flatVar: Var[$t]"
       
       val body2 = body rewrite {
         case code"$$v.!.!" => code"$flatVar.!" // TODO genlze?

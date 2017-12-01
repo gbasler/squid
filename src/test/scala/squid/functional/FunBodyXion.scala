@@ -16,14 +16,14 @@ class FunBodyXion extends MyFunSuite {
     //println(body.rep extract ir"($$y: Int) + 1".rep)
     //println(ir"($$y: Int) + 1".rep extract body.rep)
     
-    assert(body =~= code"($$y: Int) + 1")
-    assert(!(body =~= code"($$x: Int) + 1"))
+    assert(body =~= code"(?y: Int) + 1")
+    assert(!(body =~= code"(?x: Int) + 1"))
     
     val bodyPart = body match {
       case code"($x: Int) + 1" => x
     }
-    assert(bodyPart =~= code"$$y: Int")
-    assert(!(bodyPart =~= code"$$x: Int"))
+    assert(bodyPart =~= code"?y: Int")
+    assert(!(bodyPart =~= code"?x: Int"))
     
   }
   

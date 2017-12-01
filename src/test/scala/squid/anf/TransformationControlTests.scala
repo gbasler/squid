@@ -150,23 +150,23 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Context Enlargement") {
     
-    var r = code"lol?:Double; List[Int]()"
+    var r = code"?lol:Double; List[Int]()"
     
     r = code"List[Int](readInt)" rewrite {
       case code"readInt" =>
-        Return(code"(lol? : Double).toInt")
+        Return(code"(?lol: Double).toInt")
         code"???"
     }
     
     assertDoesNotCompile("""
     r = code"List[Int](readInt)" rewrite {
       case code"readInt" =>
-        Return(code"(nope? : Double).toInt")
+        Return(code"(?nope: Double).toInt")
         code"???"
     }
     """) // Error:(126, 32) type mismatch; found: squid.anf.SimpleANFTests.DSL.IR[List[Int],Any{val nope: Double}]; required: TransformationControlTests.this.DSL.IR[List[Int],Any{val lol: Double}]
     
-    r eqt code"List[Int]((lol? : Double).toInt)"
+    r eqt code"List[Int]((?lol: Double).toInt)"
     
   }
   

@@ -152,9 +152,10 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
           val curid = uid alsoDo (uid += 1)
           val closedBody = body subs 'ClosureVar -> code"placeHolder[$xt](${Const(curid)})"
           val rec = unapply(closedBody)
+          import Predef.?
           def reopen[T,C](q: Code[T,C]): Code[T,C{val ClosureVar:xt.Typ}] = q rewrite {
             //case dbg_ir"squid.lib.placeHolder[$$xt](${Const(Curid)})" => ir"x?:$xt"  // FIXME `Curid` pat-mat...
-            case code"placeHolder[$$xt](${Const(id)})" if id == curid => code"ClosureVar?:$xt"
+            case code"placeHolder[$$xt](${Const(id)})" if id == curid => code"?ClosureVar:$xt"
           }
           
           rec match {

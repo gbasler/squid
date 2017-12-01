@@ -62,6 +62,9 @@ class QuasiMacros(val c: whitebox.Context) {
       }
   }
   
+  def deprecated(msg: String, since: String, warnInMacros: Bool = false) =
+    if (warnInMacros || !c.enclosingPosition.toString.startsWith("source-<macro>")) // don't warn if used within a macro (such as `assertCompiles`)
+      c.warning(c.enclosingPosition, s"$msg ($since)")
   
   def forward$(q: Tree*): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
@@ -69,9 +72,12 @@ class QuasiMacros(val c: whitebox.Context) {
   def forward$2(q: Tree): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$s,$c]($code)" => q"$qc.qcbase.$$[$t,$s,$c]($code)"
   }
-  def forward$$(name: Tree): Tree = c.macroApplication match {
-    case q"$qc.$$$$[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
-    case q"$qc.?[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
+  def forward$$(name: Tree): Tree = {
+    deprecated("The `$$[T]('x)` free variable syntax is deprecated; use syntax `(?x:T)` instead.", "0.2.0")
+    c.macroApplication match {
+      case q"$qc.$$$$[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
+      case q"$qc.?[$t]($n)" => q"$qc.qcbase.$$$$[$t]($n)"
+    }
   }
   
   
@@ -347,7 +353,8 @@ class QuasiMacros(val c: whitebox.Context) {
         q"$base.$$(..$args)"
         // ^ TODO remove this syntax
         
-      case t @ q"${Ident(tn: TermName)}?" => // better FV syntax; TODO migrate away from old syntax
+      case t @ q"${Ident(tn: TermName)}?" => // better FV syntax, old version
+        deprecated("The `x?` free variable syntax is deprecated; use syntax `?x` instead.", "0.2.0")
         if (!isUnapply) {
           holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
         }
@@ -372,6 +379,7 @@ class QuasiMacros(val c: whitebox.Context) {
           q"$base.$$(${TermName(bareName)})" // escaped unquote in unapply mode does a normal unquote
         }
         else { // !isUnapply
+          deprecated("The `$$x` free variable syntax is deprecated; use syntax `?x` instead.", "0.2.0")
           val tn = TermName(bareName)
           holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
           q"$base.$$$$(${Symbol(bareName)})"

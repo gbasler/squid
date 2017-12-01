@@ -1,6 +1,7 @@
 package squid
 package feature
 
+// Note that the original FreeVariables test class was also eventually ported to the new FV syntax!
 class FreeVariablesNewSyntax extends MyFunSuite {
   
   import TestDSL.Predef._
@@ -17,8 +18,8 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     assertDoesNotCompile("ir{ println(?.selectDynamic(42.toString)) }") // Error:(18, 7) Embedding Error: Free variable introduced with `?` should have a constant literal name.
     
     // Note: old FV syntax currently still works:
-    code"(x? : Int) + 1" eqt model
-    code"(x?:Int)+1"     eqt model
+    code"(?x: Int) + 1" eqt model
+    code"(?x:Int)+1"     eqt model
     
   }
   
@@ -91,8 +92,10 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     
   }
   
-  test("Syntax: Sticking the Semi") { // These cases test the previous "new" FV syntax `x?`
+  // Obsolete tests, to remove at some point:
+  test("Syntax: Sticking the Colon") { // These cases test the previous "new" FV syntax `x?`
     
+    assertCompiles("""
     code"x?: Int" eqt code"$$x: Int"
     code"x?: List[Int]" eqt code"$$x: List[Int]"
     code"$$x: Int Map String" eqt
@@ -102,6 +105,7 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     // ^ this yields:
     // Error:(79, 13) Embedding Error: Quoted expression does not type check: value Map is not a member of Int
     // Warning:(79, 13) It seems you tried to annotate a free variable with `:`, but this was interpreted as operator `?:` -- use a space to remove this ambiguity.
+    """)
     
     // Should raise warning: Warning:(81, 5) It seems you tried to annotate free variable `x` with `:`, which may have been interpreted as operator `?:` -- use a space to remove this ambiguity.
     assertDoesNotCompile(""" code"x?: Int Map String" """)
@@ -112,12 +116,12 @@ class FreeVariablesNewSyntax extends MyFunSuite {
   test("Free Variables in Patterns") {
     
     // TODO implement proper distinction between FVs and extraction holes!
-    //ir"x?:Int" matches {
-    //  case ir"y?: Int" => fail
-    //  case ir"x?: Int" =>
+    //ir"?x:Int" matches {
+    //  case ir"?y: Int" => fail
+    //  case ir"?x: Int" =>
     //} and {
-    //  case ir"(${ir"y? : Int"}:Int)+1" => fail
-    //  case ir"(${ir"x? : Int"}:Int)+1" =>
+    //  case ir"(${ir"?y: Int"}:Int)+1" => fail
+    //  case ir"(${ir"?x: Int"}:Int)+1" =>
     //}
     
     val X = code"?x : Int"

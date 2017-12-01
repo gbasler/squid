@@ -76,9 +76,9 @@ class Matching extends MyFunSuite {
   test("Free Variables") {
     
     //assert(ir"$$x" =~= ir"$$x") // Warning:(66, 12) Type inferred for hole 'x' was Nothing. Ascribe the hole explicitly to remove this warning.
-    assert(code"$$x:Nothing" =~= code"$$x:Nothing")
-    assert(code"$$x:Int" =~= code"$$x:Int")
-    assert(code"($$x:Int)+1" =~= code"($$x:Int)+1")
+    assert(code"?x:Nothing" =~= code"?x:Nothing")
+    assert(code"?x:Int" =~= code"?x:Int")
+    assert(code"(?x:Int)+1" =~= code"(?x:Int)+1")
     
   }
   
@@ -109,9 +109,9 @@ class Matching extends MyFunSuite {
         var yt : Int Code Any{val y: Int} = null
         yt = y // 'y' has ^ this exact type
         
-        eqt(y, code"$$y: Int", false) // 'y' is not a mere hole/FV, it's a term that will only extract exactly the corresponding original binder
+        eqt(y, code"?y: Int", false) // 'y' is not a mere hole/FV, it's a term that will only extract exactly the corresponding original binder
         eqt(b, code"$y + 1", false) // 'b' really has a FV instead of a bound reference to 'y'
-        eqt(b, code"($$y:Int) + 1")
+        eqt(b, code"(?y:Int) + 1")
         b match { case code"$$y + 1" => } // but the FV in 'b' remebers its original binder 
         b match { case code"$$y + ($c: Int)" => eqt(c, code"1") }
         code"readInt + 1" match { case code"$$y + 1" => fail  case code"($y:Int) + 1" => eqt(y, code"readInt") }

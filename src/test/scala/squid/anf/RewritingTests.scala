@@ -107,9 +107,9 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     def g(x: Code[_,{val n:Int;val m:Int}]) = x rewrite { case code"val n = readInt; n+1" => code"readDouble.toInt" }
     code"println(readInt+1)" |> g eqt code"println(readDouble.toInt)"
     code"val n = readInt; println(n+1)" |> g eqt code"println(readDouble.toInt)"
-    code"readInt; (m?:Int)+1" |> (a => a |> g eqt a)
-    code"readInt; (n?:Int)+1" |> (a => a |> g eqt a)
-    code"val x = readInt; (n?:Int)+1" |> (a => a |> g eqt a)
+    code"readInt; (?m:Int)+1" |> (a => a |> g eqt a)
+    code"readInt; (?n:Int)+1" |> (a => a |> g eqt a)
+    code"val x = readInt; (?n:Int)+1" |> (a => a |> g eqt a)
     
   }
   

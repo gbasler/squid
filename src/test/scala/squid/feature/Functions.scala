@@ -48,7 +48,7 @@ class Functions extends MyFunSuite {
     
     f match {
       case code"(x: Int, y: Symbol) => $body" =>
-        body subs 'x -> code"42" eqt code"42 + ($$y:Symbol).toString"
+        body subs 'x -> code"42" eqt code"42 + (?y:Symbol).toString"
     }
     f.erase match {
       case code"$f: ($t => String)" => fail

@@ -11,8 +11,8 @@ class FoldTupleVarOptims extends MyFunSuite(NormDSL) {
   
   test("Foldleft to foreach to while") {
     
-    val ls = code"$$ls: List[Int]"
-    val f = code"$$f: ((Int, Int) => Int)"
+    val ls = code"?ls: List[Int]"
+    val f = code"?f: ((Int, Int) => Int)"
     
     code"$ls.foldLeft(0)($f)" transformWith Optim eqt
     code"""

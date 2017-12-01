@@ -73,10 +73,10 @@ trait FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransfo
     
     case code"val $tup = Var($init: ($ta, $tb)); $body: $t" =>
       
-      val a = code"$$a: Var[$ta]"
-      val b = code"$$b: Var[$tb]"
+      val a = code"?a: Var[$ta]"
+      val b = code"?b: Var[$tb]"
       
-      //val (a,b) = (ir"$$a: Var[$ta]", ir"$$b: Var[$tb]") // FIXME rewrite brittleness
+      //val (a,b) = (ir"?a: Var[$ta]", ir"?b: Var[$tb]") // FIXME rewrite brittleness
       
       //val (ia,ib) = (ir"1",ir"2")
       //val (ia,ib) = init match { case ir"($a, $b)" => a -> b } // FIXME: Error:scala: unexpected UnApply
@@ -114,13 +114,13 @@ trait FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransfo
       //(ir"val u = 0; val v = 0; $newwBody2" rep) and (show(_)) // works
       //(ir"val a = Var[$ta](???); val b = Var[$tb](???); $newwBody2" rep) and (show(_)) // FIXME
       
-      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"while(true) { ($$a: Var[$ta]):= ??? }" }" rep) and (show(_)) // works
-      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"while(true) { ($$a: Var[$ta]):= ???;($$b: Var[$tb]):= ???; ($$a: Var[$ta])->($$b: Var[$tb]) }" }" rep) and (show(_)) // works
-      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"val a = $$a: Var[$ta]; val b = $$b: Var[$tb]; while(true) { a:= ???;b:= ???; a->b }" }" rep) and (show(_)) // works
+      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"while(true) { (?a: Var[$ta]):= ??? }" }" rep) and (show(_)) // works
+      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"while(true) { (?a: Var[$ta]):= ???;(?b: Var[$tb]):= ???; (?a: Var[$ta])->(?b: Var[$tb]) }" }" rep) and (show(_)) // works
+      //(ir"val a = Var[$ta](???); val b = Var[$tb](???); ${ ir"val a = ?a: Var[$ta]; val b = ?b: Var[$tb]; while(true) { a:= ???;b:= ???; a->b }" }" rep) and (show(_)) // works
       /*
-      //val a = $$a: Var[$ta]; val b = $$b: Var[$tb]
+      //val a = ?a: Var[$ta]; val b = ?b: Var[$tb]
       val nbTexto = ir"""{
-      val a = $$a: Var[Int]; val b = $$b: Var[Int]
+      val a = ?a: Var[Int]; val b = ?b: Var[Int]
   while ({
     val x_0: scala.Int = a.!;
     val x_1: scala.Int = b.!;

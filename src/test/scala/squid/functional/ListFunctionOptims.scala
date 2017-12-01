@@ -20,8 +20,8 @@ class ListFunctionOptims extends MyFunSuite(OptimTestDSL) {
   
   test ("Collapsing map & andThen chains") {
     
-    val ls = code"$$ls: List[Int]"
-    val f = code"$$f: (Int => Int)"
+    val ls = code"?ls: List[Int]"
+    val f = code"?f: (Int => Int)"
     
     eqt( code"$ls map $f map $f map (_ + 1)" , code"$ls map { x => $f( $f( x ) ) +1    }" )
     eqt( code"$ls map $f map (_ + 1) map $f" , code"$ls map { x => $f( $f( x )   +1 )  }" )

@@ -100,8 +100,8 @@ class Compiler extends Optimizer {
   val CtorInline = new Code.SelfTransformer with FixPointRuleBasedTransformer with TopDownTransformer {
     rewrite {
       case code"val $s = new Sequence[$ta]($under,$size); $body: $bt" =>
-        val underFV = code"under? : (() => impl.Producer[$ta])"
-        val sizeFV = code"size? : SizeInfo"
+        val underFV = code"?under: (() => impl.Producer[$ta])"
+        val sizeFV = code"?size: SizeInfo"
         val body2 = body rewrite {
           case code"$$s.under" => underFV
           case code"$$s.size" => sizeFV
@@ -120,7 +120,7 @@ class Compiler extends Optimizer {
     /** Extracts the right-hand side of some string addition starting with free variable `acc?:String`.
       * This is useful because currently pattern `acc + $x` cannot match something like `(acc + a) + b`. */
     object StringAccAdd {
-      val Acc = code"acc?:String"
+      val Acc = code"?acc:String"
       // ^ Note: inline `${ir"acc?:String"}` in the pattern is mistaken for an xtion hole (see github.com/LPTK/Squid/issues/11)
       def unapply[C](x:Code[Any,C]): Option[Code[Any,C]] = x match {
         case code"($Acc:String) + $rest" => Some(rest)
@@ -131,7 +131,7 @@ class Compiler extends Optimizer {
     
     rewrite {
       case code"fold[String,String]($s)($z)((acc,s) => ${StringAccAdd(body)})" => // TODO generalize... (statements?!)
-        val strAcc = code"strAcc? : StringBuilder"
+        val strAcc = code"?strAcc: StringBuilder"
         val body2 = body subs 'acc -> code"$strAcc.result"
         val zadd = if (z =~= ir{""}) code"()" else code"$strAcc ++= $z" // FIXME does not compile when inserted in-line... why?
         code"val strAcc = new StringBuilder; $zadd; foreach($s){ s => strAcc ++= $body2.toString }; strAcc.result"
@@ -167,7 +167,7 @@ class Compiler extends Optimizer {
         println(fun)
         //val fun2 = fun subs 'a -> Abort()
         //val fun2 = fun subs 'a -> ???
-        val fun2 = fun subs 'a -> code"(aVar? : Var[Option[$ta]]).!.get"
+        val fun2 = fun subs 'a -> code"(?aVar: Var[Option[$ta]]).!.get"
         // ^ TODO could save the 'a' along with the environment...
         // ... when more methods are pure/trivial, it may often happen (eg `stringWrapper` that makes String an IndexedSeq)
         

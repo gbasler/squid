@@ -71,8 +71,8 @@ class BlockExtrTests extends MyFunSuite(BlockExtrTests.DSL) {
         
         assert(cls.env =~= code"Nil.size" || cls.env =~= code"(Nil.size, readDouble)")
         
-        assert(cls.fun =~= code"(arg:Int) => (u: Int) => (xyz?:Int) + u + arg" || // Note: inserting `$xyz` instead of `(xyz?:Int)` does not work here
-          cls.fun =~= code"(arg:(Int,Double)) => (u: Int) => (xyz?:Int) + u + (arg._1 * (arg._2 + arg._1)).toInt")
+        assert(cls.fun =~= code"(arg:Int) => (u: Int) => (?xyz:Int) + u + arg" || // Note: inserting `$xyz` instead of `(?xyz:Int)` does not work here
+          cls.fun =~= code"(arg:(Int,Double)) => (u: Int) => (?xyz:Int) + u + (arg._1 * (arg._2 + arg._1)).toInt")
         
         import cls._
         

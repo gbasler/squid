@@ -108,7 +108,7 @@ class SimpleANFTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("FV Substitution") {
     
-    val open = code"println($$x)"
+    val open = code"println(?x)"
     
     val a = code"val x = 42; $open"
     a eqt code"println(42)"
@@ -121,7 +121,7 @@ class SimpleANFTests extends MyFunSuite(SimpleANFTests.DSL) {
       .effects.size == 3) // FIXME?
     
     
-    val c = code"() => ($$x: Unit)"
+    val c = code"() => (?x: Unit)"
     assert(bl(c).effects.isEmpty)
     
     val d = c subs 'x -> code"println(2.toDouble)"
@@ -260,11 +260,11 @@ class SimpleANFTests extends MyFunSuite(SimpleANFTests.DSL) {
     
     x match {
       case code"(x: Int) => $bo" =>
-        bo eqt code"println($$x: Int)"
+        bo eqt code"println(?x: Int)"
     }
     x match {
       case code"($x: Int) => $bo" =>
-        bo eqt code"println($$x: Int)"
+        bo eqt code"println(?x: Int)"
         bo match { case code"println($$x)" => }
     }
     

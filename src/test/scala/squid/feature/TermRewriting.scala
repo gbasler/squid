@@ -37,12 +37,12 @@ class TermRewriting extends MyFunSuite {
   
   test("Captures Free Variables in Type") {
     
-    val open = code"$$a: Int"
+    val open = code"?a: Int"
     
     val r = code"List(readInt)" rewrite {
       case code"readInt" => code"$open+1"
     }
-    eqt(r, code"List(($$a: Int)+1)")
+    eqt(r, code"List((?a: Int)+1)")
     r ofType[ List[Int] Code Any{val a: Int} ]()
     
   }
@@ -57,9 +57,9 @@ class TermRewriting extends MyFunSuite {
       r
     }
     
-    val r = insert(code"$$a: Int")
+    val r = insert(code"?a: Int")
     
-    eqt(r, code"List(($$a: Int)+1)")
+    eqt(r, code"List((?a: Int)+1)")
     r ofType[ List[Int] Code Any{val a: Int} ]()
     
   }
@@ -106,8 +106,8 @@ class TermRewriting extends MyFunSuite {
         code"val s = Symbol($str.reverse); ${(p:Code[Symbol,body.Ctx]) => code"$body+1"}(s)"
     }
     
-    foo(code"""println{val x = Symbol("ok"); (a?:Double).toInt}""") eqt
-        code"""println{val x = Symbol("ok".reverse); (a?:Double).toInt+1}"""
+    foo(code"""println{val x = Symbol("ok"); (?a:Double).toInt}""") eqt
+        code"""println{val x = Symbol("ok".reverse); (?a:Double).toInt+1}"""
     // Note: previous implem. used to generated a `lifted` let-binding introduced by automatic function lifting:
     //    ir"""println{val x = Symbol("ok".reverse); val lifted = x; (a?:Double).toInt+1}"""
     // But now automatic function lifting is paired with a call to tryInline, which removes that binding (good).

@@ -316,7 +316,7 @@ class PardisIRTests extends PardisTestSuite {
 
     sameDefs(ir{
       val x = 5.0
-      val x_3 = ${power(3, code"$$x : Double")}
+      val x_3 = ${power(3, code"?x : Double")}
     }, code"val x = 5.0; val x_3 = 1.0 * x * x * x")
   }
   
@@ -325,7 +325,7 @@ class PardisIRTests extends PardisTestSuite {
     
     sameDefs(ir{
       val n = ArrayBuffer(1)(0)
-      val r = $(mapLambda(code"$$n:Int")(x => SC.IntRep(x)+SC.unit(42)))
+      val r = $(mapLambda(code"?n:Int")(x => SC.IntRep(x)+SC.unit(42)))
       r/2
     }, ir{
       val m = ArrayBuffer(1)(0)

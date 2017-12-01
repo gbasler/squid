@@ -46,11 +46,11 @@ class TypeMatching extends MyFunSuite {
       case code"(y: Nothing) => $body: Double" =>
         assert(!(body =~= code"(${base.`internal Code`(base.hole("y", typeRepOf[Nothing]))}: Int).toDouble"))
         eqt(body, code"${base.`internal Code`[Int,{}](base.hole("y", typeRepOf[Int]))}.toDouble")
-        eqt(body, code"($$y: Int).toDouble")
+        eqt(body, code"(?y: Int).toDouble")
         
         // Note: `body` has type `IR[Double,{val y: Nothing}]` but internally has a hole typed `Int`.
         // This is okay and sound, as the following shows:
-        code"($$y:Int).toDouble" : Code[Double,{val y: Nothing}]
+        code"(?y:Int).toDouble" : Code[Double,{val y: Nothing}]
         
         assertDoesNotCompile(""" code"val y = 42; $body".run """) // Error:(48, 9) Embedding Error: Captured variable `y: Int` has incompatible type with free variable `y: Nothing` found in inserted IR $(body)
     }

@@ -75,9 +75,9 @@ class Antiquotation extends MyFunSuite {
     assertDoesNotCompile(""" ir{println($(seq:_*))} """) // Error:(87, 7) Quasiquote Error: Vararg splice unexpected in that position: ((seq): _*)
     assertDoesNotCompile(""" code"println(${seq:_*})" """) // Error:(87, 7) Quasiquote Error: Vararg splice unexpected in that position: ((seq): _*)
     
-    eqt(code"($$x:Int)+$x", code"($$x:Int)+1")
+    eqt(code"(?x:Int)+$x", code"(?x:Int)+1")
     
-    assert(code"($$x:Int, $$y:Int)".rep.extractRep(code"(1,2)".rep).get._1 === Map("x" -> code"1".rep, "y" -> code"2".rep))
+    assert(code"(?x:Int, ?y:Int)".rep.extractRep(code"(1,2)".rep).get._1 === Map("x" -> code"1".rep, "y" -> code"2".rep))
     assert(code"( $x,      $y    )".rep.extractRep(code"(1,2)".rep).get._1 === Map())
     
     code"List(1,2)" match { case code"List($$(x,y))" => }

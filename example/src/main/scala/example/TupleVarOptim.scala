@@ -29,14 +29,14 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
       
       //show(body)
       
-      val a = code"a? : Var[$ta]"
-      val b = code"b? : Var[$tb]"
+      val a = code"?a: Var[$ta]"
+      val b = code"?b: Var[$tb]"
       
       val isInitializedWithNull = init =~= code"null"  // TODO more precise?
       
       if (isInitializedWithNull) {
         
-        val isNull = code"isNull? : Var[Bool]"
+        val isNull = code"?isNull: Var[Bool]"
         var hasNull = isInitializedWithNull
         
         val body2 = body rewrite {
@@ -45,7 +45,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
             
           case code"($$tup !) == null" => ??? // ir"$isNull.!"
           // ^ For some reason, this (and other variants) never seems to match! Only the following does:
-          case code"($x:Any) == null" if x =~= code"v? : ($ta,$tb)" => code"$isNull.!"
+          case code"($x:Any) == null" if x =~= code"?v: ($ta,$tb)" => code"$isNull.!"
             
           case code"$$tup := ($va: $$ta, $vb: $$tb)" => code"$a := $va; $b := $vb; $isNull := false"
           case code"$$tup := $vab" => code"val n = $vab == null; if (!n) { $a := $vab._1; $b := $vab._2; $isNull := n }"

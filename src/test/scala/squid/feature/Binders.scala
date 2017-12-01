@@ -15,7 +15,7 @@ class Binders extends MyFunSuite {
       case code"val x = $init: Int; $body" =>
         eqt(init: Q[Int,{}], code"0")
         assert(init.trep <:< typeRepOf[Int])
-        eqt(body: Q[Int,{val x: Int}], code"($$x:Int)+1")
+        eqt(body: Q[Int,{val x: Int}], code"(?x:Int)+1")
         eqt(body.trep, typeRepOf[Int])
         body
     }
@@ -25,13 +25,13 @@ class Binders extends MyFunSuite {
     // ^ no more: removed ascription of the matched term when it was ascribing Any
     ap1.erase match {
       case ir"val x = $init: Int; $body" =>
-        eqt(body: Q[Any,{val x: Int}], ir"($$x:Int)+1")
+        eqt(body: Q[Any,{val x: Int}], ir"(?x:Int)+1")
         eqt(implicitTypeOf(body), typeRepOf[Any])
     }
     */
     
     val b2 = code"$b * 2"
-    eqt(b2, code"(($$x:Int)+1)*2")
+    eqt(b2, code"((?x:Int)+1)*2")
     
     assertDoesNotCompile(""" b2.run """) // Error:(26, 8) Cannot prove that AnyRef <:< Any{val x: Int}.
     
@@ -48,10 +48,10 @@ class Binders extends MyFunSuite {
         eqt(bodyt.rep, typeRepOf[String])
         eqt(a, code"String.valueOf(123456789)")
         eqt(b, code"3")
-        eqt(body, code"($$a:String) take $$b")
+        eqt(body, code"(?a:String) take (?b)")
     } and {
       case code"val a: $at = $a; val b: Int = $b; $body: $bodyt" =>
-        eqt(body, code"($$a:String) take $$b")
+        eqt(body, code"(?a:String) take (?b)")
     }
     
     
@@ -68,8 +68,8 @@ class Binders extends MyFunSuite {
     lam match { case code"(x => x * 2)" => }
     lam match { case code"(x => x * ($n: Int))" => eqt(n: Q[Int, {val x: Int}], code"2") }
     lam match { case code"((x: Int) => x * 2)" => }
-    lam match { case code"(x => $body)" => eqt(body, code"($$x:Int)*2") }
-    val b = lam match { case code"(x => $body: Int)" => eqt(body: Q[Int, {val x: Int}], code"($$x:Int)*2"); body }
+    lam match { case code"(x => $body)" => eqt(body, code"(?x:Int)*2") }
+    val b = lam match { case code"(x => $body: Int)" => eqt(body: Q[Int, {val x: Int}], code"(?x:Int)*2"); body }
     
     val b2 = code"$b * 2"
     
