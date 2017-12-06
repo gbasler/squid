@@ -82,7 +82,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     
     val recursive = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[RecRewrite])
     val RuleBasedTrans = if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer" :: tq"_root_.squid.ir.BottomUpTransformer" :: Nil
-      else tq"_root_.squid.ir.SimpleRuleBasedTransformer" :: tq"_root_.squid.ir.TopDownTransformer" :: Nil
+      else tq"_root_.squid.ir.SimpleRuleBasedTransformer" :: tq"_root_.squid.ir.BottomUpTransformer" :: Nil
     
     //val $transName = new _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {
     //val $transName: _root_.scp.ir.Transformer{val base: ${base.tpe} } = new _root_.scp.ir.SimpleTransformer {
