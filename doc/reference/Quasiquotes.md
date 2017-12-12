@@ -34,12 +34,11 @@ and `C` reflects the _context requirements_ of that term.
 ## Related Code Types
 
 Sometimes, you may not care about the context of a program fragment,
-in which case you can use the type `AnyCode[T]`,
-since we have the subtyping relation `Code[T,C] <: AnyCode[T]`.
-On the other hand,
-any term of type `AnyCode[T]`,
-can be _casted_ (converted) into a contextual term with the unsafe method `.unsafe_asClosedCode` 
-–– this cast is only well-defined if the simple term does not have free variables (i.e., it is a _closed_ term).
+in which case you can use the type `OpenCode[T]`, a synonym for `Code[T,Nothing]`
+(so we have the subtyping relation `Code[T,C] <: OpenCode[T]`).
+Any term of type `OpenCode[T]`,
+can be _cast_ (converted) into a closed term with the unsafe method `.unsafe_asClosedCode` 
+–– this cast is only well-defined if the term does not have any free variables (i.e., it is effectively a _closed_ term).
 This conversion returns a `ClosedCode[T]`, 
 which is itself a type alias for `Code[T,Any]` (a piece of code valid in **any** context).
 We will sometimes write `Code[T,{}]` for aesthetic reasons, 
@@ -242,7 +241,7 @@ This yield type representation values `t` of type `CodeType[t.Typ]`.
 For example:
 
 ```scala
-def opt(x: AnyCode[Any]) = x match {
+def opt(x: OpenCode[Any]) = x match {
   case code"List[$t]($xs*).size" => Const(xs.size)
   case _ => x
 }

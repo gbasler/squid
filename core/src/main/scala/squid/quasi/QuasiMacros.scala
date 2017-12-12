@@ -274,12 +274,14 @@ class QuasiMacros(val c: whitebox.Context) {
             // if we don't do that, the expected type we want to coerce to will be propagated all the way inside the 
             // unquote, and the coercion would have to happen outside of the shallow program! (not generally possible)
             
+            def dep = deprecated("Insertion of AnyCode terms is unsafe and deprecated.", "0.2.0")
+            
             // TODO: also handle auto-lifted function types of greater arities...
             t.tpe match {
               case AsCode(typ, ctx) => q"$base.$$[$typ,$ctx]($t)"
               case AsFun(AsCode(t0,ctx0), AsCode(tr,ctxr)) => q"$base.$$[$t0,$tr,$ctx0 with $ctxr]($t)"
-              case AsAnyCode(typ) => q"$base.$$Code[$typ]($t)"
-              case AsFun(AsAnyCode(t0), AsAnyCode(tr)) => q"$base.$$Code[$t0,$tr]($t)"
+              case AsAnyCode(typ) => dep; q"$base.$$Code[$typ]($t)"
+              case AsFun(AsAnyCode(t0), AsAnyCode(tr)) => dep; q"$base.$$Code[$t0,$tr]($t)"
               case _ => q"$base.$$($t)"
             }
             

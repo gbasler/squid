@@ -10,7 +10,7 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     
     import TestDSL.Quasicodes._
     
-    val model = code"${base.AnyCode[Int](base.freeVar("x",typeRepOf[Int]))} + 1"
+    val model = code"${base.Code[Int,Nothing](base.freeVar("x",typeRepOf[Int]))} + 1"
     code"(?x : Int) + 1" eqt model
     code{(?x : Int) + 1} eqt model
     
