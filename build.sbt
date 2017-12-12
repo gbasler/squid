@@ -41,10 +41,6 @@ lazy val main = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "squid"
-  ).
-  settings(
-    // other settings here
-    addCommandAlias("bench", "benchmark/run"): _*
   )
 
 lazy val core = (project in file("core")).
@@ -68,22 +64,6 @@ lazy val core_macros = (project in file("core_macros")).
     name := "squid-core-macros",
     libraryDependencies += scalaVersion("org.scala-lang" % "scala-reflect" % _).value
   )
-
-lazy val benchmark = (project in file("benchmark")).
-  settings(commonSettings: _*).
-  settings(
-    
-    // ScalaMeter (http://scalameter.github.io/home/gettingstarted/0.7/sbt/index.html)
-    libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.7"),
-    //libraryDependencies ++= Seq("com.storm-enroute" %% "scalameter" % "0.8-SNAPSHOT"),
-    fork := true // otherwise runs of the compiler won't find macro definitions 
-    /*,
-    resultDir := ""*/
-    
-    //testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
-    //parallelExecution in Test := false
-  ).
-  dependsOn(main)
 
 
 val SCVersion = "0.1.4-SNAPSHOT"
