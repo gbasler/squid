@@ -23,6 +23,13 @@ lazy val commonSettings = Seq(
       if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)
       else Nil
     ),
+  libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.3" % "test" cross CrossVersion.full,
+  sourceGenerators in Test += Def.task {
+    val file = (sourceManaged in Test).value / "amm.scala"
+    IO.write(file, """object amm extends App { ammonite.Main().run() }""")
+    Seq(file)
+  }.taskValue,
+  offline := true,
   publishArtifact in packageDoc := !squidIsSnapshot // publishing doc is super slow -- don't do it for snapshots to ease development
 ) ++ publishSettings
 lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }

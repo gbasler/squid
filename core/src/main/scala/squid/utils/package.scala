@@ -2,8 +2,11 @@ package squid
 
 package object utils {
   
+  /** We have Int instead of Integer; why not Bool instead of Boolean? */
   type Bool = Boolean
   
+  /** Dotty syntax for intersection types */
+  type & [+A,+B] = A with B
   
   import scala.language.existentials
   type ? = t forSome{type t}
