@@ -177,7 +177,9 @@ self: Base =>
   def typeRepOf[T: CodeType] = implicitly[CodeType[T]].rep
   
   
+  
   val Predef  = new Predef[DefaultQuasiConfig]
+  
   class Predef[QC <: QuasiConfig] {
     val base: self.type = self // macro expansions will make reference to it
     
@@ -260,6 +262,25 @@ self: Base =>
     
     implicit def unliftFun[A,B:CodeType,C](f: Code[A => B,C]): Code[A,C] => Code[B,C] = a => Code(tryInline(f.rep,a.rep)(typeRepOf[B]))
   }
+  
+  
+  /** For easier migration from code bases that used the old `IR`-named interfaces */
+  val LegacyPredef = new LegacyPredef{}
+  
+  trait LegacyPredef {
+    
+    type IR[+T,-C] = Code[T,C]
+    type IRType[T] = CodeType[T]
+    val IRType = CodeType
+    def irTypeOf[T: CodeType] = implicitly[CodeType[T]]
+    
+    /** This is to remove warnings due to use of `ir` interpolators instead of `code`;
+      * Note that if both this and the original one from SuppressWarning, the implicit will be ambiguous and the warning
+      * will still be reported... */
+    implicit def `use of ir instead of code` = SuppressWarning.`use of ir instead of code`
+    
+  }
+  
   
   def `internal abort`(msg: String): Nothing = throw RewriteAbort(msg)
   
@@ -438,8 +459,15 @@ object QuasiBase {
 class Extracted extends StaticAnnotation
 
 object SuppressWarning {
-  implicit object `scrutinee type mismatch`
+  implicit def `scrutinee type mismatch` = Warnings.`scrutinee type mismatch`
+  implicit def `use of ir instead of code` = Warnings.`use of ir instead of code`
 }
+object Warnings {
+  // Note: these cannot be defined inside `SuppressWarning` or Scala will find them without having to import them!
+  object `scrutinee type mismatch`
+  object `use of ir instead of code`
+}
+
 
 
 

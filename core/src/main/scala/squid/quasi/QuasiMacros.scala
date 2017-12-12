@@ -63,9 +63,12 @@ class QuasiMacros(val c: whitebox.Context) {
       }
   }
   
-  def deprecated(msg: String, since: String, warnInMacros: Bool = false) =
+  def deprecated(msg: String, since: String, disableOnImplicit: Type = NoType, warnInMacros: Bool = false) =
+    if (disableOnImplicit == NoType || c.inferImplicitValue(disableOnImplicit).isEmpty)
     if (warnInMacros || !c.enclosingPosition.toString.startsWith("source-<macro>")) // don't warn if used within a macro (such as `assertCompiles`)
-      c.warning(c.enclosingPosition, s"$msg ($since)")
+      c.warning(c.enclosingPosition, s"$msg (since $since)")
+  
+  lazy val `use of ir instead of code` = typeOf[Warnings.`use of ir instead of code`.type]
   
   def forward$(q: Tree*): Tree = c.macroApplication match {
     case q"$qc.$$[$t,$c](..$code)" => q"$qc.qcbase.$$[$t,$c](..$code)"
@@ -82,7 +85,8 @@ class QuasiMacros(val c: whitebox.Context) {
   }
   
   def isQQInterpolators(str: String) = {
-    if (deprecated_qqInterpolators(str)) deprecated(s"Use the `code` quasiquote/quasicode interpolator instead of the deprecated `$str`.", "0.2.0")
+    if (deprecated_qqInterpolators(str)) 
+      deprecated(s"Use the `code` quasiquote/quasicode interpolator instead of the deprecated `$str`.", "0.2.0", `use of ir instead of code`)
     qqInterpolators(str)
   }
   
