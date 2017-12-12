@@ -21,13 +21,13 @@ class TermRewriting extends MyFunSuite {
   
   test("Rewrite is Top-Down") {
     
-    eqt(code"println(5)" rewrite {
+    eqt(code"println(5)" topDown_rewrite {
       case code"${Const(n)}: Int" if n > 1 =>
         if (n % 2 == 0) code"${Const(n/2)} + ${Const(n/2)}"
         else code"${Const(n/2)} + ${Const(n/2 + 1)}"
     }, code"println { (1:Int).+(1:Int).+((1:Int).+((1:Int).+(1:Int))) }") // Ascriptions to prevent Scala from folding the constants
     
-    eqt(code"List(1,2)" rewrite {
+    eqt(code"List(1,2)" topDown_rewrite {
       case code"1" => code"readInt"
       case code"2" => code"readInt"
       case code"List(readInt,readInt)" => code"Nil"
@@ -68,7 +68,7 @@ class TermRewriting extends MyFunSuite {
     
     val one = code"1"
     
-    code"(1,2,3,4,5)" rewrite {
+    code"(1,2,3,4,5)" topDown_rewrite {
       case code"${Const(n)}: Int" =>
         if (n % 2 != 0) throw RewriteAbort("Not even!")
         code"${Const(n/2)}+${Const(n/2)}"

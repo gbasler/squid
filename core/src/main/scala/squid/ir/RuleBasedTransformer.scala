@@ -3,7 +3,7 @@ package ir
 
 import squid.lang.Base
 import squid.lang.InspectableBase
-import squid.lang.RecRewrite
+import squid.lang.{RecRewrite,TopDownRewrite}
 import squid.quasi.EmbeddingException
 import squid.quasi.QuasiBase
 import squid.utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
@@ -81,8 +81,11 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     debug("outputContext:",outputContext)
     
     val recursive = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[RecRewrite])
-    val RuleBasedTrans = if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer" :: tq"_root_.squid.ir.BottomUpTransformer" :: Nil
-      else tq"_root_.squid.ir.SimpleRuleBasedTransformer" :: tq"_root_.squid.ir.BottomUpTransformer" :: Nil
+    val topDown = c.macroApplication.symbol.annotations.exists(_.tree.tpe <:< typeOf[TopDownRewrite])
+    val RuleBasedTrans = 
+      (if (recursive) tq"_root_.squid.ir.FixPointRuleBasedTransformer" else tq"_root_.squid.ir.SimpleRuleBasedTransformer") ::
+      (if (topDown) tq"_root_.squid.ir.TopDownTransformer" else tq"_root_.squid.ir.BottomUpTransformer") ::
+      Nil
     
     //val $transName = new _root_.scp.ir.SimpleRuleBasedTransformer with _root_.scp.ir.TopDownTransformer {
     //val $transName: _root_.scp.ir.Transformer{val base: ${base.tpe} } = new _root_.scp.ir.SimpleTransformer {

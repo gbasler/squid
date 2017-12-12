@@ -85,7 +85,7 @@ trait FoldTupleVarOptim extends FixPointRuleBasedTransformer with TopDownTransfo
       val initComps = tuple2Components(init)
       //show(initComps) // initComps =	Some((ir"1",ir"0")) : Option[scp.utils.->[FoldTupleVarOptim.this.base.Predef.IR[ta,<context @ 49:10>],FoldTupleVarOptim.this.base.Predef.IR[tb,<context @ 49:10>]]]
       
-      val newBody = body rewrite {
+      val newBody = body topDown_rewrite {
         case code"($$tup !)._1" => code"$a !"
         case code"($$tup !)._2" => code"$b !"
         case code"$$tup := ($va: $$ta, $vb: $$tb)" => code"$a := $va; $b := $vb"

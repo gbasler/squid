@@ -30,7 +30,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   test("Predef.Return") {
     
     val a = code"println(12.toDouble); println(identity(42)+1); 666"
-    val b = a rewrite {
+    val b = a topDown_rewrite {
       case code"($x:Int)+($y:Int)" =>
         Return(code"$x+$y")
       case code"(${Const(n)}:Int)" => Const(n+1)
@@ -43,7 +43,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Predef.Return.transforming trivial expression") {
     
-    def f(rep: Code[_,{}]) = rep rewrite {
+    def f(rep: Code[_,{}]) = rep topDown_rewrite {
       case code"ArrayBuffer($x:Int,$y:Int)" =>
         Return.transforming(x)(x => code"ArrayBuffer($x,$y)")
       case code"(${Const(n)}:Int)" => Const(n+1)
@@ -53,14 +53,14 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     f(code"ArrayBuffer(50,60);println") eqt code"ArrayBuffer(51,60);println"
     f(code"val a = ArrayBuffer(50,60);println(a)") eqt code"val a = ArrayBuffer(51,60);println(a)"
     
-     val a0 = code"ArrayBuffer(50,60,70)" rewrite {
+     val a0 = code"ArrayBuffer(50,60,70)" topDown_rewrite {
       case code"ArrayBuffer[Int]($x,$y,$z)" =>
         Return.transforming(x,z)((x,z) => code"ArrayBuffer($x,$x,$y,$y,$z,$z)")
       case code"(${Const(n)}:Int)" => Const(n+1)
     }
     a0 eqt code"ArrayBuffer(51,51,60,60,71,71)"
     
-     val a1 = code"ArrayBuffer(50,60,70)" rewrite {
+     val a1 = code"ArrayBuffer(50,60,70)" topDown_rewrite {
       case code"ArrayBuffer[Int]($x,$y,$z)" =>
         //Return.transforming(x::z::Nil)(_ |>! {case x::z::Nil => ir"ArrayBuffer($x,$x,$y,$y,$z,$z)"}) // probably does not compile because of the patmat
         Return.transforming(x::z::Nil){ls => val x = ls(0); val z = ls(1); code"ArrayBuffer($x,$x,$y,$y,$z,$z)"}
@@ -74,7 +74,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     
     {
       val a = code"println; println(if(true) println(42.toDouble) else println(666.toDouble))"
-      val b = a rewrite {
+      val b = a topDown_rewrite {
         case code"if($cond)$thn else $els: $t" =>
           Return.transforming(els)(e => code"if($cond)$thn else $e")
         case code"(${Const(n)}:Int)" => Const(n+1)
@@ -84,7 +84,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     
     {
       val a = code"println; if(readInt>0) println(42.toDouble,true) else println(666.toDouble,true); println(true)"
-      val b = a rewrite {
+      val b = a topDown_rewrite {
         case code"true" => code"false"
         case code"if(readInt>0)$thn else $els: $t" =>
           Return.transforming(els)(e => code"if(true) $e else $thn")
@@ -97,7 +97,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     {
       //val a = ir"readDouble; print(true.toString); readInt; println(true)"
       val a = code"readDouble; print(true.toString); val x = readInt; if (true) println(x)"
-      val b = a rewrite {
+      val b = a topDown_rewrite {
         case code"true" => code"false"
         //case ir"print($x)" => // does not produce several statements, so does not trigger the case we're testing
         case code"print(($x:Boolean).toString)" =>
@@ -112,7 +112,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Predef.Return.recursing") {
     
-    def f(x: Code[_,{}]) = x rewrite {
+    def f(x: Code[_,{}]) = x topDown_rewrite {
       case code"val x: Int = $init; readInt+1; $body: $bt" =>
         Return.recursing { tr => val b = tr(body); code"val x: Int = $init; readInt; $b" }
       case code"readInt" => code"???"
@@ -120,7 +120,7 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     code"readInt; val n = readInt; readInt+1; readInt; print(n)" |> f eqt 
       code"???; val n = readInt; readInt; ???; print(n)"
     
-    def g(x: Code[_,{}]) = x  rewrite {
+    def g(x: Code[_,{}]) = x  topDown_rewrite {
       case code"val x: Int = $init; readInt; $body: $bt" =>
         Return.recursing { tr => val b = tr(body); code"val x: Int = $init; readDouble; $b" }
       case code"readInt" => code"???"
@@ -139,11 +139,11 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
       code"val n = readInt; readDouble; val m = readInt; readDouble; print(m); ??? : Int"
     
     // Shorter example:
-    code"val a = readInt; val b = readInt; print(a)" rewrite { case code"val x = readInt; $body: $bt" => Return.transforming(body)(body => code"val x = readDouble.toInt; $body") } eqt
+    code"val a = readInt; val b = readInt; print(a)" topDown_rewrite { case code"val x = readInt; $body: $bt" => Return.transforming(body)(body => code"val x = readDouble.toInt; $body") } eqt
     code"val a = readDouble.toInt; val b = readDouble.toInt; print(b)"
     
     // While the version with implicit recursion does not have the problem: 
-    code"val a = readInt; val b = readInt; print(a)" rewrite { case code"val x = readInt; $body: $bt" => code"val x = readDouble.toInt; $body" } eqt
+    code"val a = readInt; val b = readInt; print(a)" topDown_rewrite { case code"val x = readInt; $body: $bt" => code"val x = readDouble.toInt; $body" } eqt
     code"val a = readDouble.toInt; val b = readDouble.toInt; print(a)"
     
   }

@@ -84,10 +84,18 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     /** Note: this is only a top-level call to `base.extractRep`; not supposed to be called in implementations of `extract` itself */
     def extractRep(that: Code[_,_]) = self.rep extractRep that.rep
     
-    // TODO take the Transformer as an implicit (w/ default arg?) -- currently it arbitrarily uses a new SimpleRuleBasedTransformer with TopDownTransformer
+    // TODO: a facility to more modularly compose 'bottomUp', 'topDown' and 'fixedPoint' transformer modifiers
+    //       it should be possible to define a set of utility traits so one can use a syntax like `t.topDown.fixPoint.rewrite{ ... }`
+    //       note: could also base the option on an implicit, but that would probably be less convenient
     def rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
-    @MacroSetting(debug = true) def dbg_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
-    @RecRewrite def fix_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
+    @MacroSetting(debug = true) 
+    def dbg_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
+    @RecRewrite 
+    def fix_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
+    @TopDownRewrite 
+    def topDown_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
+    @TopDownRewrite @RecRewrite 
+    def fix_topDown_rewrite(tr: Code[Any,utils.UnknownContext] => Code[Any,_]): Code[T,_ <: C] = macro ir.RuleBasedTransformerMacros.termRewrite
     
     @inline final def analyse(pf: PartialFunction[Code[T,_ <: C],Unit]): Unit = analyseTopDown(pf)
     def analyseTopDown(pf: PartialFunction[Code[T,_ <: C],Unit]): Unit = 
@@ -183,5 +191,6 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
 }
 
 private[squid] class RecRewrite extends StaticAnnotation
+private[squid] class TopDownRewrite extends StaticAnnotation
 
 

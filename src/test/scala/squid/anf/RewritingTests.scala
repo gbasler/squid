@@ -27,7 +27,7 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
   test("Rewriting Sequences of Bindings") {
     
     val a = code"val aaa = readInt; val bbb = readDouble.toInt; aaa+bbb"  // FIXMElater: why isn't name 'bbb' conserved?
-    val b = a rewrite {
+    val b = a topDown_rewrite {
       case code"readDouble.toInt" =>
         code"readInt"
     }
@@ -35,7 +35,7 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
     
     {
       val a = code"val a = 11.toDouble; val b = 22.toDouble; val c = 33.toDouble; (a,b,c)"
-      val c = a rewrite {
+      val c = a topDown_rewrite {
         case code"val a = ($x:Int).toDouble; val b = ($y:Int).toDouble; $body: $bt" =>
           code"val a = ($x+$y).toDouble/2; val b = a; $body"
       }
@@ -85,13 +85,13 @@ class RewritingTests extends MyFunSuite(SimpleANFTests.DSL) {
   
   test("Rewriting named effects") {
     
-    def f(x: Code[_,{}]) = x rewrite { case code"readInt; readInt" => code"42" }
+    def f(x: Code[_,{}]) = x topDown_rewrite { case code"readInt; readInt" => code"42" }
     code"val n = readInt; val m = readInt; println" |> f eqt code"println"
     code"val n = readInt; val m = readInt; println(m)" |> f eqt code"println(42)"
     code"val n = readInt; val m = readInt; println(m+n)" |> (a => a |> f eqt a)
     
     // Should also work with early return!
-    def g(x: Code[_,{}]) = x rewrite { case code"readInt; readInt" => Return(code"readInt; readInt+1") }
+    def g(x: Code[_,{}]) = x topDown_rewrite { case code"readInt; readInt" => Return(code"readInt; readInt+1") }
     code"val n = readInt; val m = readInt; print(n+m)" |> (a => a |> g eqt a)
     code"val n = readInt; val m = readInt; print(n+m); readInt; readInt" |> g eqt
       code"val n = readInt; val m = readInt; print(n+m); readInt; readInt+1"

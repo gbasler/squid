@@ -39,7 +39,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         val isNull = code"?isNull: Var[Bool]"
         var hasNull = isInitializedWithNull
         
-        val body2 = body rewrite {
+        val body2 = body topDown_rewrite {
           case code"($$tup !)._1" => code"assert(!$isNull.!); $a !"
           case code"($$tup !)._2" => code"assert(!$isNull.!); $b !"
             
@@ -59,7 +59,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         
       } else {
           
-        val body2 = body rewrite {
+        val body2 = body topDown_rewrite {
           case code"($$tup !)._1" => code"$a !"
           case code"($$tup !)._2" => code"$b !"
           case code"$$tup := ($va: $$ta, $vb: $$tb)" => code"$a := $va; $b := $vb"
@@ -82,7 +82,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
     // Note: this should be moved to another class; it is useless when tuple ops are viewed by ANF as trivial (then one wants TupleNormalization instead)
     case code"val $tup = ($a: $ta, $b: $tb); $body: $t" => // assume ANF, so that a/b are trivial
       
-      val newBody = body rewrite {
+      val newBody = body topDown_rewrite {
         case code"$$tup._1" => code"$a"
         case code"$$tup._2" => code"$b"
         case code"$$tup == null" => code"false"
