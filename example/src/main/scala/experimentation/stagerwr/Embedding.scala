@@ -27,7 +27,7 @@ object Embedding
     with transfo.EqualityNormalizer 
   {
     import base.Predef._
-    import Strm._
+    //import Strm._
     rewrite {
       //case ir"(if ($c) $thn else $els : Strm[$ta])"
       case code"identity[$xt]($x)" => x
@@ -35,7 +35,7 @@ object Embedding
   }
   def pipeline = Desug.pipeline andThen Norm.pipeline
   
-  embed(Strm)
+  //embed(Strm)
   
   
   //intWrapper(0)

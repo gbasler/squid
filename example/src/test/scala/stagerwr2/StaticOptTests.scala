@@ -1,8 +1,9 @@
 package stagerwr2
 
-object StaticOptTestsOptimizer extends squid.StaticOptimizer[stagerwr2.compiler.Compiler]
+//object StaticOptTestsOptimizer extends squid.StaticOptimizer[stagerwr2.compiler.Compiler]
+//import StaticOptTestsOptimizer.{dbg_optimize, optimize, optimizeAs}
+import stagerwr.MyOptimizer.{optimize, dbg_optimize, optimizeAs}
 
-import StaticOptTestsOptimizer.{dbg_optimize, optimize, optimizeAs}
 import squid.DumpFolder
 
 /**

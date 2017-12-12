@@ -7,6 +7,7 @@ import squid.quasi.{phase, embed}
 
 @embed object Test { @phase('MyPhase) def foo[T](xs: List[T]) = xs.head }
 
+// See: /README.md
 object IntroExample extends App {
   
   object Embedding extends SimpleANF with StandardEffects {

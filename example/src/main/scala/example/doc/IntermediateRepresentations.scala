@@ -3,6 +3,7 @@ package example.doc
 import squid.lib.transparencyPropagating
 import squid.lib.transparent
 
+// See: /doc/Intermediate_Representations.md
 object IntermediateRepresentations extends App {
   
   import squid.ir.{SchedulingANF, StandardEffects}
