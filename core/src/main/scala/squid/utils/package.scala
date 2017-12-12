@@ -3,7 +3,7 @@ package squid
 package object utils {
   
   /** An alternative to scala.Nothing that does not have the bad interaction with type inference and implicits. */
-  type Bottom <: Nothing
+  type Bottom <: Nothing // Note: the lower bound >: Nothing seems to be implicitly assumed by the Scala type checker
   
   /** We have Int instead of Integer; why not Bool instead of Boolean? */
   type Bool = Boolean

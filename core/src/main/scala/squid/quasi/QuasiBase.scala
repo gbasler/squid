@@ -92,7 +92,7 @@ self: Base =>
     def unapply[T](c: AnyCode[T]): Option[Rep] = Some(c.rep)
   }
   
-  type OpenCode[+T] = Code[T,Nothing]
+  type OpenCode[+T] = Code[T,Bottom]
   type ClosedCode[+T] = Code[T,Any]
   
   object Code {
