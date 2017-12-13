@@ -23,7 +23,10 @@ class TransformationControlTests extends MyFunSuite(SimpleANFTests.DSL) {
     f(c0) eqt c0
     f(code"val a = ArrayBuffer[Int](1,2,3); println('ok)") eqt code"println('ok)"
     
-    intercept[IllegalAccessError](Abort()) // warns: method Abort in class Predef is deprecated: Abort(msg) should only be called from the body of a rewrite rule. If you want to abort a rewriting from a function called in the rewrite rule body, use `throw RewriteAbort(msg)` instead.
+    intercept[RewriteAbort](base.`internal abort`("test"))
+    
+    // Note: cannot actually test this compilation error, which is raised too late in the compilation toolchain:
+    //assertDoesNotCompile("""Abort()""") // error: Abort(msg) should only be called from the body of a rewrite rule. If you want to abort a rewriting from a function called in the rewrite rule body, use `throw RewriteAbort(msg)` instead.
     
   }
   

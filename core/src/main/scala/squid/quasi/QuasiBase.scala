@@ -206,36 +206,29 @@ self: Base =>
     //  val b = base.asInstanceOf[base.type with IntermediateBase]
     //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.CodeType[T]]) }
     
-    // Could also use compileTimeOnly here:
-    @deprecated("Abort(msg) should only be called from the body of a rewrite rule. " +
+    @compileTimeOnly("Abort(msg) should only be called from the body of a rewrite rule. " +
       "If you want to abort a rewriting from a function called in the rewrite rule body, " +
-      "use `throw RewriteAbort(msg)` instead.", "0.1.1")
+      "use `throw RewriteAbort(msg)` instead.")
     def Abort(msg: String = ""): Nothing = throw new IllegalAccessError("Abort was called outside a rewrite rule!")
     
     object Return {
-      private def oops = System.err.println("Return was called outside a rewrite rule!")
-      def apply[T,C](x: Code[T,C]): Code[T,C] = {
-        oops
-        x
-      }
-      def transforming[A,CA,T,C](a: Code[A,CA])(f: Code[A,CA] => Code[T,C]): Code[T,C] = {
-        oops
-        f(a)
-      }
-      def transforming[A,CA,B,CB,T,C](a: Code[A,CA], b: Code[B,CB])(f: (Code[A,CA], Code[B,CB]) => Code[T,C]): Code[T,C] = {
-        oops
-        f(a,b)
-      }
-      def transforming[A,CA,B,CB,D,CD,T,C](a: Code[A,CA], b: Code[B,CB], d: Code[D,CD])(f: (Code[A,CA], Code[B,CB], Code[D,CD]) => Code[T,C]): Code[T,C] = {
-        oops
-        f(a,b,d)
-      }
-      def transforming[A,CA,T,C](as: List[Code[A,CA]])(f: List[Code[A,CA]] => Code[T,C]): Code[T,C] = {
-        oops
-        f(as)
-      }
+      @compileTimeOnly("Return cannot be called outside of a rewrite rule.")
+      def apply[T,C](x: Code[T,C]): Code[T,C] = x
+      
+      @compileTimeOnly("Return.transforming cannot be called outside of a rewrite rule.")
+      def transforming[A,CA,T,C](a: Code[A,CA])(f: Code[A,CA] => Code[T,C]): Code[T,C] = f(a)
+      
+      @compileTimeOnly("Return.transforming cannot be called outside of a rewrite rule.")
+      def transforming[A,CA,B,CB,T,C](a: Code[A,CA], b: Code[B,CB])(f: (Code[A,CA], Code[B,CB]) => Code[T,C]): Code[T,C] = f(a,b)
+      
+      @compileTimeOnly("Return.transforming cannot be called outside of a rewrite rule.")
+      def transforming[A,CA,B,CB,D,CD,T,C](a: Code[A,CA], b: Code[B,CB], d: Code[D,CD])(f: (Code[A,CA], Code[B,CB], Code[D,CD]) => Code[T,C]): Code[T,C] = f(a,b,d)
+      
+      @compileTimeOnly("Return.transforming cannot be called outside of a rewrite rule.")
+      def transforming[A,CA,T,C](as: List[Code[A,CA]])(f: List[Code[A,CA]] => Code[T,C]): Code[T,C] = f(as)
+      
+      @compileTimeOnly("Return.recursing cannot be called outside of a rewrite rule.")
       def recursing[T,C](cont: Transformer{val base: self.type} => Code[T,C]): Code[T,C] = {
-        oops
         cont(new Transformer { // Dummy transformer that doesn't do anything
           override def transform(rep: base.Rep) = rep
           override val base: self.type with InspectableBase = self.asInstanceOf[self.type with InspectableBase]
