@@ -7,7 +7,6 @@ import squid.lang._
 import squid.anf.analysis
 import squid.anf.transfo
 import example.VarNormalizer
-import squid.quasi.SimpleReps // TODO move to main Squid
 
 /**
   * Created by lptk on 13/06/17.
@@ -17,7 +16,6 @@ object Embedding
   extends squid.ir.SchedulingANF
   with ScalaCore
   with ClassEmbedder with OnlineOptimizer with analysis.BlockHelpers with StandardEffects
-  with SimpleReps
 {
   object Desug extends Desugaring
   object Norm extends SelfTransformer with transfo.StandardNormalizer

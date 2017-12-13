@@ -3,7 +3,6 @@ package stagerwr
 import squid.utils._
 
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep => Code, _}
 import Embedding.Quasicodes._
 import squid.lib.{transparent,transparencyPropagating}
 
