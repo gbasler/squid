@@ -29,9 +29,6 @@ object Norm extends CST with VarNormalizer with squid.anf.transfo.LogicNormalize
 object DeTupFix extends Code.TransformerWrapper(DeTup) with FixPointTransformer
 object DeTupNormFix extends Code.TransformerWrapper(DeTup,Norm) with FixPointTransformer
 
-/**
-  * Created by lptk on 01/02/17.
-  */
 class TupleVarTests extends MyFunSuite(Code) {
   
   test("Recursive Detupling") {

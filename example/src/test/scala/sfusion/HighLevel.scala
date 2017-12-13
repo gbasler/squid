@@ -17,9 +17,6 @@ package sfusion
 import org.scalatest.FunSuite
 import squid.ir.ClassEmbedder
 
-/**
-  * Created by lptk on 07/02/17.
-  */
 class HighLevel extends FunSuite {
   import Sequence._
   

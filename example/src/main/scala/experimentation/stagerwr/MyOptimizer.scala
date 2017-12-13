@@ -6,9 +6,6 @@ import utils._
 import squid.quasi.{phase, embed, dbg_embed}
 import squid.lib.{transparent,transparencyPropagating}
 
-/**
-  * Created by lptk on 20/06/17.
-  */
 class MyOptimizer extends stagerwr.Optimizer {
   
   //println("E "+Embedding.methods)

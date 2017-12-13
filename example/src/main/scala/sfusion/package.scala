@@ -14,9 +14,6 @@
 
 import squid.utils._
 
-/**
-  * Created by lptk on 07/02/17.
-  */
 package object sfusion {
   
   /** If finite, Left(finiteSize), otherwise Right(isBounded) where !isBounded means the stream can be infinite */

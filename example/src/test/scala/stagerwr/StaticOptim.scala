@@ -48,9 +48,7 @@ object StaticOptim extends App {
 //  def lol = 42
 //}
 //
-///**
-//  * Created by lptk on 18/06/17.
-//  */
+///* Created by lptk on 18/06/17. */
 //object StaticOptim extends App {
 //  
 //  //object Stopt extends StaticOptimizer[Optimizer]

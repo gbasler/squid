@@ -17,9 +17,7 @@ package anf
 
 import ir._
 
-/**
-  * Created by lptk on 02/02/17.
-  * 
+/*
   * TODO port some of the seq matching tests from scBackend
   * 
   */

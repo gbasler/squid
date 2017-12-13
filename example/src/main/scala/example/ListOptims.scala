@@ -20,9 +20,6 @@ import ir._
 import squid.lang.Optimizer
 import utils.Debug.show
 
-/**
-  * Created by lptk on 15/09/16.
-  */
 trait ListOptims extends SimpleRuleBasedTransformer { self =>
   import base.Predef._
     

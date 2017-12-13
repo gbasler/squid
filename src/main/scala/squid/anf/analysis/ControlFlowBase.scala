@@ -18,8 +18,7 @@ package anf.analysis
 import squid.lang.InspectableBase
 import utils._
 
-/**
-  * Created by lptk on 05/02/17.
+/*
   * 
   * TODO abstract construct for looping, sequence, etc.
   * 

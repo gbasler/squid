@@ -23,9 +23,7 @@ import squid.quasi.{phase, embed, dbg_embed}
 
 import scala.collection.LinearSeq
 
-/**
-  * Created by lptk on 07/02/17.
-  * 
+/*
   * Q: are the underlying producers supposed to be referentially-transparent? If one use gives size `n`,
   *    will the next use give the same size? (could be used to update size info)
   * 

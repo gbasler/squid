@@ -24,9 +24,6 @@ object BinaryOpsTests {
   object DSL extends SimpleANF with BinOpBase
 
 }
-/**
-  * Created by lptk on 05/02/17.
-  */
 class BinaryOpsTests extends MyFunSuite(BinaryOpsTests.DSL) {
   import DSL.Predef._
   import base.{BinOp,Operands,BinOp3}

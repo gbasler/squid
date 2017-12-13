@@ -30,8 +30,6 @@ trait StandardNormalizer extends SimpleRuleBasedTransformer
 
 
 /**
-  * Created by lptk on 11/02/17.
-  * 
   * Goal: reduce all Option operations to Some, None, isDefined and get, so as to simplify further passes.
   * 
   * TODO for Either

@@ -16,9 +16,6 @@ package squid.utils
 
 import scala.annotation.tailrec
 
-/**
-  * Created by lptk on 29/09/16.
-  */
 package object algo {
   
   /** From https://gist.github.com/ThiporKong/4399695 */

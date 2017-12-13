@@ -26,8 +26,7 @@ object BlockExtrTests {
 
 }
 
-/**
-  * Created by lptk on 10/02/17.
+/*
   * 
   * TODO in RwR, xtor should also try to match the whole pgrm? -> cf Block xtor
   * 

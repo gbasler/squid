@@ -6,9 +6,6 @@ import stagerwr.MyOptimizer.{optimize, dbg_optimize, optimizeAs}
 
 import squid.DumpFolder
 
-/**
-  * Created by lptk on 30/06/17.
-  */
 object StaticOptTests extends App {
 //object StaticOptTests extends StaticOptTests with App
 //class StaticOptTests {

@@ -4,9 +4,6 @@ package anf
 import utils._
 import ir._
 
-/**
-  * Created by lptk on 30/01/17.
-  */
 class InliningTests extends MyFunSuite(SimpleANFTests.DSL) {
   import DSL.Predef._
   

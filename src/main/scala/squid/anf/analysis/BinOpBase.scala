@@ -19,8 +19,6 @@ import squid.lang.InspectableBase
 import utils._
 
 /**
-  * Created by lptk on 06/02/17.
-  * 
   * Abstract constructs for binary operations.
   * 
   * TODO cache extractors to make these not too expensive to unapply

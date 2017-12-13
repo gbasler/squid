@@ -20,9 +20,6 @@ import squid.utils._
 
 import Sequence._
 
-/**
-  * Created by lptk on 08/02/17.
-  */
 @embed
 object `package` {
   

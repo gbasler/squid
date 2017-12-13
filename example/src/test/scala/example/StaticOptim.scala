@@ -18,9 +18,6 @@ import squid._
 import squid.ir.{BindingNormalizer, TopDownTransformer}
 import utils._
 
-/**
-  * Created by lptk on 15/09/16.
-  */
 object StaticOptim extends App {
   
   object Stopt extends StaticOptimizer[ListOptimizer]

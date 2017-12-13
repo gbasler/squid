@@ -25,9 +25,6 @@ import ch.epfl.data.sc.pardis.ir.PardisVar
 import ch.epfl.data.sc.pardis.types.PardisType
 import pardis.deep.scalalib.collection.SeqOps
 
-/**
-  * Created by lptk on 22/11/16.
-  */
 object PardisBinding {
   
   trait NoStringCtor { self: ir.Base =>

@@ -18,9 +18,6 @@ import org.scalatest.FunSuite
 import squid.TestDSL
 import squid.ir._
 
-/**
-  * Created by lptk on 07/02/17.
-  */
 object Timings {
   
   val PRIMES = 10000

@@ -14,8 +14,7 @@
 
 package example
 
-/**
-  * Created by lptk on 02/12/16.
+/*
   * 
   * Note: cannot use `var acc = ir"1.0" : IR[Double, x.Ctx]` on the rhs of the rewriting,
   * because we would get {{{ _ <: Ctx }}}, which is not sufficient

@@ -24,9 +24,6 @@ object ControlFlowTests {
   object DSL extends SimpleANF with ControlFlowBase
   
 }
-/**
-  * Created by lptk on 05/02/17.
-  */
 class ControlFlowTests extends MyFunSuite(ControlFlowTests.DSL) {
   import DSL.Predef._
   import base.{OneOf}

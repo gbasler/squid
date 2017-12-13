@@ -29,9 +29,6 @@ import squid.ir.TopDownTransformer
 import squid.ir.FixPointTransformer
 import utils._
 
-/**
-  * Created by lptk on 05/02/17.
-  */
 class BooleanFlowTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
   import DSL.Predef._
   import DSL.Quasicodes._

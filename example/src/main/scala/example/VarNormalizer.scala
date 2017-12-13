@@ -19,9 +19,6 @@ import utils._
 import ir._
 import utils.Debug.show
 
-/**
-  * Created by lptk on 01/02/17.
-  */
 trait VarNormalizer extends SimpleRuleBasedTransformer { self =>
   import base.Predef._
   import self.base.InspectableCodeOps

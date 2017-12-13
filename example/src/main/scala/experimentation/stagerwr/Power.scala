@@ -26,9 +26,7 @@ object Planet { def apply(pos: Position, mass: Double) = new Planet(pos,mass) }
 
 
 
-/**
-  * Created by lptk on 18/06/17.
-  */
+/* Created by lptk on 18/06/17. */
 object Power extends App {
   
   def gravityForce(p0: Planet, p1: Planet) =

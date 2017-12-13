@@ -20,8 +20,6 @@ import ir._
 import utils.Debug.show
 
 /**
-  * Created by lptk on 15/09/16.
-  * 
   * Assumptions:
   *   Variables not initialized with null are assumed never to contain null. (arbitrary)
   *     So if you intend for a variable to be assignable to null, instead of writing `var a = init`, write `var a: T = null; a = init`

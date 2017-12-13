@@ -24,9 +24,7 @@ import squid.lang._
 import squid.anf.analysis
 import squid.anf.transfo
 
-/**
-  * Created by lptk on 08/02/17.
-  * 
+/*
   * TODO high-level optims such as map.map->map and map.flatten->flatMap; applying on the level of Sequence defs
   *   to work well this requires an effect system that accounts for latent effects,
   *     such that `s.map(a => a+readInt)` is pure but `s.map(a => a+readInt).fold(...)` is impure

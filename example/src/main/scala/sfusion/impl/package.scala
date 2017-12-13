@@ -24,8 +24,6 @@ import scala.collection.mutable
 //class inline extends StaticAnnotation //  shadow Scala inlining to debug more easily
 
 /**
-  * Created by lptk on 07/02/17.
-  * 
   * Laws that the implementations should follow:
   *   - if a producer returns `false`, it is guaranteed to produce at least another value
   *   - the values returned successively by a producer should only be a sequence of 0 to n `true` and then continually `false`

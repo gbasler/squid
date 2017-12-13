@@ -19,9 +19,6 @@ import squid.ir.SimpleANF
 import squid.lang.InspectableBase
 import utils._
 
-/**
-  * Created by lptk on 10/02/17.
-  */
 trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixin...
   
   /** Matches expressions that have no subexpressions; note that it does NOT match x.module where `module` is the name

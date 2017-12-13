@@ -19,8 +19,7 @@ import utils._
 import ir._
 import utils.Debug.show
 
-/**
-  * Created by lptk on 01/02/17.
+/*
   * TODO? move to anf.transfo.StandardNormalizer
   */
 /* 

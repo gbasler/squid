@@ -22,8 +22,6 @@ import impl._
 import scala.collection.mutable
 
 /**
-  * Created by lptk on 07/02/17.
-  * 
   * TODO an assertEq function that also tries different consumption modes and watches return values
   * 
   */

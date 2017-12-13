@@ -19,9 +19,6 @@ import squid.TestDSL
 import squid.ir._
 import squid.utils._
 
-/**
-  * Created by lptk on 07/02/17.
-  */
 class OptimTests extends FunSuite {
   
   object Compiler extends compiler.TestCompiler

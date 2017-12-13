@@ -20,9 +20,7 @@ import ir._
 import utils.Debug.show
 
 /**
-  * Created by lptk on 11/02/17.
-  * 
-  * Transforms option variables into a pair of variables (one boolean and oen containing the value if any).
+  * Transforms option variables into a pair of variables (one boolean and one containing the option value, if any).
   * This transformation will not successfully apply if the code is not normal w.r.t `OptionNormalizer`.
   * Also removes `Var[Unit]`, `Var[Tuple2[_]]` and some instances of `Var[Var[_]]`.
   * 

@@ -19,9 +19,6 @@ import utils._
 import ir._
 import squid.lib.{transparent, transparencyPropagating}
 
-/**
-  * Created by lptk on 22/02/17.
-  */
 class EffectSystemTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
   import DSL.Predef._
   import EffectSystemTests._

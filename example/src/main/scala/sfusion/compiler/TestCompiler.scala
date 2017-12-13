@@ -21,9 +21,6 @@ import squid.utils._
 import squid.ir._
 import squid.lang._
 
-/**
-  * Created by lptk on 08/02/17.
-  */
 class TestCompiler extends Compiler {
   
   val debug = false

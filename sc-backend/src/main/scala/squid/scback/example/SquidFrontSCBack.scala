@@ -25,9 +25,6 @@ import _root_.squid.ir.SimpleANF
 
 import scala.collection.mutable.ArrayBuffer
 
-/**
-  * Created by lptk on 08/11/16.
-  */
 object SquidFrontSCBack extends App {
   /*_*/
   

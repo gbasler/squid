@@ -8,9 +8,6 @@ import squid.anf.analysis
 import squid.anf.transfo
 import example.VarNormalizer
 
-/**
-  * Created by lptk on 13/06/17.
-  */
 object Embedding
   //extends squid.ir.SimpleANF
   extends squid.ir.SchedulingANF

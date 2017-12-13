@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
-  * Created by lptk on 11/02/17.
-  */
 package object squid {
   
   /** Returns anything you ever wish for... */

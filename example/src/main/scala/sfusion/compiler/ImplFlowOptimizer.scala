@@ -44,9 +44,6 @@ Should ImplFlowOptimizer be bottom-up or top-down??
 
 */
 
-/**
-  * Created by lptk on 12/06/17.
-  */
 //class ImplOptimizer { self: Compiler =>
 //  ImplOptim2
 //}
