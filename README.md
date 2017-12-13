@@ -132,7 +132,7 @@ Quasiquotes are central to most aspects of program transformation in Squid.
 **Note:**
 In the original Squid papers [[1]](#scala17) and [[2]](#gpce17),
 we used `Code[T]` as the type of program fragments.
-With the introduction of scope safety and our POPL paper [[3]](popl18),
+With the introduction of scope safety and our POPL 2018 paper [[3]](#popl18),
 this type now takes an extra parameter, as in `Code[T,C]` where `C` represent the term's context requirements.  
 One cans still use type `OpenCode[T]` when context requirements are not important; this type has limited capabilities (no `run` or `compile`, for instance), but can be turned into a closed code type with method `unsafe_asClosedCode`.
 On the other hand, `ClosedCode[T]` (a synonym for `Code[T,{}]`) is the type of closed program fragments.
