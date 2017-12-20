@@ -13,7 +13,7 @@
 // limitations under the License.
 
 val paradiseVersion = "2.1.0"
-val squidVersion = "0.2.0-SNAPSHOT"
+val squidVersion = "0.2.0"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(
@@ -28,7 +28,6 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
-  //addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   libraryDependencies ++= Seq(
     "junit" % "junit-dep" % "4.10" % "test",
     "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
@@ -38,13 +37,12 @@ lazy val commonSettings = Seq(
       else Nil
     ),
   libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.3" % "test" cross CrossVersion.full,
+  // For the ammonite REPL:
   sourceGenerators in Test += Def.task {
     val file = (sourceManaged in Test).value / "amm.scala"
     IO.write(file, """object amm extends App { ammonite.Main().run() }""")
     Seq(file)
-  }.taskValue,
-  offline := true,
-  publishArtifact in packageDoc := !squidIsSnapshot // publishing doc is super slow -- don't do it for snapshots to ease development
+  }.taskValue
 ) ++ publishSettings
 lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 lazy val scalaCompiler = Def.setting { "org.scala-lang" % "scala-compiler" % scalaVersion.value }
@@ -81,8 +79,6 @@ lazy val core_macros = (project in file("core_macros")).
 
 
 val SCVersion = "0.1.4-SNAPSHOT"
-
-val currentIsSnapshot = true
 
 lazy val scBackendMacros = (project in file("sc-backend/macros")).
   settings(commonSettings: _*).
@@ -122,7 +118,7 @@ val developers =
 lazy val publishSettings = Seq(
   // resolvers += Resolver.sonatypeRepo("releases"),
   publishMavenStyle := true,
-  isSnapshot := currentIsSnapshot,
+  isSnapshot := squidIsSnapshot,
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -132,5 +128,7 @@ lazy val publishSettings = Seq(
   },
   publishArtifact in (Compile, packageSrc) := false,
   pomIncludeRepository := { _ => false },
-  pomExtra := developers
+  pomExtra := developers,
+  publishArtifact in Test := false,
+  publishArtifact in packageDoc := !squidIsSnapshot // publishing doc is super slow -- don't do it for snapshots to ease development
 )

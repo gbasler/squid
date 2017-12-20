@@ -92,11 +92,7 @@ an alternative to the current Scala-reflection macros.
 
 Squid currently supports Scala versions `2.11.3` to `2.11.11`
 (more recent versions might work as well, but have not yet been tested).
-
-The project is not yet published on Maven, 
-so in order to use it you'll have to clone this repository
-and publish Squid locally,
-which can be done by executing the script in `bin/publishLocal.sh`.
+A port to Scala `2.12` is underway.
 
 In your project, add the following to your `build.sbt`:
 
@@ -116,6 +112,11 @@ autoCompilerPlugins := true
 
 addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 ```
+
+In case you wish to use a more recent version that has not yet been published,
+you'll have to clone this repository
+and publish Squid locally,
+which can be done by executing the script in `bin/publishLocal.sh`.
 
 
 ## Overview of Features

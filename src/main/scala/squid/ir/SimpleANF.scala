@@ -317,10 +317,10 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     debug(s"${BOLD}Rewriting$RESET $xtee ${BOLD}with$RESET $xtor")
     //nestDbg(extract(xtor, xtee)) and (res => debug(s"${BOLD}Result:$RESET $res"))
     
-    /** Backtracking rewriting block matcher
-      * @param ex: current extraction artifact
-      * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
-      * @param xy: the current (extractor -> extractee) pair */
+    /* Backtracking rewriting block matcher
+     * @param ex: current extraction artifact
+     * @param matchedVals: which bound Vals have been traversed and replaced by holes so far
+     * @param xy: the current (extractor -> extractee) pair */
     def rec(ex: Extract, matchedVals: List[Val])(xy: BlockRep -> BlockRep): Option[Rep] = {
       //debug(s"REC ex=$ex")
       

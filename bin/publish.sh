@@ -1,1 +1,1 @@
-sbt publish core/publish core_macros/publish scBackend/publish scBackendMacros/publish
+sbt publishSigned core/publishSigned core_macros/publishSigned

@@ -23,7 +23,7 @@ class MultiStage extends MyFunSuite {
   
   test("Nested Quoted Types") {
 
-    val reprep = ir"MultiStage.rep" : Q[ Q[Double, {}], {} ]
+    val reprep = code"MultiStage.rep" : Q[ Q[Double, {}], {} ]
     val rep = reprep.run
 
     assert(rep == MultiStage.rep)
@@ -74,7 +74,7 @@ class MultiStage extends MyFunSuite {
       val ir3 = code{ code{ code{scala.None} } } : Code[Code[Code[Option[Int],{}],{}],{}]
       val ir2 = ir3.run : Code[Code[Option[Int],{}],{}]
       val ir1 = ir2.run : Code[Option[Int],{}]
-      //assert(ir2 =~= ir""" ir"scala.None" """)
+      //assert(ir2 =~= code""" code"scala.None" """)
       // ^ Note: this one is false because ir2, which uses QC, refers to `TestDSL2.Quasicodes.qcbase` while the other,
       // which uses QQ, refers to `TestDSL2.Predef.base`, which are semantically equivalent but different trees.
       assert(ir2 =~= code""" code{scala.None} """)
