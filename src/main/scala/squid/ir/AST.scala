@@ -106,6 +106,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     if (newD eq d) r else rep(newD)
   }
   
+  def boundValUniqueName(bv: BoundVal): String = s"${bv.name}$$${System.identityHashCode(bv)}"
+  
   
   override def traverseTopDown(f: Rep => Unit)(r: Rep): Unit = traverse(f(_) thenReturn true)(r)
   //override def traverseBottomUp(f: Rep => Unit)(r: Rep): Unit = ??? // TODO

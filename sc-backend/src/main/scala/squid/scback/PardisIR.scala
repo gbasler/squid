@@ -222,6 +222,8 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     }
   }
   
+  def boundValUniqueName(bv: BoundVal): String = s"$bv"
+  
   
   // Helpers
   

@@ -42,8 +42,10 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   @volatile private var showing = false
   protected def isShowing = showing
   override def showRep(r: Rep) = synchronized { if (showing) super.showRep(r) else try { showing = true; showScala(r) } finally { showing = false } }
-  def showScala(r: Rep) = {/*println("-----------")*/; sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(s"?${bv}?")), markHoles = true) )}
+  def showScala(r: Rep) = sru.showCode( scalaTree(r, bv => sru.Ident(sru.TermName(boundValUniqueName(bv))), markHoles = true) )
+  // ^ Note: used to show extruded vals as s"?${bv}?" which looked ugly (as in `?[x:Int]?`)
   
+  def boundValUniqueName(bv: BoundVal): String
   
   implicit class IntermediateRepOps(private val self: Rep) {
     def typ = repType(self)
