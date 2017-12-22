@@ -349,16 +349,20 @@ self: Base =>
   
   /** TODO make it more generic: use Liftable! */
   /* To support insertion syntax `$xs` (in ction) or `$$xs` (in xtion) */
+  @compileTimeOnly("Unquote syntax ${...} cannot be used outside of a quasiquote.")
   def $[T,C](q: Code[T,C]*): T = ??? // TODO B/E  -- also, rename to 'unquote'?
   //def $[T,C](q: IR[T,C]): T = ??? // Actually unnecessary
+  @compileTimeOnly("Unquote syntax ${...} cannot be used outside of a quasiquote.")
   def $[A,B,C](q: Code[A,C] => Code[B,C]): A => B = ??? // TODO rely on implicit liftFun instead?
   
   def $Code[T](q: AnyCode[T]): T = ??? // TODO B/E  -- also, rename to 'unquote'?
   def $Code[A,B](q: AnyCode[A] => AnyCode[B]): A => B = ???
   
   /* To support hole syntax `xs?` (old syntax `$$xs`) (in ction) or `$xs` (in xtion)  */
+  @compileTimeOnly("Unquote syntax ${...} cannot be used outside of a quasiquote.")
   def $$[T](name: Symbol): T = ???
   /* To support hole syntax `$$xs: _*` (in ction) or `$xs: _*` (in xtion)  */
+  @compileTimeOnly("Unquote syntax ${...} cannot be used outside of a quasiquote.")
   def $$_*[T](name: Symbol): Seq[T] = ???
   
   
