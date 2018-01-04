@@ -215,7 +215,10 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
         val typ = (fullVparams foldRight tpt){ (ps, acc) => tq"(..${ps map (_.tpt)}) => $acc" }  optionIf  tpt.nonEmpty
         val irBody = q"__b__.Quasicodes.code[..${typ toList}]{$body}"
         val symbol = q"$parent.__typ__[..${
-          (clsDefOpt retainIf inClass).toList flatMap (_.tparams map (_ => tq"Any"))
+          (clsDefOpt retainIf inClass).toList flatMap (_.tparams map (p => p.rhs match {
+            case TypeBoundsTree(lb,ub) if ub.nonEmpty => ub
+            case _ => tq"Any"
+          }))
         }].decls.filter(d => d.name.toString == ${name.toString} && d.isMethod).iterator.drop($ind).next.asMethod"
         
         var fullTparams = tparams
