@@ -152,7 +152,7 @@ As an interesting aside, note that quasiquotes and quasicode can be nested:
 a: Code[Code[Int,Any],Any] =
 code"""{
   val __b___0 = Quasicodes.qcbase;
-  Quasicodes.qcbase.`internal IR`[Int, Any](__b___0.wrapConstruct(__b___0.const(1)))
+  Quasicodes.qcbase.`internal Code`[Int, Any](__b___0.wrapConstruct(__b___0.const(1)))
 }"""
 
 > val b = a.compile
@@ -199,7 +199,7 @@ For example, `{}` is the empty context and `{val n: Int}` is a context in which 
 strlen: Code[Int,{val str: String}] = code"?str.length()"
 ```
 
-The `IR` class is contravariant in its `Ctx` type argument,
+The `Code` class is contravariant in its `Ctx` type argument,
 so that a term with a context `C` can be used as a term with a _more specific_ context `C' <: C`. 
 For example, we have:  
 `Code[Int,{}]  <:  Code[Int,{val ls: Seq[Int]}]  <:  Code[Int,{val ls: List[Int]}]`  
@@ -412,12 +412,12 @@ match argument types (Nothing)
 ### Note on Parametric Polymorphism
 
 In general, in order to use a non-concrete type `T` in quasiquotes,
-one will have to provide an implicit type representation evidence, of type `IRType[T]`.
+one will have to provide an implicit type representation evidence, of type `CodeType[T]`.
 
 For example, this is how to implement a function returning a program that builds a singleton list from a value:
 
 ```scala
-> def mkSingle[T,C](x: Code[T,C])(implicit ev: IRType[T]) = code"List($x)"
+> def mkSingle[T,C](x: Code[T,C])(implicit ev: CodeType[T]) = code"List($x)"
 > mkSingle(code"42")
 res: Code[List[Int],{}] = code"scala.collection.immutable.List.apply[scala.Int](42)"
 ```
@@ -425,7 +425,7 @@ res: Code[List[Int],{}] = code"scala.collection.immutable.List.apply[scala.Int](
 Scala  also provides the equivalent shortcut syntax:
 
 ```scala
-def mkSingle[T:IRType,C](x: Code[T,C]) = code"List($x)"
+def mkSingle[T:CodeType,C](x: Code[T,C]) = code"List($x)"
 ```
 
 
@@ -438,7 +438,7 @@ This is done with a similar syntax.
 Consider the following rewriting, which implements β-reduction (lambda application inlining):
 
 ```scala
-> def beta[T:IRType,C](x: Code[T,C]) = x match {
+> def beta[T:CodeType,C](x: Code[T,C]) = x match {
   case code"((x: $t) => $body: T)($a)" => body subs 'x -> a
 }
 > beta(code"((x: Int) => x + x + 1)(readInt)")
@@ -449,10 +449,10 @@ In the right-hand side of this `case` expression,
 extracted value `body` has type `Code[T,C{val x: t.Typ}]` (see the section on [Context Polymorphism](#context-polymorphism) to understand syntax `C{val x: t}`)
 where `t` is the local extracted type representation (introduced by the `ir` pattern macro).
 Note that `t` is a _value_ representing a type, not a type per se. 
-So one cannot write `Option[Code[t,C]]`, for example; instead one has to write `OptionCodeIR[t.Typ,C]]`
+So one cannot write `Option[Code[t,C]]`, for example; instead one has to write `Option[Code[t.Typ,C]]`
 where path-dependent type `t.Typ` _reflects_ in the type system what `t` represents at runtime,
 a.k.a what `t` _reifies_.
-Perhaps paradoxically, `t` can be viewed as having type `t: IRType[t.Typ]`.
+Perhaps paradoxically, `t` can be viewed as having type `t: CodeType[t.Typ]`.
 
 
 Thanks to an implicit macro provided by Squid,
@@ -463,7 +463,7 @@ Of course, β-reduction is unsound if no care is being taken to avoid duplicatin
 A better implementation would be:
 
 ```scala
-> def beta[T:IRType,C](x: Code[T,C]) = x match {
+> def beta[T:CodeType,C](x: Code[T,C]) = x match {
   case code"((x: $t) => $body: T)($a)" => code"val x = $a; $body"
 }
 > beta(code"((x: Int) => x + x + 1)(readInt)")
