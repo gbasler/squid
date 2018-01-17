@@ -174,6 +174,7 @@ self: Base =>
     type Typ = T
     def <:< (that: CodeType[_]) = rep <:< that.rep
     def =:= (that: CodeType[_]) = rep =:= that.rep
+    def nullValue(implicit ev: self.type <:< (self.type with IntermediateBase)) = Predef.nullValue(this,ev)
   }
   def `internal CodeType`[Typ](trep: TypeRep) = CodeType[Typ](trep) // mainly for macros
   
