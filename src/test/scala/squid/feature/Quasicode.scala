@@ -30,7 +30,8 @@ class Quasicode extends MyFunSuite {
     val b = code{ (x: Double) => $(a) }
     assert((b.run apply 3) == 8)
     
-    assertDoesNotCompile("${code{123}}") // Error:(33, 6) Unquote syntax ${...} cannot be used outside of a quasiquote.
+    //assertDoesNotCompile("""${code{123}}""") // Error:(33, 6) Unquote syntax ${...} cannot be used outside of a quasiquote.
+    // ^ the `assertDoesNotCompile` macro does not seem to be able to test `@compileTimeOnly` annotations
     
   }
   

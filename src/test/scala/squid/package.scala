@@ -14,9 +14,19 @@
 
 package object squid {
   
-  /** Returns anything you ever wish for... */
+  /** Returns anything you ever wished for... */
   def genie[T]: T = {
     ??? // genies don't exist :-(
+  }
+  
+  /** To test for ad-hoc warnings printed on stderr. */
+  def captureStdErr(thunk: => Unit): String = {
+    val oldStrErr = System.err
+    val newStdErr = new java.io.ByteArrayOutputStream()
+    System.setErr(new java.io.PrintStream(newStdErr,true))
+    thunk
+    System.setErr(oldStrErr)
+    newStdErr.toString
   }
   
 }
