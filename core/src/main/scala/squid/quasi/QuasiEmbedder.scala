@@ -407,8 +407,14 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                 }
               } // TODO check correct free var types
               
-              termScope :::= bases
-              importedFreeVars ++= free.iterator map { case (n,t) => n.toString -> t }
+              if (unapply.isEmpty) {
+                // ^ we don't want to add free variables to the term's context requirement if we're in pattern mode
+                // eg: in `case code"val x = 0; $tree" => ...`, though `tree` should capture `x` if `x` is free in it,
+                // there is no reason to import other free variables/contexts from it
+                
+                termScope :::= bases
+                importedFreeVars ++= free.iterator map { case (n,t) => n.toString -> t }
+              }
               
               def subs(ir: Tree) =
                 insert(ir, captured.iterator map {case(n,bv) => n.toString->bv} toMap) // TODO also pass liftType(tpt.tpe)
