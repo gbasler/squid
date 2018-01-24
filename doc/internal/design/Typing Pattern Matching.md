@@ -26,3 +26,24 @@ For example, given `A <:< B` there is no way to coerce a `List[A]` as a `List[B]
 (one would have to use an explicit `map` operation)...
 
 
+
+## Subtleties with repeated holes and contexts
+
+In general, we make the assumption that holes in a pattern should always
+be given a code value if the pattern is to match some program fragment.
+This means that, while an IR could easily add special semantics to an
+`AND` operator in patterns to indicate that two sub-patterns match,
+the same is not true of an `OR` operator
+(because holes can leave on only one of the branches).
+
+In addition, even if some hole appears
+on both sides of an hypothetical `OR`,
+the way we assign context requirements to repeated holes get in the way:
+we use the _intersection_ of the context requirements in each position,
+such that in pattern `code"val x: List[Int] = $xs; ($e:List[Int]) ++ (xs:List[Int])"`,
+`xs` has type `Code[List[Int],OuterContext]`,
+whereas the second occurrence alone would have type `Code[List[Int],OuterContext{val x: List[Int]}]`.
+For this to be sound, we assume the IR's notion of term equality to be exhaustive (ie: free variables appearing in one
+term should be reflected in free variables appearing in another term deemed equal to it).
+
+

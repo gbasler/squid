@@ -539,11 +539,15 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   } else {
                     //val termName = TermName(name)
                     val scp = ctx.keys map (k => k.name -> k.typeSignature) toMap;
-                    termHoleInfo get termName map { case (scp0, holeType0) =>
-                      val newScp = scp0 ++ scp.map { case (n,t) => lub(t :: scp0.getOrElse(n, Any) :: Nil) }
+                    termHoleInfo(termName) = termHoleInfo get termName map { case (scp0, holeType0) =>
+                      // We used to merge context variables present in both occurrences of the hole
+                      //   (with: `val newScp = scp0 ++ scp.map { case (n,t) => n->glb(t :: scp0.getOrElse(n, Any) :: Nil) }`)
+                      // But in fact, if a hole extracts the same tree in two different places, then it should NOT contain
+                      // references to variables only in scope in one of these places! So we do an intersection here...
+                      val newScp = scp.collect { case (n,t) if scp0 isDefinedAt n => n->lub(t :: scp0(n) :: Nil) }
                       newScp -> lub(holeType :: holeType0 :: Nil)
                     } getOrElse {
-                      termHoleInfo(termName) = scp -> holeType
+                      scp -> holeType
                     }
                   }
                   

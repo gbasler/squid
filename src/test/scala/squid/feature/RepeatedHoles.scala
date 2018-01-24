@@ -48,5 +48,36 @@ class RepeatedHoles extends MyFunSuite {
     
   }
   
+  test("Repeated Term Holes in Different Contexts") {
+    // TODO remove the need to annotate the type of each occurrence of a repeated hole...
+    
+    val p0 = code"val ls = List(1,2,3); ls ++ List(1,2,3)"
+    
+    p0 matches {
+      case code"val x: List[Int] = $xs; ($e:List[Int]) ++ (xs:List[Int])" =>
+        (xs : Code[List[Int],{}]) eqt code"List(1,2,3)"
+    } and {
+      case code"val x: List[Int] = xs; ($e:List[Int]) ++ ($xs:List[Int])" =>
+        (xs : Code[List[Int],{}]) eqt code"List(1,2,3)"
+    }
+    
+    val p1 = code"((x:Int) => (x+1,x:AnyVal), (y:Double) => (y.toInt+1,y:AnyVal))"
+
+    p1 match {
+        
+      case code"((a:Int) => (($_:Int)+($body:Int), $_: AnyVal), (a:Double) => (($_:Int)+(body:Int), $_: AnyVal))" =>
+        eqt(body : Code[Int,{val a: AnyVal}], code"1")
+        //  ^ `body` appears equal to itself in each context, so the LUB of the contexts should be used!
+        
+      /* The following doesn't match because the current IR doesn't merge two variables of incompatible types
+         However, it could conceivably do so (provided it has some procedure to compute the least upper bound of two types) */
+      //case code"((a:Int) => ($_:Int, $body:AnyVal), (a:Double) => ($_:Int, body:AnyVal))" =>
+      //case code"((a:Int) => (($_:Int)+($body0:Int),$body1:AnyVal), (a:Double) => (($_:Int)+(body0:Int),body1:AnyVal))" =>
+      //  println(body0,body1)
+        
+    }
+    
+  }
+  
 }
 
