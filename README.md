@@ -78,7 +78,7 @@ It is then possible to turn this into a static program optimizer,
 so that writing the following expression 
 expands at compile time into just `println(2)`,
 as show in the
-[IntroExampleTest](/example/src/test/scala/example/doc/IntroExampleTest.scala#L11)
+[IntroExampleTest](/example/src/test/scala/example/doc/IntroExampleTest.scala#L25)
 file:
 
 ```scala
