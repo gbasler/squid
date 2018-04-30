@@ -169,7 +169,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
          * however, Scala runtime reflection doesn't know how to invoke them so we fail (in default case below) */
       } => s
     } match { case m::Nil => Some(m) case Nil => None
-      case ls => throw new RuntimeException("Interpreting overloaded methods that differ only by their return type is not supported")
+      case ls => throw new RuntimeException(s"Interpreting overloaded methods that differ only by their return type is not supported: $ls")
     }
     //if (mtdO.isDefined) println(s"Found method ${mtdO.get} in $cls") else println(s"Did not find method ${_mtd} in $cls")
     val mtd = mtdO getOrElse _mtd

@@ -192,6 +192,10 @@ self: Base =>
         case r if r == rv => arg.value.rep.asInstanceOf[b.Rep]
       }.asInstanceOf[Rep])
     }
+    def isFreeIn[T](cde: OpenCode[T])(implicit ev: self.type <:< InspectableBase): Bool =
+      substitute[T,Nothing](cde, return false) thenReturn true
+    def tryClose[S,C](body: Code[S,C & Ctx])(implicit ev: self.type <:< InspectableBase): Option[Code[S,C]] =
+      substitute(body, return None) |> Some.apply
     override def toString: String = s"Variable[${typeRepOf[T]}](${showRep(rep)})"
   }
   object Variable {

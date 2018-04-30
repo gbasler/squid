@@ -60,6 +60,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
   class MethodApplication[T,C](private val ma: MethodApp, private val asc: Option[TypeRep]) {
     val symbol = ma.sym
     val args: Seq[Seq[Code[Any,C]]] = List(Code(ma.self)) :: ma.argss.map(_.reps.map(Code.apply[Any,C] _))
+    val targs: Seq[CodeType[_]] = ma.targs.map(CodeType.apply)
     def rebuild(argsTransfo: SelfTransformer): Code[T,C] = {
       val res = rep(MethodApp(
         ma.self |> argsTransfo.pipeline,

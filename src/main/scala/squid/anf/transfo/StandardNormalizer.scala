@@ -117,6 +117,8 @@ trait FunctionNormalizer extends SimpleRuleBasedTransformer { self =>
   rewrite {
       
     case code"($f:$ta=>$tb).andThen[$tc]($g)" => code"(x:$ta) => $g($f(x))"
+    case code"($f:$ta=>$tb).compose[$tc]($g)" => code"(x:$tc) => $f($g(x))"
+    case code"identity[$ta]($x)" => x
       
   }
   
