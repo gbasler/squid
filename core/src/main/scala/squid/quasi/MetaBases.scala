@@ -196,8 +196,6 @@ trait MetaBases {
       q"$n"
     }
     
-    def recordType(fields: List[(String, TypeRep)]): TypeRep = ???
-    
     def constType(value: Any, underlying: TypeRep): TypeRep = q"$Base.constType(${Constant(value)}, $underlying)"
     
     
@@ -356,8 +354,6 @@ trait MetaBases {
       val path = nameChain.tail.foldLeft(Ident(nameChain.head):Tree){ (p, n) => q"$p.$n" }
       typeApp(path, () => tp, targs)
     }
-    
-    def recordType(fields: List[(String, TypeRep)]): TypeRep = ??? // TODO rm
     
     def repType(r: Rep): TypeRep = ??? // TODO impl (store types using internal)
     

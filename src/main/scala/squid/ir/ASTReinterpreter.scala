@@ -55,17 +55,7 @@ trait ASTReinterpreter { ast: AST =>
         val av = if (ascribeBoundValsWhenNull && vl.typ <:< ruh.Null) newBase.ascribe(v, rect(vl.typ)) else v
         newBase.letin(bv |> recv, av, apply(body), rect(body.typ))
       case Abs(bv, body) if bv.name == "$BYNAME$" => newBase.byName(apply(body))
-      case Abs(bv, body) =>
-        bv.typ.tpe match {
-          case RecordType(fields @ _*) =>
-            val params = fields map {case(n,t) => n -> bindVal(n, t, bv.annots)} toMap;
-            val adaptedBody = bottomUpPartial(body) {
-              case RepDef(RecordGet(RepDef(`bv`), name, _)) => readVal(params(name))
-            }
-            newBase.lambda(params.valuesIterator map recv toList, apply(adaptedBody))
-          case _ =>
-            newBase.lambda({ recv(bv)::Nil }, apply(body))
-        }
+      case Abs(bv, body) => newBase.lambda({ recv(bv)::Nil }, apply(body))
       case MethodApp(_, BooleanAndSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.and(lhs|>apply,rhs|>apply)
       case MethodApp(_, BooleanOrSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.or(lhs|>apply,rhs|>apply)
       case MethodApp(self, mtd, targs, argss, tp) =>
@@ -234,10 +224,6 @@ trait ASTReinterpreter { ast: AST =>
           case code"($f: $ta => $tb)($arg)" =>
             q"${apply(f rep)}(${apply(arg rep)})"
             
-          case Code(RepDef(RecordGet(RepDef(bv), name, tp))) =>
-            Ident(TermName(s"<access to param $name>"))
-            // ^ It can be useful to visualize these nodes when temporarily extruded from their context,
-            // although in a full program we should never see them!
             
           case _ => super.apply(d)
         }

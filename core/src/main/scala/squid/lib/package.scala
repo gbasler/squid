@@ -101,8 +101,6 @@ package object lib {
     throw new AssertionError(s"Tried to execute `$id` placeholder, which was not supposed to be compiled into final program.")
   
   
-  final class DummyRecord
-  
   import scala.annotation.{StaticAnnotation, compileTimeOnly}
   class ExtractedBinder extends StaticAnnotation
   

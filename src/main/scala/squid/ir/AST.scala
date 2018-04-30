@@ -83,8 +83,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //def byName(arg: => Rep): Rep = dsl"(_: lib.ThunkParam) => ${Quote[A](arg)}".rep
   //def byName(arg: => Rep): Rep = ??? //lambda(Seq(freshBoundVal(typeRepOf[lib.ThunkParam])), arg)
   
-  def recordGet(self: Rep, name: String, typ: TypeRep) = RecordGet(self, name, typ)
-  
   
   def inline(param: BoundVal, body: Rep, arg: Rep) = bottomUp(body) {
     case RepDef(`param`) => arg
@@ -166,7 +164,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         case Module(pref, name, typ) =>
           val newPref = rec(pref)
           if (newPref eq pref) d else Module(newPref, name, typ)
-        case RecordGet(se, na, tp) => RecordGet(rec(se), na, tp)
         case MethodApp(self, mtd, targs, argss, tp) =>
           val newSelf = rec(self)
           var sameArgs = true
@@ -389,12 +386,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   case class Module(prefix: Rep, name: String, typ: TypeRep) extends Def
   
-  //case class Record(fields: List[(String, Rep)]) extends Def { // TODO
-  //  val typ = RecordType
-  //}
-  case class RecordGet(self: Rep, name: String, typ: TypeRep) extends Def  // TODO rm
-  
-  
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
@@ -408,7 +399,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       case Ascribe(r,t) => Iterator(r)
       case Hole(_) | SplicedHole(_) | NewObject(_) | _:ConstantLike | (_:BoundVal) | StaticModule(_) => Iterator.empty
       case Module(pref, name, typ) => Iterator(pref) //dfn(pref).children
-      case RecordGet(se, na, tp) => ???
       case MethodApp(self, mtd, targs, argss, tp) => Iterator(self) ++ argss.flatMap(_.repsIt)
     }
     
@@ -540,9 +530,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
           } yield m2
-
-        case RecordGet(s0,n0,t0) -> RecordGet(s1,n1,t1) if n0 == n1 =>
-          s0 extract s1
           
         case (a:ConstantLike) -> (b:ConstantLike) if a.value === b.value => Some(EmptyExtract)
           

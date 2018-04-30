@@ -66,45 +66,12 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   
   //def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
-  val FunSym2 = loadTypSymbol("scala.Function1") // TODO unify
-  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
-    (typ, targs map (_ tpe)) match {
-      //case (`funSym`, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
-      case (FunSym2, RecordType(params @ _*) :: ret :: Nil) => ruh.FunctionType(params map (_ _2): _*)(ret)
-      case _ => sru.internal.typeRef(self, typ, targs map (_ tpe))
-    }
-  }
+  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep =
+    sru.internal.typeRef(self, typ, targs map (_ tpe))
+  
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
     assert(typ.isStatic)
     sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
-  }
-  
-  def recordType(fields: List[(String, TypeRep)]): TypeRep = {
-    // TODO cache stuff
-    import sru._
-    import sru.{internal => inl}
-    import inl.{reificationSupport => reif}
-    val reftSymdef = reif.newNestedSymbol(srum.staticModule("squid.ir.ScalaTyping"), TypeName.apply("<refinement>"), NoPosition, NoFlags, true)
-    val syms = fields map {
-      case (name,typ) =>
-        val symdef = reif.newNestedSymbol(reftSymdef, TermName(name), NoPosition, /*internal.reificationSupport.FlagsRepr.apply(138412112L)*/NoFlags, false);
-        reif.setInfo[Symbol](symdef, reif.NullaryMethodType(typ));
-        symdef
-    }
-    val reftp = reif.RefinedType(Nil, reif.newScopeWith(syms: _*), reftSymdef)
-    reif.setInfo[Symbol](reftSymdef, reftp)
-    reftp
-  }
-  object RecordType {
-    import sru._
-    def unapplySeq(tpe: ScalaType): Option[List[(String,Type)]] = tpe match {
-      case RefinedType(Nil, scp) =>
-        Some(scp map { s =>
-          val tp = s.typeSignature match { case NullaryMethodType(tp) => tp }
-          s.name.toString -> tp
-        } toList)
-      case _ => None
-    } 
   }
   
   
@@ -119,17 +86,6 @@ self: IntermediateBase => // for 'repType' TODO rm
   def typLeq(a: TypeRep, b: TypeRep): Boolean = a <:< b
   def weakTypLeq(a: TypeRep, b: TypeRep, va: Variance = Covariant): Boolean = extractType(a, b, va).isDefined
   
-  /* // breaks scalac...
-  lazy val (funOwnerType, funSym) = {
-    val sym = sru.symbolOf[Any => Any]
-    (sym.owner.asType.toType, sym)
-  }
-  */
-  // TODO make `funType` accept mutli params and call it `lambdaType`
-  lazy val funSym = sru.symbolOf[Any => Any]
-  lazy val funOwnerType = funSym.owner.asType.toType
-  //def funType(paramt: TypeRep, bodyt: TypeRep): TypeRep = srui.typeRef(funOwnerType, funSym, paramt.tpe :: bodyt.tpe :: Nil)
-  //def funType(paramt: TypeRep, bodyt: TypeRep): TypeRep = typeApp(hole("LOLOL", funOwnerType), funSym, paramt :: bodyt :: Nil)
   def lambdaType(paramTyps: List[TypeRep], ret: TypeRep): TypeRep =
     ruh.FunctionType(paramTyps map (_ tpe): _*)(ret)
   

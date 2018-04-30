@@ -366,7 +366,6 @@ abstract class PardisIR(val sc: pardis.ir.Base) extends Base with squid.ir.Runti
     }
     
   }
-  def recordType(fields: List[(String, TypeRep)]): TypeRep = ???
   def constType(value: Any, underlying: TypeRep): TypeRep = underlying
   
   // TODO refine? Basic subtyping like Int <: Any? also look out for non-covariance...

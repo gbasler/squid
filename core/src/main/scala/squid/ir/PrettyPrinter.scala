@@ -198,9 +198,7 @@ class PrettyPrinter extends Base with TraceDebug {
 
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep =
     if (targs.nonEmpty) s"$typ[${targs.mkString(", ")}]" else typ
-
-  def recordType(fields: List[(String, TypeRep)]): TypeRep = ???
-
+  
   def constType(value: Any, underlying: TypeRep): TypeRep = ???
 
   object Const extends ConstAPI {
