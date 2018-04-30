@@ -73,6 +73,9 @@ self: Base =>
   /* --- --- --- Provided defs --- --- --- */
   
   
+  /** Code values do not automatically use term equivalence (symbol =~=) to compare for equality; indeed, some IRs may 
+    * not want such behavior. For example, it could pose problems in IRs like SimpleANF that make Rep extend Code to
+    * reduce allocations (though in practice it currently makes it extend EquivBasedCodeEquals as well). */
   trait EquivBasedCodeEquals { self: AnyCode[_] =>
     override def equals(that: Any): Boolean = that match {
       case that: AnyCode[_] => rep =~= that.rep

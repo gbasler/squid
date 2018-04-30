@@ -65,7 +65,9 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     val Unknown = 0 to Int.MaxValue
   }
   
-  case class Rep(dfn: Def) extends Code[Any,Nothing] {
+  case class Rep(dfn: Def) extends Code[Any,Nothing] 
+    with EquivBasedCodeEquals // needed for user-friendly Code#equals behavior, but maybe not ideal for Rep
+  {
     val rep = this
     
     def withUnderlyingTyp = this.asInstanceOf[Code[Typ,Nothing]]
