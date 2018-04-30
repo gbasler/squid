@@ -35,20 +35,20 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
   
   rewrite {
     
-    case code"val $tup = Var($init: ($ta, $tb)); $body: $t" =>
+    case code"val $tup = MutVar($init: ($ta, $tb)); $body: $t" =>
       //println((ta,tb)) // makes the rwr not compile -- FIXME
       //println(ta->tb) // makes the rwr not compile
       
       //show(body)
       
-      val a = code"?a: Var[$ta]"
-      val b = code"?b: Var[$tb]"
+      val a = code"?a: MutVar[$ta]"
+      val b = code"?b: MutVar[$tb]"
       
       val isInitializedWithNull = init =~= code"null"  // TODO more precise?
       
       if (isInitializedWithNull) {
         
-        val isNull = code"?isNull: Var[Bool]"
+        val isNull = code"?isNull: MutVar[Bool]"
         var hasNull = isInitializedWithNull
         
         val body2 = body topDown_rewrite {
@@ -70,7 +70,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         val body3 = tup.substitute[t.Typ, tup.OuterCtx & a.Ctx & b.Ctx & isNull.Ctx](body2, 
           throw RewriteAbort(s"tup is still used! in: $body2"))
         
-        code" val isNull = Var(${Const(isInitializedWithNull)}); val a = Var(${nullValue[ta.Typ]});  val b = Var(${nullValue[tb.Typ]});  $body3 "
+        code" val isNull = MutVar(${Const(isInitializedWithNull)}); val a = MutVar(${nullValue[ta.Typ]});  val b = MutVar(${nullValue[tb.Typ]});  $body3 "
         
       } else {
           
@@ -91,7 +91,7 @@ trait TupleVarOptim extends SimpleRuleBasedTransformer { self =>
         val body3 = tup.substitute[t.Typ, tup.OuterCtx & a.Ctx & b.Ctx](body2, 
           throw RewriteAbort(s"tup is still used! in: $body2"))
         
-        code" val init = $init; val a = Var(init._1);  val b = Var(init._2);  $body3 "
+        code" val init = $init; val a = MutVar(init._1);  val b = MutVar(init._2);  $body3 "
         
       }
       

@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 12ms
+// Transfo time: 0ms  Stringifying time: 16ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -26,7 +26,7 @@
 
 // === Impl ===
 
-// Transfo time: 4ms  Stringifying time: 26ms
+// Transfo time: 5ms  Stringifying time: 35ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -58,7 +58,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 6ms  Stringifying time: 9ms
+// Transfo time: 8ms  Stringifying time: 12ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -76,13 +76,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 5ms
+// Transfo time: 0ms  Stringifying time: 6ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 9ms  Stringifying time: 30ms
+// Transfo time: 12ms  Stringifying time: 41ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -155,14 +155,14 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 142ms  Stringifying time: 104ms
+// Transfo time: 159ms  Stringifying time: 140ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
   val x_2 = xs_0.length;
   var i_3: scala.Int = 0;
   var aVar_4: scala.Option[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]] = scala.None;
-  var envVar_5: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]]]]]] = scala.None;
+  var envVar_5: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]]]]]] = scala.None;
   var cur_6: scala.Int = 123;
   var completed_7: scala.Boolean = false;
   var continue_8: scala.Boolean = false;
@@ -182,8 +182,8 @@
             val ClosureVar_15 = x_12.length;
             var ClosureVar_16: scala.Int = 0;
             var ClosureVar_17: scala.Option[scala.collection.IndexedSeq[scala.Int]] = scala.None;
-            var v_18: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]] = scala.None;
-            envVar_5 = scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]]]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]]]]](ClosureVar_14, scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]]]](ClosureVar_15, scala.Tuple2.apply[squid.lib.`package`.Var[scala.Int], scala.Tuple2[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_16, ((a) => ClosureVar_16 = a)), scala.Tuple2.apply[squid.lib.`package`.Var[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]](new squid.lib.MutVarProxy[scala.Option[scala.collection.IndexedSeq[scala.Int]]](ClosureVar_17, ((a) => ClosureVar_17 = a)), new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]](v_18, ((a) => v_18 = a)))))));
+            var v_18: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]] = scala.None;
+            envVar_5 = scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]]]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]]]]](ClosureVar_14, scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]]]](ClosureVar_15, scala.Tuple2.apply[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_16, ((a) => ClosureVar_16 = a)), scala.Tuple2.apply[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]], squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]](new squid.lib.MutVarProxy[scala.Option[scala.collection.IndexedSeq[scala.Int]]](ClosureVar_17, ((a) => ClosureVar_17 = a)), new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]](v_18, ((a) => v_18 = a)))))));
             false
           })
         }) 
@@ -223,7 +223,7 @@
                   val ClosureVar_35 = x_33.size;
                   val ClosureVar_36 = x_33.length;
                   var v_37: scala.Int = 0;
-                  sch_30._2.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]](ClosureVar_35, scala.Tuple2.apply[scala.Int, squid.lib.`package`.Var[scala.Int]](ClosureVar_36, new squid.lib.MutVarProxy[scala.Int](v_37, ((a) => v_37 = a))))));
+                  sch_30._2.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_35, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_36, new squid.lib.MutVarProxy[scala.Int](v_37, ((a) => v_37 = a))))));
                   false
                 })
               }) 
@@ -293,13 +293,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 88ms
+// Transfo time: 0ms  Stringifying time: 172ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 162ms  Stringifying time: 72ms
+// Transfo time: 173ms  Stringifying time: 81ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -313,7 +313,7 @@
   var lhs_9: scala.Int = sch_1;
   var flatVar_10: scala.Int = sch_1;
   var flatVar_11: scala.Option[scala.collection.IndexedSeq[scala.Int]] = squid.lib.`package`.uncheckedNullValue[scala.Option[scala.collection.IndexedSeq[scala.Int]]];
-  var rhs_12: squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]] = squid.lib.`package`.uncheckedNullValue[squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]]];
+  var rhs_12: squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]] = squid.lib.`package`.uncheckedNullValue[squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]]];
   var cur_13: scala.Int = 123;
   var completed_14: scala.Boolean = false;
   var continue_15: scala.Boolean = false;
@@ -334,14 +334,14 @@
             val ClosureVar_22 = x_19.length;
             var ClosureVar_23: scala.Int = 0;
             var ClosureVar_24: scala.Option[scala.collection.IndexedSeq[scala.Int]] = scala.None;
-            var v_25: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]] = scala.None;
+            var v_25: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]] = scala.None;
             lhs_8 = ClosureVar_21;
             lhs_9 = ClosureVar_22;
             val x_26 = ClosureVar_23;
             flatVar_10 = x_26;
             val x_27 = ClosureVar_24;
             flatVar_11 = x_27;
-            rhs_12 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]](v_25, ((a) => v_25 = a));
+            rhs_12 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]](v_25, ((a) => v_25 = a));
             isDefined_7 = true;
             false
           })
@@ -379,7 +379,7 @@
                   val ClosureVar_41 = x_38.length;
                   var v_42: scala.Int = 0;
                   val x_43 = rhs_12;
-                  x_43.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]](ClosureVar_40, scala.Tuple2.apply[scala.Int, squid.lib.`package`.Var[scala.Int]](ClosureVar_41, new squid.lib.MutVarProxy[scala.Int](v_42, ((a) => v_42 = a))))));
+                  x_43.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_40, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_41, new squid.lib.MutVarProxy[scala.Int](v_42, ((a) => v_42 = a))))));
                   false
                 })
               }) 
@@ -453,7 +453,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 36ms  Stringifying time: 90ms
+// Transfo time: 38ms  Stringifying time: 102ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -466,7 +466,7 @@
   var lhs_8: scala.Int = 0;
   var flatVar_9: scala.Int = 0;
   var flatVar_10: scala.Option[scala.collection.IndexedSeq[scala.Int]] = null;
-  var rhs_11: squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]] = null;
+  var rhs_11: squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]] = null;
   var cur_12: scala.Int = 123;
   var completed_13: scala.Boolean = false;
   var continue_14: scala.Boolean = false;
@@ -489,14 +489,14 @@
             val ClosureVar_21 = x_18.length;
             var ClosureVar_22: scala.Int = 0;
             var ClosureVar_23: scala.Option[scala.collection.IndexedSeq[scala.Int]] = scala.None;
-            var v_24: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]] = scala.None;
+            var v_24: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]] = scala.None;
             lhs_7 = ClosureVar_20;
             lhs_8 = ClosureVar_21;
             val x_25 = ClosureVar_22;
             flatVar_9 = x_25;
             val x_26 = ClosureVar_23;
             flatVar_10 = x_26;
-            rhs_11 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]](v_24, ((a) => v_24 = a));
+            rhs_11 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]](v_24, ((a) => v_24 = a));
             isDefined_6 = true
           }
         else
@@ -530,7 +530,7 @@
                   val ClosureVar_40 = x_37.length;
                   var v_41: scala.Int = 0;
                   val x_42 = rhs_11;
-                  x_42.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]](ClosureVar_39, scala.Tuple2.apply[scala.Int, squid.lib.`package`.Var[scala.Int]](ClosureVar_40, new squid.lib.MutVarProxy[scala.Int](v_41, ((a) => v_41 = a))))))
+                  x_42.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_39, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_40, new squid.lib.MutVarProxy[scala.Int](v_41, ((a) => v_41 = a))))))
                 }
               else
                 ();
@@ -602,7 +602,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 23ms  Stringifying time: 108ms
+// Transfo time: 28ms  Stringifying time: 118ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -615,7 +615,7 @@
   var lhs_8: scala.Int = 0;
   var flatVar_9: scala.Int = 0;
   var flatVar_10: scala.Option[scala.collection.IndexedSeq[scala.Int]] = null;
-  var rhs_11: squid.lib.`package`.Var[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]] = null;
+  var rhs_11: squid.lib.`package`.MutVar[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]] = null;
   var cur_12: scala.Int = 123;
   var completed_13: scala.Boolean = false;
   var continue_14: scala.Boolean = false;
@@ -638,14 +638,14 @@
             val ClosureVar_21 = x_18.length;
             var ClosureVar_22: scala.Int = 0;
             var ClosureVar_23: scala.Option[scala.collection.IndexedSeq[scala.Int]] = scala.None;
-            var x_24: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]] = scala.None;
+            var x_24: scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]] = scala.None;
             lhs_7 = ClosureVar_20;
             lhs_8 = ClosureVar_21;
             val x_25 = ClosureVar_22;
             flatVar_9 = x_25;
             val x_26 = ClosureVar_23;
             flatVar_10 = x_26;
-            rhs_11 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]]](x_24, ((a) => x_24 = a));
+            rhs_11 = new squid.lib.MutVarProxy[scala.Option[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]]](x_24, ((a) => x_24 = a));
             isDefined_6 = true
           }
         else
@@ -679,7 +679,7 @@
                   val ClosureVar_40 = x_37.length;
                   var x_41: scala.Int = 0;
                   val x_42 = rhs_11;
-                  x_42.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.Var[scala.Int]]](ClosureVar_39, scala.Tuple2.apply[scala.Int, squid.lib.`package`.Var[scala.Int]](ClosureVar_40, new squid.lib.MutVarProxy[scala.Int](x_41, ((a) => x_41 = a))))))
+                  x_42.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_39, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_40, new squid.lib.MutVarProxy[scala.Int](x_41, ((a) => x_41 = a))))))
                 }
               else
                 ();

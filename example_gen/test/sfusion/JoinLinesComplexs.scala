@@ -30,13 +30,13 @@
 
 // === HL ===
 
-// Transfo time: 0ms  Stringifying time: 6ms
+// Transfo time: 0ms  Stringifying time: 10ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 17ms  Stringifying time: 43ms
+// Transfo time: 14ms  Stringifying time: 51ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = scala.`package`.Right;
@@ -86,7 +86,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 14ms  Stringifying time: 18ms
+// Transfo time: 13ms  Stringifying time: 21ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -113,13 +113,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 4ms
+// Transfo time: 0ms  Stringifying time: 7ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 23ms  Stringifying time: 69ms
+// Transfo time: 24ms  Stringifying time: 81ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -244,13 +244,13 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 345ms  Stringifying time: 166ms
+// Transfo time: 382ms  Stringifying time: 174ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
   val x_2 = x$2_0.iterator;
   var aVar_3: scala.Option[java.lang.String] = scala.None;
-  var envVar_4: scala.Option[scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]]]]]] = scala.None;
+  var envVar_4: scala.Option[scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]]]]]] = scala.None;
   var dropped_5: scala.Int = 0;
   var cur_6: java.lang.String = "";
   var completed_7: scala.Boolean = false;
@@ -275,7 +275,7 @@
             val ClosureVar_20 = sch_16.length;
             var ClosureVar_21: scala.Int = 0;
             var v_22: scala.Boolean = true;
-            envVar_4 = scala.Some.apply[scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]]]]]](scala.Tuple2.apply[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]]]]](ClosureVar_12, scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]]]](ClosureVar_14, scala.Tuple2.apply[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]]](ClosureVar_15, scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]]](ClosureVar_17, scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]]](ClosureVar_18, scala.Tuple2.apply[squid.lib.`package`.Var[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_19, ((a) => ClosureVar_19 = a)), scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]]](ClosureVar_20, scala.Tuple2.apply[squid.lib.`package`.Var[scala.Int], squid.lib.`package`.Var[scala.Boolean]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_21, ((a) => ClosureVar_21 = a)), new squid.lib.MutVarProxy[scala.Boolean](v_22, ((a) => v_22 = a)))))))))));
+            envVar_4 = scala.Some.apply[scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]]]]]](scala.Tuple2.apply[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]]]]](ClosureVar_12, scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]]]](ClosureVar_14, scala.Tuple2.apply[scala.collection.immutable.WrappedString, scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]]](ClosureVar_15, scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]]](ClosureVar_17, scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]]](ClosureVar_18, scala.Tuple2.apply[squid.lib.`package`.MutVar[scala.Int], scala.Tuple2[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_19, ((a) => ClosureVar_19 = a)), scala.Tuple2.apply[scala.Int, scala.Tuple2[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]]](ClosureVar_20, scala.Tuple2.apply[squid.lib.`package`.MutVar[scala.Int], squid.lib.`package`.MutVar[scala.Boolean]](new squid.lib.MutVarProxy[scala.Int](ClosureVar_21, ((a) => ClosureVar_21 = a)), new squid.lib.MutVarProxy[scala.Boolean](v_22, ((a) => v_22 = a)))))))))));
             false
           })
         }) 
@@ -418,13 +418,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 87ms
+// Transfo time: 0ms  Stringifying time: 105ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 674ms  Stringifying time: 99ms
+// Transfo time: 786ms  Stringifying time: 110ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -609,7 +609,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 179ms  Stringifying time: 98ms
+// Transfo time: 211ms  Stringifying time: 115ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = ((null): scala.collection.immutable.WrappedString);
@@ -794,6 +794,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 20ms  Stringifying time: 80ms
+// Transfo time: 39ms  Stringifying time: 94ms
 
 // Same as above.

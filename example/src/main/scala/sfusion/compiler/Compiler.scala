@@ -182,7 +182,7 @@ class Compiler extends Optimizer {
         println(fun)
         //val fun2 = fun subs 'a -> Abort()
         //val fun2 = fun subs 'a -> ???
-        val fun2 = fun subs 'a -> code"(?aVar: Var[Option[$ta]]).!.get"
+        val fun2 = fun subs 'a -> code"(?aVar: MutVar[Option[$ta]]).!.get"
         // ^ TODO could save the 'a' along with the environment...
         // ... when more methods are pure/trivial, it may often happen (eg `stringWrapper` that makes String an IndexedSeq)
         
@@ -191,7 +191,7 @@ class Compiler extends Optimizer {
         //  var aVar: Option[$ta] = None // FIXME allow this syntax...
         val res = code"""
           val s = $s
-          val aVar = Var[Option[$ta]](None)
+          val aVar = MutVar[Option[$ta]](None)
           var envVar: Option[E] = None
           (k => {
             var completed = false
