@@ -15,7 +15,7 @@
 package squid
 package classembed
 
-import quasi.{embed, phase}
+import quasi.{phase, embed, doNotEmbed}
 
 @embed
 class MyClass {
@@ -84,6 +84,10 @@ object OrphanObject extends ir.SquidObject {
   def varargFoo(xs: Int*): Int = xs.sum + 1
 
   def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
+  
+  @doNotEmbed
+  def oops = new { def unsupported = 123 } // Squid does not currently support local class definitions
+  
 }
 
 

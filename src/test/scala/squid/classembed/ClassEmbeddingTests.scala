@@ -251,4 +251,13 @@ class ClassEmbeddingTests extends MyFunSuite {
     
   }
   
+  test("Do Not Embed") {
+    
+    assertCompiles("OrphanObject.embedIn(TestDSL).Object.Defs.varargFoo")
+    
+    assertDoesNotCompile("OrphanObject.embedIn(TestDSL).Object.Defs.oops")
+    // ^ Error:(257, 55) value oops is not a member of object squid.classembed.OrphanObject.EmbeddedIn[squid.TestDSL.type]#Object.Defs
+    
+  }
+  
 }

@@ -45,6 +45,9 @@ class dbg_mirror[T] extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassEmbedding.mirrorImpl
 }
 
+// no @compileTimeOnly annotation because this is currently not removed by @embed
+class doNotEmbed extends StaticAnnotation
+
 /** Encode a method with default arguments into a set of overloaded methods without default arguments */
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
 class overloadEncoding extends StaticAnnotation {
@@ -75,9 +78,9 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
       vd.mods.privateWithin, vd.mods.annotations),vd.name,vd.tpt,EmptyTree)
   
   
-  def overloadEncoding(annottees: c.Tree*): Tree = q"..${overloadEncodingImpl(annottees: _*)}"
+  def overloadEncoding(annottees: c.Tree*): Tree = q"..${overloadEncodingImpl(false, annottees: _*)}"
   
-  def overloadEncodingImpl(annottees: c.Tree*): List[DefDef] = wrapError {
+  def overloadEncodingImpl(addSugarPhase: Bool, annottees: c.Tree*): List[DefDef] = wrapError {
     annottees match {
       case Seq(DefDef(mods, name, tparams, vparamss, tpt, rhs))
       if vparamss exists (_ exists (_.rhs nonEmpty)) =>
@@ -135,7 +138,7 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
                 "Use @overloadEncoding to turn a method with default arguments into a set of overloaded methods.")
             d :: Nil
           } else {
-            overloadEncodingImpl(DefDef(Modifiers(mods.flags, mods.privateWithin, filan), name, tparams, vparamss, tpt, rhs))
+            overloadEncodingImpl(true, DefDef(Modifiers(mods.flags, mods.privateWithin, filan), name, tparams, vparamss, tpt, rhs))
           }
         case x => x :: Nil
       })
@@ -192,7 +195,10 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     }
     
     val (objDefs, objMirrorDefs, objRefs) = allDefs collect {
-      case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR && rhs.nonEmpty => // TODO sthg about parameter accessors?
+      case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) 
+        if name != termNames.CONSTRUCTOR && rhs.nonEmpty
+        && mods.annotations.collectFirst{case q"new doNotEmbed()"=>}.isEmpty
+      => // TODO sthg about parameter accessors?
         val ind = {
           val key = name -> inClass
           overloadingOrder.getOrElseUpdate(key, -1) + 1  alsoApply (overloadingOrder(key) = _)
