@@ -16,7 +16,7 @@ val scala211Version = "2.11.11"
 val scala212Version = "2.12.6"
 
 val paradiseVersion = "2.1.0"
-val squidVersion = "0.3.0-SNAPSHOT"
+val squidVersion = "0.3.1-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(

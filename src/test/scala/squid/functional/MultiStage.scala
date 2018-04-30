@@ -62,10 +62,17 @@ class MultiStage extends MyFunSuite {
      * (See cod eat end of file.)
      */
     
-    assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
+    //assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
+    // ^ Note: this used to work because `base.MtdSymbol` is abstract type squid.utils.meta.RuntimeUniverseHelpers.sru.MethodSymbol,
+    //         which was not embedded and fell back on a type tag.
+    //         But now that we try to embed abstract types, it widens the base to scala.reflect.api.JavaUniverse because
+    //         squid.utils.meta.RuntimeUniverseHelpers.sru is a val (not module) and we don't handle val-dependent types.
+    assert(codeTypeOf[base.MtdSymbol] =:= codeTypeOf[scala.reflect.api.JavaUniverse#MethodSymbol])
     
     // Note:
-    //ir{ ir{ ir{ List(1,2,3) map (_ + 1 toDouble) } } }  // Error:(49, 7) Embedding Error: Unsupported feature: TypeTag construction (for scp.utils.meta.RuntimeUniverseHelpers.sru.TypeSymbol)
+    //code{ code{ code{ List(1,2,3) map (_ + 1 toDouble) } } }
+    // ^ used to raise: Embedding Error: Unsupported feature: TypeTag construction (for scp.utils.meta.RuntimeUniverseHelpers.sru.TypeSymbol)
+    // FIXME now it makes Squid stack-overflow!
     
   }
   
@@ -84,8 +91,8 @@ class MultiStage extends MyFunSuite {
     }
     
     // Note:
-    // ir{ ir{ ir{ ir{scala.None} } } }  // Error:(55, 17) Embedding Error: Unsupported feature: TypeTag construction (for scp.utils.meta.RuntimeUniverseHelpers.sru.TypeSymbol)
-    
+    //code{ code{ code{ code{scala.None} } } }  // Error:(55, 17) Embedding Error: Unsupported feature: TypeTag construction (for scp.utils.meta.RuntimeUniverseHelpers.sru.TypeSymbol)
+    // ^ FIXME stack-overflow
   }
   
 }

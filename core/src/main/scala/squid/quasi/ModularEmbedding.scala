@@ -66,6 +66,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   lazy val Extracted = mir.typeOf[squid.quasi.Extracted]
   object ExtractedType {
     def unapply(tp: Type) = tp |>? {
+      case _ if !(tp <:< Null) && tp <:< ExtrudedType => Some(tp)
+      // ^ condition above is simpler, but the one below also seems necessary (each has cases only that case can trigger)
       case AnnotatedType(annotations, underlying)
         if annotations map (_.tree.tpe) collectFirst { case Extracted => } isDefined
         => Some(underlying)
@@ -263,7 +265,11 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         
         
       case Ident(_) if x.symbol != null && x.symbol.isModule =>
-        if (x.tpe.typeSymbol.isStatic) liftStaticModule(x.symbol.asModule.moduleClass.asType.toType)
+        if (x.tpe.typeSymbol.isStatic)
+          liftStaticModule(x.symbol.asModule.moduleClass.asType.toType)
+          /* Note: this also works, but I am not sure it's better: */
+          //if (x.symbol.isType) liftStaticModule(x.symbol.asType.toType)
+          //else liftStaticModule(x.symbol.asModule.moduleClass.asType.toType)
         else throw EmbeddingException.Unsupported("Non-qualified, non-static module reference")
         
       /** --- --- --- THIS REF --- --- --- */
@@ -457,7 +463,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     case _: DefDef =>
       throw EmbeddingException("Statement in expression position: "+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
        
-    case _ if x.symbol != null && x.symbol.isMethod =>
+    case _ if (x.symbol =/= null) && x.symbol.isMethod =>
       throw EmbeddingException.Unsupported(s"Reference to local method `${x.symbol.name}`")
       
     case _ => throw EmbeddingException.Unsupported(""+x/*+(if (debug.debugOptionEnabled) s" [${x.getClass}]" else "")*/)
@@ -495,6 +501,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     case _ if tp.asInstanceOf[scala.reflect.internal.Types#Type].isErroneous => // `isErroneous` seems to return true if any sub-component has `isError`
       throw EmbeddingException(s"Internal error: type `$tp` contains an error...")
       
+    case ConstantType(Constant(v)) => constType(v, liftType(tp.widen))
+      
     case ExistentialType(syms, typ) =>
       // TODO still allow implicit search (only prevent making a type tag of it)
       throw EmbeddingException.Unsupported(s"Existential type '$tp'")
@@ -519,24 +527,22 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       debug(s"Detected refinement: $tpes, $scp")
       throw EmbeddingException.Unsupported(s"Refinement type '$tpe'")
       
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isClass && prefix != NoPrefix && !isExtracted  =>
+    // For this case, we used to require tp.typeSymbol.isClass; but we actually also want to embed abstract types
+    case TypeRef(prefix, sym, targs) if prefix != NoPrefix && !isExtracted =>
       //dbg(s"sym: $sym;", "tpsym: "+tp.typeSymbol)
       dbg(s"TypeRef($prefix, $sym, $targs)")
+      //if (!tp.typeSymbol.isClass) debug(s"! not a class: $tp")
       
       try {
-        //val tsym = getTyp(tp.typeSymbol.asType) // this is wrong! `tp.typeSymbol` will be different than `sym` if the latter is an alias...
+        //val tsym = getTypSym(tp.typeSymbol.asType) // this is wrong! `tp.typeSymbol` will be different than `sym` if the latter is an alias...
         val tsym = getTypSym(sym.asType)
-        
-        //val self = liftModule(prefix)
-        //val self = liftType(prefix)
-        //val self = if (sym.isStatic) null.asInstanceOf[TypeRep] else liftType(prefix)
         
         val ts = targs map (t => liftType(t))
         
-        //typeApp(self, tsym, targs map (t => liftType(t)))
-        if (sym.isStatic) staticTypeApp(tsym, ts)
+        if (sym.isStatic && tp.typeSymbol.isClass) staticTypeApp(tsym, ts)
+        // ^ can only runtime-load classes [INV:RuntimeSymbols:loadclasses], so decompose further if this is an abstract type
         else typeApp(liftType(prefix), tsym, ts)
-        // ^ Note: getTyp(sym.asType) did not always work...
+        // ^ Note: getTypSym(sym.asType) did not always work...
         
         
       } catch {
@@ -546,14 +552,6 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
           // Types like `scala.Any` and `scala.Array[_]` do not have an associated class (though Any is currently already handled in the case above)
           unknownTypefallBack(tp)
       }
-
-    case ConstantType(Constant(v)) => constType(v, liftType(tp.widen))
-      
-    //case _ if tp.typeSymbol.isModuleClass =>
-    case TypeRef(prefix, sym, targs) if tp.typeSymbol.isModuleClass =>
-      assert(false)
-      ???
-      //typeApp(liftModule(tp.typeSymbol.owner.asType.toType), getTyp(tp.typeSymbol), Nil)
       
     case _ => // TODO verify no holes in 'tp'! If holes, try widening first
       

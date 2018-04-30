@@ -42,7 +42,7 @@ trait RuntimeSymbols {
   }
   */
   
-  /*protected*/ def ensureDefined(name: String, sym: sru.Symbol) = sym match {
+  protected def ensureDefined(name: => String, sym: sru.Symbol) = sym match {
     case sru.NoSymbol => 
       throw new Exception(s"Could not find $name")
     case _ => sym
@@ -61,15 +61,16 @@ trait RuntimeSymbols {
     //debug(s"Loading type $fullName")
     val path = fullName.splitSane('#')
     val root = if (path.head endsWith "$") srum.staticModule(path.head.init) else srum.staticClass(path.head)
+    // ^ [INV:RuntimeSymbols:loadclasses] can only runtime-load classes (or modules) as base paths
     val res = path.tail.foldLeft(root) {
-      case (s, name) if name.endsWith("$") => s.asType.toType.member(sru.TermName(name.init))
-      case (s, name) => 
+      case (s, name) if name.endsWith("$") => ensureDefined(s"$name in $s", s.asType.toType.member(sru.TermName(name.init)))
+      case (s, name) => ensureDefined(s"$name in $s",
         if (s.isType) s.asType.toType.member(sru.TypeName(name))
         else {
           assert(s.isModule, s"$s is not a module (while loading $fullName)")
           // If `s` is an object, look at its type signature...
           s.typeSignature.member(sru.TypeName(name))
-        }
+        })
     }
     (if (res.isType) res.asType else res.typeSignature.typeSymbol.asType) alsoApply (x => debug(s"Loaded: $x"))
   }

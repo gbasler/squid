@@ -56,7 +56,11 @@ class CrossStageTests extends MyFunSuite(CrossStageDSL) {
     
     eqt(code"Some(this)" : ClosedCode[Option[CrossStageTests]], code"Some(${CrossStage(this)})")
     
-    assertDoesNotCompile(""" code"Set.empty[T]" """) // no 'cross-stage persistence of type', whatever that could be
+    same(code"Set.empty[T]".run, Set.empty) // note that T can be embedded here, as CrossStageTests#T
+    
+    object Local { type T }
+    //println(dbg_code"Set.empty[Local.T]") // FIXME: uses a 'broken' type tag and crashes at runtime – we should make type tags opt-in!
+    //assertDoesNotCompile(""" code"Set.empty[Local.T]" """) // no 'cross-stage persistence of type', whatever that could be
     // ^ Error:(33, 13) Embedding Error: Unknown type `CrossStageTests.this.T` does not have a TypeTag to embed it as uninterpreted.
     
   }

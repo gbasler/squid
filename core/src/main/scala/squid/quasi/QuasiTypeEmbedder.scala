@@ -31,26 +31,31 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
     
     def insertTypeEvidence(ev: base.TypeRep): base.TypeRep = ev
     
-    override def unknownTypefallBack(tp: Type): base.TypeRep = {
-      
-      debug(s"Lifting unknown type $tp (${tp.widen.dealias})")
-      
-      if (tp.widen =:= ExtrudedType || tp.widen.contains(ExtrudedType.typeSymbol)) { // was: contains(symbolOf[QuasiBase.`<extruded type>`])
-        debug(s"Detected widened type hole: ${tp.widen}")
-        val purged = tp.toString.replaceAll(ExtrudedType.toString, "<extruded type>")
-        throw EmbeddingException(s"Precise info for extracted type was lost, " +
-          s"possibly because it was extruded from its defining scope " +
-          s"or because the least upper bound was obtained from two extracted types, in: $purged")
-      }
-      
+    /* We override this method to make sure to try and find an implicit for a given abstract type, before decomposing it;
+     * this is to allow the common metpaprogramming pattern where one carries bundles of abstract types and their
+     * implicit representations with one's code values. */
+    override def liftTypeUncached(tp: Type, wide: Boolean): base.TypeRep = tp match {
+      case TypeRef(prefix, sym, targs)
+        if prefix != NoPrefix
+        && !sym.isClass
+        && (ExtractedType unapply tp isEmpty)
+      =>
+        debug(s"$sym is not a class, so we should look for an implicit in scope first")
+        lookForTypeImplicit(tp) getOrElse super.liftTypeUncached(tp, wide)
+      case _ => super.liftTypeUncached(tp, wide)
+    }
+    
+    val QTSym = symbolOf[QuasiBase#CodeType[_]]
+    
+    def lookForTypeImplicit(tp: Type): Option[base.TypeRep] = {
       
       val irType = c.typecheck(tq"$baseTree.CodeType[$tp]", c.TYPEmode) // TODO use internal.typeRef
-      debug(s"Searching for an `$irType` implicit")
+      debug(s"Searching for implicit of type: $irType")
       c.inferImplicitValue(irType.tpe, withMacrosDisabled = true) match {
         case EmptyTree =>
         case impt =>
           debug(s"Found: "+showCode(impt))
-          return (q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
+          return Some(q"$impt.rep".asInstanceOf[base.TypeRep] // FIXME
             |> insertTypeEvidence)
       }
       
@@ -65,8 +70,6 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
         }
       }.asInstanceOf[List[(TermSymbol, Type)]]
       
-      val QTSym = symbolOf[QuasiBase#CodeType[_]]
-      
       //val PredefQTSym = symbolOf[QuasiBase#Predef[_ <: QuasiConfig]#CodeType[_]]
       //val PredefQTSym = typeOf[QuasiBase#Predef[_ <: QuasiConfig]#CodeType[_]].typeSymbol
       // ^ For some reson, these always return a symbol s where s.fullName == "squid.quasi.QuasiBase.CodeType"
@@ -78,7 +81,7 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
           // For example in  {{{ (typs:List[CodeType[_]]) map { case typ: CodeType[t] => dbg.implicitType[t] } }}}
         =>
           debug("FOUND QUOTED TYPE "+sym)
-          return (q"$sym.rep".asInstanceOf[base.TypeRep] // FIXME
+          return Some(q"$sym.rep".asInstanceOf[base.TypeRep] // FIXME
             |> insertTypeEvidence)
         //case (sym, TypeRef(tpbase, QTSym, tp::Nil)) =>
         //  debug(s"Note: $tpbase =/= ${baseTree.tpe}")
@@ -87,6 +90,39 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
         case _ =>
       }
       
+      debug(s"No implicit `$irType` found")
+      None
+    }
+    
+    /* This method is overridden to handle extracted types; for the record, this is an example log of how they get here: 
+        > Matching type squid.FoldTupleVarOptim.ta.Typ
+        > !not a class: squid.FoldTupleVarOptim.ta.Typ
+        > (squid.FoldTupleVarOptim.ta.Typ,class scala.reflect.internal.Types$AbstractNoArgsTypeRef,squid.FoldTupleVarOptim.ta.Typ)
+        > (squid.FoldTupleVarOptim.ta.type,type Typ,List())
+        > ( <: squid.quasi.QuasiBase.<extruded type>,List())
+        > Matching type squid.FoldTupleVarOptim.ta.Typ
+        > !not a class: squid.FoldTupleVarOptim.ta.Typ
+        > (squid.FoldTupleVarOptim.ta.Typ,class scala.reflect.internal.Types$AbstractNoArgsTypeRef,squid.FoldTupleVarOptim.ta.Typ)
+        > (squid.FoldTupleVarOptim.ta.type,type Typ,List())
+        > ( <: squid.quasi.QuasiBase.<extruded type>,List())
+        > Unknown type, falling back: squid.FoldTupleVarOptim.ta.Typ
+        > Lifting unknown type squid.FoldTupleVarOptim.ta.Typ (squid.FoldTupleVarOptim.ta.Typ)
+        > Searching for an `FoldTupleVarOptim.this.base.CodeType[squid.FoldTupleVarOptim.ta.Typ]` implicit
+        > FOUND QUOTED TYPE value ta
+    */
+    override def unknownTypefallBack(tp: Type): base.TypeRep = {
+      
+      debug(s"Lifting unknown type $tp (${tp.widen.dealias})")
+      
+      if (tp.widen =:= ExtrudedType || tp.widen.contains(ExtrudedType.typeSymbol)) { // was: contains(symbolOf[QuasiBase.`<extruded type>`])
+        debug(s"Detected widened type hole: ${tp.widen}")
+        val purged = tp.toString.replaceAll(ExtrudedType.toString, "<extruded type>")
+        throw EmbeddingException(s"Precise info for extracted type was lost, " +
+          s"possibly because it was extruded from its defining scope " +
+          s"or because the least upper bound was obtained from two extracted types, in: $purged")
+      }
+      
+      lookForTypeImplicit(tp) foreach (return _)
       
       if (tp <:< ExtrudedType && !(tp <:< Null) // Note that: tp <:< Nothing ==> tp <:< Null so no need for the test
           || ExtractedType.unapply(tp).nonEmpty) {
@@ -105,7 +141,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
               throw EmbeddingException.Unsupported("Arrays of unresolved type.")
             }
 
-            throw EmbeddingException(s"Unknown type `$tp` does not have a TypeTag to embed it as uninterpreted.")
+            throw EmbeddingException(s"Could not find type representation for: $tp\n\t" +
+              s"consider providing a scala.reflect.runtime.universe.TypeTag implicit to embed it as uninterpreted.")
             
           case impt =>
             
@@ -129,13 +166,8 @@ abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <
         
       }
       
-      
-      
-      
-      
     }
     
   }
-  
   
 }

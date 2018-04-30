@@ -42,9 +42,11 @@ class CompileTimeTests extends FunSuite {
     // Error:(43, 26) Non-static identifier 'local' of type: Symbol
     
     object Local { type T } 
-    assert(compileTimeEval{ Option.empty[Local.T] } == None)
-    // ^ Reference to local type symbols works!
-    //   This is because it falls back on uninterpretedType, which BaseInterpeter defines as `sru.typeOf[A].typeSymbol.asType`
+    assertDoesNotCompile("assert(compileTimeEval{ Option.empty[Local.T] } == None)")
+    // Error:(45, 31) Could not access type symbol squid.statics.CompileTimeTests#<local CompileTimeTests>#Local$#T. Perhaps it was defined in the same project, but should be compiled separately.
+    // ^ TODO should detect that symbol 'squid.statics.CompileTimeTests#<local CompileTimeTests>#Local$#T' is fishy and use a type tag instead...
+    // ^ Reference to local type symbols works! – EDIT: USED to work
+    //   This is[was] because it falls back on uninterpretedType, which BaseInterpeter defines as `sru.typeOf[A].typeSymbol.asType`
     
   }
   

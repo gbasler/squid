@@ -33,6 +33,14 @@ class PrettyPrinting extends MyFunSuite {
     
   }
   
+  type T
+  test("Abstract Types") {
+    same(code"Option.empty[T]"
+      .rep |> showRep, "scala.Option.empty[(squid.feature.PrettyPrinting)#T]")
+    same(code"Option.empty[PrettyPrinting.T]"
+      .rep |> showRep, "scala.Option.empty[squid.feature.PrettyPrinting.T]")
+  }
+  
   test("Bindings") {
     
     same(code"(x: Int) => x+1"
@@ -105,4 +113,7 @@ class PrettyPrinting extends MyFunSuite {
     
   }
   
+}
+object PrettyPrinting {
+  type T
 }
