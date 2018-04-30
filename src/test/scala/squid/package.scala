@@ -30,5 +30,11 @@ package object squid {
     newStdErr.toString
   }
   
+  def packageObjectMethod(n: Int) = n+1
+  
+  // There used to be a problem when the implicit class extends AnyVal... the problem seems to have disappeared.
+  implicit class ImplicitClass(private val sym: Symbol) extends AnyVal { def foo = sym.name }
+  
+  
 }
 

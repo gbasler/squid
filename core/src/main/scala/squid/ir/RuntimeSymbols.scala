@@ -92,7 +92,10 @@ trait RuntimeSymbols {
     val sym = ensureDefined(s"'$symName' in $typ", tp.member(sru.TermName(symName)))
     if (sym.alternatives.nonEmpty) debug("Alts: "+sym.alternatives.map(_.typeSignature).map("\n\t"+_))
     
-    sym.alternatives(index getOrElse 0).asMethod
+    val idx = index getOrElse 0
+    if (sym.alternatives.indices contains idx) sym.alternatives(idx).asMethod
+    else throw IRException(s"Could not find overloading index $idx for method ${sym.fullName}; " +
+      s"perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?")
   }
   
 }

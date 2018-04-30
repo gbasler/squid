@@ -164,6 +164,14 @@ class BasicEmbedding extends MyFunSuite {
     
   }
   
+  test("Method and Extension Method in Package Object") {
+    
+    same(code"packageObjectMethod(42)".run, 43)
+    same(code"new ImplicitClass('a).foo".run, "a")
+    same(code"'a.foo".run, "a")
+    
+  }
+  
   test("Curried Functions") {
     
     val x = code"""foo(42)("ok")"""
