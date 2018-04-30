@@ -25,7 +25,10 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.ScalaReflectSurgeon
 
 /**
-  * TODO: a smarter version that creates the invokers and returns a _runner_ that can be ran more efficiently.
+  * TODO: a smarter version that creates the invokers and returns a _runner_ that can be ran more efficiently;
+  *   which should probably be cached in Code[T,C]'s run method
+  * TODO don't use Scala runtime reflection;
+  *   all that's really needed is Class tags for isInstanceOf and New (but this means the Base interface needs to be adapted...)
   */
 class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols with TraceDebug {
   import BaseInterpreter._

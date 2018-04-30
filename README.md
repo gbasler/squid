@@ -38,7 +38,7 @@ Assume we define some library function `foo` as below:
 ```
 
 The `@embed` annotation allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
-–– note that this annotation is _not_ required in general, as non-annotated methods can also be used inside quasiquotes.
+–– note that this annotation is _not_ required in general, as non-annotated classes and methods can also be used inside quasiquotes.
 
 What follows is an example REPL session demonstrating some program manipulation
 using Squid quasiquotes, 
