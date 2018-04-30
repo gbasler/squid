@@ -59,8 +59,17 @@ object MacroUtils {
     def apply[Dbg <: DebugInfo: c.TypeTag] = {
       val dbgt = c.typeOf[Dbg]
       new Debugger(debugOption || dbgt <:< c.typeOf[DebugLevel] || {
+        // We used to infer an implicit value to determine whether to print debug info or not, but this mechanism was
+        // not very practical, compared to the more useful `dbg_` derivations of the usual methods, which allows more
+        // precise selection of what debug info to print.
+        // I actually disabled the implicit resolution way of configuring debugging following a change in Scala 2.12
+        // that made the compiler crash with "illegal cyclic reference involving package object X" on embedded package
+        // objects such as example/sfusion/algo/package and example/sfusion/impl/package.
+        /*
         val edb = c.inferImplicitValue(c.typeOf[DebugInfo])
         dbgt <:< edb.tpe
+        */
+        false
       })
     }
     class Debugger(enabled: Boolean) {

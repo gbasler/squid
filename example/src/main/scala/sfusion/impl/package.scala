@@ -46,9 +46,9 @@ import scala.collection.mutable
 object `package` {
   
   /** Returned boolean stands for 'give me more' */
-  type Consumer[A] = A => Bool
+  type Consumer[-A] = A => Bool
   /** Returned boolean stands for 'no more elements available' */
-  type Producer[A] = Consumer[A] => Bool
+  type Producer[+A] = Consumer[A] => Bool
   
   @inline @phase('Imperative)
   def single[A](v: A): Producer[A] = {
@@ -157,7 +157,7 @@ object `package` {
         if (next.isEmpty) {
           if (rhs { r => next = Some(r); false }) finished = true
         }
-        next.fold(finished = true)(x => cont = k(x))
+        next.fold{finished = true}(x => cont = k(x))
       }
       finished
     }
