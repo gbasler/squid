@@ -385,7 +385,7 @@ class QuasiMacros(val c: whitebox.Context) {
           case tq"$lb <:< ${Ident(HoleName)}"         => typeBounds ::= HoleName -> First (lb   )
           case tq"${Ident(HoleName)} <:< $ub"         => typeBounds ::= HoleName -> Second(   ub)
           case tq"$lb <:< ${Ident(HoleName)} <:< $ub" => typeBounds ::= HoleName -> Both  (lb,ub)
-          case _ => throw EmbeddingException(s"Illegal bounds specification shape: `${showCode(bounds)}`. " +
+          case _ => throw QuasiException(s"Illegal bounds specification shape: `${showCode(bounds)}`. " +
             s"It shoule be of the form: `LB <:< $HoleName` or `$HoleName <:< UB` or `LB <:< $HoleName <:< UB`.")
         }
         rec(Ident(name))

@@ -225,7 +225,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
             if (typeHoles.isEmpty) ""
             else s"\n|  perhaps one of the type holes (${typeHoles mkString ", "}) is unnecessary."
           }
-          |Ascribe the scrutinee with ': Code[_,_]' or call '.erase' on it to remove this warning.""".stripMargin)
+          |Ascribe the scrutinee with ': Code[_,C]' or call '.erase' on it to remove this warning.""".stripMargin)
           // ^ TODO
         }
         typed -> typed.tpe
