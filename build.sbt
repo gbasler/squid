@@ -27,6 +27,9 @@ lazy val commonSettings = Seq(
   autoCompilerPlugins := true,
   scalacOptions ++= Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps"
     , "-deprecation", "-unchecked"
+    //, "-Ybackend-parallelism", "4" // does not seem to result in noticeable improvements of compile time,
+                                     // as measured by repeatedly doing ";reload ;clean ;test:clean ;test:compile" in
+                                     // sbt, which is reported to take around "Total time: 48 s"
   ),
   incOptions := incOptions.value.withLogRecompileOnMacro(false), // silences macro-related recompilation messages (cf. https://github.com/sbt/zinc/issues/142)
   resolvers += Resolver.sonatypeRepo("snapshots"),
