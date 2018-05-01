@@ -360,10 +360,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
         
         /** Insertion of variable symbols is currently encoded by the variable _name_ starting with `$` and containing
           * the tree that represents the inserted variable symbol. */
-        def interpretInsertedVariableSymbol(name: TermName) = try {
+        def interpretInsertedVariableSymbol(name: TermName, tpt: Tree) = try {
           
           val cde = name.decodedName.toString.tail
           val v = c.typecheck(c.parse(cde))
+          if (!(v.tpe <:< c.typecheck(tq"Variable[${tpt}]",c.TYPEmode).tpe))
+            throw QuasiException(s"Unquoted variable symbol `$v` of type ${v.tpe.widen} is incompatible with declared type ${tpt}")
           val cntx = variableContext(v)
           debug("INSERTED VAL:",cde,cntx)
           
@@ -373,8 +375,8 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
           (bound,cntx)
           
         } catch {
-          case e: ParseException => throw EmbeddingException(e.msg)
-          case e: TypecheckException => throw EmbeddingException.Typing(e.msg)
+          case e: ParseException => throw QuasiException(e.msg)
+          case e: TypecheckException => throw QuasiException(s"Unquoted variable symbol does not type check: ${e.msg}")
         }
         
         val myBaseTree = baseTree
@@ -457,10 +459,11 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   val bv =
                     // inserted binders are marked with a name beginning with `$` – this allows the quasicode syntax `code{val $v = 0; $v + 1}`
                     if (name.toString.startsWith("$")) {
-                      val (bound,cntx) = interpretInsertedVariableSymbol(name)
+                      val (bound,cntx) = interpretInsertedVariableSymbol(name, tpt)
                       cntxs ::= p.symbol.asTerm -> cntx
                       bound
                     } else {
+                      // Q: need to check tpt here?
                       b.bindVal(name.toString, liftType(p.symbol.typeSignature), p.symbol.annotations map (a => liftAnnot(a, x)))
                     }
                   bv -> (p.symbol.asTerm -> bv)
@@ -498,7 +501,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                 "Insertion of symbol in place of mutable variables is not yet supported; " +
                   "explicitly use the squid.Var[T] data type instead", Some(vdef.pos))
               
-              val (bound,cntx) = interpretInsertedVariableSymbol(name)
+              val (bound,cntx) = interpretInsertedVariableSymbol(name, tpt)
               
               val value = liftTerm(rhs, x, typeIfNotNothing(vdef.symbol.typeSignature))
               

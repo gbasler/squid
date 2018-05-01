@@ -74,7 +74,7 @@ class VariableSymbolTests extends MyFunSuite {
     
     code{val $v = 0; ${q}} eqt model
     code"val $$v = 0; ${q}" eqt model // the quasicode syntax can also be used from a quasiquote!
-    //assertDoesNotCompile(""" code"val $$yolo = 0; ${q}" """) // Embedding Error: Quoted expression does not type check: not found: value yolo
+    //assertDoesNotCompile(""" code"val $$yolo = 0; ${q}" """) // Quasiquote Error: Unquoted variable symbol does not type check: not found: value yolo
     
     code{val `$identity[v.type](v)` = 0; ${q}} eqt model
     code"val `$$identity[v.type](v)` = 0; ${q}" eqt model
@@ -121,6 +121,11 @@ class VariableSymbolTests extends MyFunSuite {
     p1 = code"($v: Int) => $p0 * 2"
     p1 = code"($v => $p0 * 2)"
     p1 eqt code"(x: Int) => (x + $w) * 2"
+    
+    assertDoesNotCompile(""" code"($v: String) => $v/2" """)
+    assertDoesNotCompile(""" code{($v: String) => $(v)/2} """)
+    assertDoesNotCompile(""" code{($v: String) => $v.length} """)
+    // ^ Unquoted variable symbol `v` of type VariableSymbolTests.this.DSL.Variable[Int] is incompatible with declared type String
     
     var p2: Code[Int => Int, v.Ctx] = null
     p2 = code"($w => $p0 * 2)"
