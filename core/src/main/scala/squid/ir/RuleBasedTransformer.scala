@@ -71,7 +71,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
     * involved in the context of quoted code.
     * `variableSymbols` saves the association from fresh names to old symbols, and `putBackVariableSymbols`
     * re-associates val-bindings with these symbols (presumably after they have been lost due to c.untypecheck).
-    * Currently we only do this for val-bindings of the shape `val v = Variable[T]()` */
+    * Currently we only do this for val-bindings of the shape `val v = Variable[T]` */
   def putBackVariableSymbols(pgrm: Tree) = TreeOps(pgrm).transform {
     case v @ ValDef(mods, name, tpt, rhs) if variableSymbols isDefinedAt name =>
         val sym = variableSymbols(name)
@@ -272,7 +272,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
           // I tried doing this for general value bindings (with conditions such as
           //   `if rhs.nonEmpty && v.symbol.isTerm && v.symbol.asTerm.isStable && v.symbol.typeSignature <:< AnyRef`),
           // but it usually does not work... even if we manually type-check the tree and abort on type checking errors
-          case v @ ValDef(mods, name, tpt, rhs @ q"$base.Variable.apply[$typ]($nam)($typev)") => // TODO check base
+          case v @ ValDef(mods, name, tpt, rhs @ q"$base.Variable.apply[$typ]($nam,$typev)") => // TODO check base
             val fn = c.freshName(name)
             variableSymbols += (fn -> v.symbol.asTerm)
             ValDef(mods, fn, tpt, rhs)

@@ -202,7 +202,10 @@ self: Base =>
     override def toString: String = s"Variable[${typeRepOf[T]}](${showRep(rep)})"
   }
   object Variable {
-    def apply[T:CodeType](name: String = "x") = new Variable[T](bindVal(name, typeRepOf[T], Nil)) // TODO annot?
+    def apply[T:CodeType](name: String) = new Variable[T](bindVal(name, typeRepOf[T], Nil)) // TODO annot?
+    def apply[T:CodeType](implicit name: sourcecode.Name): Variable[T] = apply(name.value)
+    @deprecated("Use either `Variable[T]` or `Variable[T](name)` instead.", "0.3.0")
+    def apply[T:CodeType](): Variable[T] = apply("x")
     def fromBound[T](bound: BoundVal)(implicit ev: self.type <:< self.type with IntermediateBase): Variable[T] = {
       val s: self.type with IntermediateBase = self
       val b: s.BoundVal = substBounded[Base,self.type,s.type,({type λ[X<:Base] = X#BoundVal})#λ](bound)

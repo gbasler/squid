@@ -28,7 +28,7 @@ class VariableSymbolTests extends MyFunSuite {
     
     // Local variable
     {
-      val v = Variable[Int]()
+      val v = Variable[Int]
       
       var p0: Code[Int, v.Ctx] = null
       p0 = code"$v + $v"  // exact type Code[Int, v.Ctx] inferred, with proper path-dependent type on `v`
@@ -58,11 +58,11 @@ class VariableSymbolTests extends MyFunSuite {
       
       v.substitute(p0, code"readInt") eqt code"readInt + readInt"
     }
-    test(Variable[Int]())
+    test(Variable[Int])
     
     // Tricky cases
     {
-      val v = Variable[Int]()
+      val v = Variable[Int]
       assertDoesNotCompile(""" code"val ${identity(v)} = 1; $v+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
       assertDoesNotCompile(""" code"val ${v:v.type} = 1; $v+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
       assertDoesNotCompile(""" code"val ${new base.Variable[Int]} = 1; 1+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
@@ -88,7 +88,7 @@ class VariableSymbolTests extends MyFunSuite {
     
     val model = code"val x = 0; x + 1"
     
-    val v = Variable[Int]()
+    val v = Variable[Int]
     
     val q = code{${v} + 1}
     //val q = code{${v} + 1}  // TODO enable this syntax, for consistency
@@ -111,7 +111,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Variable Symbol Substitution in Non-Empty Context") {
     
-    val v, w = Variable[Int]()
+    val v, w = Variable[Int]
     
     val p0: Code[Int, v.Ctx & w.Ctx] = code"$v + $w"
     
@@ -126,7 +126,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Variable Symbol Context Capture") {
     
-    val v, w = Variable[Int]()
+    val v, w = Variable[Int]
     
     val p0 = code"$v + $w"
     
@@ -192,7 +192,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Variable Symbol Context-Aware Extraction, a.k.a. Safe Extrusion") {
     
-    val u, v, w = Variable[Int]()
+    val u, v, w = Variable[Int]
     
     val p0: Code[Int => Int, v.Ctx] = code"($w: Int) => ($v + $w) * 2"
     
@@ -261,7 +261,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Avoiding Substitution Under Same Binder") {
     
-    val u, v, w = Variable[Int]()
+    val u, v, w = Variable[Int]
     
     val p0 = code"(($v:Int) => $v+1, $v)"
     val p1 = v.substitute(p0,code"readInt")
@@ -275,7 +275,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Capture-Avoiding Substitution") {
     
-    val u, v, w = Variable[Int]()
+    val u, v, w = Variable[Int]
     
     val p0 = code"($v:Int) => $v + $w"
     val p1 = w.substitute[Int => Int, v.Ctx](p0, v.toCode)
@@ -290,7 +290,7 @@ class VariableSymbolTests extends MyFunSuite {
   
   test("Shadowed Variable Symbol Binding") {
     
-    val v, w = Variable[Int]()
+    val v, w = Variable[Int]
     
     val p = code"($v:Int) => ($v:Int) => $v+1"
     
@@ -345,7 +345,7 @@ class VariableSymbolTests extends MyFunSuite {
     
     p rewrite {
       case code"val $v: $vt = $init; $body:$bt" =>
-        val w = Variable[MutVar[vt.Typ]]()
+        val w = Variable[MutVar[vt.Typ]]
         val newBody = body(v) ~> code"$w!"
         newBody eqt v.substitute[bt.Typ, v.OuterCtx & w.Ctx](body, code"$w!")
         assertDoesNotCompile(""" code"val $w = $init; $newBody" """) // Error:(300, 10) Embedding Error: Quoted expression does not type check: type mismatch; found: vt; required: squid.lib.MutVar[vt.Typ]
@@ -356,7 +356,7 @@ class VariableSymbolTests extends MyFunSuite {
       
       rewrite {
         case code"val $v: $vt = $init; $body:$bt" =>
-          val w = Variable[MutVar[vt.Typ]]()
+          val w = Variable[MutVar[vt.Typ]]
           val newBody = v.substitute[bt.Typ, v.OuterCtx & w.Ctx](body, code"$w!")
           assertDoesNotCompile(""" code"val $w = $init; $newBody" """) // Error:(300, 10) Embedding Error: Quoted expression does not type check: type mismatch; found: vt; required: squid.lib.Var[vt.Typ]
           code"val $w = MutVar($init); $newBody"
@@ -387,7 +387,7 @@ class VariableSymbolTests extends MyFunSuite {
   }
   
   
-  val vfield = Variable[Int]()
+  val vfield = Variable[Int]
   
   test("Variable Symbol Fields") {
     
@@ -399,7 +399,7 @@ class VariableSymbolTests extends MyFunSuite {
     p1 eqt code"readInt + readInt"
     
     object Test {
-      val vfield2 = Variable[Int]()
+      val vfield2 = Variable[Int]
       
       var p0: Code[Int, vfield2.Ctx] = null
       p0 = code"$vfield2 + $vfield2"
@@ -431,10 +431,10 @@ class VariableSymbolTests extends MyFunSuite {
       q(v) ~> code"readInt" alsoApply (_ eqt v.substitute[String,C & w.Ctx](q,code"readInt"))
     }
     
-    val v = Variable[Int]()
+    val v = Variable[Int]
     foo(v)(code"'lol.toString * $v") eqt code"'lol.toString * readInt"
     
-    val w = Variable[Int]()
+    val w = Variable[Int]
     bar(v,w)(code"'lol.toString * $v + $w") eqt code"'lol.toString * readInt + $w"
     
   }

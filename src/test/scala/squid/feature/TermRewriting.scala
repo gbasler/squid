@@ -143,7 +143,7 @@ class TermRewriting extends MyFunSuite {
     val p0 = code"List(1,2,3).map(_+1)"
     val p1 = p0 rewrite {
       case code"($v:Int)=>$body:$bt" =>
-        val w = Variable[Int]()
+        val w = Variable[Int]
         code"($w:Int) => ${
           body(v) ~> w.toCode alsoApply (_ eqt v.substitute[bt.Typ,v.OuterCtx with w.Ctx](body, w.toCode))
         }"
@@ -153,7 +153,7 @@ class TermRewriting extends MyFunSuite {
     val p2 = p1 rewrite {
       case code"($v:Int)=>$body:Int" =>
         
-        val w = Variable[Int]()
+        val w = Variable[Int]
         /* ^ seems to work similarly with `object w extends Variable[Int]` */
         
         val newBody = code"$body + $w"

@@ -34,6 +34,7 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 , libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5"
 , libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+, libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4"
   
 //, libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.3" % "test" cross CrossVersion.full
 //  // For the ammonite REPL:
