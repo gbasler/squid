@@ -24,6 +24,7 @@ import utils.CollectionUtils._
 import squid.lang.Base
 import squid.lang.CrossStageEnabled
 
+import scala.reflect.macros.ParseException
 import scala.reflect.macros.whitebox
 
 
@@ -282,12 +283,12 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
   
   
   def apply(
-    baseTree: Tree, rawTree: c.Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[c.Tree],
+    baseTree: Tree, rawTree: Tree, termScopeParam: List[Type], config: QuasiConfig, unapply: Option[Tree],
     typeSymbols: Map[TypeName, Symbol], holeSymbols: Set[Symbol], 
     holes: Seq[Either[TermName,TypeName]], splicedHoles: collection.Set[TermName], hopvHoles: collection.Map[TermName,List[List[TermName]]],
     termHoles: Set[TermName], typeHoles: Set[TypeName], typedTree: Tree, typedTreeType: Type, stmts: List[Tree], 
     convNames: Set[TermName], unquotedTypes: Seq[(TypeName, Type, Tree)]
-  ): c.Tree = {
+  ): Tree = {
     
     
     val shortBaseName = TermName("__b__")
@@ -357,6 +358,24 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     val codeTree = config.embed(c)(Base, baseTree.tpe, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
         
+        /** Insertion of variable symbols is currently encoded by the variable _name_ starting with `$` and containing
+          * the tree that represents the inserted variable symbol. */
+        def interpretInsertedVariableSymbol(name: TermName) = try {
+          
+          val cde = name.decodedName.toString.tail
+          val v = c.typecheck(c.parse(cde))
+          val cntx = variableContext(v)
+          debug("INSERTED VAL:",cde,cntx)
+          
+          val mb = b.asInstanceOf[(MetaBases{val u: c.universe.type})#MirrorBase with b.type]
+          val bound = mb.Existing(q"$v.`internal bound`").asInstanceOf[b.BoundVal]
+          
+          (bound,cntx)
+          
+        } catch {
+          case e: ParseException => throw EmbeddingException(e.msg)
+          case e: TypecheckException => throw EmbeddingException.Typing(e.msg)
+        }
         
         val myBaseTree = baseTree
         object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
@@ -438,15 +457,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   val bv =
                     // inserted binders are marked with a name beginning with `$` – this allows the quasicode syntax `code{val $v = 0; $v + 1}`
                     if (name.toString.startsWith("$")) {
-                      val n = name.toString.tail
-                      val v = Ident(TermName(n))
-                      val cntx = variableContext(v)
-                      debug("INSERTED VAL:",n,cntx)
+                      val (bound,cntx) = interpretInsertedVariableSymbol(name)
                       cntxs ::= p.symbol.asTerm -> cntx
-                      val mb = b.asInstanceOf[(MetaBases{val u: c.universe.type})#MirrorBase with b.type]
-                      mb.Existing(q"$v.`internal bound`").asInstanceOf[b.BoundVal]
-                    }
-                    else {
+                      bound
+                    } else {
                       b.bindVal(name.toString, liftType(p.symbol.typeSignature), p.symbol.annotations map (a => liftAnnot(a, x)))
                     }
                   bv -> (p.symbol.asTerm -> bv)
@@ -477,20 +491,14 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               
               super.liftTerm(x, parent, expectedType, inVarargsPos)
               
-            /** Processes inserted vals; adapted from ModularEmbedding */
-            case q"${vdef @ ValDef(mods, TermName(name), tpt, rhs)}; ..$body" if name.startsWith("$") =>
+            /** Processes inserted variable symbols; the bulk of this code was adapted from ModularEmbedding */
+            case q"${vdef @ ValDef(mods, name, tpt, rhs)}; ..$body" if name.toString.startsWith("$") =>
               
               if (mods.hasFlag(Flag.MUTABLE)) throw QuasiException(
                 "Insertion of symbol in place of mutable variables is not yet supported; " +
                   "explicitly use the squid.Var[T] data type instead", Some(vdef.pos))
               
-              val n = name.toString.tail
-              val v = Ident(TermName(n))
-              val cntx = variableContext(v)
-              
-              debug("INSERTED VAL:",n,cntx)
-              val mb = b.asInstanceOf[(MetaBases{val u: c.universe.type})#MirrorBase with b.type]
-              val bound = mb.Existing(q"$v.`internal bound`").asInstanceOf[b.BoundVal]
+              val (bound,cntx) = interpretInsertedVariableSymbol(name)
               
               val value = liftTerm(rhs, x, typeIfNotNothing(vdef.symbol.typeSignature))
               

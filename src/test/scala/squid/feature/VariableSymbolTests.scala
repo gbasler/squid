@@ -60,27 +60,6 @@ class VariableSymbolTests extends MyFunSuite {
     }
     test(Variable[Int])
     
-    // Tricky cases
-    {
-      val v = Variable[Int]
-      assertDoesNotCompile(""" code"val ${identity(v)} = 1; $v+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
-      assertDoesNotCompile(""" code"val ${v:v.type} = 1; $v+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
-      assertDoesNotCompile(""" code"val ${new base.Variable[Int]} = 1; 1+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
-      
-      val p = code"123"
-      assertDoesNotCompile(""" code"val $p = 0; 1" """) // Error: Quasiquote Error: Cannot insert a code value in place of a variable symbol.
-      
-      val n = 0
-      assertDoesNotCompile(""" code"val $n = 0; 1" """) // Error: Quasiquote Error: Cannot insert object of type `Int` here.
-      
-      assertDoesNotCompile(""" code"val $$x = 0; $$x+1" """)
-      // Warning: The `$$x` free variable syntax is deprecated; use syntax `?x` instead. (since 0.2.0)
-      // Embedding Error: Quoted expression does not type check: value + is not a member of Nothing
-      
-      assertDoesNotCompile(""" code"var $v = 0; $v" """) // Quasiquote Error: Insertion of symbol in place of mutable variables is not yet supported; explicitly use the squid.Var[T] data type instead
-      
-    }
-    
   }
   
   
@@ -91,9 +70,14 @@ class VariableSymbolTests extends MyFunSuite {
     val v = Variable[Int]
     
     val q = code{${v} + 1}
-    //val q = code{${v} + 1}  // TODO enable this syntax, for consistency
+    //val q0 = code{$v + 1}  // would be nice to enable this syntax for consistency, but I don't see how
     
     code{val $v = 0; ${q}} eqt model
+    code"val $$v = 0; ${q}" eqt model // the quasicode syntax can also be used from a quasiquote!
+    //assertDoesNotCompile(""" code"val $$yolo = 0; ${q}" """) // Embedding Error: Quoted expression does not type check: not found: value yolo
+    
+    code{val `$identity[v.type](v)` = 0; ${q}} eqt model
+    code"val `$$identity[v.type](v)` = 0; ${q}" eqt model
     
     code{val $v = 0; $v + 1} eqt model
     code{val $v = 0; $v + ${q}} eqt code"val x = 0; x + (x + 1)"
@@ -186,6 +170,31 @@ class VariableSymbolTests extends MyFunSuite {
     p = foo(code"$v + 1") // this has type Code[Int,v.Ctx], but it does not actually contain any occurrences of `v`
     //v.substitute(p, fail) eqt code"val a = 0; a+1" // FIXME substitution under same binder
     
+    
+  }
+  
+  
+  test("Syntactically Tricky Cases") {
+    
+    val v = Variable[Int]
+    val model = code"val x = 1; x+1"
+    
+    code"val ${identity[v.type](v)} = 1; $v+1" eqt model
+    assertDoesNotCompile(""" code"val ${identity(v)} = 1; $v+1" """) // Error: Quasiquote Error: Cannot use variable of non-singleton type VariableSymbolTests.this.DSL.Variable[Int]
+    code"val ${v:v.type} = 1; $v+1" eqt model
+    assertDoesNotCompile(""" code"val ${new base.Variable[Int]} = 1; 1+1" """) // Error: Quasiquote Error: Inserted variable symbols can only be identifiers.
+    
+    val p = code"123"
+    assertDoesNotCompile(""" code"val $p = 0; 1" """) // Error: Quasiquote Error: Cannot insert a code value in place of a variable symbol.
+    
+    val n = 0
+    assertDoesNotCompile(""" code"val $n = 0; 1" """) // Error: Quasiquote Error: Cannot insert object of type `Int` here.
+    
+    assertDoesNotCompile(""" code"val $$x = 0; $$x+1" """)
+    // Warning: The `$$x` free variable syntax is deprecated; use syntax `?x` instead. (since 0.2.0)
+    // Embedding Error: Quoted expression does not type check: value + is not a member of Nothing
+    
+    assertDoesNotCompile(""" code"var $v = 0; $v" """) // Quasiquote Error: Insertion of symbol in place of mutable variables is not yet supported; explicitly use the squid.Var[T] data type instead
     
   }
   

@@ -264,7 +264,7 @@ class QuasiMacros(val c: whitebox.Context) {
     
     def mkTermHole(name: TermName, followedBySplice: Boolean) = {
       val h = builder.holes(name)
-      assert(remainingHoles(name), s"Duplicate hole? $h")
+      assert(remainingHoles(name), s"Duplicated hole? $h")
       remainingHoles -= name
       
       //debug("HOLE: "+h)
@@ -347,9 +347,9 @@ class QuasiMacros(val c: whitebox.Context) {
           hole.tree.tpe match {
             case AsVariable(typ) =>
               remainingHoles -= name
-              val hname = TermName(s"$$${hole.name.getOrElse(
-                throw QuasiException(s"Inserted variable symbols can only be identifiers. In: $${${hole.tree}}", Some(hole.tree.pos))
-              )}")
+              // we encode the tree in the name... unifying support for variable symbol insertion in quasiquotes with
+              // variable symbol insertion in quasicode (which is done with syntax: code{val `$v` = 0; $(v)+1})
+              val hname = TermName("$" + showCode(hole.tree))
               // Q: add annotation identifying the special inserted binder?
               if (tpt.isEmpty) ValDef(mods, hname, tq"$typ", rec(rhs))
               else ValDef(mods, hname, tpt, rec(rhs))
