@@ -112,6 +112,8 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
       def ~> [C] (term: Code[T,C]): Code[Typ,Nothing /*_ >: Ctx & C*/] = macro quasi.QuasiMacros.varSubsImpl[C]
       @MacroSetting(debug = true) def dbg_~> [C] (term: Code[T,C]): Code[Typ,Nothing /*_ >: Ctx & C*/] = macro quasi.QuasiMacros.varSubsImpl[C]
     }
+    /** Sometimes clearer than using `apply` */
+    def subs[T](v: Variable[T]) = apply(v)
     
     def reinterpretIn(newBase: Base): newBase.Code[Typ,Ctx] =
       newBase.`internal Code`(newBase.wrapConstruct( reinterpret(self.rep, newBase)(DefaultExtrudedHandler) ))

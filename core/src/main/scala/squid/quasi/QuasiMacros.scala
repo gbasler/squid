@@ -526,8 +526,8 @@ class QuasiMacros(val c: whitebox.Context) {
     import c.universe._
     
     val (base -> quoted, fv, typ -> ctx, termCtx) = c.macroApplication match {
-      case q"$b.IntermediateCodeOps[$t,$c]($q).apply[$_]($v)~>[$tc]($_)" => (b -> q, v, t.tpe -> c.tpe, tc.tpe)
-      case q"$b.IntermediateCodeOps[$t,$c]($q).apply[$_]($v).dbg_~>[$tc]($_)" => (b -> q, v, t.tpe -> c.tpe, tc.tpe)
+      case q"$b.IntermediateCodeOps[$t,$c]($q).${TermName("apply"|"subs")}[$_]($v)~>[$tc]($_)" => (b -> q, v, t.tpe -> c.tpe, tc.tpe)
+      case q"$b.IntermediateCodeOps[$t,$c]($q).${TermName("apply"|"subs")}[$_]($v).dbg_~>[$tc]($_)" => (b -> q, v, t.tpe -> c.tpe, tc.tpe)
     }
     
     val C = termCtx // weakTypeOf[C] is not useful as it returns a tag of C as viewed from the definition of ~> !!

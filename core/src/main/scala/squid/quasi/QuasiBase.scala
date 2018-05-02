@@ -262,6 +262,14 @@ self: Base =>
     type OpenCode[+T] = self.OpenCode[T]
     type ClosedCode[+T] = self.ClosedCode[T]
     
+    // Shorthands:
+    type C[+T,-C] = Code[T,C]
+    type CT[T] = CodeType[T]
+    type V[T] = Variable[T]
+    type OCode[+T] = OpenCode[T]
+    type OC[+T] = OpenCode[T]
+    type CC[+T] = ClosedCode[T]
+    
     /** Useful in conjunction with `squid.utils.typing.Poly2`, as in `Poly2[HKCodeWithCtx[C]#F]` */
     type HKCodeWithCtx[C] = { type F[A,B] = Code[A, B & C] }
     
