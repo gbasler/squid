@@ -66,7 +66,9 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   }
   
   case class Rep(dfn: Def) extends Code[Any,Nothing] 
-    with EquivBasedCodeEquals // needed for user-friendly Code#equals behavior, but maybe not ideal for Rep
+    //with EquivBasedCodeEquals // needed for user-friendly Code#equals behavior, but maybe not ideal for Rep
+    // ^ however, causes problems with SchedulingANF, which uses hash maps of Rep terms, where equiv-based equality
+    //   would be unnecessarily slow and would potentially not have the right semantics (i.e., being too flexible).
   {
     val rep = this
     

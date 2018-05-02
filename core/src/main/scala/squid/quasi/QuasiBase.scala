@@ -74,14 +74,22 @@ self: Base =>
   
   
   /** Code values do not automatically use term equivalence (symbol =~=) to compare for equality; indeed, some IRs may 
-    * not want such behavior. For example, it could pose problems in IRs like SimpleANF that make Rep extend Code to
-    * reduce allocations (though in practice it currently makes it extend EquivBasedCodeEquals as well). */
+    * not want such behavior. For example, it poses problems in IRs like SimpleANF that make Rep extend Code to
+    * reduce allocations, because SchedulingANF, which extends SimpleANF, uses hash maps of Rep terms. */
   trait EquivBasedCodeEquals { self: AnyCode[_] =>
     override def equals(that: Any): Boolean = that match {
       case that: AnyCode[_] => rep =~= that.rep
       case _ => false
     }
   }
+  /** When using an IR that does not use term equivalence as the equality comparison (such as SimpleANF/SchedulingANF),
+    * wraps code objects in `EquivBasedCode` to regain the semantic comparison capabilities. */
+  case class EquivBasedCode[T,C](cde: Code[T,C]) extends AnyCode[T] with EquivBasedCodeEquals {
+    type Typ = cde.Typ
+    def rep = cde.rep
+    def withUnderlyingTyp = cde.withUnderlyingTyp
+  }
+  
   final def substitute(r: => Rep, defs: (String, Rep)*): Rep =
   /* if (defs isEmpty) r else */  // <- This "optimization" is not welcome, as some IRs (ANF) may relie on `substitute` being called for all insertions
     substitute(r, defs.toMap)
