@@ -161,7 +161,7 @@ class VariableSymbolTests extends MyFunSuite {
     val oc: OpenCode[Int] = p0
     code"val $v = 0; println($oc)" eqt code"val x = 0; println(x + $w)"
     
-    val ac: AnyCode[Int] = p0
+    val ac: base.AnyCode[Int] = p0
     code"val $v = 0; println(${ac.withContext})" eqt code"val x = 0; println(x + $w)"
     
     // This can create some surprises, such as the fact that a function from Code[T,C] to Code[T,C] may end up capturing

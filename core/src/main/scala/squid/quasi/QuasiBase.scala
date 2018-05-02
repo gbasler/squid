@@ -254,7 +254,6 @@ self: Base =>
   class Predef[QC <: QuasiConfig] {
     val base: self.type = self // macro expansions will make reference to it
     
-    type AnyCode[+T] = self.AnyCode[T]
     type Code[+T,-C] = self.Code[T,C]
     type CodeType[T] = self.CodeType[T]
     type Variable[T] = self.Variable[T]
