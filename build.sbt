@@ -13,7 +13,7 @@
 // limitations under the License.
 
 val scala211Version = "2.11.11"
-val scala212Version = "2.12.5"
+val scala212Version = "2.12.6"
 
 val paradiseVersion = "2.1.0"
 val squidVersion = "0.3.0-SNAPSHOT"
