@@ -264,9 +264,13 @@ class VariableSymbolTests extends MyFunSuite {
     }
     
     //base.debugFor{
-    assert(captureStdErr { code"(a:Int) => (a,a)".erase match {
+    val stde = captureStdErr { code"(a:Int) => (a,a)".erase match {
       case code"($x:$xt) => (x,$b:xt)" => eqt(b,code"$x")
-    }} == "Term of type squid.ir.ScalaTyping.TypeHole[String(\"xt\")] was rewritten to a term of type Int, not a known subtype.\n")
+    }}
+    assert(
+       stde == "Term of type squid.ir.ScalaTyping.TypeHole[String(\"xt\")] was rewritten to a term of type Int, not a known subtype.\n"
+    //                                                     ^ no `java.lang.` since Scala 2.12.6, for some reason...
+    || stde == "Term of type squid.ir.ScalaTyping.TypeHole[java.lang.String(\"xt\")] was rewritten to a term of type Int, not a known subtype.\n")
     //}
     /* The above happens because we currently implement matching of extruded variables in a hacky way (cf. doc of AST). */
     
