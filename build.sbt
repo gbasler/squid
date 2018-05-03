@@ -77,25 +77,6 @@ lazy val core_macros = (project in file("core_macros")).
   )
 
 
-val SCVersion = "0.1.4-SNAPSHOT"
-
-lazy val scBackendMacros = (project in file("sc-backend/macros")).
-  settings(commonSettings: _*).
-  settings(
-    name := "squid-sc-backend-macros",
-    libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
-  ).
-  dependsOn(main)
-lazy val scBackend = (project in file("sc-backend")).
-  dependsOn(scBackendMacros).
-  dependsOn(main % "test->test").
-  settings(commonSettings: _*).
-  settings(
-    name := "squid-sc-backend",
-    libraryDependencies ++= Seq("ch.epfl.data" % "sc-pardis-compiler_2.11" % SCVersion)
-  )
-
-
 lazy val example = (project in file("example")).
   settings(commonSettings: _*).
   settings(
