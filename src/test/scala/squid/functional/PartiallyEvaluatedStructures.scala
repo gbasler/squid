@@ -16,6 +16,9 @@ package squid
 package functional
 
 // TODO port OtherRep?
+
+object PartiallyEvaluatedStructures // to avoid SBT 1 warning
+
 /*
 import lang._
 import quasi._

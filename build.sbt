@@ -35,6 +35,7 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
+, unmanagedSources in Compile := (unmanagedSources in Compile).value.filterNot(_.getPath.contains("_perso"))
 , libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5"
 , libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 , libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4"

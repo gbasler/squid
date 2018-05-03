@@ -17,6 +17,8 @@ package ir
 
 // TODO port for SimpleANF
 
+object ANFRewritingTests // to avoid SBT 1 warning
+
 /*
 
 import ir._
