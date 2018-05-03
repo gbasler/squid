@@ -385,7 +385,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
     lazy val phase = { // TODO cache annotations for each sym
       import ruh.sru._
-      sym.annotations.iterator map (_ tree) collectFirst {
+      val annots =
+        if (sym.isAccessor) // Scala stores a field's annotation not in its accessor, but in the associated private value of the same name plus a space...
+          sym.owner.typeSignature member TermName(sym.name+" ") optionIf (_ =/= NoSymbol) getOrElse sym annotations
+        else sym.annotations
+      annots.iterator map (_ tree) collectFirst {
         case q"new $tp(scala.Symbol.apply(${Literal(ruh.sru.Constant(name:String))}))" if tp.symbol.fullName == "squid.quasi.phase" =>
           Symbol(name)
       }

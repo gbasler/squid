@@ -73,6 +73,7 @@ object MyClass extends App with ir.SquidObject {
   @phase('Sugar)
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap
   
+  @phase('Sugar)
   val cst = 42
   
 }
@@ -90,16 +91,5 @@ object OrphanObject extends ir.SquidObject {
   
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+@embed
+class ClassWithParam(@phase('Sugar) val arg: Int)

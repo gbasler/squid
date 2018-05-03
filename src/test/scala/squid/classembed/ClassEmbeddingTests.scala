@@ -60,6 +60,12 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     import MyClass._
     
+    // fields are lowered:
+    code"cst" transformWith Desugaring eqt code"42"
+    
+    // fields that are class parameters cannot be lowered (though it would be useful to inline accesses as below):
+    code"(new ClassWithParam(42)).arg" |> (cde => cde transformWith Desugaring eqt cde)
+    
     // arg-vararg
     code"""argVarargFoo("bar", 1, 2, 3) * 2""" transformWith Desugaring eqt
       code"""((s: String, xs: Seq[Int]) => s.length + xs.sum + 1)("bar", Seq(1, 2, 3)) * 2"""
