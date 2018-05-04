@@ -175,7 +175,12 @@ class Matching extends MyFunSuite {
         eqt(bv.typ, typeRepOf[Int])
     }
     
-    //assertDoesNotCompile(""" q match { case ir"val ${IR(t)}: Int = $v; $b" => } """) // Error:(132, 20) Quasiquote Error: All extracted bindings must be named. In: ${IR((t @ _))}
+    assertDoesNotCompile(""" q match { case code"val ${AnyCode(t)}: Int = $v; $b" => } """) // Error:(178, 38) Quasiquote Error: All extracted bindings must be named. In: ${AnyCode((t @ _))}
+    
+    // duplicated hole:
+    assertDoesNotCompile("""q match {
+      case code"identity[($t=>Int)=>Int]($x)(($x:t)=>$body)" =>
+    }""") // Error:(182, 11) Quasiquote Error: Illegal duplicated hole: x
     
   }
   

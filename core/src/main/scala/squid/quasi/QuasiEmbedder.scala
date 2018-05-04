@@ -304,6 +304,10 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
     //type Context = List[TermSymbol]
     type Context = Map[TermName, Type]
     val termHoleInfo = mutable.Map[TermName, (Context, Type)]()
+    def updateHoleInfo(nam: TermName, v: Context -> Type): Unit = {
+      if (termHoleInfo.contains(nam)) throw QuasiException(s"Illegal duplicated hole: $nam") // Q: B/E necessary?
+      termHoleInfo += nam -> v
+    }
     
     /** Association between extracted binder names and the corresponding singleton types of the extracted variables (generated on the fly) */
     val extractedBinders = mutable.Map[TermName,Type]()
@@ -445,8 +449,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                 val ltyp = liftType(typ)
                 extractedBinders += (nam -> freshSingletonVariableType(nam,typ))
                 debug("PARAM-BOUND HOLE:",nam,typ)
-                assert(!termHoleInfo.contains(nam)) // Q: B/E necessary?
-                termHoleInfo += nam -> (Map(nam -> typ) -> typ)
+                updateHoleInfo(nam, Map(nam -> typ) -> typ)
               }
               
               var cntxs = List.empty[TermSymbol->Type]
@@ -487,8 +490,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
               extractedBinders += (nam -> freshSingletonVariableType(nam,typ))
               
               debug("VAL-BOUND HOLE:",nam,typ)
-              assert(!termHoleInfo.contains(nam)) // Q: B/E necessary?
-              termHoleInfo += nam -> (Map(nam -> typ) -> typ)
+              updateHoleInfo(nam, Map(nam -> typ) -> typ)
               
               super.liftTerm(x, parent, expectedType, inVarargsPos)
               
@@ -674,7 +676,7 @@ class QuasiEmbedder[C <: whitebox.Context](val c: C) {
                   debug(s"HOPV: yes=$yes; no=$no")
                   val List(identVals2) = identVals // FIXME generalize
                   val hopvType = FunctionType(identVals2 map (_._1.typeSignature) : _*)(holeType)
-                  termHoleInfo(termName) = Map() -> hopvType
+                  updateHoleInfo(termName, Map() -> hopvType)
                   b.hopHole(name, liftType(holeType), yes, no)
                   
                 case _ =>

@@ -330,7 +330,8 @@ class TypeMatching extends MyFunSuite {
   
   test("Invariant Singleton Types Not Blocking Extraction") {
     
-    val str_any = (typeRepOf[String], typeRepOf[Any])
+    val strT = codeTypeOf[String]
+    val str_any = (strT.rep, typeRepOf[Any])
     
     code"""Some("ok")""" matches {
       case code"$_:Option[$t]" =>
@@ -353,15 +354,17 @@ class TypeMatching extends MyFunSuite {
       case code"parserApi[$t,$r]($x)($f)" =>
         import squid.utils.->
         code"Set.empty[($t,$r)]" eqt code"Set.empty[String -> Int]"
-        eqt(t, codeTypeOf[String])
+        eqt(t, strT)
         assert(extractedBounds(r) == (typeRepOf[Int], typeRepOf[Any]))
     } and {
       case code"parserApi[$t,$r]($x)((x:t) => $body)" =>
-        eqt(t, codeTypeOf[String])
+        eqt(t, strT)
         assert(extractedBounds(r) == (typeRepOf[Int], typeRepOf[Any]))
-    } /*and {
-      case code"parserApi[$t,$r]($x)(($x:t)=>$body)" =>  // FIXME crashes the embedder!
-    }*/
+    } and {
+      case code"parserApi[$t,$r]($p)(($x:t)=>$body)" =>
+        eqt(x.toCode.Typ, strT)
+        eqt(t, strT)
+    }
     
     code"parserApi(${Const("ok")})(_.length) -> 42 -> ((_:Int)+1)" matches {
       case code"parserApi[$t,$r]($x)($f) -> ($n:r) -> ($g:r=>Any)" =>
