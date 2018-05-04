@@ -14,6 +14,8 @@
 
 package squid
 
+import scala.annotation.showAsInfix
+
 package object utils {
   
   /** An alternative to scala.Nothing that does not have the bad interaction with type inference and implicits. */
@@ -23,6 +25,7 @@ package object utils {
   type Bool = Boolean
   
   /** Dotty syntax for intersection types */
+  @showAsInfix
   type & [+A,+B] = A with B
   
   import scala.language.existentials
@@ -121,7 +124,9 @@ package object utils {
   }
   */
   
+  @showAsInfix
   type |>[A, F[_]] = F[A]
+  @showAsInfix
   type \/[+A, +B] = Either[A,B]
   
   def ignore = (_: Any) => ()
@@ -146,6 +151,7 @@ package object utils {
     def indent: String = indent("\t")
   }
   
+  @showAsInfix
   type -> [+A,+B] = (A,B)
   object -> {
     def unapply[A,B](ab: (A,B)) = Some(ab)
