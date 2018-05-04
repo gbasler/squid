@@ -33,7 +33,7 @@ class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simpli
   }
 
   def parseError(msg: String) = c.abort(c.enclosingPosition,
-    s"""|Failed to parse DSL code: $msg
+    s"""|Failed to parse embedded code: $msg
         |In macro application:""".stripMargin)
   
   val (holes, tree, hasVarargs) = {

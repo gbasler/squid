@@ -197,9 +197,12 @@ class Matching extends MyFunSuite {
         v eqt code"null"
     } and {
       case code"val str: $t = $v; $body: Int" =>
-        //eqt(t, irTypeOf[String])
-        // ^ Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 
+        //eqt(t, codeTypeOf[String])
+        // ^ Not working because of merging of -String with +Null(null) from the arg, making Null(null)..String which
+        // materializes to Null(null) because invariant; cf. ScalaTyping
+        // ```    Result: Some((Map(body -> $str<:String.length(), v -> null),Map(t -> Null(null)..String),Map())) ```
         eqtBy(t, codeTypeOf[String], false)(_ =:= _)
+        assert(extractedBounds(t) == (base.constType(null), typeRepOf[String]))
     } and {
       case code"val ${x @ AnyCode(RepDef(bv:BoundVal))}: $t = $v; $body: Int" =>
         eqt(bv.typ, typeRepOf[String]) // Not working because of mergign of -String with +Null(null) from the arg; cf. ScalaTyping 

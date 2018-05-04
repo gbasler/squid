@@ -45,22 +45,47 @@ self: IntermediateBase => // for 'repType' TODO rm
   }
   object TypeRep { def unapply(t: TypeRep) = Some(t.tpe) }
   implicit def toScala(tr: TypeRep): ScalaType = tr.tpe // TODO rm
-  case class ExtractedType(val vari: Variance, override val tpe: ScalaType) extends TypeRep(tpe) {
-    override def toString = s"${vari symbol}$tpe"
+  
+  class ExtractedType(val variance: Variance, val lb: ScalaType, val ub: ScalaType)
+    extends TypeRep(if (variance == Contravariant) ub else lb)
+    // ^ Note: sole purpose of `variance` field is to make the choice a little smarter and usually more appropriate...
+    // though chosing `ub` or `lb` here is kind of arbitrary; it means that when extracting a type that is soundly
+    // allowed to range within T0..T1, we pick T0 or T1 as the representative when a single type ends up being used.
+    // The intuition is that this is the 'most precise' type satisfying the constraint – similar to what Scala's type
+    // inference does (which sometimes has Nothing or Any inferred, depending on variance of where the type occurs).
+    // As an example, in: `Some(0) match { case code"Some($v:$t)" => ... }`, `t` is inferred as `+Int..Any`; here the
+    // intuitive thing to do when asked to materialize it (as in: pick a single type) is to make it `Int`, not `Any`.
+  {
+    assert(lb <:< ub)
+    override lazy val toString = variance.symbol * variance.asInt.abs +
+      (if (lb =:= ub) s"$ub"
+      else if (lb <:< ruh.Nothing) s"..$ub"
+      else if (ruh.Any <:< ub) s"$lb.."
+      else s"$lb..$ub")
   }
-  override def mergeTypes(a: TypeRep, b: TypeRep): Option[ExtractedType] = (a -> b match {
-    case ExtractedType(Invariant, a) -> ExtractedType(Invariant, b) => if (a =:= b) Some(Invariant, a) else None
-    case ExtractedType(Invariant, a) -> ExtractedType(Covariant, b) => if (b <:< a) Some(Invariant, a) else None
-    case ExtractedType(Invariant, a) -> ExtractedType(Contravariant, b) => if (a <:< b) Some(Invariant, a) else None
-    case ExtractedType(Covariant, a) -> ExtractedType(Covariant, b) => Some(Covariant, sru.lub(a::b::Nil))
-    case ExtractedType(Contravariant, a) -> ExtractedType(Contravariant, b) => Some(Contravariant, sru.glb(a::b::Nil))
-    case ExtractedType(Covariant, a) -> ExtractedType(Contravariant, b) => Some(Invariant, a) // arbitrary!
-    // ^ Note that picking `b` instead of `a` is also possible, but seems to create problems;
-    // e.g. in ClassEmbeddingTests.test("Online Lowering and Normalization") where the BindingNormalizer matches redexes
-    //      so if the value is null of type Null(null) is will unify to this instead of the parameter type.
-    case (a: ExtractedType) -> (b: ExtractedType) => mergeTypes(b, a) map { case ExtractedType(v,t) => v -> t }
-    case _ => die
-  }) map ExtractedType.tupled alsoApply_? { case None => debug(s"Could not merge types $a and $b") }
+  object ExtractedType {
+    def apply(variance: Variance, lb: ScalaType, ub: ScalaType) = new ExtractedType(variance,lb,ub)
+    def apply(vari: Variance, tpe: ScalaType): ExtractedType = vari match {
+      case Invariant => ExtractedType(vari,tpe,tpe)
+      case Covariant => ExtractedType(vari,tpe,ruh.Any)
+      case Contravariant => ExtractedType(vari,ruh.Nothing,tpe)
+    }
+    def ifNonEmpty(variance: Variance, lb: ScalaType, ub: ScalaType) = ExtractedType(variance, lb, ub) optionIf (lb <:< ub)
+    def unapply(tp: TypeRep): Some[(Variance, ScalaType, ScalaType)] = Some(tp match {
+      case et: ExtractedType => (et.variance, et.lb, et.ub)
+      case TypeRep(tp) => (Invariant, tp, tp)
+    })
+  }
+  
+  override def mergeTypes(a: TypeRep, b: TypeRep): Option[ExtractedType] = (a,b) match {
+    case (ExtractedType(av,a0,a1), ExtractedType(bv,b0,b1)) =>
+      val v = if (av == bv) av else Invariant
+      if ((a0 <:< b0) && (b0 <:< a1)) Some(ExtractedType(v,b0,a1))
+      else if ((b0 <:< a0) && (a0 <:< b1)) Some(ExtractedType(v,a0,b1))
+      // ^ Note: two cases above kind of redundant with the one below, but they're probably be a bit faster/simpler to compute
+      else ExtractedType.ifNonEmpty(v, sru.lub(a0::b0::Nil), sru.glb(a1::b1::Nil))
+  }
+  
   
   def uninterpretedType[A: TypeTag]: TypeRep = sru.typeTag[A].tpe
   

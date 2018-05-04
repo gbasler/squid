@@ -28,6 +28,12 @@ class MyFunSuite[DSL <: AST](override val DSL: DSL = TestDSL) extends MyFunSuite
   def eqt(a: CodeType[_], b: CodeType[_]) = eqtBy(a,b)(_ =:= _)
   def eqt(a: TypeRep, b: TypeRep) = eqtBy(a,b)(_ =:= _)
   
+  def extractedBounds(t: CodeType[_]): (TypeRep, TypeRep) = {
+    t.rep match {
+      case et: ExtractedType => (et.lb, et.ub)
+    }
+  }
+  
 }
 
 /** The reason we currently have {{{DSL <: InspectableBase}}} is because otherwise the 'eqt' functions have the same erasure... */

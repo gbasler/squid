@@ -52,7 +52,13 @@ class TypeMatching extends MyFunSuite {
   
   test("Lambda Parameter/Body Types") {
     f matches {
+      case code"($x: $xt) => $body: $bt" =>
+        // Note: extracting something that materializes to Nothing for xt here would be unsound;
+        // for example it would make the following not compile:
+        same(code"{($x) => Set[$xt]($x)}".unsafe_asClosedCode.compile.asInstanceOf[Any=>Any](1), Set(1.0))
+    } and {
       case code"(_: $xt) => $body: $bt" =>
+        code"Set.empty[$xt]" eqt code"Set.empty[Int]"
         eqt(xt.rep, typeRepOf[Int])
         eqt(bt.rep, typeRepOf[Double])
         eqt(body.trep, typeRepOf[Double])
@@ -74,6 +80,7 @@ class TypeMatching extends MyFunSuite {
     f match {
       case code"$_: (Double => Double)" => fail
       case code"$_: ($a => $b)" =>
+        //println(a.rep,b.rep) // (-..Int,+Double..)
         assert(a.rep =:= typeRepOf[Int])
         assert(b.rep =:= typeRepOf[Double])
     }
@@ -208,7 +215,9 @@ class TypeMatching extends MyFunSuite {
     
     code"(x: Expr[Int]) => ()".cast[_ => _] match {
       case code"$_: (Appl[String,$t] => Unit)" =>
-        eqt(t.rep, typeRepOf[Int])
+        //eqt(t.rep, typeRepOf[Int])
+        // ^ no longer true; since t is contravariant here, inferring Any is more general
+        eqt(t, AnyType)
     }
     
     code"(x: Expr[Int]) => ()".cast[_ => _] match {
@@ -254,11 +263,10 @@ class TypeMatching extends MyFunSuite {
         subt(codeTypeOf[Nothing], t0)
     }
     
-    // FIXME: use interval types
-    //ir"($f,42)" matches { // Could not merge types =Int(42) and =Int
-    //  case ir"($_: (List[List[$t0]] => Any), $_: t0)" =>
-    //    eqt(t0, irTypeOf[Int])
-    //}
+    code"($f,42)" matches { // before interval types (type ranges), we had: Could not merge types =Int(42) and =Int
+      case code"($_: (List[List[$t0]] => Any), $_: t0)" =>
+        eqt(t0, codeTypeOf[Int])
+    }
     
     code"(x: Any) => 'ok" matches {
       case code"$_: ((List[$t0] => Int) => t0)" =>
@@ -319,6 +327,49 @@ class TypeMatching extends MyFunSuite {
     
   }
   
+  
+  test("Invariant Singleton Types Not Blocking Extraction") {
+    
+    val str_any = (typeRepOf[String], typeRepOf[Any])
+    
+    code"""Some("ok")""" matches {
+      case code"$_:Option[$t]" =>
+        assert(extractedBounds(t) == str_any)
+        code"Set.empty[$t]" eqt code"Set.empty[String]"
+    } and {
+      case code"Some($v:$t)" =>
+        assert(extractedBounds(t) == str_any)
+    } and {
+      case code"Some[$t]($v)" =>
+        assert(extractedBounds(t) == str_any)
+    }
+    
+    code"parserApi('ok)(_.name)" matches {
+      case code"parserApi[$t,$r]($x)($f)" =>
+        assert(extractedBounds(t) == (typeRepOf[Symbol], typeRepOf[Symbol]))
+    }
+    
+    code"parserApi(${Const("ok")})(_.length)" matches {
+      case code"parserApi[$t,$r]($x)($f)" =>
+        import squid.utils.->
+        code"Set.empty[($t,$r)]" eqt code"Set.empty[String -> Int]"
+        eqt(t, codeTypeOf[String])
+        assert(extractedBounds(r) == (typeRepOf[Int], typeRepOf[Any]))
+    } and {
+      case code"parserApi[$t,$r]($x)((x:t) => $body)" =>
+        eqt(t, codeTypeOf[String])
+        assert(extractedBounds(r) == (typeRepOf[Int], typeRepOf[Any]))
+    } /*and {
+      case code"parserApi[$t,$r]($x)(($x:t)=>$body)" =>  // FIXME crashes the embedder!
+    }*/
+    
+    code"parserApi(${Const("ok")})(_.length) -> 42 -> ((_:Int)+1)" matches {
+      case code"parserApi[$t,$r]($x)($f) -> ($n:r) -> ($g:r=>Any)" =>
+        assert(extractedBounds(r) == (typeRepOf[Int], typeRepOf[Int]))
+    }
+    
+  }
+  
 }
 
 object TypeMatching {
@@ -330,6 +381,9 @@ object TypeMatching {
   
   def foo[T <: Seq[Int]] = ()
   def bar[A,B,T >: Abst[A,B] <: Expr[Any]] = ()
+  
+  // taken from use case matching fastparse constructs:
+  def parserApi[T,R](x: T)(f: T => R) = Some(x->f(x))
 }
 
 
