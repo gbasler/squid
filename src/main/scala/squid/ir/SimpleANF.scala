@@ -62,7 +62,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   object Occurrence {
     val Never = 0 to 0
     val Once = 1 to 1
-    val Unknown = 0 to Int.MaxValue
+    val Unknown = 0 to Int.MaxValue/2
   }
   
   case class Rep(dfn: Def) extends Code[Any,Nothing] 

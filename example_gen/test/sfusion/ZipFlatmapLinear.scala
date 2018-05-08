@@ -2,84 +2,88 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 15ms
+// Transfo time: 0ms  Stringifying time: 29ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
-  val x_2 = xs_0.size;
-  val x_3 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](xs_0)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_2));
-  val x_8 = x_3.flatMap[scala.Int](((x_4: scala.Int) => {
-    val x_6 = new sfusion.Sequence[scala.Int]((() => {
-      val x_5 = ys_1.iterator;
-      sfusion.impl.`package`.fromIterator[scala.Int](x_5)
-    }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
-    x_6.map[scala.Int](((x$9_7: scala.Int) => x$9_7.+(x_4)))
+  val sch_2 = scala.`package`.Right;
+  val sch_3 = sch_2.apply[scala.Nothing, scala.Boolean](false);
+  val x_4 = xs_0.size;
+  val x_5 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](xs_0)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_4));
+  val x_10 = x_5.flatMap[scala.Int](((x_6: scala.Int) => {
+    val x_8 = new sfusion.Sequence[scala.Int]((() => {
+      val x_7 = ys_1.iterator;
+      sfusion.impl.`package`.fromIterator[scala.Int](x_7)
+    }), sch_3);
+    x_8.map[scala.Int](((x$9_9: scala.Int) => x$9_9.+(x_6)))
   }));
-  val x_10 = new sfusion.Sequence[scala.Int]((() => {
-    val x_9 = ys_1.iterator;
-    sfusion.impl.`package`.fromIterator[scala.Int](x_9)
-  }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
-  val x_11 = x_8.zip[scala.Int](x_10);
-  x_11.fold[java.lang.String]("")(((acc_12: java.lang.String, xy_13: scala.Tuple2[scala.Int, scala.Int]) => {
-    val x_14 = acc_12.+(xy_13._1);
-    x_14.+(xy_13._2)
+  val x_12 = new sfusion.Sequence[scala.Int]((() => {
+    val x_11 = ys_1.iterator;
+    sfusion.impl.`package`.fromIterator[scala.Int](x_11)
+  }), sch_3);
+  val x_13 = x_10.zip[scala.Int](x_12);
+  x_13.fold[java.lang.String]("")(((acc_14: java.lang.String, xy_15: scala.Tuple2[scala.Int, scala.Int]) => {
+    val x_16 = acc_14.+(xy_15._1);
+    x_16.+(xy_15._2)
   }))
 })
 
 // === HL ===
 
-// Transfo time: 1ms  Stringifying time: 6ms
+// Transfo time: 1ms  Stringifying time: 13ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 7ms  Stringifying time: 38ms
+// Transfo time: 11ms  Stringifying time: 66ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
-  val x_2 = xs_0.size;
-  val x_3 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](xs_0)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_2));
-  val x_15 = new sfusion.Sequence[scala.Int]((() => {
-    val x_4 = x_3.under;
-    val x_5 = x_4.apply();
-    sfusion.impl.`package`.flatMap[scala.Int, scala.Int](x_5)(((x_6: scala.Int) => {
-      val x_8 = new sfusion.Sequence[scala.Int]((() => {
-        val x_7 = ys_1.iterator;
-        sfusion.impl.`package`.fromIterator[scala.Int](x_7)
-      }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
-      val x_9 = x_8.size;
-      val x_13 = new sfusion.Sequence[scala.Int]((() => {
-        val x_10 = x_8.under;
-        val x_11 = x_10.apply();
-        sfusion.impl.`package`.map[scala.Int, scala.Int](x_11)(((x$9_12: scala.Int) => x$9_12.+(x_6)))
-      }), x_9);
-      val x_14 = x_13.under;
-      x_14.apply()
-    }))
-  }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](true));
+  val sch_2 = scala.`package`.Right;
+  val sch_3 = sch_2.apply[scala.Nothing, scala.Boolean](false);
+  val x_4 = xs_0.size;
+  val x_5 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](xs_0)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_4));
   val x_17 = new sfusion.Sequence[scala.Int]((() => {
-    val x_16 = ys_1.iterator;
-    sfusion.impl.`package`.fromIterator[scala.Int](x_16)
-  }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
-  val x_18 = x_15.size;
-  val x_19 = x_17.size;
-  val x_24 = new sfusion.Sequence[scala.Tuple2[scala.Int, scala.Int]]((() => {
-    val x_20 = x_15.under;
-    val x_21 = x_20.apply();
+    val x_6 = x_5.under;
+    val x_7 = x_6.apply();
+    sfusion.impl.`package`.flatMap[scala.Int, scala.Int](x_7)(((x_8: scala.Int) => {
+      val x_10 = new sfusion.Sequence[scala.Int]((() => {
+        val x_9 = ys_1.iterator;
+        sfusion.impl.`package`.fromIterator[scala.Int](x_9)
+      }), sch_3);
+      val x_11 = x_10.size;
+      val x_15 = new sfusion.Sequence[scala.Int]((() => {
+        val x_12 = x_10.under;
+        val x_13 = x_12.apply();
+        sfusion.impl.`package`.map[scala.Int, scala.Int](x_13)(((x$9_14: scala.Int) => x$9_14.+(x_8)))
+      }), x_11);
+      val x_16 = x_15.under;
+      x_16.apply()
+    }))
+  }), sch_2.apply[scala.Nothing, scala.Boolean](true));
+  val x_19 = new sfusion.Sequence[scala.Int]((() => {
+    val x_18 = ys_1.iterator;
+    sfusion.impl.`package`.fromIterator[scala.Int](x_18)
+  }), sch_3);
+  val x_20 = x_17.size;
+  val x_21 = x_19.size;
+  val x_26 = new sfusion.Sequence[scala.Tuple2[scala.Int, scala.Int]]((() => {
     val x_22 = x_17.under;
     val x_23 = x_22.apply();
-    sfusion.impl.`package`.zip[scala.Int, scala.Int](x_21, x_23)
-  }), sfusion.`package`.minSize(x_18, x_19));
-  val x_25 = x_24.under;
-  val x_26 = x_25.apply();
-  sfusion.impl.`package`.fold[scala.Tuple2[scala.Int, scala.Int], java.lang.String](x_26)("")(((acc_27: java.lang.String, xy_28: scala.Tuple2[scala.Int, scala.Int]) => {
-    val x_29 = acc_27.+(xy_28._1);
-    x_29.+(xy_28._2)
+    val x_24 = x_19.under;
+    val x_25 = x_24.apply();
+    sfusion.impl.`package`.zip[scala.Int, scala.Int](x_23, x_25)
+  }), sfusion.`package`.minSize(x_20, x_21));
+  val x_27 = x_26.under;
+  val x_28 = x_27.apply();
+  sfusion.impl.`package`.fold[scala.Tuple2[scala.Int, scala.Int], java.lang.String](x_28)("")(((acc_29: java.lang.String, xy_30: scala.Tuple2[scala.Int, scala.Int]) => {
+    val x_31 = acc_29.+(xy_30._1);
+    x_31.+(xy_30._2)
   }))
 })
 
 // === CtorInline ===
 
-// Transfo time: 9ms  Stringifying time: 12ms
+// Transfo time: 18ms  Stringifying time: 25ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -100,13 +104,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 4ms
+// Transfo time: 0ms  Stringifying time: 9ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 22ms  Stringifying time: 27ms
+// Transfo time: 25ms  Stringifying time: 50ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -174,7 +178,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 12ms  Stringifying time: 40ms
+// Transfo time: 49ms  Stringifying time: 72ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -217,62 +221,63 @@
     else
       {
         val x_20 = envVar_6;
+        val sch_21 = x_20.get;
         while ({
-          val x_21 = x_20.get.hasNext;
-          x_21.&&({
-            val x_22 = x_20.get.next();
-            val x_23 = aVar_5;
-            var cont_24: scala.Boolean = true;
+          val x_22 = sch_21.hasNext;
+          x_22.&&({
+            val x_23 = sch_21.next();
+            val x_24 = aVar_5;
+            var cont_25: scala.Boolean = true;
             while ({
-              val x_25 = x_7.hasNext;
-              x_25.&&({
-                val x_26 = x_7.next();
-                val x_27 = cur_8;
-                cur_8 = x_27.+(x_22.+(x_23.get)).+(x_26);
-                cont_24 = true;
+              val x_26 = x_7.hasNext;
+              x_26.&&({
+                val x_27 = x_7.next();
+                val x_28 = cur_8;
+                cur_8 = x_28.+(x_23.+(x_24.get)).+(x_27);
+                cont_25 = true;
                 false
               })
             }) 
               ()
             ;
-            val x_28 = x_7.hasNext;
-            b_finished_9 = x_28.`unary_!`;
-            val x_29 = cont_24;
-            val x_31 = x_29.&&({
-              val x_30 = b_finished_9;
-              x_30.`unary_!`
+            val x_29 = x_7.hasNext;
+            b_finished_9 = x_29.`unary_!`;
+            val x_30 = cont_25;
+            val x_32 = x_30.&&({
+              val x_31 = b_finished_9;
+              x_31.`unary_!`
             });
-            continue_11 = x_31;
+            continue_11 = x_32;
             continue_11
           })
         }) 
           ()
         ;
-        val x_32 = x_20.get.hasNext;
-        if (x_32.`unary_!`)
+        val x_33 = sch_21.hasNext;
+        if (x_33.`unary_!`)
           envVar_6 = scala.None
         else
           ()
       };
-    val x_33 = completed_10;
-    x_33.`unary_!`.&&(continue_11)
+    val x_34 = completed_10;
+    x_34.`unary_!`.&&(continue_11)
   }) 
     ()
   ;
-  val x_34 = completed_10;
-  x_34.||(b_finished_9);
+  val x_35 = completed_10;
+  x_35.||(b_finished_9);
   cur_8
 })
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 35ms
+// Transfo time: 0ms  Stringifying time: 69ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 22ms  Stringifying time: 41ms
+// Transfo time: 33ms  Stringifying time: 76ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -370,7 +375,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 21ms  Stringifying time: 45ms
+// Transfo time: 47ms  Stringifying time: 91ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -467,6 +472,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 9ms  Stringifying time: 28ms
+// Transfo time: 23ms  Stringifying time: 66ms
 
 // Same as above.

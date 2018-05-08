@@ -31,9 +31,6 @@ import collection.mutable
   *     when shceduling an expr, decrease the count of all its sub-occurrences in the current occurrences set
   *     current occurrences set could be stored as a minimum heap (on usage count & term size key)
   * 
-  * TODO should always schedule this correclty (without recomputation of a._2._2):
-  *   {{{ ir{ val a: (Int,(Int,(Int,(Int)))) = ???; println(a._2._2._1); identity((x:Int) => a._2._2._1 + x) } }}}
-  * 
   */
 class SchedulingANF extends SimpleANF {
   

@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 12ms
+// Transfo time: 0ms  Stringifying time: 20ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -29,7 +29,7 @@
 
 // === Impl ===
 
-// Transfo time: 2ms  Stringifying time: 17ms
+// Transfo time: 1ms  Stringifying time: 26ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -52,7 +52,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 3ms  Stringifying time: 12ms
+// Transfo time: 3ms  Stringifying time: 18ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -71,7 +71,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 11ms  Stringifying time: 15ms
+// Transfo time: 6ms  Stringifying time: 22ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -96,7 +96,7 @@
 
 // === Imperative ===
 
-// Transfo time: 9ms  Stringifying time: 19ms
+// Transfo time: 6ms  Stringifying time: 28ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -127,13 +127,13 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 0ms  Stringifying time: 14ms
+// Transfo time: 0ms  Stringifying time: 12ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 13ms
+// Transfo time: 0ms  Stringifying time: 12ms
 
 // Same as above.
 
@@ -145,7 +145,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 7ms  Stringifying time: 13ms
+// Transfo time: 13ms  Stringifying time: 28ms
 
 ((x$1_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesSimple$default$2;
@@ -180,6 +180,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 3ms  Stringifying time: 5ms
+// Transfo time: 8ms  Stringifying time: 13ms
 
 // Same as above.

@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 25ms
+// Transfo time: 0ms  Stringifying time: 40ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -10,83 +10,88 @@
     val x_2 = x$2_0.iterator;
     sfusion.impl.`package`.fromIterator[java.lang.String](x_2)
   }), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
-  val x_12 = x_3.flatMap[scala.Char](((str_4: java.lang.String) => {
+  val x_14 = x_3.flatMap[scala.Char](((str_4: java.lang.String) => {
     val sch_5 = scala.`package`.Left;
     val x_6 = scala.Predef.wrapString(x_1);
-    val x_7 = ((x_6): scala.collection.IndexedSeq[scala.Char]).size;
-    val x_8 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](((x_6): scala.collection.IndexedSeq[scala.Char]))), sch_5.apply[scala.Int, scala.Nothing](x_7));
-    val x_9 = scala.Predef.wrapString(str_4);
-    val x_10 = ((x_9): scala.collection.IndexedSeq[scala.Char]).size;
-    val x_11 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](((x_9): scala.collection.IndexedSeq[scala.Char]))), sch_5.apply[scala.Int, scala.Nothing](x_10));
-    x_8.++[scala.Char](x_11)
+    val sch_7 = ((x_6): scala.collection.IndexedSeq[scala.Char]);
+    val x_8 = sch_7.size;
+    val x_9 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](sch_7)), sch_5.apply[scala.Int, scala.Nothing](x_8));
+    val x_10 = scala.Predef.wrapString(str_4);
+    val sch_11 = ((x_10): scala.collection.IndexedSeq[scala.Char]);
+    val x_12 = sch_11.size;
+    val x_13 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](sch_11)), sch_5.apply[scala.Int, scala.Nothing](x_12));
+    x_9.++[scala.Char](x_13)
   }));
-  val x_13 = x_12.drop(x_1.length());
-  x_13.fold[java.lang.String]("")(((x$10_14: java.lang.String, x$11_15: scala.Char) => {
-    val x_16 = scala.Predef.augmentString(x$10_14);
-    val x_17 = scala.Predef.StringCanBuildFrom;
-    x_16.:+[scala.Char, java.lang.String](x$11_15)(x_17)
+  val x_15 = x_14.drop(x_1.length());
+  x_15.fold[java.lang.String]("")(((x$10_16: java.lang.String, x$11_17: scala.Char) => {
+    val x_18 = scala.Predef.augmentString(x$10_16);
+    val x_19 = scala.Predef.StringCanBuildFrom;
+    x_18.:+[scala.Char, java.lang.String](x$11_17)(x_19)
   }))
 })
 
 // === HL ===
 
-// Transfo time: 0ms  Stringifying time: 10ms
+// Transfo time: 1ms  Stringifying time: 15ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 14ms  Stringifying time: 51ms
+// Transfo time: 18ms  Stringifying time: 83ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = scala.`package`.Right;
-  val x_2 = sfusion.algo.`package`.joinLinesComplex$default$2;
-  val x_4 = new sfusion.Sequence[java.lang.String]((() => {
-    val x_3 = x$2_0.iterator;
-    sfusion.impl.`package`.fromIterator[java.lang.String](x_3)
+  val sch_2 = scala.`package`.Left;
+  val x_3 = sfusion.algo.`package`.joinLinesComplex$default$2;
+  val sch_4 = x_3.length();
+  val x_6 = new sfusion.Sequence[java.lang.String]((() => {
+    val x_5 = x$2_0.iterator;
+    sfusion.impl.`package`.fromIterator[java.lang.String](x_5)
   }), sch_1.apply[scala.Nothing, scala.Boolean](false));
-  val x_23 = new sfusion.Sequence[scala.Char]((() => {
-    val x_5 = x_4.under;
-    val x_6 = x_5.apply();
-    sfusion.impl.`package`.flatMap[java.lang.String, scala.Char](x_6)(((x_7: java.lang.String) => {
-      val sch_8 = scala.`package`.Left;
-      val x_9 = scala.Predef.wrapString(x_2);
-      val x_10 = ((x_9): scala.collection.IndexedSeq[scala.Char]).size;
-      val x_11 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](((x_9): scala.collection.IndexedSeq[scala.Char]))), sch_8.apply[scala.Int, scala.Nothing](x_10));
-      val x_12 = scala.Predef.wrapString(x_7);
-      val x_13 = ((x_12): scala.collection.IndexedSeq[scala.Char]).size;
-      val x_14 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](((x_12): scala.collection.IndexedSeq[scala.Char]))), sch_8.apply[scala.Int, scala.Nothing](x_13));
-      val x_15 = x_11.size;
-      val x_16 = x_14.size;
-      val x_21 = new sfusion.Sequence[scala.Char]((() => {
-        val x_17 = x_11.under;
-        val x_18 = x_17.apply();
-        val x_19 = x_14.under;
-        val x_20 = x_19.apply();
-        sfusion.impl.`package`.concat[scala.Char](x_18, x_20)
-      }), sfusion.`package`.addSizes(x_15, x_16));
-      val x_22 = x_21.under;
-      x_22.apply()
+  val x_26 = new sfusion.Sequence[scala.Char]((() => {
+    val x_7 = x_6.under;
+    val x_8 = x_7.apply();
+    sfusion.impl.`package`.flatMap[java.lang.String, scala.Char](x_8)(((x_9: java.lang.String) => {
+      val x_10 = scala.Predef.wrapString(x_3);
+      val sch_11 = ((x_10): scala.collection.IndexedSeq[scala.Char]);
+      val x_12 = sch_11.size;
+      val x_13 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](sch_11)), sch_2.apply[scala.Int, scala.Nothing](x_12));
+      val x_14 = scala.Predef.wrapString(x_9);
+      val sch_15 = ((x_14): scala.collection.IndexedSeq[scala.Char]);
+      val x_16 = sch_15.size;
+      val x_17 = new sfusion.Sequence[scala.Char]((() => sfusion.impl.`package`.fromIndexed[scala.Char](sch_15)), sch_2.apply[scala.Int, scala.Nothing](x_16));
+      val x_18 = x_13.size;
+      val x_19 = x_17.size;
+      val x_24 = new sfusion.Sequence[scala.Char]((() => {
+        val x_20 = x_13.under;
+        val x_21 = x_20.apply();
+        val x_22 = x_17.under;
+        val x_23 = x_22.apply();
+        sfusion.impl.`package`.concat[scala.Char](x_21, x_23)
+      }), sfusion.`package`.addSizes(x_18, x_19));
+      val x_25 = x_24.under;
+      x_25.apply()
     }))
   }), sch_1.apply[scala.Nothing, scala.Boolean](true));
-  val x_24 = x_23.size;
-  val x_27 = new sfusion.Sequence[scala.Char]((() => {
-    val x_25 = x_23.under;
-    val x_26 = x_25.apply();
-    sfusion.impl.`package`.drop[scala.Char](x_26)(x_2.length())
-  }), sfusion.`package`.minSize(x_24, scala.`package`.Left.apply[scala.Int, scala.Nothing](x_2.length())));
-  val x_28 = x_27.under;
-  val x_29 = x_28.apply();
-  sfusion.impl.`package`.fold[scala.Char, java.lang.String](x_29)("")(((x$10_30: java.lang.String, x$11_31: scala.Char) => {
-    val x_32 = scala.Predef.augmentString(x$10_30);
-    val x_33 = scala.Predef.StringCanBuildFrom;
-    x_32.:+[scala.Char, java.lang.String](x$11_31)(x_33)
+  val x_27 = x_26.size;
+  val x_30 = new sfusion.Sequence[scala.Char]((() => {
+    val x_28 = x_26.under;
+    val x_29 = x_28.apply();
+    sfusion.impl.`package`.drop[scala.Char](x_29)(sch_4)
+  }), sfusion.`package`.minSize(x_27, sch_2.apply[scala.Int, scala.Nothing](sch_4)));
+  val x_31 = x_30.under;
+  val x_32 = x_31.apply();
+  sfusion.impl.`package`.fold[scala.Char, java.lang.String](x_32)("")(((x$10_33: java.lang.String, x$11_34: scala.Char) => {
+    val x_35 = scala.Predef.augmentString(x$10_33);
+    val x_36 = scala.Predef.StringCanBuildFrom;
+    x_35.:+[scala.Char, java.lang.String](x$11_34)(x_36)
   }))
 })
 
 // === CtorInline ===
 
-// Transfo time: 13ms  Stringifying time: 21ms
+// Transfo time: 21ms  Stringifying time: 35ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -113,18 +118,18 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 7ms
+// Transfo time: 0ms  Stringifying time: 10ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 24ms  Stringifying time: 81ms
+// Transfo time: 36ms  Stringifying time: 117ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
   val x_2 = x$2_0.iterator;
-  val x_37 = sfusion.impl.`package`.flatMap[java.lang.String, scala.Char](((k_3: scala.Function1[java.lang.String, scala.Boolean]) => {
+  val x_39 = sfusion.impl.`package`.flatMap[java.lang.String, scala.Char](((k_3: scala.Function1[java.lang.String, scala.Boolean]) => {
     while ({
       val x_4 = x_2.hasNext;
       x_4.&&({
@@ -138,113 +143,115 @@
     x_6.`unary_!`
   }))(((x_7: java.lang.String) => {
     val x_8 = scala.Predef.wrapString(x_1);
-    val x_9 = ((x_8): scala.collection.IndexedSeq[scala.Char]).size;
-    val x_10 = scala.Predef.wrapString(x_7);
-    val x_11 = ((x_10): scala.collection.IndexedSeq[scala.Char]).size;
-    val x_12 = ((x_8): scala.collection.IndexedSeq[scala.Char]).length;
-    var i_13: scala.Int = 0;
-    val x_14 = ((x_10): scala.collection.IndexedSeq[scala.Char]).length;
+    val sch_9 = ((x_8): scala.collection.IndexedSeq[scala.Char]);
+    val x_10 = sch_9.size;
+    val x_11 = scala.Predef.wrapString(x_7);
+    val sch_12 = ((x_11): scala.collection.IndexedSeq[scala.Char]);
+    val x_13 = sch_12.size;
+    val x_14 = sch_9.length;
     var i_15: scala.Int = 0;
-    var curIsLhs_16: scala.Boolean = true;
-    ((k_17: scala.Function1[scala.Char, scala.Boolean]) => {
-      var cont_18: scala.Boolean = true;
-      var finished_19: scala.Boolean = false;
+    val x_16 = sch_12.length;
+    var i_17: scala.Int = 0;
+    var curIsLhs_18: scala.Boolean = true;
+    ((k_19: scala.Function1[scala.Char, scala.Boolean]) => {
+      var cont_20: scala.Boolean = true;
+      var finished_21: scala.Boolean = false;
       while ({
-        val x_20 = cont_18;
-        x_20.&&({
-          val x_21 = finished_19;
-          x_21.`unary_!`
+        val x_22 = cont_20;
+        x_22.&&({
+          val x_23 = finished_21;
+          x_23.`unary_!`
         })
       }) 
         {
-          var next_22: scala.Option[scala.Char] = scala.None;
-          val x_23 = curIsLhs_16;
-          if (x_23)
+          var next_24: scala.Option[scala.Char] = scala.None;
+          val x_25 = curIsLhs_18;
+          if (x_25)
             {
               while ({
-                val x_24 = i_13;
-                x_24.<(x_12).&&({
-                  val x_25 = i_13;
-                  val x_26 = ((x_8): scala.collection.IndexedSeq[scala.Char]).apply(x_25);
-                  val x_27 = i_13;
-                  i_13 = x_27.+(1);
-                  next_22 = scala.Some.apply[scala.Char](x_26);
+                val x_26 = i_15;
+                x_26.<(x_14).&&({
+                  val x_27 = i_15;
+                  val x_28 = sch_9.apply(x_27);
+                  val x_29 = i_15;
+                  i_15 = x_29.+(1);
+                  next_24 = scala.Some.apply[scala.Char](x_28);
                   false
                 })
               }) 
                 ()
               ;
-              val x_28 = i_13;
-              if (x_28.==(x_12))
-                curIsLhs_16 = false
+              val x_30 = i_15;
+              if (x_30.==(x_14))
+                curIsLhs_18 = false
               else
                 ()
             }
           else
             ();
-          val x_29 = next_22;
-          if (x_29.isDefined.`unary_!`)
+          val x_31 = next_24;
+          if (x_31.isDefined.`unary_!`)
             {
               while ({
-                val x_30 = i_15;
-                x_30.<(x_14).&&({
-                  val x_31 = i_15;
-                  val x_32 = ((x_10): scala.collection.IndexedSeq[scala.Char]).apply(x_31);
-                  val x_33 = i_15;
-                  i_15 = x_33.+(1);
-                  next_22 = scala.Some.apply[scala.Char](x_32);
+                val x_32 = i_17;
+                x_32.<(x_16).&&({
+                  val x_33 = i_17;
+                  val x_34 = sch_12.apply(x_33);
+                  val x_35 = i_17;
+                  i_17 = x_35.+(1);
+                  next_24 = scala.Some.apply[scala.Char](x_34);
                   false
                 })
               }) 
                 ()
               ;
-              val x_34 = i_15;
-              if (x_34.==(x_14))
-                finished_19 = true
+              val x_36 = i_17;
+              if (x_36.==(x_16))
+                finished_21 = true
               else
                 ()
             }
           else
             ();
-          val x_35 = next_22;
-          if (x_35.isDefined)
+          val x_37 = next_24;
+          if (x_37.isDefined)
             {
-              val x_36 = k_17(x_35.get);
-              cont_18 = x_36
+              val x_38 = k_19(x_37.get);
+              cont_20 = x_38
             }
           else
-            finished_19 = true
+            finished_21 = true
         }
       ;
-      finished_19
+      finished_21
     })
   }));
-  var dropped_38: scala.Int = 0;
-  var cur_39: java.lang.String = "";
-  x_37(((a_40: scala.Char) => {
-    val x_41 = dropped_38;
-    if (x_41.<(x_1.length()))
+  var dropped_40: scala.Int = 0;
+  var cur_41: java.lang.String = "";
+  x_39(((a_42: scala.Char) => {
+    val x_43 = dropped_40;
+    if (x_43.<(x_1.length()))
       {
-        val x_42 = dropped_38;
-        dropped_38 = x_42.+(1);
+        val x_44 = dropped_40;
+        dropped_40 = x_44.+(1);
         true
       }
     else
       {
-        val x_43 = cur_39;
-        val x_44 = scala.Predef.augmentString(x_43);
-        val x_45 = scala.Predef.StringCanBuildFrom;
-        val x_46 = x_44.:+[scala.Char, java.lang.String](a_40)(x_45);
-        cur_39 = x_46;
+        val x_45 = cur_41;
+        val x_46 = scala.Predef.augmentString(x_45);
+        val x_47 = scala.Predef.StringCanBuildFrom;
+        val x_48 = x_46.:+[scala.Char, java.lang.String](a_42)(x_47);
+        cur_41 = x_48;
         true
       }
   }));
-  cur_39
+  cur_41
 })
 
 // === FlatMapFusion ===
 
-// Transfo time: 382ms  Stringifying time: 174ms
+// Transfo time: 525ms  Stringifying time: 230ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -302,113 +309,103 @@
           })
         }) 
           {
-            var next_30: scala.Option[scala.Char] = scala.None;
-            val x_31 = x_25.get._2._2._2._2._2._2._2._2.!;
-            if (x_31)
+            val sch_30 = x_25.get;
+            val sch_31 = sch_30._2;
+            val sch_32 = sch_31._2;
+            val sch_33 = sch_32._2;
+            val sch_34 = sch_33._2;
+            val sch_35 = sch_34._2;
+            val sch_36 = sch_35._2;
+            val sch_37 = sch_36._2;
+            val sch_38 = sch_37._2;
+            var next_39: scala.Option[scala.Char] = scala.None;
+            val x_40 = sch_38.!;
+            if (x_40)
               {
+                val sch_41 = sch_34._1;
+                val sch_42 = sch_35._1;
                 while ({
-                  val x_32 = x_25.get._2._2._2._2._2._1.!;
-                  x_32.<(x_25.get._2._2._2._2._1).&&({
-                    val sch_33 = x_25.get;
-                    val sch_34 = sch_33._2;
-                    val sch_35 = sch_34._2;
-                    val sch_36 = sch_35._2;
-                    val sch_37 = sch_36._2;
-                    val sch_38 = sch_37._2;
-                    val sch_39 = sch_38._1;
-                    val x_40 = sch_39.!;
-                    val x_41 = ((sch_33._1): scala.collection.IndexedSeq[scala.Char]).apply(x_40);
-                    val x_42 = sch_39.!;
-                    sch_39.:=(x_42.+(1));
-                    next_30 = scala.Some.apply[scala.Char](x_41);
+                  val x_43 = sch_42.!;
+                  x_43.<(sch_41).&&({
+                    val x_44 = sch_42.!;
+                    val x_45 = ((sch_30._1): scala.collection.IndexedSeq[scala.Char]).apply(x_44);
+                    val x_46 = sch_42.!;
+                    sch_42.:=(x_46.+(1));
+                    next_39 = scala.Some.apply[scala.Char](x_45);
                     false
                   })
                 }) 
                   ()
                 ;
-                val x_43 = x_25.get._2._2._2._2._2._1.!;
-                if (x_43.==(x_25.get._2._2._2._2._1))
-                  x_25.get._2._2._2._2._2._2._2._2.:=(false)
+                val x_47 = sch_42.!;
+                if (x_47.==(sch_41))
+                  sch_38.:=(false)
                 else
                   ()
               }
             else
               ();
-            val x_44 = next_30;
-            if (x_44.isDefined.`unary_!`)
+            val x_48 = next_39;
+            if (x_48.isDefined.`unary_!`)
               {
+                val sch_49 = sch_36._1;
+                val sch_50 = sch_37._1;
                 while ({
-                  val x_45 = x_25.get._2._2._2._2._2._2._2._1.!;
-                  x_45.<(x_25.get._2._2._2._2._2._2._1).&&({
-                    val sch_46 = x_25.get;
-                    val sch_47 = sch_46._2;
-                    val sch_48 = sch_47._2;
-                    val sch_49 = sch_48._2;
-                    val sch_50 = sch_49._2;
-                    val sch_51 = sch_50._2;
-                    val sch_52 = sch_51._2;
-                    val sch_53 = sch_52._2;
-                    val sch_54 = sch_53._1;
-                    val x_55 = sch_54.!;
-                    val x_56 = ((sch_48._1): scala.collection.IndexedSeq[scala.Char]).apply(x_55);
-                    val x_57 = sch_54.!;
-                    sch_54.:=(x_57.+(1));
-                    next_30 = scala.Some.apply[scala.Char](x_56);
+                  val x_51 = sch_50.!;
+                  x_51.<(sch_49).&&({
+                    val x_52 = sch_50.!;
+                    val x_53 = ((sch_32._1): scala.collection.IndexedSeq[scala.Char]).apply(x_52);
+                    val x_54 = sch_50.!;
+                    sch_50.:=(x_54.+(1));
+                    next_39 = scala.Some.apply[scala.Char](x_53);
                     false
                   })
                 }) 
                   ()
                 ;
-                val sch_58 = x_25.get;
-                val sch_59 = sch_58._2;
-                val sch_60 = sch_59._2;
-                val sch_61 = sch_60._2;
-                val sch_62 = sch_61._2;
-                val sch_63 = sch_62._2;
-                val sch_64 = sch_63._2;
-                val x_65 = sch_64._2._1.!;
-                if (x_65.==(sch_64._1))
+                val x_55 = sch_50.!;
+                if (x_55.==(sch_49))
                   finished_27 = true
                 else
                   ()
               }
             else
               ();
-            val x_66 = next_30;
-            if (x_66.isDefined)
+            val x_56 = next_39;
+            if (x_56.isDefined)
               {
-                val x_67 = dropped_5;
-                val x_73 = if (x_67.<(x_1.length()))
+                val x_57 = dropped_5;
+                val x_63 = if (x_57.<(x_1.length()))
                   {
-                    val x_68 = dropped_5;
-                    dropped_5 = x_68.+(1);
+                    val x_58 = dropped_5;
+                    dropped_5 = x_58.+(1);
                     true
                   }
                 else
                   {
-                    val x_69 = cur_6;
-                    val x_70 = scala.Predef.augmentString(x_69);
-                    val x_71 = scala.Predef.StringCanBuildFrom;
-                    val x_72 = x_70.:+[scala.Char, java.lang.String](x_66.get)(x_71);
-                    cur_6 = x_72;
+                    val x_59 = cur_6;
+                    val x_60 = scala.Predef.augmentString(x_59);
+                    val x_61 = scala.Predef.StringCanBuildFrom;
+                    val x_62 = x_60.:+[scala.Char, java.lang.String](x_56.get)(x_61);
+                    cur_6 = x_62;
                     true
                   };
-                continue_8 = x_73;
-                val x_74 = continue_8;
-                cont_26 = x_74
+                continue_8 = x_63;
+                val x_64 = continue_8;
+                cont_26 = x_64
               }
             else
               finished_27 = true
           }
         ;
-        val x_75 = finished_27;
-        if (x_75)
+        val x_65 = finished_27;
+        if (x_65)
           envVar_4 = scala.None
         else
           ()
       };
-    val x_76 = completed_7;
-    x_76.`unary_!`.&&(continue_8)
+    val x_66 = completed_7;
+    x_66.`unary_!`.&&(continue_8)
   }) 
     ()
   ;
@@ -418,13 +415,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 105ms
+// Transfo time: 0ms  Stringifying time: 202ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 786ms  Stringifying time: 110ms
+// Transfo time: 653ms  Stringifying time: 148ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -609,7 +606,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 211ms  Stringifying time: 115ms
+// Transfo time: 187ms  Stringifying time: 194ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = ((null): scala.collection.immutable.WrappedString);
@@ -687,7 +684,7 @@
         }) 
           {
             var isDefined_43: scala.Boolean = false;
-            var optVal_44: scala.Char = '\00';
+            var optVal_44: scala.Char = '\u0000';
             val x_45 = flatVar_15;
             if (x_45)
               {
@@ -743,18 +740,18 @@
             val x_63 = isDefined_43;
             if (x_63)
               {
-                val x_64 = dropped_16;
-                if (x_64.<(x_2.length()))
+                val sch_64 = x_2.length();
+                val x_65 = dropped_16;
+                val sch_66 = x_65.<(sch_64);
+                if (sch_66)
                   {
-                    val x_65 = dropped_16;
-                    dropped_16 = x_65.+(1)
+                    val x_67 = dropped_16;
+                    dropped_16 = x_67.+(1)
                   }
                 else
                   ();
-                val x_73 = x_64.<(x_2.length()).`unary_!`.&&({
-                  val sch_66 = x_2.length();
-                  val sch_67 = x_64.<(sch_66);
-                  if (sch_67)
+                val x_73 = sch_66.`unary_!`.&&({
+                  if (sch_66)
                     ()
                   else
                     {
@@ -765,7 +762,7 @@
                       val x_72 = x_69.:+[scala.Char, java.lang.String](x_71)(x_70);
                       cur_17 = x_72
                     };
-                  sch_67
+                  sch_66
                 });
                 continue_19 = x_73.`unary_!`;
                 val x_74 = continue_19;
@@ -794,6 +791,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 39ms  Stringifying time: 94ms
+// Transfo time: 53ms  Stringifying time: 170ms
 
 // Same as above.
