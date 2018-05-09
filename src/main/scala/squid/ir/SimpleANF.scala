@@ -60,9 +60,10 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   
   type Occurrence = Range
   object Occurrence {
+    val MaxValue = Int.MaxValue/3
     val Never = 0 to 0
     val Once = 1 to 1
-    val Unknown = 0 to Int.MaxValue/2
+    val Unknown = 0 to MaxValue
   }
   
   case class Rep(dfn: Def) extends Code[Any,Nothing] 
@@ -109,7 +110,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     lazy val occurrences: OccMap = {
       import Occurrence._
       def merge(xs:OccMap, ys:OccMap) = xs ++ (ys map { kv => (xs get kv._1) match {
-          case Some(v) => kv._1 -> (kv._2.start + v.start to kv._2.end + v.end)
+          case Some(v) => kv._1 -> (kv._2.start + v.start to (kv._2.end + v.end max Occurrence.MaxValue))
           case _ => kv
       }})
       dfn match {

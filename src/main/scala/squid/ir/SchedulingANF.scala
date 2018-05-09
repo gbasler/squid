@@ -23,13 +23,7 @@ import collection.mutable
   * 
   * TODO make Def cache its hashCode... (potentially big perf improvement)
   * 
-  * TODO better scheduling algo:
-  *   currently `a._1._1` when used in several places is scheduled as `val sch_0 = a._1; val sch_1 = sch_0._1; ...` 
-  *   although `a._1` is actually used nowhere else!
-  *   -> new algo should keep a set of current occurrences; 
-  *     when traversing binding, add usages of THAT binding
-  *     when shceduling an expr, decrease the count of all its sub-occurrences in the current occurrences set
-  *     current occurrences set could be stored as a minimum heap (on usage count & term size key)
+  * TODO better scheduling algo that uses Lazy and thunks
   * 
   */
 class SchedulingANF extends SimpleANF {
@@ -64,34 +58,39 @@ class SchedulingANF extends SimpleANF {
   
   trait SchedulingReinterpreter extends Reinterpreter {
     
-    val scheduled = mutable.Map[Rep,newBase.BoundVal]()
+    val scheduled = mutable.Map[BoundVal,newBase.BoundVal]()
     
-    def apply(r: Rep): newBase.Rep = {
-      
-      (scheduled.get(r) optionIf (!r.effect.immediate) flatten) map newBase.readVal getOrElse {
+    def apply(r: Rep): newBase.Rep = 
+      (r |>? {case RepDef(bv:BoundVal) => scheduled get bv} flatten) map newBase.readVal getOrElse {
         var bestFreq = 0
+        var bestFreqHi = 0
         var best = Option.empty[Rep]
         r.occurrences.foreach {
-          case (k,rge) if rge.start >= 1 && rge.end > 1 && !scheduled.contains(k) => 
+          case (k,rge) if rge.start >= 1 && rge.end > 1 => //&& !scheduled.contains(k) => 
             //println(s"T ${k.dfn}  | ${rge.start} | ${k.dfn.size}")
-            if (rge.start > bestFreq) {
+            if (rge.start > bestFreq || rge.start == bestFreq && rge.end > bestFreqHi) {
               bestFreq = rge.start
+              bestFreqHi = rge.end
               best = Some(k)
             }
-            else if (rge.start == bestFreq && k.dfn.size < best.get.dfn.size) best = Some(k)
+            else if (rge.start == bestFreq && rge.end == bestFreqHi && k.dfn.size > best.get.dfn.size) best = Some(k)
+            // ^ if two expressions have the same number of occurrences, we pick the one with the bigger size because
+            //   otherwise we may schedule subexpressions of that bigger expression that are used only in it
           case _ =>
         }
         best map { e =>
           assert(!(e eq r), s"Expression is not supposed to contain an occurrence of itself: $e")
-          val bv = newBase.bindVal("sch",e.typ|>rect,Nil)
+          val bv0 = bindVal("sch",e.typ,Nil)
+          val bv = bv0 |> recv
+          // ^ this is needed to let the Reinterpreter base class know we've defined a variable symbol – we can't just
+          //   directly create it via newBase.bindVal, or else we may get an extruded variable exception
           val e2 = e|>apply
-          scheduled.put(e,bv)
-          newBase.letin(bv,e2,r|>apply,r.typ|>rect) alsoDo (scheduled.remove(e))
+          scheduled.put(bv0,bv)
+          val r2 = bottomUpPartial(r) { case `e` => readVal(bv0) }
+          newBase.letin(bv,e2,r2|>apply,r2.typ|>rect) alsoDo scheduled.remove(bv0)
         } getOrElse apply(r.dfn)
       }
-      
-    }
-    
+
   }
   
   
