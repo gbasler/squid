@@ -32,6 +32,7 @@ lazy val commonSettings = Seq(
                                      // sbt, which is reported to take around "Total time: 48 s"
   ),
   incOptions := incOptions.value.withLogRecompileOnMacro(false), // silences macro-related recompilation messages (cf. https://github.com/sbt/zinc/issues/142)
+  parallelExecution in Test := false,
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)

@@ -106,7 +106,7 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
           req(sym.isClass && !sym.isModuleClass && (Comp match {case RefinedType(_,_) => false case TypeRef(_,_,_)=>true case _ => false}), "It is not a class.", true)
           srum.runtimeClass(srum.staticClass(sym.fullName))
         }
-        cls.newInstance()
+        cls.getConstructors.head.newInstance()
       }
       catch {
         case e: ClassNotFoundException =>

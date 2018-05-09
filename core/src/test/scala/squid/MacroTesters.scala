@@ -72,7 +72,7 @@ object MacroTesters {
     val m: sru.Mirror = reflect.runtime.currentMirror
     val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
     
-    val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).newInstance().asInstanceOf[IntermediateBase]
+    val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).getConstructors.head.newInstance().asInstanceOf[IntermediateBase]
     object ME extends ModularEmbedding[c.universe.type, AST.type](c.universe, AST, str => debug(str))
     
     val newCode = ME(code)
