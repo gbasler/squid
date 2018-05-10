@@ -60,10 +60,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
   def abs(param: BoundVal, body: => Rep): Rep = rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
   
-  override def ascribe(self: Rep, typ: TypeRep): Rep = if (self.typ =:= typ) self else self match {
-    case RepDef(Ascribe(trueSelf, _)) => ascribe(trueSelf, typ) // Hopefully Scala's subtyping is transitive
-    case _ => rep(Ascribe(self, typ))
-  }
+  override def ascribe(self: Rep, typ: TypeRep): Rep = Ascribe.mk(self, typ).fold(self)(rep)
+  
   override def tryInline(fun: Rep, arg: Rep)(retTp: TypeRep): Rep = fun match {
     case RepDef(a @ Abs(p,b)) => inline(p,b,arg)
     case _ => super.tryInline(fun,arg)(retTp)
@@ -166,7 +164,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           if (newB eq b) d else Abs(p, newB)(a.typ) // Note: we do not transform the parameter; it could lead to surprising behaviors (esp. in case of erroneous transform)
         case Ascribe(r,t) => 
           val newR = rec(r)
-          if (newR eq r) d else Ascribe(newR,t)
+          if (newR eq r) d else Ascribe.mk(newR,t) getOrElse dfn(newR)
         case Hole(_) | SplicedHole(_) | NewObject(_) => d
         case StaticModule(fullName) => d
         case Module(pref, name, typ) =>
@@ -369,10 +367,17 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
   }
   
-  case class Ascribe(self: Rep, typ: TypeRep) extends Def {
+  case class Ascribe private(self: Rep, typ: TypeRep) extends Def {
     //require(!(self.typ =:= typ)) // in the future, re-enable this?
-    if (self.typ =:= typ) System.err.println(s"Warning: annotating term $self of type ${self.typ} with equivalent type $typ")
-    // ^ TODO proper warning iface with capa to print stack trace
+    //if (self.typ =:= typ) sys.error(s"Warning: annotating term $self of type ${self.typ} with equivalent type $typ")
+    // ^ should never happened, as constructor is now private
+  }
+  object Ascribe {
+    // Note: naming this `apply` works in Sala 2.12 but not 2.11 due to overloading with private case class ctor...
+    def mk(self: Rep, typ: TypeRep): Option[Def] = if (self.typ =:= typ) None else self match {
+      case RepDef(Ascribe(trueSelf, _)) => mk(trueSelf, typ) // Hopefully Scala's subtyping is transitive
+      case _ => Some(new Ascribe(self, typ))
+    }
   }
   
   case class NewObject(typ: TypeRep) extends NonTrivialDef

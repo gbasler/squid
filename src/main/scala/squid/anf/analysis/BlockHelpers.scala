@@ -43,7 +43,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
     val body: Code[T,C0] = Code(abs.body)
     def rebuild[R](newBody: Code[R,C0]): Code[R,C] = {
       val res = rep(Abs(abs.param, newBody.rep)(abs.typ))
-      Code(asc map (Ascribe(res, _) |> rep) getOrElse res)
+      Code(asc map (Ascribe.mk(res, _).fold(res)(rep)) getOrElse res)
     }
   }
   
@@ -69,7 +69,7 @@ trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixi
         ma.argss.map(_.map(self)(argsTransfo.pipeline)),
         ma.typ
       ))
-      Code(asc map (Ascribe(res, _) |> rep) getOrElse res)
+      Code(asc map (Ascribe.mk(res, _).fold(res)(rep)) getOrElse res)
     }
     override def toString: String = s"${Rep(ma)}"
   }
