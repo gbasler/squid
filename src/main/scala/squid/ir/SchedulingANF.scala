@@ -42,13 +42,14 @@ class SchedulingANF extends SimpleANF {
   //}
   
   
-  // scheduling 
+  // scheduling
+  
+  val scheduleAggressively = false
   
   import squid.quasi.MetaBases
   import utils.meta.{RuntimeUniverseHelpers => ruh}
   import ruh.sru
   import squid.lang._
-  
   
   override def reinterpret(r: Rep, NewBase: Base)(ExtrudedHandle: (BoundVal => NewBase.Rep) = DefaultExtrudedHandler): NewBase.Rep =
     (new SchedulingReinterpreter {
@@ -58,39 +59,49 @@ class SchedulingANF extends SimpleANF {
   
   trait SchedulingReinterpreter extends Reinterpreter {
     
-    val scheduled = mutable.Map[BoundVal,newBase.BoundVal]()
+    val scheduled = mutable.Map[Rep,newBase.Rep]()
+    var scheduledAsSubexpr: Set[Rep] = Set()
     
-    def apply(r: Rep): newBase.Rep = 
-      (r |>? {case RepDef(bv:BoundVal) => scheduled get bv} flatten) map newBase.readVal getOrElse {
-        var bestFreq = 0
-        var bestFreqHi = 0
-        var best = Option.empty[Rep]
-        r.occurrences.foreach {
-          case (k,rge) if rge.start >= 1 && rge.end > 1 => //&& !scheduled.contains(k) => 
-            //println(s"T ${k.dfn}  | ${rge.start} | ${k.dfn.size}")
-            if (rge.start > bestFreq || rge.start == bestFreq && rge.end > bestFreqHi) {
-              bestFreq = rge.start
-              bestFreqHi = rge.end
-              best = Some(k)
-            }
-            else if (rge.start == bestFreq && rge.end == bestFreqHi && k.dfn.size > best.get.dfn.size) best = Some(k)
-            // ^ if two expressions have the same number of occurrences, we pick the one with the bigger size because
-            //   otherwise we may schedule subexpressions of that bigger expression that are used only in it
-          case _ =>
+    lazy val LazyApplyN = newBase.loadMtdSymbol(newBase.loadTypSymbol("squid.utils.Lazy$"), "apply")
+    lazy val LazyTypN = newBase.loadTypSymbol("squid.utils.Lazy")
+    lazy val LazyValueN = newBase.loadMtdSymbol(LazyTypN, "value")
+    lazy val LazyModN = newBase.staticModule("squid.utils.Lazy")
+    
+    def apply(r: Rep): newBase.Rep =
+      scheduled.getOrElse(r, {
+        
+        val es = r.execStats.iterator.filter { case r -> e => (
+             e.srcOccurreces > 1
+          && e.shared || !e.atLeastOnce && !e.atMostOnce && scheduleAggressively // hack: '!alo && !amo' to detect if it's within a lambda...
+          && !scheduledAsSubexpr(r)
+        )}.toList sorted (Ordering by ((re: Rep -> ExecStats) => re._2.srcOccurreces -> re._1.dfn.size) reverse)
+        
+        val rt = r.typ |> rect
+        
+        def rec(es: List[Rep -> ExecStats]): newBase.Rep = es match {
+          case (schr -> e) :: rest if !scheduled.isDefinedAt(schr) && !scheduledAsSubexpr(schr) =>
+            val bv0 = if (e.atLeastOnce) bindVal("sch", schr.typ, Nil) else bindVal("lsch", staticTypeApp(LazyTyp, schr.typ :: Nil), Nil)
+            val bv = bv0 |> recv
+            val schr2 = schr |> apply
+            val schrt = Lazy(schr.typ |> rect)
+            val oldSAS = scheduledAsSubexpr
+            scheduledAsSubexpr = oldSAS ++ schr.execStats.unzip._1
+            newBase.letin(bv,
+              if (e.atLeastOnce) schr2 else
+                newBase.methodApp(LazyModN, LazyApplyN, schrt.value::Nil, newBase.Args(newBase.byName(schr2)) :: Nil, newBase.staticTypeApp(LazyTypN, schrt.value :: Nil)),
+              { // Note: it's important noy to call `newBase.readVal` out of this by-name argument, or it would crash bases like BaseInterpreter
+                val read = newBase.readVal(bv) |> { rv => if (e.atLeastOnce) rv else newBase.methodApp(rv, LazyValueN, Nil, Nil, schrt.value) }
+                scheduled.put(schr, read)
+                rec(rest) alsoDo { scheduled.remove(schr); scheduledAsSubexpr = oldSAS }
+              }, rt)
+          case _ :: rest => rec(rest)
+          case Nil => apply(r.dfn)
         }
-        best map { e =>
-          assert(!(e eq r), s"Expression is not supposed to contain an occurrence of itself: $e")
-          val bv0 = bindVal("sch",e.typ,Nil)
-          val bv = bv0 |> recv
-          // ^ this is needed to let the Reinterpreter base class know we've defined a variable symbol – we can't just
-          //   directly create it via newBase.bindVal, or else we may get an extruded variable exception
-          val e2 = e|>apply
-          scheduled.put(bv0,bv)
-          val r2 = bottomUpPartial(r) { case `e` => readVal(bv0) }
-          newBase.letin(bv,e2,r2|>apply,r2.typ|>rect) alsoDo scheduled.remove(bv0)
-        } getOrElse apply(r.dfn)
-      }
-
+        
+        rec(es)
+        
+      })
+    
   }
   
   

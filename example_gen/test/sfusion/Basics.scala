@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 233ms
+// Transfo time: 0ms  Stringifying time: 119ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -15,13 +15,13 @@
 
 // === HL ===
 
-// Transfo time: 3ms  Stringifying time: 44ms
+// Transfo time: 3ms  Stringifying time: 20ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 83ms  Stringifying time: 268ms
+// Transfo time: 42ms  Stringifying time: 129ms
 
 {
   val sch_0 = "";
@@ -53,7 +53,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 35ms  Stringifying time: 188ms
+// Transfo time: 28ms  Stringifying time: 95ms
 
 {
   val sch_0 = "";
@@ -83,23 +83,23 @@
 
 // === ImplOptim ===
 
-// Transfo time: 99ms  Stringifying time: 194ms
+// Transfo time: 30ms  Stringifying time: 107ms
 
 {
-  val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  val x_1 = xs_0.toIndexedSeq;
-  val sch_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]);
-  val x_3 = sch_2.size;
-  val x_4 = scala.StringContext.apply("Sequence(", ")");
-  var truncated_5: scala.Boolean = true;
-  val x_6 = sfusion.impl.`package`.fromIndexed[scala.Int](sch_2);
-  val x_7 = sfusion.impl.`package`.onFinish[scala.Int](x_6)((() => truncated_5 = false));
-  val withSep_13 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_7)(((a_8: scala.Int) => {
-    val sch_9 = "";
-    val x_10 = scala.StringContext.apply(sch_9, sch_9);
-    x_10.s(a_8)
+  val lsch_0 = squid.utils.Lazy.apply[java.lang.String]("");
+  val xs_1 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_2 = xs_1.toIndexedSeq;
+  val sch_3 = ((x_2): scala.collection.IndexedSeq[scala.Int]);
+  val x_4 = sch_3.size;
+  val x_5 = scala.StringContext.apply("Sequence(", ")");
+  var truncated_6: scala.Boolean = true;
+  val x_7 = sfusion.impl.`package`.fromIndexed[scala.Int](sch_3);
+  val x_8 = sfusion.impl.`package`.onFinish[scala.Int](x_7)((() => truncated_6 = false));
+  val withSep_13 = sfusion.impl.`package`.mapHeadTail[scala.Int, java.lang.String](x_8)(((a_9: scala.Int) => {
+    val x_10 = scala.StringContext.apply(lsch_0.value, lsch_0.value);
+    x_10.s(a_9)
   }))(((a_11: scala.Int) => {
-    val x_12 = scala.StringContext.apply(",", "");
+    val x_12 = scala.StringContext.apply(",", lsch_0.value);
     x_12.s(a_11)
   }));
   val withTrunc_14 = sfusion.impl.`package`.take[java.lang.String](withSep_13)(10);
@@ -109,8 +109,8 @@
     ()
   }));
   val x_17 = strAcc_15.result();
-  val x_18 = truncated_5;
-  x_4.s(if (x_18)
+  val x_18 = truncated_6;
+  x_5.s(if (x_18)
     x_17.+(",...")
   else
     x_17)
@@ -118,7 +118,7 @@
 
 // === Imperative ===
 
-// Transfo time: 147ms  Stringifying time: 256ms
+// Transfo time: 136ms  Stringifying time: 136ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -135,22 +135,22 @@
   while ({
     val x_11 = i_7;
     x_11.<(x_6).&&({
-      val x_12 = i_7;
-      val x_13 = sch_2.apply(x_12);
-      val x_14 = i_7;
-      i_7 = x_14.+(1);
-      val x_15 = first_8;
-      val x_19 = if (x_15)
+      val lsch_12 = squid.utils.Lazy.apply[java.lang.String]("");
+      val x_13 = i_7;
+      val x_14 = sch_2.apply(x_13);
+      val x_15 = i_7;
+      i_7 = x_15.+(1);
+      val x_16 = first_8;
+      val x_19 = if (x_16)
         {
-          val sch_16 = "";
           first_8 = false;
-          val x_17 = scala.StringContext.apply(sch_16, sch_16);
-          x_17.s(x_13)
+          val x_17 = scala.StringContext.apply(lsch_12.value, lsch_12.value);
+          x_17.s(x_14)
         }
       else
         {
-          val x_18 = scala.StringContext.apply(",", "");
-          x_18.s(x_13)
+          val x_18 = scala.StringContext.apply(",", lsch_12.value);
+          x_18.s(x_14)
         };
       val x_20 = taken_9;
       x_20.<(10).&&({
@@ -186,25 +186,25 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 2ms  Stringifying time: 163ms
+// Transfo time: 3ms  Stringifying time: 107ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 1ms  Stringifying time: 146ms
+// Transfo time: 0ms  Stringifying time: 116ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 4ms  Stringifying time: 143ms
+// Transfo time: 3ms  Stringifying time: 114ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 103ms  Stringifying time: 249ms
+// Transfo time: 104ms  Stringifying time: 164ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -221,22 +221,22 @@
   while ({
     val x_11 = i_7;
     x_11.<(x_6).&&({
-      val x_12 = i_7;
-      val x_13 = sch_2.apply(x_12);
-      val x_14 = i_7;
-      i_7 = x_14.+(1);
-      val x_15 = first_8;
-      val x_19 = if (x_15)
+      val lsch_12 = squid.utils.Lazy.apply[java.lang.String]("");
+      val x_13 = i_7;
+      val x_14 = sch_2.apply(x_13);
+      val x_15 = i_7;
+      i_7 = x_15.+(1);
+      val x_16 = first_8;
+      val x_19 = if (x_16)
         {
-          val sch_16 = "";
           first_8 = false;
-          val x_17 = scala.StringContext.apply(sch_16, sch_16);
-          x_17.s(x_13)
+          val x_17 = scala.StringContext.apply(lsch_12.value, lsch_12.value);
+          x_17.s(x_14)
         }
       else
         {
-          val x_18 = scala.StringContext.apply(",", "");
-          x_18.s(x_13)
+          val x_18 = scala.StringContext.apply(",", lsch_12.value);
+          x_18.s(x_14)
         };
       val x_20 = taken_9;
       x_20.<(10).&&({
@@ -270,6 +270,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 120ms  Stringifying time: 100ms
+// Transfo time: 99ms  Stringifying time: 108ms
 
 // Same as above.

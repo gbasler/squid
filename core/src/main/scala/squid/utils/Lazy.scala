@@ -14,12 +14,15 @@
 
 package squid.utils
 
+import squid.lib.{transparencyPropagating, transparent}
+
 /** Cheap Lazy implementation for pure computations */
 final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
   private[this] var computedValue: A = null.asInstanceOf[A]
   private[this] var computing = false
   def isComputing = computing
   def computed = computedValue != null
+  @transparent
   def value = {
     if (computedValue == null) {
       val wasComputing = computing
@@ -29,10 +32,16 @@ final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
     }
     computedValue
   }
+  @transparencyPropagating
+  def `internal pure value` = value // TODO doc
+  def internal_pure_value = value // TODO doc
   override def toString = s"Lazy(${if (computed || computeWhenShow) value else "..."})"
 }
 object Lazy {
-  def apply[A <: AnyRef](vl: => A, computeWhenShow: Boolean = true) =
+  @transparencyPropagating
+  def apply[A <: AnyRef](vl: => A): Lazy[A] = mk(vl, true)
+  @transparencyPropagating
+  def mk[A <: AnyRef](vl: => A, computeWhenShow: Bool) =
     new Lazy(() => vl, computeWhenShow)
 }
 

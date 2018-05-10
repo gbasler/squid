@@ -36,7 +36,15 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   type TypSymbol = ScalaTypeSymbol
   
   type Rep = Any
-  class BoundVal(var value: Rep = null)
+  
+  class BoundVal {
+    private var _value: Rep = null
+    var set = false
+    def value = if (set) _value else
+      throw new RuntimeException(s"Variable $this was never initialized!")
+    def value_=(v:Any): Unit = _value = v alsoDo {set=true}
+  }
+  
   type TypeRep = () => TypSymbol
   
   
@@ -98,7 +106,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
     
     watchPrimitives()
     
-    debug(s"\nSelf: '$self' ${self.getClass}\nMtd: "+_mtd.fullName+" "+_mtd.isJava)
+    debug(s"\nSelf: '$self' ${self.getClass optionIf (self=/=null)}\nMtd: "+_mtd.fullName+" "+_mtd.isJava)
     
     lazy val args = argss flatMap {
       case Args(reps @ _*) => reps
@@ -134,7 +142,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
         
     }
     
-    val selfClass = self.getClass
+    val selfClass: Class[_] = if (self == null) classOf[Null] else self.getClass
     /* // this was to try and use a class different from the generated Java lambda class, but the scheme does not work
        // because down the line, when we do `srum.reflect(self)(tag)`, Scala reflection actually tries to get the class
        // from .getClass by itself, which ends in misery; instead we specially handle invocations of
@@ -144,7 +152,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
       self.getClass.getInterfaces.filterNot(_ == classOf[Serializable]).head alsoApply println
     } else self.getClass
     */
-    val cls = srum.classSymbol(if (self == null) classOf[Null] else selfClass)
+    val cls = srum.classSymbol(selfClass)
     if (cls.isJava && cls.isModuleClass) {
       reflect.runtime.ScalaReflectSurgeon.cache.enter(selfClass, cls.companion.asClass)
     }

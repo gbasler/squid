@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 19ms
+// Transfo time: 0ms  Stringifying time: 24ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val sch_1 = scala.`package`.Left;
@@ -18,7 +18,7 @@
 
 // === HL ===
 
-// Transfo time: 9ms  Stringifying time: 16ms
+// Transfo time: 7ms  Stringifying time: 22ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val sch_1 = scala.`package`.Left;
@@ -33,7 +33,7 @@
 
 // === Impl ===
 
-// Transfo time: 7ms  Stringifying time: 29ms
+// Transfo time: 7ms  Stringifying time: 44ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val sch_1 = scala.`package`.Left;
@@ -56,7 +56,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 8ms  Stringifying time: 12ms
+// Transfo time: 8ms  Stringifying time: 17ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val x_1 = xs_0.size;
@@ -76,7 +76,7 @@
 
 // === Imperative ===
 
-// Transfo time: 19ms  Stringifying time: 39ms
+// Transfo time: 18ms  Stringifying time: 50ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val x_1 = xs_0.size;
@@ -129,7 +129,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 36ms  Stringifying time: 68ms
+// Transfo time: 37ms  Stringifying time: 85ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val x_1 = xs_0.size;
@@ -208,13 +208,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 66ms
+// Transfo time: 0ms  Stringifying time: 75ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 127ms  Stringifying time: 64ms
+// Transfo time: 115ms  Stringifying time: 82ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -301,7 +301,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 38ms  Stringifying time: 81ms
+// Transfo time: 41ms  Stringifying time: 101ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
   val x_1 = xs_0.size;
@@ -385,6 +385,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 21ms  Stringifying time: 65ms
+// Transfo time: 45ms  Stringifying time: 74ms
 
 // Same as above.

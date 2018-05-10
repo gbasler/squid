@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 27ms
+// Transfo time: 0ms  Stringifying time: 35ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = scala.`package`.Left;
@@ -21,39 +21,39 @@
 
 // === HL ===
 
-// Transfo time: 1ms  Stringifying time: 14ms
+// Transfo time: 1ms  Stringifying time: 16ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 9ms  Stringifying time: 51ms
+// Transfo time: 10ms  Stringifying time: 81ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
-  val sch_1 = scala.`package`.Right.apply[scala.Nothing, scala.Boolean](true);
-  val sch_2 = scala.`package`.Left;
+  val sch_1 = scala.`package`.Left;
+  val sch_2 = scala.`package`.Right.apply[scala.Nothing, scala.Boolean](true);
   val x_3 = xs_0.size;
-  val x_4 = new sfusion.Sequence[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]((() => sfusion.impl.`package`.fromIndexed[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]](xs_0)), sch_2.apply[scala.Int, scala.Nothing](x_3));
+  val x_4 = new sfusion.Sequence[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]((() => sfusion.impl.`package`.fromIndexed[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]](xs_0)), sch_1.apply[scala.Int, scala.Nothing](x_3));
   val x_18 = new sfusion.Sequence[scala.Int]((() => {
     val x_5 = x_4.under;
     val x_6 = x_5.apply();
     sfusion.impl.`package`.flatMap[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]], scala.Int](x_6)(((x_7: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]) => {
       val x_8 = x_7.size;
-      val x_9 = new sfusion.Sequence[scala.collection.IndexedSeq[scala.Int]]((() => sfusion.impl.`package`.fromIndexed[scala.collection.IndexedSeq[scala.Int]](x_7)), sch_2.apply[scala.Int, scala.Nothing](x_8));
+      val x_9 = new sfusion.Sequence[scala.collection.IndexedSeq[scala.Int]]((() => sfusion.impl.`package`.fromIndexed[scala.collection.IndexedSeq[scala.Int]](x_7)), sch_1.apply[scala.Int, scala.Nothing](x_8));
       val x_16 = new sfusion.Sequence[scala.Int]((() => {
         val x_10 = x_9.under;
         val x_11 = x_10.apply();
         sfusion.impl.`package`.flatMap[scala.collection.IndexedSeq[scala.Int], scala.Int](x_11)(((x_12: scala.collection.IndexedSeq[scala.Int]) => {
           val x_13 = x_12.size;
-          val x_14 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](x_12)), sch_2.apply[scala.Int, scala.Nothing](x_13));
+          val x_14 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](x_12)), sch_1.apply[scala.Int, scala.Nothing](x_13));
           val x_15 = x_14.under;
           x_15.apply()
         }))
-      }), sch_1);
+      }), sch_2);
       val x_17 = x_16.under;
       x_17.apply()
     }))
-  }), sch_1);
+  }), sch_2);
   val x_19 = x_18.under;
   val x_20 = x_19.apply();
   sfusion.impl.`package`.fold[scala.Int, scala.Int](x_20)(123)(((x$3_21: scala.Int, x$4_22: scala.Int) => x$3_21.+(x$4_22)))
@@ -61,7 +61,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 14ms  Stringifying time: 18ms
+// Transfo time: 14ms  Stringifying time: 27ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -79,13 +79,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 9ms
+// Transfo time: 0ms  Stringifying time: 10ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 24ms  Stringifying time: 57ms
+// Transfo time: 24ms  Stringifying time: 75ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -158,7 +158,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 131ms  Stringifying time: 181ms
+// Transfo time: 122ms  Stringifying time: 231ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -206,82 +206,85 @@
         var completed_22: scala.Boolean = false;
         var continue_23: scala.Boolean = false;
         while ({
-          val sch_24 = x_21.get._2._2._2._2;
-          val x_25 = sch_24.!;
-          if (x_25.isDefined.`unary_!`)
+          val sch_24 = x_21.get._2;
+          val sch_25 = sch_24._2;
+          val sch_26 = sch_25._2;
+          val sch_27 = sch_26._2;
+          val lsch_28 = squid.utils.Lazy.apply[squid.lib.`package`.MutVar[scala.Option[scala.collection.IndexedSeq[scala.Int]]]](sch_26._1);
+          val x_29 = sch_27.!;
+          if (x_29.isDefined.`unary_!`)
             {
-              val sch_26 = x_21.get._2;
-              val sch_27 = sch_26._2._1;
-              val sch_28 = sch_26._1;
+              val sch_30 = sch_25._1;
+              val sch_31 = sch_24._1;
               while ({
-                val x_29 = sch_27.!;
-                x_29.<(sch_28).&&({
-                  val x_30 = sch_27.!;
-                  val x_31 = aVar_4;
-                  val x_32 = x_31.get.apply(x_30);
-                  val x_33 = sch_27.!;
-                  sch_27.:=(x_33.+(1));
-                  sch_26._2._2._1.:=(scala.Some.apply[scala.collection.IndexedSeq[scala.Int]](x_32));
-                  val ClosureVar_34 = x_32.size;
-                  val ClosureVar_35 = x_32.length;
-                  var v_36: scala.Int = 0;
-                  sch_24.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_34, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_35, new squid.lib.MutVarProxy[scala.Int](v_36, ((a) => v_36 = a))))));
+                val x_32 = sch_30.!;
+                x_32.<(sch_31).&&({
+                  val x_33 = sch_30.!;
+                  val x_34 = aVar_4;
+                  val x_35 = x_34.get.apply(x_33);
+                  val x_36 = sch_30.!;
+                  sch_30.:=(x_36.+(1));
+                  lsch_28.value.:=(scala.Some.apply[scala.collection.IndexedSeq[scala.Int]](x_35));
+                  val ClosureVar_37 = x_35.size;
+                  val ClosureVar_38 = x_35.length;
+                  var v_39: scala.Int = 0;
+                  sch_27.:=(scala.Some.apply[scala.Tuple2[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]]](scala.Tuple2.apply[scala.Int, scala.Tuple2[scala.Int, squid.lib.`package`.MutVar[scala.Int]]](ClosureVar_37, scala.Tuple2.apply[scala.Int, squid.lib.`package`.MutVar[scala.Int]](ClosureVar_38, new squid.lib.MutVarProxy[scala.Int](v_39, ((a) => v_39 = a))))));
                   false
                 })
               }) 
                 ()
               ;
-              val x_37 = sch_27.!;
-              x_37.==(sch_28)
+              val x_40 = sch_30.!;
+              x_40.==(sch_31)
             }
           else
             ();
-          val x_38 = sch_24.!;
-          if (x_38.isDefined.`unary_!`)
+          val x_41 = sch_27.!;
+          if (x_41.isDefined.`unary_!`)
             completed_22 = true
           else
             {
-              val x_39 = sch_24.!;
-              val sch_40 = x_39.get._2;
-              val sch_41 = sch_40._2;
-              val sch_42 = sch_40._1;
+              val x_42 = sch_27.!;
+              val sch_43 = x_42.get._2;
+              val sch_44 = sch_43._2;
+              val sch_45 = sch_43._1;
               while ({
-                val x_43 = sch_41.!;
-                x_43.<(sch_42).&&({
-                  val x_44 = sch_41.!;
-                  val x_45 = x_21.get._2._2._2._1.!;
-                  val x_46 = x_45.get.apply(x_44);
-                  val x_47 = sch_41.!;
-                  sch_41.:=(x_47.+(1));
-                  val x_48 = cur_6;
-                  cur_6 = x_48.+(x_46);
+                val x_46 = sch_44.!;
+                x_46.<(sch_45).&&({
+                  val x_47 = sch_44.!;
+                  val x_48 = lsch_28.value.!;
+                  val x_49 = x_48.get.apply(x_47);
+                  val x_50 = sch_44.!;
+                  sch_44.:=(x_50.+(1));
+                  val x_51 = cur_6;
+                  cur_6 = x_51.+(x_49);
                   continue_8 = true;
-                  val x_49 = continue_8;
-                  continue_23 = x_49;
+                  val x_52 = continue_8;
+                  continue_23 = x_52;
                   continue_23
                 })
               }) 
                 ()
               ;
-              val x_50 = sch_41.!;
-              if (x_50.==(sch_42))
-                sch_24.:=(scala.None)
+              val x_53 = sch_44.!;
+              if (x_53.==(sch_45))
+                sch_27.:=(scala.None)
               else
                 ()
             };
-          val x_51 = completed_22;
-          x_51.`unary_!`.&&(continue_23)
+          val x_54 = completed_22;
+          x_54.`unary_!`.&&(continue_23)
         }) 
           ()
         ;
-        val x_52 = completed_22;
-        if (x_52)
+        val x_55 = completed_22;
+        if (x_55)
           envVar_5 = scala.None
         else
           ()
       };
-    val x_53 = completed_7;
-    x_53.`unary_!`.&&(continue_8)
+    val x_56 = completed_7;
+    x_56.`unary_!`.&&(continue_8)
   }) 
     ()
   ;
@@ -291,13 +294,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 172ms
+// Transfo time: 0ms  Stringifying time: 199ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 341ms  Stringifying time: 145ms
+// Transfo time: 380ms  Stringifying time: 185ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -449,7 +452,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 73ms  Stringifying time: 165ms
+// Transfo time: 78ms  Stringifying time: 207ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -596,7 +599,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 57ms  Stringifying time: 201ms
+// Transfo time: 119ms  Stringifying time: 248ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -688,16 +691,16 @@
               val x_47 = rhs_11;
               val x_48 = x_47.!;
               val sch_49 = x_48.get._2;
-              val sch_50 = sch_49._1;
-              val sch_51 = sch_49._2;
+              val sch_50 = sch_49._2;
+              val sch_51 = sch_49._1;
               while ({
-                val x_52 = sch_51.!;
-                x_52.<(sch_50).&&({
-                  val x_53 = sch_51.!;
+                val x_52 = sch_50.!;
+                x_52.<(sch_51).&&({
+                  val x_53 = sch_50.!;
                   val x_54 = flatVar_10;
                   val x_55 = x_54.get.apply(x_53);
-                  val x_56 = sch_51.!;
-                  sch_51.:=(x_56.+(1));
+                  val x_56 = sch_50.!;
+                  sch_50.:=(x_56.+(1));
                   val x_57 = cur_12;
                   cur_12 = x_57.+(x_55);
                   continue_14 = true;
@@ -708,8 +711,8 @@
               }) 
                 ()
               ;
-              val x_59 = sch_51.!;
-              if (x_59.==(sch_50))
+              val x_59 = sch_50.!;
+              if (x_59.==(sch_51))
                 {
                   val x_60 = rhs_11;
                   x_60.:=(scala.None)

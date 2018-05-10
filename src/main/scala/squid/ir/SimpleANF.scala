@@ -46,6 +46,15 @@ import collection.mutable
   *   make AST's RepTransformer cache what it has applied to and reuse previous results...
   * 
   */
+/**
+  * @param shared: occurs in different 'top-level' lambdas (or outside of lambdas); this is to help schedule things at the tightest scope possible. */
+case class ExecStats(shared: Bool, atLeastOnce: Bool, atMostOnce: Bool, srcOccurreces: Int) {
+  def + (that: ExecStats): ExecStats =
+    ExecStats(true, atLeastOnce || that.atLeastOnce, atMostOnce && that.atMostOnce, srcOccurreces + that.srcOccurreces)
+}
+object ExecStats {
+  val Once = ExecStats(false, true, true, 1)
+}
 class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   
   object ANFDebug extends PublicTraceDebug
@@ -58,13 +67,14 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   
   override protected def mkCode[T,C](r: Rep): Code[T,C] = r.asInstanceOf[Code[T,C]]
   
-  type Occurrence = Range
-  object Occurrence {
-    val MaxValue = Int.MaxValue/3
-    val Never = 0 to 0
-    val Once = 1 to 1
-    val Unknown = 0 to MaxValue
-  }
+  
+  // TODO add to ScalaCore?
+  val LazyApply = loadMtdSymbol(loadTypSymbol("squid.utils.Lazy$"), "apply")
+  val LazyMk = loadMtdSymbol(loadTypSymbol("squid.utils.Lazy$"), "mk")
+  val LazyTyp = loadTypSymbol("squid.utils.Lazy")
+  val LazyValue = loadMtdSymbol(LazyTyp, "value")
+  val LazyMod = staticModule("squid.utils.Lazy")
+  
   
   case class Rep(dfn: Def) extends Code[Any,Nothing] 
     //with EquivBasedCodeEquals // needed for user-friendly Code#equals behavior, but maybe not ideal for Rep
@@ -104,27 +114,29 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     //override def toString = s"$dfn"  // Now that Rep extends IR (for performance), it's a bad idea to override toString
     override def toString = if (isShowing) s"<currently-showing>$dfn" else super.toString
     
-    type OccMap = Map[Rep,Occurrence]
+    type ExecStatMap = Map[Rep,ExecStats]
     
     /** Number of times each interesting-to-factor subexpression appears in this tree, including the top-level expression. */
-    lazy val occurrences: OccMap = {
-      import Occurrence._
-      def merge(xs:OccMap, ys:OccMap) = xs ++ (ys map { kv => (xs get kv._1) match {
-          case Some(v) => kv._1 -> (kv._2.start + v.start to (kv._2.end + v.end max Occurrence.MaxValue))
+    lazy val execStats: ExecStatMap = {
+      import ExecStats._
+      def merge(xs:ExecStatMap, ys:ExecStatMap): ExecStatMap = xs ++ (ys map { kv => xs get kv._1 match {
+          case Some(v) => kv._1 -> (kv._2 + v)
           case _ => kv
       }})
       dfn match {
-        case LetIn(p,v,b) => merge(v.occurrences, b.occurrences filterKeys (!_.dfn.unboundVals(p)))
-        case Abs(p,b) => (b.occurrences filterKeys (!_.dfn.unboundVals(p)) mapValues (_ => Unknown)) + (this -> Once)
+        case LetIn(p,v,b) => merge(v.execStats, b.execStats filterKeys (!_.dfn.unboundVals(p)))
+        //case Abs(p,b) => (b.occurrences filterKeys (!_.dfn.unboundVals(p)) mapValues (_ => ExecStats(false, false, false))) + (this -> Once)
+        case Abs(p,b) => (b.execStats filterKeys (!_.dfn.unboundVals(p)) mapValues (_ copy (false, false, false))) + (this -> Once)
         // ^ note we add `(this -> Once)` with `+` and not `merge` because we know the node should not contain itself!
-        case Module(pre,_,_) => pre.occurrences
-        case (_:MethodApp)|(_:Ascribe) => merge(
-          if (!effect.immediate) Map(this -> Once) else Map.empty,
-          dfn.children.foldLeft(Map.empty:OccMap){ (a,b) => merge(a,b.occurrences) }
+        case Module(pre,_,_) => pre.execStats
+        case _:MethodApp | _:Ascribe => merge(
+          if (!effect.immediate) // TODO rm cond
+            Map(this -> Once) else Map.empty,
+          dfn.children.foldLeft(Map.empty:ExecStatMap){ (a, b) => merge(a,b.execStats) }
         )
         // only factor constants of String type:
         case Constant(_:String) => Map(this -> Once)
-        case (_:Constant) | (_:Hole) | (_:SplicedHole) | (_:NewObject) | (_:BoundVal) | (_:StaticModule) => Map.empty
+        case _:Constant | _:Hole | _:SplicedHole | _:NewObject | _:BoundVal | _:StaticModule => Map.empty
       }
     }
     
@@ -214,6 +226,9 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
             ret2
         }
         construct(newRet)
+        
+      case MethodApp(RepDef(MethodApp(_,LazyApply|LazyMk,_,Args(ByName(r))::Nil,_)),LazyValue,_,_,_) =>
+        r |> makeStmtIfNecessary(false)
         
       case MethodApp(s,m,ts,ass,t) =>
         //dfn |>? { case LetIn(p, v, b) => println(p,v,b) }
