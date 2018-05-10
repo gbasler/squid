@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 47ms
+// Transfo time: 0ms  Stringifying time: 68ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
@@ -22,13 +22,13 @@
 
 // === HL ===
 
-// Transfo time: 6ms  Stringifying time: 31ms
+// Transfo time: 6ms  Stringifying time: 30ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 77ms  Stringifying time: 158ms
+// Transfo time: 55ms  Stringifying time: 149ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
@@ -84,11 +84,11 @@
 
 // === CtorInline ===
 
-// Transfo time: 109ms  Stringifying time: 70ms
+// Transfo time: 61ms  Stringifying time: 57ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
-  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$70_1: scala.Int) => x$1$70_1.+(1)));
+  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$69_1: scala.Int) => x$1$69_1.+(1)));
   val x_16 = sfusion.impl.`package`.filter[scala.Int](x_2)(((n_3: scala.Int) => {
     val x_4 = scala.math.`package`.sqrt(n_3.toDouble);
     val x_5 = scala.Predef.doubleWrapper(x_4);
@@ -107,13 +107,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 1ms  Stringifying time: 42ms
+// Transfo time: 0ms  Stringifying time: 21ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 265ms  Stringifying time: 178ms
+// Transfo time: 220ms  Stringifying time: 191ms
 
 {
   var cur_0: scala.Int = 1;
@@ -264,19 +264,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 2ms  Stringifying time: 221ms
+// Transfo time: 3ms  Stringifying time: 214ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 238ms
+// Transfo time: 0ms  Stringifying time: 198ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 122ms  Stringifying time: 209ms
+// Transfo time: 114ms  Stringifying time: 208ms
 
 {
   var cur_0: scala.Int = 1;
@@ -438,7 +438,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 532ms  Stringifying time: 221ms
+// Transfo time: 455ms  Stringifying time: 176ms
 
 {
   var cur_0: scala.Int = 1;
@@ -583,6 +583,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 104ms  Stringifying time: 222ms
+// Transfo time: 89ms  Stringifying time: 199ms
 
 // Same as above.

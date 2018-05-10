@@ -25,8 +25,7 @@ import utils._
   * obtained from reinterpretation through `MetaBases.ScalaReflectionBase`  */
 trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
-  // TODO IR and CodeType, irTypeOf, typeRepOf, repType, etc.
-  
+  val showCompiledTrees = false
   
   def repType(r: Rep): TypeRep
   def boundValType(bv: BoundVal): TypeRep
@@ -131,7 +130,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def compile(implicit ev: {} <:< Ctx): Typ = {
       val (newRep,csvals) = separateCrossStageNodes(self.rep)
       val tree = scalaTree(newRep, hideCtors0 = false) // note ctor
-      System.err.println("Compiling tree: "+sru.showCode(tree))
+      if (showCompiledTrees) System.err.println("Compiling tree: "+sru.showCode(tree))
       val r = IntermediateBase.toolBox.eval(tree)
       val applied = (r,csvals) match {
         case (_, Nil) => r

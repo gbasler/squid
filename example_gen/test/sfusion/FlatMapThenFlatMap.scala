@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 33ms
+// Transfo time: 0ms  Stringifying time: 23ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = scala.`package`.Left;
@@ -22,7 +22,7 @@
 
 // === HL ===
 
-// Transfo time: 11ms  Stringifying time: 29ms
+// Transfo time: 9ms  Stringifying time: 22ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = scala.`package`.Left;
@@ -41,7 +41,7 @@
 
 // === Impl ===
 
-// Transfo time: 10ms  Stringifying time: 63ms
+// Transfo time: 9ms  Stringifying time: 47ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = scala.`package`.Right.apply[scala.Nothing, scala.Boolean](true);
@@ -75,7 +75,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 15ms  Stringifying time: 23ms
+// Transfo time: 13ms  Stringifying time: 17ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -93,13 +93,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 11ms
+// Transfo time: 0ms  Stringifying time: 9ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 26ms  Stringifying time: 68ms
+// Transfo time: 24ms  Stringifying time: 52ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -172,7 +172,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 268ms  Stringifying time: 234ms
+// Transfo time: 112ms  Stringifying time: 171ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -305,13 +305,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 212ms
+// Transfo time: 0ms  Stringifying time: 164ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 364ms  Stringifying time: 164ms
+// Transfo time: 333ms  Stringifying time: 143ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -463,7 +463,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 85ms  Stringifying time: 191ms
+// Transfo time: 72ms  Stringifying time: 174ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -610,7 +610,7 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 81ms  Stringifying time: 252ms
+// Transfo time: 57ms  Stringifying time: 202ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.collection.IndexedSeq[scala.Int]]]) => {
   val x_1 = xs_0.size;
@@ -702,16 +702,16 @@
               val x_47 = rhs_11;
               val x_48 = x_47.!;
               val sch_49 = x_48.get._2;
-              val sch_50 = sch_49._2;
-              val sch_51 = sch_49._1;
+              val sch_50 = sch_49._1;
+              val sch_51 = sch_49._2;
               while ({
-                val x_52 = sch_50.!;
-                x_52.<(sch_51).&&({
-                  val x_53 = sch_50.!;
+                val x_52 = sch_51.!;
+                x_52.<(sch_50).&&({
+                  val x_53 = sch_51.!;
                   val x_54 = flatVar_10;
                   val x_55 = x_54.get.apply(x_53);
-                  val x_56 = sch_50.!;
-                  sch_50.:=(x_56.+(1));
+                  val x_56 = sch_51.!;
+                  sch_51.:=(x_56.+(1));
                   val x_57 = cur_12;
                   cur_12 = x_57.+(x_55);
                   continue_14 = true;
@@ -722,8 +722,8 @@
               }) 
                 ()
               ;
-              val x_59 = sch_50.!;
-              if (x_59.==(sch_51))
+              val x_59 = sch_51.!;
+              if (x_59.==(sch_50))
                 {
                   val x_60 = rhs_11;
                   x_60.:=(scala.None)

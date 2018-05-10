@@ -28,9 +28,7 @@ class OptimTests extends FunSuite {
   
   test("Basics") {
     
-    //val c0 = ir"Sequence(1,2,3,4)" // FIXME handle varargs in @embed...
-    
-    val c0 = code"Sequence.fromIndexed(1 to 10).toString"
+    val c0 = code"Sequence(1,2,3,4,5,6,7,8,9,10).toString"
     
     val res = "Sequence(1,2,3,4,5,6,7,8,9,10)"
     assert(c0.run == res)
@@ -47,12 +45,13 @@ class OptimTests extends FunSuite {
   test("Sieve") {
     
     val c0 = code{algo.primeSum(100)}
-    assert(c0.run == 101)
     
-    val res = Compiler.wrapOptim("Sieve") {
+    val res = 101
+    assert(c0.run == res)
+    
+    Compiler.wrapOptim("Sieve") {
       val r = Compiler.optimize(c0)
-      //println(r.rep)
-      //println(r.run)  // FIXME: expected a member of class Boolean, you provided method squid.lib.And
+      assert(r.run == res)
     }
     
   }
@@ -73,11 +72,11 @@ class OptimTests extends FunSuite {
       
       // Note: for some reason, `transfo.IdiomsNormalizer` does not seem to eliminate extra `toString` calls,
       // despite that transformer working well on simple examples as in `NormalizationTests`.
-      // This might indicate a subtle typing problem, to investigate...
+      // This might indicate a subtle typing problem or an overridden symbol, to investigate...
       
       val r = Compiler.optimize(c0)
       assert((ls |> r.run) == r0)
-      // ^ Note: when not inlined completely, `run` throws: scala.ScalaReflectionException: expected a member of class Boolean, you provided method squid.lib.And
+      // ^ Note: when not inlined completely, `run` used to throw: scala.ScalaReflectionException: expected a member of class Boolean, you provided method squid.lib.And
     }
     
     val c1 = code{algo.joinLinesComplex(_:Iterable[String])}
@@ -88,16 +87,16 @@ class OptimTests extends FunSuite {
     
     Compiler.wrapOptim("JoinLinesComplexs") {
       val r = Compiler.optimize(c1)
-      //println(ls |> r.run)  // FIXME: java.lang.NullPointerException
+      assert((ls |> r.run) == r0)
     }
     
   }
   test("FlatMap") {
     import Sequence._
     
+    /*
     val ls = IndexedSeq[IndexedSeq[Char]]("lol","okay","test")
     
-    /*
     //val c0 = ir{(xs:Iterable[Iterable[Char]]) => fromIterable(xs).flatMap(a => fromIterable(a)).fold(0)((ac,_) => ac + 1)}
     //val c0 = ir{(xs:IndexedSeq[IndexedSeq[Char]]) => fromIndexed(xs).flatMap(a => fromIndexed(a)).fold(0)((ac,_) => ac + 1)} // FIXME flatMap fusion does not kick in
     val c0 = ir{(xs:IndexedSeq[IndexedSeq[Char]]) => fromIndexed(xs).flatMap(a => fromIterable(a)).fold(123)((ac,_) => ac + 1)} // here it does
@@ -109,43 +108,42 @@ class OptimTests extends FunSuite {
     }
     */
     
+    val l1 = IndexedSeq(IndexedSeq(IndexedSeq(1,2,3,4)))
     
     val c1 = code{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
       fromIndexed(xs).flatMap(a => fromIndexed(a).flatMap(b => fromIndexed(b))).fold(123)(_ + _)
     }
+    val r1 = l1 |> c1.run
     
     Compiler.wrapOptim("FlatMapInFlatMap") {
       val r = Compiler.optimize(c1)
-      //println(r.run.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
-      println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
-      //assert((ls |> r.run) == r0)
+      //assert((l1 |> r.run) == r1) // does not terminate (cf. interpreter's problems with by-names)
+      assert((l1 |> r.compile) == r1)
     }
+  
+    val l2 = IndexedSeq(IndexedSeq(1,2,3))
     
-    
-    //val c2 = ir{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
     val c2 = code{ (xs: IndexedSeq[IndexedSeq[Int]]) => 
       //fromIndexed(xs).flatMap(a => fromIndexed(a)).flatMap(b => fromIndexed(b)).fold(123)(_ + _)
       //fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
       fromIndexed(xs).map(fromIndexed).flatMap(b => b).fold(123)(_ + _) // FIXedME doesn't fuse
     }
+    val r2 = l2 |> c2.run
     
     Compiler.wrapOptim("MapThenFlatMap") {
       val r = Compiler.optimize(c2)
-      //println(r.run.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
-      //println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
-      println(r.compile.apply(IndexedSeq(IndexedSeq(1,2,3))))
-      //assert((ls |> r.run) == r0)
+      assert((l2 |> r.compile) == r2)
     }
     
     
     val c3 = code{ (xs: IndexedSeq[IndexedSeq[IndexedSeq[Int]]]) => 
       fromIndexed(xs).flatMap(a => fromIndexed(a).map(fromIndexed)).flatMap(b => b).fold(123)(_ + _) // FIXME doesn't fuse
     }
-    
+    val r3 = l1 |> c3.run
+  
     Compiler.wrapOptim("FlatMapThenFlatMap") {
       val r = Compiler.optimize(c3)
-      println(r.compile.apply(IndexedSeq(IndexedSeq(IndexedSeq(1,2,3)))))
-      //assert((ls |> r.run) == r0)
+      assert((l1 |> r.compile) == r3)
     }
     
   }
@@ -169,17 +167,21 @@ class OptimTests extends FunSuite {
       //assert(r.run.apply() == r0)
     }
     */
+  
+    val zs = ys.map(_.hashCode)
     
     val c1 = code{(xs:IndexedSeq[Int],ys:Iterable[Int]) => 
       fromIndexed(xs).flatMap(x => fromIterable(ys).map(_ + x)).zip(fromIterable(ys)).fold("")((acc,xy) => acc + xy._1 + xy._2)}
     
+    val r1_ = c1.run.apply(xs,xs)
+    val r1 = c1.run.apply(xs,zs)
+    
     Compiler.wrapOptim("ZipFlatmapLinear") {
       val r = Compiler.optimize(c1) // FIXME flatmap fusion does not kick in
       //println(r)
-      //println(r.run.apply(xs,xs)) // FIXME
-      println(r.compile.apply(xs,xs))
-      println(xs.flatMap(x => xs.map(_ + x)).zip(xs).foldLeft("")((acc,xy) => acc + xy._1 + xy._2))
-      //assert(r.run.apply() == r0)
+      assert(r.run.apply(xs,xs) == r1_)
+      //println(xs.flatMap(x => xs.map(_ + x)).zip(xs).foldLeft("")((acc,xy) => acc + xy._1 + xy._2))
+      assert(r.run.apply(xs,zs) == r1)
     }
     
   }

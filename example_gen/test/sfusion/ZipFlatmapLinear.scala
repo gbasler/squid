@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 34ms
+// Transfo time: 0ms  Stringifying time: 27ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val sch_2 = scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false);
@@ -13,7 +13,7 @@
       val x_6 = ys_1.iterator;
       sfusion.impl.`package`.fromIterator[scala.Int](x_6)
     }), sch_2);
-    x_7.map[scala.Int](((x$9_8: scala.Int) => x$9_8.+(x_5)))
+    x_7.map[scala.Int](((x$10_8: scala.Int) => x$10_8.+(x_5)))
   }));
   val x_11 = new sfusion.Sequence[scala.Int]((() => {
     val x_10 = ys_1.iterator;
@@ -28,13 +28,13 @@
 
 // === HL ===
 
-// Transfo time: 1ms  Stringifying time: 14ms
+// Transfo time: 1ms  Stringifying time: 12ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 38ms  Stringifying time: 78ms
+// Transfo time: 13ms  Stringifying time: 62ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val sch_2 = scala.`package`.Right;
@@ -53,7 +53,7 @@
       val x_15 = new sfusion.Sequence[scala.Int]((() => {
         val x_12 = x_10.under;
         val x_13 = x_12.apply();
-        sfusion.impl.`package`.map[scala.Int, scala.Int](x_13)(((x$9_14: scala.Int) => x$9_14.+(x_8)))
+        sfusion.impl.`package`.map[scala.Int, scala.Int](x_13)(((x$10_14: scala.Int) => x$10_14.+(x_8)))
       }), x_11);
       val x_16 = x_15.under;
       x_16.apply()
@@ -82,7 +82,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 25ms  Stringifying time: 30ms
+// Transfo time: 21ms  Stringifying time: 24ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -90,7 +90,7 @@
   val x_8 = sfusion.impl.`package`.flatMap[scala.Int, scala.Int](x_3)(((x_4: scala.Int) => {
     val x_5 = ys_1.iterator;
     val x_6 = sfusion.impl.`package`.fromIterator[scala.Int](x_5);
-    sfusion.impl.`package`.map[scala.Int, scala.Int](x_6)(((x$9_7: scala.Int) => x$9_7.+(x_4)))
+    sfusion.impl.`package`.map[scala.Int, scala.Int](x_6)(((x$10_7: scala.Int) => x$10_7.+(x_4)))
   }));
   val x_9 = ys_1.iterator;
   val x_10 = sfusion.impl.`package`.fromIterator[scala.Int](x_9);
@@ -103,13 +103,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 10ms
+// Transfo time: 0ms  Stringifying time: 9ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 36ms  Stringifying time: 59ms
+// Transfo time: 34ms  Stringifying time: 45ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -177,7 +177,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 34ms  Stringifying time: 85ms
+// Transfo time: 20ms  Stringifying time: 64ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -270,13 +270,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 79ms
+// Transfo time: 0ms  Stringifying time: 66ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 41ms  Stringifying time: 86ms
+// Transfo time: 35ms  Stringifying time: 67ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -374,7 +374,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 54ms  Stringifying time: 105ms
+// Transfo time: 45ms  Stringifying time: 84ms
 
 ((xs_0: scala.collection.IndexedSeq[scala.Int], ys_1: scala.collection.Iterable[scala.Int]) => {
   val x_2 = xs_0.size;
@@ -471,6 +471,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 29ms  Stringifying time: 71ms
+// Transfo time: 21ms  Stringifying time: 65ms
 
 // Same as above.

@@ -179,7 +179,8 @@ class Compiler extends Optimizer {
         import clos._
         import squid.lib.MutVar
         
-        println(fun)
+        //println(fun)
+        
         //val fun2 = fun subs 'a -> Abort()
         //val fun2 = fun subs 'a -> ???
         val fun2 = fun subs 'a -> code"(?aVar: MutVar[Option[$ta]]).!.get"

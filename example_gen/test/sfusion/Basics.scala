@@ -2,11 +2,11 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 110ms
+// Transfo time: 0ms  Stringifying time: 233ms
 
 {
-  val x_0 = scala.Predef.intWrapper(1);
-  val x_1 = x_0.to(10);
+  val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_1 = xs_0.toIndexedSeq;
   val sch_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]);
   val x_3 = sch_2.size;
   val x_4 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](sch_2)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_3));
@@ -15,18 +15,18 @@
 
 // === HL ===
 
-// Transfo time: 5ms  Stringifying time: 26ms
+// Transfo time: 3ms  Stringifying time: 44ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 55ms  Stringifying time: 111ms
+// Transfo time: 83ms  Stringifying time: 268ms
 
 {
   val sch_0 = "";
-  val x_1 = scala.Predef.intWrapper(1);
-  val x_2 = x_1.to(10);
+  val xs_1 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_2 = xs_1.toIndexedSeq;
   val sch_3 = ((x_2): scala.collection.IndexedSeq[scala.Int]);
   val x_4 = sch_3.size;
   val x_5 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.fromIndexed[scala.Int](sch_3)), scala.`package`.Left.apply[scala.Int, scala.Nothing](x_4));
@@ -53,12 +53,12 @@
 
 // === CtorInline ===
 
-// Transfo time: 43ms  Stringifying time: 88ms
+// Transfo time: 35ms  Stringifying time: 188ms
 
 {
   val sch_0 = "";
-  val x_1 = scala.Predef.intWrapper(1);
-  val x_2 = x_1.to(10);
+  val xs_1 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_2 = xs_1.toIndexedSeq;
   val sch_3 = ((x_2): scala.collection.IndexedSeq[scala.Int]);
   val x_4 = sch_3.size;
   val x_5 = scala.StringContext.apply("Sequence(", ")");
@@ -83,11 +83,11 @@
 
 // === ImplOptim ===
 
-// Transfo time: 29ms  Stringifying time: 94ms
+// Transfo time: 99ms  Stringifying time: 194ms
 
 {
-  val x_0 = scala.Predef.intWrapper(1);
-  val x_1 = x_0.to(10);
+  val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_1 = xs_0.toIndexedSeq;
   val sch_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]);
   val x_3 = sch_2.size;
   val x_4 = scala.StringContext.apply("Sequence(", ")");
@@ -118,11 +118,11 @@
 
 // === Imperative ===
 
-// Transfo time: 139ms  Stringifying time: 135ms
+// Transfo time: 147ms  Stringifying time: 256ms
 
 {
-  val x_0 = scala.Predef.intWrapper(1);
-  val x_1 = x_0.to(10);
+  val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_1 = xs_0.toIndexedSeq;
   val sch_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]);
   val x_3 = sch_2.size;
   val x_4 = scala.StringContext.apply("Sequence(", ")");
@@ -186,29 +186,29 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 2ms  Stringifying time: 123ms
+// Transfo time: 2ms  Stringifying time: 163ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 1ms  Stringifying time: 107ms
+// Transfo time: 1ms  Stringifying time: 146ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 4ms  Stringifying time: 103ms
+// Transfo time: 4ms  Stringifying time: 143ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 124ms  Stringifying time: 174ms
+// Transfo time: 103ms  Stringifying time: 249ms
 
 {
-  val x_0 = scala.Predef.intWrapper(1);
-  val x_1 = x_0.to(10);
+  val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  val x_1 = xs_0.toIndexedSeq;
   val sch_2 = ((x_1): scala.collection.IndexedSeq[scala.Int]);
   val x_3 = sch_2.size;
   val x_4 = scala.StringContext.apply("Sequence(", ")");
@@ -270,6 +270,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 76ms  Stringifying time: 127ms
+// Transfo time: 120ms  Stringifying time: 100ms
 
 // Same as above.
