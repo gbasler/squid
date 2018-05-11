@@ -85,9 +85,40 @@ class SchedulingTests extends MyFunSuite(TestDSL) {
   
   test("Special Constructs") { // TODO a way to generalize them... base them on annotations?
     
-    // TODO special-handling of if/while:
-    //scheduled(code"if (true) 'ok.toString else 'ok.name") alsoApply println
-    //scheduled(code"while ('ok.name.isEmpty) println('ok.name)") alsoApply println
+    // does not wrap expression in both branches with Lazy as it knows it's executed at least once
+    scheduled("'ok")(code"if (true) 'ok.toString else 'ok.name") eqt {
+      import TestDSL.Predef._
+      code"""{
+        val sch_0 = scala.Symbol.apply("ok");
+        if (true)
+          sch_0.toString()
+        else
+          sch_0.name
+      }"""
+    }
+    
+    // this is just to make sure the condition is handled correctly (but this paricular behavior does not need special support)
+    scheduled("ok")(code"if ('ok.name.isEmpty) 'ok.toString else 'ok.name") eqt {
+      import TestDSL.Predef._
+      code"""{
+        val sch_0 = scala.Symbol.apply("ok");
+        val sch_1 = sch_0.name;
+        if (sch_1.isEmpty())
+          sch_0.toString()
+        else
+          sch_1
+      }"""
+    }
+    
+    // does not wrap expression in condition with Lazy as it knows it's executed at least once
+    scheduled(())(code"while ('ok.name.isEmpty) println('ok.name)") eqt {
+      import TestDSL.Predef._
+      code"""{
+        val sch_0 = scala.Symbol.apply("ok").name;
+        while (sch_0.isEmpty()) 
+          scala.Predef.println(sch_0)
+      }"""
+    }
     
   }
   

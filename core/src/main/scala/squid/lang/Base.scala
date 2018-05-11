@@ -15,6 +15,7 @@
 package squid.lang
 
 import squid.quasi
+import squid.utils._
 
 
 /** The base trait defining, in the tagless final style, the core language of Squid:
@@ -159,6 +160,10 @@ trait Base extends TypingBase with quasi.QuasiBase {
     def apply(vreps: Rep*) = ArgsVarargs(this, Args(vreps: _*))
     def splice(vrep: Rep) = ArgsVarargSpliced(this, vrep)
     def map(b: Base)(f: Rep => b.Rep): b.Args = b.Args(reps map f: _*)
+  }
+  object ArgsCons {
+    /** Useful for extracting the first argument and the rest, because Scala does not support pattern shapes like `Args((x +: _) @ _*)` */
+    def unapply(as: Args): Option[Rep -> Seq[Rep]] = if (as.reps.nonEmpty) Some(as.reps.head -> as.reps.tail) else None
   }
   object ArgList {
     def unapplySeq(x: ArgList) = x match {

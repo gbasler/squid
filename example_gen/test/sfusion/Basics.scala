@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 119ms
+// Transfo time: 0ms  Stringifying time: 124ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -15,13 +15,13 @@
 
 // === HL ===
 
-// Transfo time: 3ms  Stringifying time: 20ms
+// Transfo time: 3ms  Stringifying time: 21ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 42ms  Stringifying time: 129ms
+// Transfo time: 61ms  Stringifying time: 135ms
 
 {
   val sch_0 = "";
@@ -53,7 +53,7 @@
 
 // === CtorInline ===
 
-// Transfo time: 28ms  Stringifying time: 95ms
+// Transfo time: 28ms  Stringifying time: 89ms
 
 {
   val sch_0 = "";
@@ -83,7 +83,7 @@
 
 // === ImplOptim ===
 
-// Transfo time: 30ms  Stringifying time: 107ms
+// Transfo time: 23ms  Stringifying time: 85ms
 
 {
   val lsch_0 = squid.utils.Lazy.apply[java.lang.String]("");
@@ -118,7 +118,7 @@
 
 // === Imperative ===
 
-// Transfo time: 136ms  Stringifying time: 136ms
+// Transfo time: 110ms  Stringifying time: 109ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -135,7 +135,7 @@
   while ({
     val x_11 = i_7;
     x_11.<(x_6).&&({
-      val lsch_12 = squid.utils.Lazy.apply[java.lang.String]("");
+      val sch_12 = "";
       val x_13 = i_7;
       val x_14 = sch_2.apply(x_13);
       val x_15 = i_7;
@@ -144,12 +144,12 @@
       val x_19 = if (x_16)
         {
           first_8 = false;
-          val x_17 = scala.StringContext.apply(lsch_12.value, lsch_12.value);
+          val x_17 = scala.StringContext.apply(sch_12, sch_12);
           x_17.s(x_14)
         }
       else
         {
-          val x_18 = scala.StringContext.apply(",", lsch_12.value);
+          val x_18 = scala.StringContext.apply(",", sch_12);
           x_18.s(x_14)
         };
       val x_20 = taken_9;
@@ -186,25 +186,25 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 3ms  Stringifying time: 107ms
+// Transfo time: 2ms  Stringifying time: 59ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 116ms
+// Transfo time: 0ms  Stringifying time: 53ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 3ms  Stringifying time: 114ms
+// Transfo time: 2ms  Stringifying time: 52ms
 
 // Same as above.
 
 // === Low-Level Norm ===
 
-// Transfo time: 104ms  Stringifying time: 164ms
+// Transfo time: 60ms  Stringifying time: 104ms
 
 {
   val xs_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -221,7 +221,7 @@
   while ({
     val x_11 = i_7;
     x_11.<(x_6).&&({
-      val lsch_12 = squid.utils.Lazy.apply[java.lang.String]("");
+      val sch_12 = "";
       val x_13 = i_7;
       val x_14 = sch_2.apply(x_13);
       val x_15 = i_7;
@@ -230,12 +230,12 @@
       val x_19 = if (x_16)
         {
           first_8 = false;
-          val x_17 = scala.StringContext.apply(lsch_12.value, lsch_12.value);
+          val x_17 = scala.StringContext.apply(sch_12, sch_12);
           x_17.s(x_14)
         }
       else
         {
-          val x_18 = scala.StringContext.apply(",", lsch_12.value);
+          val x_18 = scala.StringContext.apply(",", sch_12);
           x_18.s(x_14)
         };
       val x_20 = taken_9;
@@ -270,6 +270,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 99ms  Stringifying time: 108ms
+// Transfo time: 50ms  Stringifying time: 48ms
 
 // Same as above.

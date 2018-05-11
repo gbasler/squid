@@ -51,6 +51,8 @@ import collection.mutable
 case class ExecStats(shared: Bool, atLeastOnce: Bool, atMostOnce: Bool, srcOccurreces: Int) {
   def + (that: ExecStats): ExecStats =
     ExecStats(true, atLeastOnce || that.atLeastOnce, atMostOnce && that.atMostOnce, srcOccurreces + that.srcOccurreces)
+  def ^(that: ExecStats): ExecStats =
+    ExecStats(true, atLeastOnce && that.atLeastOnce, atMostOnce && that.atMostOnce, srcOccurreces + that.srcOccurreces)
 }
 object ExecStats {
   val Once = ExecStats(false, true, true, 1)
@@ -74,6 +76,8 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
   val LazyTyp = loadTypSymbol("squid.utils.Lazy")
   val LazyValue = loadMtdSymbol(LazyTyp, "value")
   val LazyMod = staticModule("squid.utils.Lazy")
+  val IfSym = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
+  val WhileSym = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "While", None)
   
   
   case class Rep(dfn: Def) extends Code[Any,Nothing] 
@@ -119,18 +123,33 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
     /** Number of times each interesting-to-factor subexpression appears in this tree, including the top-level expression. */
     lazy val execStats: ExecStatMap = {
       import ExecStats._
-      def merge(xs:ExecStatMap, ys:ExecStatMap): ExecStatMap = xs ++ (ys map { kv => xs get kv._1 match {
-          case Some(v) => kv._1 -> (kv._2 + v)
-          case _ => kv
-      }})
-      dfn match {
+      def merge(xs:ExecStatMap, ys:ExecStatMap, m: ((ExecStats,ExecStats)=>ExecStats) = ((x,y) => x+y)): ExecStatMap =
+        xs ++ (ys map { kv => xs get kv._1 match {
+            case Some(v) => kv._1 -> m(kv._2, v)
+            case _ => kv
+        }})
+      def unshare(xs:ExecStatMap) = xs.mapValues(_ copy (shared = false))
+      dfn match { // Note: we add `(this -> Once)` with `+` and not `merge` because we know the node should not contain itself!
         case LetIn(p,v,b) => merge(v.execStats, b.execStats filterKeys (!_.dfn.unboundVals(p)))
-        //case Abs(p,b) => (b.occurrences filterKeys (!_.dfn.unboundVals(p)) mapValues (_ => ExecStats(false, false, false))) + (this -> Once)
+          // ^ not adding (this -> Once) as the bound value makes it unlikely this could be deduplicated 
         case Abs(p,b) => (b.execStats filterKeys (!_.dfn.unboundVals(p)) mapValues (_ copy (false, false, false))) + (this -> Once)
-        // ^ note we add `(this -> Once)` with `+` and not `merge` because we know the node should not contain itself!
         case Module(pre,_,_) => pre.execStats
+        // Special handling of if-then-else:
+        case MethodApp(_,IfSym,_,Args(cnd,ByName(thn),ByName(els))::Nil,_) =>
+          merge(cnd.execStats, merge(thn.execStats |> unshare, els.execStats |> unshare, _ ^ _)) + (this -> Once)
+        // Special handling of while:
+        case MethodApp(_,WhileSym,_,Args(ByName(cnd),bdyByName)::Nil,_) =>
+          merge(
+            cnd.execStats.mapValues(_ copy (shared = false, atMostOnce = false)), // same as lambda, but conserve atLeastOnce
+            bdyByName.execStats)
+          // ^ Note: not adding `+ (this -> Once)` as it seems pointless to schedule a while loop, essentially an imperative construct
+        // Special handling of squid.utils.Lazy:
+        case MethodApp(_,LazyApply|LazyMk,_,ArgsCons(ByName(r),_)::Nil,_) =>
+          r.execStats.mapValues(e => e copy (shared = false, atLeastOnce = false)) + // same as lambda, but conserve atMostOnce
+            (this -> Once)
         case _:MethodApp | _:Ascribe => merge(
-          if (!effect.immediate) // TODO rm cond
+          if (!effect.immediate) // Note: could rm this condition and handle 'scheduling' of impure expressions to reduce code duplication
+                                 //       not sure it would be that helpful though, because of all the bindings in imperative code...
             Map(this -> Once) else Map.empty,
           dfn.children.foldLeft(Map.empty:ExecStatMap){ (a, b) => merge(a,b.execStats) }
         )
@@ -227,7 +246,7 @@ class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
         }
         construct(newRet)
         
-      case MethodApp(RepDef(MethodApp(_,LazyApply|LazyMk,_,Args(ByName(r))::Nil,_)),LazyValue,_,_,_) =>
+      case MethodApp(RepDef(MethodApp(_,LazyApply|LazyMk,_,ArgsCons(ByName(r),_)::Nil,_)),LazyValue,_,_,_) =>
         r |> makeStmtIfNecessary(false)
         
       case MethodApp(s,m,ts,ass,t) =>

@@ -19,11 +19,16 @@ import utils._
 import collection.mutable
 
 /**
-  * ANF IR similar to SimpleANF except it additionally factors pure common subexpressions so as to minimize recomputation.
+  * ANF IR similar to SimpleANF except it additionally factors (deduplicates) pure common subexpressions so as to
+  * minimize recomputation and code size.
   * 
   * TODO make Def cache its hashCode... (potentially big perf improvement)
   * 
-  * TODO better scheduling algo that uses Lazy and thunks
+  * Note: could extend the algorithm to use thunks so as to deduplicate effectful expressions
+  * 
+  * Note: the presence of bindings due to imperative code will minimize the advantages of SchedulingANF even for the
+  *       pure parts of the code. A nameless representation such as de Bruijn could help to *some* extent as it would
+  *       equate alpha-equivalent terms and give them the same hashCode.
   * 
   */
 class SchedulingANF extends SimpleANF {

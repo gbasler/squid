@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 49ms
+// Transfo time: 0ms  Stringifying time: 44ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
@@ -22,13 +22,13 @@
 
 // === HL ===
 
-// Transfo time: 3ms  Stringifying time: 17ms
+// Transfo time: 3ms  Stringifying time: 14ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 38ms  Stringifying time: 156ms
+// Transfo time: 34ms  Stringifying time: 146ms
 
 {
   val posNats_1 = new sfusion.Sequence[scala.Int]((() => sfusion.impl.`package`.iterate[scala.Int](1)(((x$1_0: scala.Int) => x$1_0.+(1)))), scala.`package`.Right.apply[scala.Nothing, scala.Boolean](false));
@@ -84,11 +84,11 @@
 
 // === CtorInline ===
 
-// Transfo time: 49ms  Stringifying time: 61ms
+// Transfo time: 82ms  Stringifying time: 63ms
 
 {
   val x_0 = sfusion.impl.`package`.single[scala.Int](2);
-  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$74_1: scala.Int) => x$1$74_1.+(1)));
+  val x_2 = sfusion.impl.`package`.iterate[scala.Int](1)(((x$1$69_1: scala.Int) => x$1$69_1.+(1)));
   val x_16 = sfusion.impl.`package`.filter[scala.Int](x_2)(((n_3: scala.Int) => {
     val x_4 = scala.math.`package`.sqrt(n_3.toDouble);
     val x_5 = scala.Predef.doubleWrapper(x_4);
@@ -107,13 +107,13 @@
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 18ms
+// Transfo time: 0ms  Stringifying time: 28ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 221ms  Stringifying time: 174ms
+// Transfo time: 211ms  Stringifying time: 158ms
 
 {
   var cur_0: scala.Int = 1;
@@ -130,12 +130,12 @@
     })
   }) 
     {
-      val lsch_8 = squid.utils.Lazy.apply[scala.Some[scala.Int]](scala.Some.apply[scala.Int](2));
+      val sch_8 = scala.Some.apply[scala.Int](2);
       var next_9: scala.Option[scala.Int] = scala.None;
       val x_10 = curIsLhs_1;
       if (x_10)
         {
-          next_9 = lsch_8.value;
+          next_9 = sch_8;
           if (true)
             curIsLhs_1 = false
           else
@@ -168,7 +168,7 @@
                 val x_24 = curIsLhs_17;
                 if (x_24)
                   {
-                    next_23 = lsch_8.value;
+                    next_23 = sch_8;
                     if (true)
                       curIsLhs_17 = false
                     else
@@ -265,19 +265,19 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 3ms  Stringifying time: 208ms
+// Transfo time: 2ms  Stringifying time: 219ms
 
 // Same as above.
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 188ms
+// Transfo time: 0ms  Stringifying time: 181ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 111ms  Stringifying time: 201ms
+// Transfo time: 95ms  Stringifying time: 182ms
 
 {
   var cur_0: scala.Int = 1;
@@ -439,7 +439,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 433ms  Stringifying time: 213ms
+// Transfo time: 424ms  Stringifying time: 169ms
 
 {
   var cur_0: scala.Int = 1;
@@ -584,6 +584,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 112ms  Stringifying time: 204ms
+// Transfo time: 66ms  Stringifying time: 76ms
 
 // Same as above.
