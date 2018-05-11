@@ -2,7 +2,7 @@
 
 // === Init ===
 
-// Transfo time: 0ms  Stringifying time: 50ms
+// Transfo time: 0ms  Stringifying time: 63ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -25,20 +25,19 @@
   val x_15 = x_14.drop(x_1.length());
   x_15.fold[java.lang.String]("")(((x$10_16: java.lang.String, x$11_17: scala.Char) => {
     val x_18 = scala.Predef.augmentString(x$10_16);
-    val x_19 = scala.Predef.StringCanBuildFrom;
-    x_18.:+[scala.Char, java.lang.String](x$11_17)(x_19)
+    x_18.:+[scala.Char, java.lang.String](x$11_17)(scala.Predef.StringCanBuildFrom)
   }))
 })
 
 // === HL ===
 
-// Transfo time: 1ms  Stringifying time: 17ms
+// Transfo time: 2ms  Stringifying time: 30ms
 
 // Same as above.
 
 // === Impl ===
 
-// Transfo time: 23ms  Stringifying time: 118ms
+// Transfo time: 22ms  Stringifying time: 117ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = scala.`package`.Left;
@@ -84,14 +83,13 @@
   val x_32 = x_31.apply();
   sfusion.impl.`package`.fold[scala.Char, java.lang.String](x_32)("")(((x$10_33: java.lang.String, x$11_34: scala.Char) => {
     val x_35 = scala.Predef.augmentString(x$10_33);
-    val x_36 = scala.Predef.StringCanBuildFrom;
-    x_35.:+[scala.Char, java.lang.String](x$11_34)(x_36)
+    x_35.:+[scala.Char, java.lang.String](x$11_34)(scala.Predef.StringCanBuildFrom)
   }))
 })
 
 // === CtorInline ===
 
-// Transfo time: 25ms  Stringifying time: 45ms
+// Transfo time: 28ms  Stringifying time: 45ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -111,20 +109,19 @@
   val x_14 = sfusion.impl.`package`.drop[scala.Char](x_13)(x_1.length());
   sfusion.impl.`package`.fold[scala.Char, java.lang.String](x_14)("")(((x$10_15: java.lang.String, x$11_16: scala.Char) => {
     val x_17 = scala.Predef.augmentString(x$10_15);
-    val x_18 = scala.Predef.StringCanBuildFrom;
-    x_17.:+[scala.Char, java.lang.String](x$11_16)(x_18)
+    x_17.:+[scala.Char, java.lang.String](x$11_16)(scala.Predef.StringCanBuildFrom)
   }))
 })
 
 // === ImplOptim ===
 
-// Transfo time: 0ms  Stringifying time: 13ms
+// Transfo time: 0ms  Stringifying time: 11ms
 
 // Same as above.
 
 // === Imperative ===
 
-// Transfo time: 47ms  Stringifying time: 145ms
+// Transfo time: 44ms  Stringifying time: 148ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -240,9 +237,8 @@
       {
         val x_45 = cur_41;
         val x_46 = scala.Predef.augmentString(x_45);
-        val x_47 = scala.Predef.StringCanBuildFrom;
-        val x_48 = x_46.:+[scala.Char, java.lang.String](a_42)(x_47);
-        cur_41 = x_48;
+        val x_47 = x_46.:+[scala.Char, java.lang.String](a_42)(scala.Predef.StringCanBuildFrom);
+        cur_41 = x_47;
         true
       }
   }));
@@ -251,7 +247,7 @@
 
 // === FlatMapFusion ===
 
-// Transfo time: 448ms  Stringifying time: 275ms
+// Transfo time: 437ms  Stringifying time: 276ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val x_1 = sfusion.algo.`package`.joinLinesComplex$default$2;
@@ -373,7 +369,7 @@
             if (x_54.isDefined)
               {
                 val x_55 = dropped_5;
-                val x_61 = if (x_55.<(x_1.length()))
+                val x_60 = if (x_55.<(x_1.length()))
                   {
                     val x_56 = dropped_5;
                     dropped_5 = x_56.+(1);
@@ -383,27 +379,26 @@
                   {
                     val x_57 = cur_6;
                     val x_58 = scala.Predef.augmentString(x_57);
-                    val x_59 = scala.Predef.StringCanBuildFrom;
-                    val x_60 = x_58.:+[scala.Char, java.lang.String](x_54.get)(x_59);
-                    cur_6 = x_60;
+                    val x_59 = x_58.:+[scala.Char, java.lang.String](x_54.get)(scala.Predef.StringCanBuildFrom);
+                    cur_6 = x_59;
                     true
                   };
-                continue_8 = x_61;
-                val x_62 = continue_8;
-                cont_26 = x_62
+                continue_8 = x_60;
+                val x_61 = continue_8;
+                cont_26 = x_61
               }
             else
               finished_27 = true
           }
         ;
-        val x_63 = finished_27;
-        if (x_63)
+        val x_62 = finished_27;
+        if (x_62)
           envVar_4 = scala.None
         else
           ()
       };
-    val x_64 = completed_7;
-    x_64.`unary_!`.&&(continue_8)
+    val x_63 = completed_7;
+    x_63.`unary_!`.&&(continue_8)
   }) 
     ()
   ;
@@ -413,13 +408,13 @@
 
 // === LateImperative ===
 
-// Transfo time: 0ms  Stringifying time: 225ms
+// Transfo time: 0ms  Stringifying time: 233ms
 
 // Same as above.
 
 // === VarFlattening ===
 
-// Transfo time: 795ms  Stringifying time: 172ms
+// Transfo time: 731ms  Stringifying time: 176ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = squid.lib.`package`.uncheckedNullValue[scala.Int];
@@ -563,7 +558,7 @@
             if (x_64)
               {
                 val x_65 = dropped_17;
-                val x_72 = if (x_65.<(x_3.length()))
+                val x_71 = if (x_65.<(x_3.length()))
                   {
                     val x_66 = dropped_17;
                     dropped_17 = x_66.+(1);
@@ -573,28 +568,27 @@
                   {
                     val x_67 = cur_18;
                     val x_68 = scala.Predef.augmentString(x_67);
-                    val x_69 = scala.Predef.StringCanBuildFrom;
-                    val x_70 = optVal_45;
-                    val x_71 = x_68.:+[scala.Char, java.lang.String](x_70)(x_69);
-                    cur_18 = x_71;
+                    val x_69 = optVal_45;
+                    val x_70 = x_68.:+[scala.Char, java.lang.String](x_69)(scala.Predef.StringCanBuildFrom);
+                    cur_18 = x_70;
                     true
                   };
-                continue_20 = x_72;
-                val x_73 = continue_20;
-                cont_40 = x_73
+                continue_20 = x_71;
+                val x_72 = continue_20;
+                cont_40 = x_72
               }
             else
               finished_41 = true
           }
         ;
-        val x_74 = finished_41;
-        if (x_74)
+        val x_73 = finished_41;
+        if (x_73)
           isDefined_7 = false
         else
           ()
       };
-    val x_75 = completed_19;
-    x_75.`unary_!`.&&(continue_20)
+    val x_74 = completed_19;
+    x_74.`unary_!`.&&(continue_20)
   }) 
     ()
   ;
@@ -604,7 +598,7 @@
 
 // === Low-Level Norm ===
 
-// Transfo time: 193ms  Stringifying time: 232ms
+// Transfo time: 189ms  Stringifying time: 224ms
 
 ((x$2_0: scala.collection.Iterable[java.lang.String]) => {
   val sch_1 = ((null): scala.collection.immutable.WrappedString);
@@ -748,38 +742,37 @@
                   }
                 else
                   ();
-                val x_73 = sch_66.`unary_!`.&&({
+                val x_72 = sch_66.`unary_!`.&&({
                   if (sch_66)
                     ()
                   else
                     {
                       val x_68 = cur_17;
                       val x_69 = scala.Predef.augmentString(x_68);
-                      val x_70 = scala.Predef.StringCanBuildFrom;
-                      val x_71 = optVal_44;
-                      val x_72 = x_69.:+[scala.Char, java.lang.String](x_71)(x_70);
-                      cur_17 = x_72
+                      val x_70 = optVal_44;
+                      val x_71 = x_69.:+[scala.Char, java.lang.String](x_70)(scala.Predef.StringCanBuildFrom);
+                      cur_17 = x_71
                     };
                   sch_66
                 });
-                continue_19 = x_73.`unary_!`;
-                val x_74 = continue_19;
-                cont_39 = x_74
+                continue_19 = x_72.`unary_!`;
+                val x_73 = continue_19;
+                cont_39 = x_73
               }
             else
               finished_40 = true
           }
         ;
-        val x_75 = finished_40;
-        if (x_75)
+        val x_74 = finished_40;
+        if (x_74)
           isDefined_6 = false
         else
           ()
       }
     else
       completed_18 = true;
-    val x_76 = completed_18;
-    x_76.`unary_!`.&&(continue_19)
+    val x_75 = completed_18;
+    x_75.`unary_!`.&&(continue_19)
   }) 
     ()
   ;
@@ -789,6 +782,6 @@
 
 // === ReNorm (should be the same) ===
 
-// Transfo time: 103ms  Stringifying time: 191ms
+// Transfo time: 102ms  Stringifying time: 175ms
 
 // Same as above.
