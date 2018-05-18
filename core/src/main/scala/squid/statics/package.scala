@@ -21,9 +21,18 @@ package object statics {
   import scala.language.experimental.macros
   
   def compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
-  
   @MacroSetting(debug = true)
   def dbg_compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
+  
+  /***/
+  def compileTimeExec(cde: Unit): Unit = macro CompileTimeMacros.compileTimeExecImpl
+  @MacroSetting(debug = true)
+  def dbg_compileTimeExec(cde: Unit): Unit = macro CompileTimeMacros.compileTimeExecImpl
+  
+  /** Like compileTimeExec, but uses Java serialization to parse the result back to code that can be dynamically executed. */
+  def compileTimeEval[A](cde: A): A = macro CompileTimeMacros.compileTimeEvalImpl[A]
+  @MacroSetting(debug = true)
+  def dbg_compileTimeEval[A](cde: A): A = macro CompileTimeMacros.compileTimeEvalImpl[A]
   
   
   // ---

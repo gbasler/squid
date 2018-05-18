@@ -22,8 +22,6 @@ object CompileTimeTests {
 }
 import CompileTimeTests._
 
-// Note: this feature seems very slow!
-//   – which was to be expected since it's based on toolBox instantiation and runtime compilation... at compile-time...
 class CompileTimeTests extends FunSuite {
   
   test("Basics") {
@@ -34,17 +32,19 @@ class CompileTimeTests extends FunSuite {
     assert(u == "ok".length + "'ok".size)
     
     // This raises an assertion error at compile time, making compilation fail:
-    assertDoesNotCompile("compileTime{ scala.Predef.assert(u == 0) }")
+    assertDoesNotCompile("compileTimeExec{ scala.Predef.assert(u == 0) }")
+    // ^ Error:(39, 24) exception during macro expansion: java.lang.AssertionError: assertion failed
     
-    compileTime{ scala.Predef.assert(u == 2 + 3) }
+    compileTimeExec{ scala.Predef.assert(u == 2 + 3) }
     
     val local = 'oops
     assertDoesNotCompile("compileTime{ local.name }")
     // Error:(43, 26) Non-static identifier 'local' of type: Symbol
     
-    //object Local { type T }
-    //println(compileTime{ Option.empty[Local.T] })
-    // ^ FIXME crashes toolbox
+    object Local { type T } 
+    assert(compileTimeEval{ Option.empty[Local.T] } == None)
+    // ^ Reference to local type symbols works!
+    //   This is because it falls back on uninterpretedType, which BaseInterpeter defines as `sru.typeOf[A].typeSymbol.asType`
     
   }
   
@@ -64,18 +64,30 @@ class CompileTimeTests extends FunSuite {
     assert(`test withStaticSymbol`(2)('bar) == "barbar") // implicit conersion/lifting to CompileTime
     
     val res = compileTime{ `test withStaticSymbol`(3) }
-    assertDoesNotCompile("compileTime{ scala.Predef.assert(res == 'foofoofoo0.name) }")
-                          compileTime{ scala.Predef.assert(res == 'foofoofoo .name) }
+    assertDoesNotCompile("compileTimeExec{ scala.Predef.assert(res == 'foofoofoo0.name) }")
+                          compileTimeExec{ scala.Predef.assert(res == 'foofoofoo .name) }
     
   }
   
   test("Lack of Separate Compilation") {
     
     // TODO B/E:
-    assertDoesNotCompile("compileTime{ s0.name }")
+    assertDoesNotCompile("compileTimeEval{ s0.name }")
     // Error:(76, 28) exception during macro expansion: 
     //  scala.tools.reflect.ToolBoxError: reflective compilation has failed:
     //  object name is not a member of package CompileTimeTests.s0
+    
+  }
+  
+  test("Static Eval to Constants") {
+    
+    assert(compileTimeEval{ s.name } == "ok")
+    
+  }
+  
+  test("Static Eval to Serializable") {
+    
+    assert(compileTimeEval{ List(s,s,s) } == List('ok,'ok,'ok))
     
   }
   

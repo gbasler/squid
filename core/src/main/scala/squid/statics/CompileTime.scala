@@ -14,7 +14,9 @@
 
 package squid.statics
 
-import squid.utils.MacroUtils.{MacroDebugger,MacroDebug}
+import squid.ir.BaseInterpreter
+import squid.quasi.{EmbeddingException, ModularEmbedding}
+import squid.utils.MacroUtils.{MacroDebug, MacroDebugger}
 import squid.utils._
 
 import scala.annotation.StaticAnnotation
@@ -54,16 +56,43 @@ class CompileTimeMacros(val c: whitebox.Context) {
   
   object Annot { def unapply(an: Annotation): Option[Tree] = an.tree optionIf (_.nonEmpty) }
   
-  def CompileTimeImpl[A: WeakTypeTag](a: Tree): Tree =
-    q"_root_.squid.statics.compileTime(new _root_.squid.statics.CompileTime($a))"
+  def compileTimeExecImpl(cde: Tree): Tree = {
+    compileTimeEvalImpl[Unit](cde)
+  }
+  def compileTimeEvalImpl[A: WeakTypeTag](cde: Tree): Tree = {
+    debug(s"Compile-time eval code: ${showCode(cde)}")
+    val inlCde = cde |> inlineStaticParts
+    debug(s"Inlined code: ${showCode(inlCde)}")
+    val res = inlCde |> eval
+    debug(s"Result: $res")
+    res match {
+      case _:Unit|_:Bool|_:Short|_:Int|_:Long|_:Float|_:Double|_:String => Literal(Constant(res))
+      case _ => q"_root_.squid.utils.serial.deserialize(${serial.serialize(res)}).asInstanceOf[${weakTypeOf[A]}]"
+    }
+  }
   
-  // TODO: handle the many possible sources of errors/exceptions more gracefully
-  def compileTimeImpl[A: WeakTypeTag](a: Tree): Tree = {
-    debug(s"Executing static{ ${showCode(a)} }")
+  def eval(cde: Tree): Any = {
+    
+    val EB = new BaseInterpreter
+    object ME extends ModularEmbedding[c.universe.type, EB.type](c.universe, EB, str => debug(str))
+    val value = try ME(cde)
+    
+      catch {
+        case EmbeddingException(msg) =>
+          c.abort(c.enclosingPosition, s"Embedding error: $msg")
+        case EB.TypSymbolLoadingException(fn,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access type symbol $fn. Perhaps it was defined in the same project.")
+        case EB.MtdSymbolLoadingException(tp,sn,idx,cause) =>
+          c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
+      }
+    value
+    
+  }
+  
+  def inlineStaticParts(cde: Tree): Tree = {
     
     /*_*/
-    
-    val tree = a transform {
+    val tree = cde transform {
       
       case CompileTimeAnnotatedTree(reprTree) => reprTree
         
@@ -99,15 +128,18 @@ class CompileTimeMacros(val c: whitebox.Context) {
     
     debug(s"Inlined Tree: $tree")
     
-    val cdeStr = showCode(tree)
-    debug(s"Code string $cdeStr")
+    tree
     
-    val toolBox = squid.lang.IntermediateBase.toolBox
-    val cde = toolBox.parse(cdeStr)
-    debug(s"Code $cde")
+  }
+  
+  def CompileTimeImpl[A: WeakTypeTag](a: Tree): Tree =
+    q"_root_.squid.statics.compileTime(new _root_.squid.statics.CompileTime($a))"
+  
+  // TODO: handle the many possible sources of errors/exceptions more gracefully
+  def compileTimeImpl[A: WeakTypeTag](a: Tree): Tree = {
+    debug(s"Executing static{ ${showCode(a)} }")
     
-    val value = toolBox.eval(cde)
-    debug(s"Value $value")
+    val tree = inlineStaticParts(a)
     
     q"$a : ${internal.annotatedType(Annotation(
       c.typecheck(q"new _root_.squid.statics.withStaticTree($tree)")

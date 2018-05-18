@@ -69,9 +69,6 @@ object MacroTesters {
     //val debug = { val mc = MacroDebugger(c); mc[NoDebug] }
     val debug = { val mc = MacroDebugger(c); mc[ApplyDebug] } // will cut dbg unless MacroUtils.DebugLevel <: ApplyDebug
     
-    val m: sru.Mirror = reflect.runtime.currentMirror
-    val imp = scala.reflect.runtime.universe.internal.createImporter(c.universe)
-    
     val AST = Class.forName(weakTypeOf[AST].typeSymbol.asClass.fullName).getConstructors.head.newInstance().asInstanceOf[IntermediateBase]
     object ME extends ModularEmbedding[c.universe.type, AST.type](c.universe, AST, str => debug(str))
     
