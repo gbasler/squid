@@ -160,4 +160,17 @@ class CompileTimeMacros(override val c: whitebox.Context) extends QuasiMacros(c)
       else None
   }
   
+  def resolveCompileTimeImplicit[T:WeakTypeTag](seeker: String) = {
+    c.inferImplicitValue(c.weakTypeOf[T]) match {
+      case EmptyTree => None
+      case CompileTimeAnnotatedTree(annot) =>
+        Some(annot |> eval)
+      case tree =>
+        c.warning(tree.pos,
+          s"A compile-time implicit value of type ${weakTypeOf[T]} was seeked by $seeker, " +
+            s"but an expression was inferred from which a compile-time value could not be retrieved: ${showCode(tree)}")
+        None
+    }
+  }
+  
 }

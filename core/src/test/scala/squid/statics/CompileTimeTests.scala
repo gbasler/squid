@@ -73,7 +73,7 @@ class CompileTimeTests extends FunSuite {
     
     assertDoesNotCompile("compileTimeEval{ s0.name }")
     // ^ Error:(76, 20) Could not access type symbol squid.statics.CompileTimeTests.
-    // Perhaps it was defined in the same project, but should be compiled separately.
+    //                  Perhaps it was defined in the same project, but should be compiled separately.
     
   }
   

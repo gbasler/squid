@@ -25,7 +25,7 @@ import squid.lang.Optimizer
 import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
-object DumpFolder
+case class DumpFolder(folderName: String)
 
 /** This is used to optimize snippets of Scala code at runtime by enclosing them within an `optimize{...}` block */
 class StaticOptimizer[Optim <: Optimizer] {
@@ -54,7 +54,11 @@ class optimize(stopt: StaticOptimizer[_]) extends StaticAnnotation {
 import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
-class StaticOptimizerMacros(override val c: blackbox.Context) extends QuasiBlackboxMacros(c) {
+//class StaticOptimizerMacros(override val c: blackbox.Context) extends QuasiBlackboxMacros(c) {
+class StaticOptimizerMacros(override val c: whitebox.Context) extends statics.CompileTimeMacros(c) {
+  /* ^ Note: using whitebox Context because CompileTimeMacros does, but maybe it would also work with blackbox (perhaps
+   *         with a cast), although CompileTimeMacros itself seems to not always work when using blackbox... */
+  
   import c.universe._
   
   
@@ -167,15 +171,9 @@ class StaticOptimizerMacros(override val c: blackbox.Context) extends QuasiBlack
     
     val pos = c.enclosingPosition
     
-    val dumpFolder = c.inferImplicitValue(c.typeOf[DumpFolder.type]) match {
-      case Ident(df) => Some(df.decodedName.toString)
-      case Select(_,df) => Some(df.decodedName.toString)
-      case EmptyTree => None
-      case t => 
-        c.warning(t.pos, s"DumpFolder implicit should be a value whose name is the desired path; found: ${showCode(t)}")
-        None
-    }
+    val dumpFolder = resolveCompileTimeImplicit[DumpFolder]("the 'optimize' macro")
     debug(s"Dumping folder: $dumpFolder")
+    
     dumpFolder foreach { dumpFolder => 
       val ctx = s"$dumpFolder/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
       Optim.setContext(ctx)
