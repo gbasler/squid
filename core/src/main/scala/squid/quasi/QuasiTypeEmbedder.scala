@@ -19,7 +19,7 @@ import utils._
 import squid.lang.Base
 
 /* TODO: make it work with intermediate bases (eg: `ViaASTQuasiConfig`) */
-abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.whitebox.Context, B <: Base](val c: C, val base: B, debug: String => Unit) {
+abstract class QuasiTypeEmbedder[C <: scala.reflect.macros.blackbox.Context, B <: Base](val c: C, val base: B, debug: String => Unit) {
   import c.universe._
   
   val helper: meta.UniverseHelpers[c.universe.type]

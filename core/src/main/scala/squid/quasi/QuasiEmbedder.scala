@@ -19,13 +19,10 @@ import utils._
 import squid.utils.MacroUtils._
 
 import collection.mutable
-import reflect.macros.TypecheckException
+import reflect.macros.{ParseException, TypecheckException, blackbox}
 import utils.CollectionUtils._
 import squid.lang.Base
 import squid.lang.CrossStageEnabled
-
-import scala.reflect.macros.ParseException
-import scala.reflect.macros.whitebox
 
 
 case class QuasiException(msg: String, pos: Option[scala.reflect.api.Position] = None) extends Exception(msg)
@@ -42,7 +39,7 @@ import QuasiEmbedder._
   * consequently, changes in the shape of generated code here may affect/break the `rewrite` macro.
   * 
   */
-class QuasiEmbedder[C <: whitebox.Context](val c: C) {
+class QuasiEmbedder[C <: blackbox.Context](val c: C) {
   import c.universe._
   
   object Helpers extends {val uni: c.universe.type = c.universe} with ScopeAnalyser[c.universe.type]

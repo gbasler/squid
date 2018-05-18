@@ -15,7 +15,7 @@
 package squid.quasi
 
 import scala.reflect.macros.ParseException
-import scala.reflect.macros.whitebox.Context
+import scala.reflect.macros.blackbox.Context
 
 class PgrmBuilder[Ctx <: Context](val c: Ctx)(unapply: Boolean) { // TODO simplify interaction with Quasi
   val VARARG_REPEAT_STR = "*"

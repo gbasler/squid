@@ -15,13 +15,8 @@
 package squid.statics
 
 import squid.ir.BaseInterpreter
-import squid.quasi.{EmbeddingException, ModularEmbedding}
-import squid.utils.MacroUtils.{MacroDebug, MacroDebugger}
+import squid.quasi.{ModularEmbedding, QuasiMacros}
 import squid.utils._
-
-import scala.annotation.StaticAnnotation
-import scala.collection.mutable
-
 
 /** Standard class for Squid functionalities that require some values to be available at compile time; this type can be
   * to provide compile-time values implicitly, and lifts normal value to compile-time ones automatically. */
@@ -38,6 +33,8 @@ object CompileTime {
 }
 
 
+import scala.annotation.StaticAnnotation
+
 /** Used to annotate types with a static tree representing the expression, so it can be evaluated at compile time (this
   * is related to what the Quill library does for its queries) */
 /* this used to also contain a cache id to retrieve values previously computed in the same compilation run, but this was
@@ -45,21 +42,21 @@ object CompileTime {
 class withStaticTree(reprTree: Any) extends StaticAnnotation
 
 
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.{blackbox, whitebox}
 
-class CompileTimeMacros(val c: whitebox.Context) {
+//class CompileTimeMacros(override val c: blackbox.Context) extends QuasiBlackboxMacros(c) {
+// ^ strangely, this behaves differently, and raises errors of the form "AbortMacroException: Non-static identifier 't' of type: String"
+class CompileTimeMacros(override val c: whitebox.Context) extends QuasiMacros(c) {
   import c.universe._
   
-  object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
   import Helpers._
-  val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
   
   object Annot { def unapply(an: Annotation): Option[Tree] = an.tree optionIf (_.nonEmpty) }
   
   def compileTimeExecImpl(cde: Tree): Tree = {
     compileTimeEvalImpl[Unit](cde)
   }
-  def compileTimeEvalImpl[A: WeakTypeTag](cde: Tree): Tree = {
+  def compileTimeEvalImpl[A: WeakTypeTag](cde: Tree): Tree = wrapError {
     debug(s"Compile-time eval code: ${showCode(cde)}")
     val inlCde = cde |> inlineStaticParts
     debug(s"Inlined code: ${showCode(inlCde)}")
@@ -72,21 +69,10 @@ class CompileTimeMacros(val c: whitebox.Context) {
   }
   
   def eval(cde: Tree): Any = {
-    
     val EB = new BaseInterpreter
     object ME extends ModularEmbedding[c.universe.type, EB.type](c.universe, EB, str => debug(str))
-    val value = try ME(cde)
-    
-      catch {
-        case EmbeddingException(msg) =>
-          c.abort(c.enclosingPosition, s"Embedding error: $msg")
-        case EB.TypSymbolLoadingException(fn,cause) =>
-          c.abort(c.enclosingPosition, s"Could not access type symbol $fn. Perhaps it was defined in the same project.")
-        case EB.MtdSymbolLoadingException(tp,sn,idx,cause) =>
-          c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
-      }
+    val value = wrapSymbolLoadingErrors(EB, ME(cde))
     value
-    
   }
   
   def inlineStaticParts(cde: Tree): Tree = {
@@ -136,7 +122,7 @@ class CompileTimeMacros(val c: whitebox.Context) {
     q"_root_.squid.statics.compileTime(new _root_.squid.statics.CompileTime($a))"
   
   // TODO: handle the many possible sources of errors/exceptions more gracefully
-  def compileTimeImpl[A: WeakTypeTag](a: Tree): Tree = {
+  def compileTimeImpl[A: WeakTypeTag](a: Tree): Tree = wrapError {
     debug(s"Executing static{ ${showCode(a)} }")
     
     val tree = inlineStaticParts(a)

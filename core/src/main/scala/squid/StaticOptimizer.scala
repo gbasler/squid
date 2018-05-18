@@ -54,7 +54,7 @@ class optimize(stopt: StaticOptimizer[_]) extends StaticAnnotation {
 import scala.reflect.macros.whitebox
 import scala.reflect.macros.blackbox
 
-class StaticOptimizerMacros(val c: blackbox.Context) {
+class StaticOptimizerMacros(override val c: blackbox.Context) extends QuasiBlackboxMacros(c) {
   import c.universe._
   
   
@@ -78,7 +78,6 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
   
   def optimizeImpl[Comp: WeakTypeTag](code: Tree) = {
     
-    val debug = { val mc = MacroDebugger(c.asInstanceOf[whitebox.Context]); mc[MacroDebug] }
     
     val name = c.macroApplication |> {
       case q"$_.optimize[$_]($_)" => None
@@ -162,16 +161,7 @@ class StaticOptimizerMacros(val c: blackbox.Context) {
       
     }
     
-    var newCode = //Optim.TranformerDebug.debugFor
-      try ME(code)
-      catch {
-        case EmbeddingException(msg) =>
-          c.abort(c.enclosingPosition, s"Embedding error: $msg")
-        case Base.TypSymbolLoadingException(fn,cause) =>
-          c.abort(c.enclosingPosition, s"Could not access type symbol $fn. Perhaps it was defined in the same project.")
-        case Base.MtdSymbolLoadingException(tp,sn,idx,cause) =>
-          c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
-      }
+    var newCode = wrapSymbolLoadingErrors(Base, ME(code))
     
     debug("Code: "+Base.showRep(newCode))
     

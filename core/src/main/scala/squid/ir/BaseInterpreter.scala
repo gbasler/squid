@@ -30,7 +30,7 @@ import scala.reflect.runtime.ScalaReflectSurgeon
   * TODO don't use Scala runtime reflection;
   *   all that's really needed is Class tags for isInstanceOf and New (but this means the Base interface needs to be adapted...)
   */
-class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols with TraceDebug {
+class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols with RuntimeSymbolsBase with TraceDebug {
   import BaseInterpreter._
   
   type TypSymbol = ScalaTypeSymbol
@@ -73,8 +73,16 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   def newObject(tp: TypeRep): Rep = New(tp().asClass)
   case class New(cls: ClassSymbol)
   
-  def staticModule(fullName: String): Rep = {
-    val sym = srum.staticModule(fullName)
+  
+  @inline final def wrapClassNotFound[A](fullName: String)(code: => A): A = try code catch {
+    case re: ClassNotFoundException => throw TypSymbolLoadingException(fullName, re)
+  }
+  
+  def staticModule(fullName: String): Rep = wrapClassNotFound(fullName) {
+    val sym = try srum.staticModule(fullName) catch {
+      case re: scala.ScalaReflectionException =>
+        throw TypSymbolLoadingException(fullName, re)
+    }
     if (sym.isJava) return srum.runtimeClass(sym.companion.asType.asClass)
     
     //println(s"Mod $sym: "+srum.classSymbol(self.getClass))
@@ -152,7 +160,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
       self.getClass.getInterfaces.filterNot(_ == classOf[Serializable]).head alsoApply println
     } else self.getClass
     */
-    val cls = srum.classSymbol(selfClass)
+    val cls = wrapClassNotFound(selfClass.getName)(srum.classSymbol(selfClass))
     if (cls.isJava && cls.isModuleClass) {
       reflect.runtime.ScalaReflectSurgeon.cache.enter(selfClass, cls.companion.asClass)
     }

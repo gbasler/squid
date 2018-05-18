@@ -193,20 +193,5 @@ trait ASTHelpers extends Base { self: AST =>
   def freeVariables(r: Rep): Set[BoundVal] = unboundVals(dfn(r))
   
   
-  abstract override def loadTypSymbol(fullName: String) = {
-    try super.loadTypSymbol(fullName)
-    catch {
-      case e @ ScalaReflectionException(msg) =>
-        throw TypSymbolLoadingException(fullName, e)
-    }
-  }
-  abstract override def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol = {
-    try super.loadMtdSymbol(typ, symName, index, static)
-    catch {
-      case e @ ScalaReflectionException(msg) =>
-        throw MtdSymbolLoadingException(typ, symName, index, e)
-    }
-  }
-  
 }
 

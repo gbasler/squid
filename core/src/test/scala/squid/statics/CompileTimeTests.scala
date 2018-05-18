@@ -71,11 +71,9 @@ class CompileTimeTests extends FunSuite {
   
   test("Lack of Separate Compilation") {
     
-    // TODO B/E:
     assertDoesNotCompile("compileTimeEval{ s0.name }")
-    // Error:(76, 28) exception during macro expansion: 
-    //  scala.tools.reflect.ToolBoxError: reflective compilation has failed:
-    //  object name is not a member of package CompileTimeTests.s0
+    // ^ Error:(76, 20) Could not access type symbol squid.statics.CompileTimeTests.
+    // Perhaps it was defined in the same project, but should be compiled separately.
     
   }
   

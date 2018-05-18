@@ -20,14 +20,14 @@ import quasi._
 import utils._
 import meta.RuntimeUniverseHelpers.{mkTag, sru}
 
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
 /** Constructs the SimpleAST representation of the program fragment at compile time,
   * before turning it into Scala construction code (via MirrorBase).
   * This is just for demonstration purposes. More useful things can be done during that intermediate, compile-time phase. */
 class ViaASTQuasiConfig extends QuasiConfig {
   
-  def embed(c: whitebox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]) = {
+  def embed(c: blackbox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]) = {
     import c.universe._
     
     object AST extends SimpleAST

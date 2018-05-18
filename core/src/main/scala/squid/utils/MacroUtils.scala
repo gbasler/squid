@@ -18,7 +18,7 @@ import annotation.StaticAnnotation
 import reflect.api.Position
 
 object MacroUtils {
-  import scala.reflect.macros.whitebox.Context
+  import scala.reflect.macros.blackbox.Context
 
   type DebugLevel = NoDebug
   // type DebugLevel = MacroDebug

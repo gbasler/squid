@@ -18,23 +18,23 @@ package quasi
 import utils._
 import squid.lang.Base
 
-import scala.reflect.macros.whitebox
+import scala.reflect.macros.blackbox
 
 /** Helper used for the dependent method type */
-abstract class BaseUser[C <: whitebox.Context](val macroContext: C) {
+abstract class BaseUser[C <: blackbox.Context](val macroContext: C) {
   def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep
 }
 
 /** This abstraction is probably going to disappear or be simplified because it complicates the implementation with little return. */
 abstract class QuasiConfig {
   
-  def embed(c: whitebox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]): c.Tree
+  def embed(c: blackbox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]): c.Tree
   
 }
 
 class DefaultQuasiConfig extends QuasiConfig {
   
-  def embed(c: whitebox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]) = {
+  def embed(c: blackbox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]) = {
     import c.universe._
     
     object Meta extends MetaBases {

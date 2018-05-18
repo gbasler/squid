@@ -27,7 +27,7 @@ import scala.collection.mutable
   * TODO: more efficent online rewriting by pre-partitioning rules depending on what they can match!
   * 
   **/
-trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols with ClassEmbedder with ASTHelpers { self =>
+trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with RuntimeSymbols with RuntimeSymbolsBase with ClassEmbedder with ASTHelpers { self =>
   
   val newExtractedBindersSemantics = true
   

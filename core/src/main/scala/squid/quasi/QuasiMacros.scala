@@ -21,15 +21,16 @@ import utils.CollectionUtils._
 import squid.lang.Base
 
 import collection.mutable
-import scala.reflect.macros.whitebox
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.{blackbox, whitebox}
+import scala.reflect.macros.runtime.AbortMacroException
 
 
 object QuasiMacros {
   val deprecated_qqInterpolators = Set("ir", "dbg_ir")
   val qqInterpolators = deprecated_qqInterpolators ++ Set("code", "dbg_code", "c")
 }
-class QuasiMacros(val c: whitebox.Context) {
+class QuasiMacros(override val c: whitebox.Context) extends QuasiBlackboxMacros(c)
+class QuasiBlackboxMacros(val c: blackbox.Context) {
   import c.universe._
   import QuasiMacros._
   
@@ -63,6 +64,7 @@ class QuasiMacros(val c: whitebox.Context) {
       val err -> report -> pos = e match {
         case QuasiException(msg,pos) => "Quasiquote Error: "+msg -> true -> pos
         case EmbeddingException(msg) => "Embedding Error: "+msg -> true -> None
+        case _:AbortMacroException => e.getMessage -> true -> None // don't emit warning when macro was explicitly aborted
         case e => e.getMessage -> false -> None
       }
       def getPos = pos.getOrElse(c.enclosingPosition).asInstanceOf[c.Position]
@@ -76,6 +78,15 @@ class QuasiMacros(val c: whitebox.Context) {
         c.warning(getPos, "Macro failed with: "+e)
         throw e
       }
+  }
+  def wrapSymbolLoadingErrors[T](base: Base, code: => T): T = try code catch {
+    case EmbeddingException(msg) =>
+      c.abort(c.enclosingPosition, s"Embedding error: $msg")
+    case base.TypSymbolLoadingException(fn,cause) =>
+      c.abort(c.enclosingPosition, s"Could not access type symbol $fn. " +
+        s"Perhaps it was defined in the same project, but should be compiled separately.")
+    case base.MtdSymbolLoadingException(tp,sn,idx,cause) =>
+      c.abort(c.enclosingPosition, s"Could not access method symbol $sn${idx.fold("")(":"+_)} in $tp.")
   }
   
   def deprecated(msg: String, since: String, disableOnImplicit: Type = NoType, warnInMacros: Bool = false) =
@@ -500,7 +511,7 @@ class QuasiMacros(val c: whitebox.Context) {
     val codeTree = config.embed(c)(myBaseTree, myBaseTree.tpe, new BaseUser[c.type](c) {
       def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep = {
         object QTE extends QuasiTypeEmbedder[macroContext.type, b.type](macroContext, b, str => debug(str)) {
-          val helper = QuasiMacros.this.Helpers
+          val helper = QuasiBlackboxMacros.this.Helpers
           val baseTree = myBaseTree
           //def freshName(hint: String): TermName = TermName(c.freshName(hint))
         }
@@ -609,24 +620,3 @@ class QuasiMacros(val c: whitebox.Context) {
   
   
 }
-
-class QuasiBlackboxMacros(val ctx: blackbox.Context) extends QuasiMacros(ctx.asInstanceOf[whitebox.Context])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
