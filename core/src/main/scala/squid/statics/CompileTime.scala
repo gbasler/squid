@@ -37,9 +37,10 @@ object CompileTime {
 
 
 /** Used to annotate types with a static tree representing the expression, so it can be evaluated at compile time (this
-  * is related to what the Quill library does for its queries), along with a cache id to retrieve values previously-
-  * computed in the same compilation run. */
-class withStaticTree(t: Any) extends StaticAnnotation
+  * is related to what the Quill library does for its queries) */
+/* this used to also contain a cache id to retrieve values previously computed in the same compilation run, but this was
+ * causing too much complexity in the implementation for too little gain. */
+class withStaticTree(reprTree: Any) extends StaticAnnotation
 
 
 import scala.reflect.macros.whitebox
@@ -64,27 +65,28 @@ class CompileTimeMacros(val c: whitebox.Context) {
     
     val tree = a transform {
       
-      case id @ Ident(idname: TermName) if {
+      case CompileTimeAnnotatedTree(reprTree) => reprTree
+        
+      case id @ Ident(idname: TermName) =>
         assert(id.symbol =/= null, s"Identifier with 'null' symbol found: $id")
-        !id.symbol.isStatic
-      } =>
         
-        val idtp = id.tpe.widen
-        
-        // TODO better way to make sure type of `id` is 'thoroughly' static...
-        idtp.foreach { case subtp: TypeRef =>
-          if (!subtp.typeSymbol.isStatic) c.abort(id.pos, s"Non-static subtype '${subtp}' of type: $idtp")
-                       case _ => }
-        
-        idtp match {
-          case AnnotatedType(Annot(Apply(Select(New(tp @ TypeTree()), termNames.CONSTRUCTOR),
-          List(an)))::Nil,undertp) if tp.symbol.fullName == "squid.statics.withStaticTree"
-          =>
-            debug(s"Ann tree: $an")
-            an
-          case _ =>
-            debug("Oops",idtp.getClass)
-            c.abort(id.pos,s"Non-static identifier '$id' of type: $idtp")
+        if (id.symbol.isStatic) {
+          
+          if (id.symbol.fullName.contains('.'))
+            // type-checked trees may still have not-fully-qualified identifiers, for some reason; this hack fully-qualifies them
+            c.typecheck(c.parse(id.symbol.fullName))
+          else id
+          
+        } else {
+          
+          // TODO better way of making sure type of `id` is 'thoroughly' static...
+          //tp.foreach { case subtp: TypeRef =>
+          //  if (!subtp.typeSymbol.isStatic) c.abort(pos, s"Non-static subtype '${subtp}' of type: $tp")
+          //case _ => }
+          
+          val idtp = id.tpe.widen
+          accessAnnotatedTree(idtp) getOrElse c.abort(id.pos,s"Non-static identifier '$id' of type: $idtp")
+          
         }
         
       case id @ Ident(_: TypeName) if !id.symbol.isStatic =>
@@ -95,7 +97,7 @@ class CompileTimeMacros(val c: whitebox.Context) {
     // TODO somehow analyse all remaining typres and make sure that they are all statically-accessible...
     //tree.analyse { case tr @ TypeTree() => }
     
-    debug(s"Tree: $tree")
+    debug(s"Inlined Tree: $tree")
     
     val cdeStr = showCode(tree)
     debug(s"Code string $cdeStr")
@@ -111,6 +113,33 @@ class CompileTimeMacros(val c: whitebox.Context) {
       c.typecheck(q"new _root_.squid.statics.withStaticTree($tree)")
     ) :: Nil, weakTypeOf[A])}"
     
+  }
+  
+  def accessAnnotatedTree(tp: Type): Option[Tree] = {
+    
+    tp match {
+      case AnnotatedType(Annot(Apply(
+          Select(New(tp @ TypeTree()), termNames.CONSTRUCTOR), List(an)
+        )) :: Nil, undertp)
+      if tp.symbol.fullName == "squid.statics.withStaticTree"
+      =>
+        debug(s"Ann tree: $an")
+        Some(an)
+      case _ =>
+        //debug("Oops",tp,tp.getClass,tp.typeSymbol.annotations)
+        None
+    }
+    
+  }
+  object CompileTimeAnnotatedTree {
+    def unapply(x: Tree) =
+      if (x.isTerm) accessAnnotatedTree(x.tpe.widen).orElse {
+          if (x.symbol === null) None
+          else x.symbol.typeSignature |>=? {
+            case NullaryMethodType(typ) => typ
+          } |> accessAnnotatedTree
+      }
+      else None
   }
   
 }

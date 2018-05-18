@@ -56,7 +56,8 @@ class StaticExecTests extends FunSuite {
 
   }
   
-  ///*
+  // This part of the tests prints annoying things to the console and probably slows down compilation of the tests:
+  /*
   test("Variables") {
     
     same(staticExecAndSource[AST]{ lib.MutVar(0).! } ) // FIXME
@@ -112,7 +113,7 @@ class StaticExecTests extends FunSuite {
     same(staticExecAndSource[AST]{ ("ok" + "ko"*2).length })
     
   }
-  //*/
+  */
   
   
 }

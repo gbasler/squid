@@ -16,13 +16,18 @@ package squid.statics
 
 import org.scalatest.FunSuite
 
+object CompileTimeTests {
+  val s = compileTime{ 'ok }
+  val s0 = 'ko
+}
+import CompileTimeTests._
+
 // Note: this feature seems very slow!
 //   – which was to be expected since it's based on toolBox instantiation and runtime compilation... at compile-time...
 class CompileTimeTests extends FunSuite {
   
   test("Basics") {
     
-    val s = compileTime{ 'ok }
     val t = compileTime{ s.name }
     val u = compileTime{ t.length + s.toString.size }
     
@@ -30,22 +35,21 @@ class CompileTimeTests extends FunSuite {
     
     // This raises an assertion error at compile time, making compilation fail:
     assertDoesNotCompile("compileTime{ scala.Predef.assert(u == 0) }")
-    // ^ TODO B/E
     
     compileTime{ scala.Predef.assert(u == 2 + 3) }
     
-    //val local = 'oops
-    //println(Static{ local.name })
-    // TODO B/E
+    val local = 'oops
+    assertDoesNotCompile("compileTime{ local.name }")
+    // Error:(43, 26) Non-static identifier 'local' of type: Symbol
     
     //object Local { type T }
-    //println(Static{ Option.empty[Local.T] })
-    // FIXME crashes toolbox
+    //println(compileTime{ Option.empty[Local.T] })
+    // ^ FIXME crashes toolbox
     
   }
   
   test("Implicits") {
-  
+    
     def lostStaticValue(implicit sym: CompileTime[Symbol]) = {
       assertDoesNotCompile("compileTime{ sym.get.name }")
       sym.get
@@ -62,6 +66,16 @@ class CompileTimeTests extends FunSuite {
     val res = compileTime{ `test withStaticSymbol`(3) }
     assertDoesNotCompile("compileTime{ scala.Predef.assert(res == 'foofoofoo0.name) }")
                           compileTime{ scala.Predef.assert(res == 'foofoofoo .name) }
+    
+  }
+  
+  test("Lack of Separate Compilation") {
+    
+    // TODO B/E:
+    assertDoesNotCompile("compileTime{ s0.name }")
+    // Error:(76, 28) exception during macro expansion: 
+    //  scala.tools.reflect.ToolBoxError: reflective compilation has failed:
+    //  object name is not a member of package CompileTimeTests.s0
     
   }
   
