@@ -18,7 +18,7 @@ import org.scalatest.FunSuite
 
 // Note: this feature seems very slow!
 //   – which was to be expected since it's based on toolBox instantiation and runtime compilation... at compile-time...
-class StaticTests extends FunSuite {
+class CompileTimeTests extends FunSuite {
   
   test("Basics") {
     

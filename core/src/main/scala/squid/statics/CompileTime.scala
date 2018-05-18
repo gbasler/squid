@@ -30,7 +30,7 @@ object CompileTime {
   import scala.language.experimental.macros
   
   /** `CompileTime(x)` is really just syntax sugar for `compileTime{new CompileTime(x)}` */
-  implicit def apply[A](a: A): CompileTime[A] = macro StaticMacros.CompileTimeImpl[A]
+  implicit def apply[A](a: A): CompileTime[A] = macro CompileTimeMacros.CompileTimeImpl[A]
   
   // Q: is the implicit lifting actually useful? I doubt it. 
 }
@@ -39,22 +39,17 @@ object CompileTime {
 /** Used to annotate types with a static tree representing the expression, so it can be evaluated at compile time (this
   * is related to what the Quill library does for its queries), along with a cache id to retrieve values previously-
   * computed in the same compilation run. */
-class withStaticTree(t: Any, cacheUUID: String) extends StaticAnnotation
+class withStaticTree(t: Any) extends StaticAnnotation
 
 
 import scala.reflect.macros.whitebox
 
-object StaticMacros {
-  val staticCache = mutable.Map[String,Any]()
-}
-class StaticMacros(val c: whitebox.Context) {
+class CompileTimeMacros(val c: whitebox.Context) {
   import c.universe._
   
   object Helpers extends {val uni: c.universe.type = c.universe} with meta.UniverseHelpers[c.universe.type]
   import Helpers._
   val debug = { val mc = MacroDebugger(c); mc[MacroDebug] }
-  
-  val staticCache = StaticMacros.staticCache
   
   object Annot { def unapply(an: Annotation): Option[Tree] = an.tree optionIf (_.nonEmpty) }
   
@@ -66,10 +61,6 @@ class StaticMacros(val c: whitebox.Context) {
     debug(s"Executing static{ ${showCode(a)} }")
     
     /*_*/
-    
-    var wrapInContext: Tree => Tree = identity
-    var args: List[Any] = Nil
-    // ^ each identifier found which value is already in the cache result in wrapping the final tree in one more lambda
     
     val tree = a transform {
       
@@ -87,20 +78,10 @@ class StaticMacros(val c: whitebox.Context) {
         
         idtp match {
           case AnnotatedType(Annot(Apply(Select(New(tp @ TypeTree()), termNames.CONSTRUCTOR),
-          List(an,Literal(Constant(uuid:String)))))::Nil,undertp) if tp.symbol.fullName == "squid.statics.withStaticTree"
+          List(an)))::Nil,undertp) if tp.symbol.fullName == "squid.statics.withStaticTree"
           =>
             debug(s"Ann tree: $an")
-            staticCache get uuid match {
-              case Some(value) =>
-                val nme = c.freshName(idname)
-                val oldWIC = wrapInContext
-                wrapInContext = t =>
-                  q"($nme: $undertp) => ${t |> oldWIC}"
-                  // ^ make sure undertp is static?
-                args ::= value
-                Ident(nme)
-              case None => an
-            }
+            an
           case _ =>
             debug("Oops",idtp.getClass)
             c.abort(id.pos,s"Non-static identifier '$id' of type: $idtp")
@@ -116,25 +97,18 @@ class StaticMacros(val c: whitebox.Context) {
     
     debug(s"Tree: $tree")
     
-    val ctxTree = tree |> wrapInContext
-    debug(s"CtxTree: $ctxTree")
-    
-    val cdeStr = showCode(ctxTree)
+    val cdeStr = showCode(tree)
     debug(s"Code string $cdeStr")
     
     val toolBox = squid.lang.IntermediateBase.toolBox
     val cde = toolBox.parse(cdeStr)
     debug(s"Code $cde")
     
-    val lambda = toolBox.eval(cde)
-    val value = args.foldLeft(lambda){case(newTree,arg)=>newTree.asInstanceOf[Any=>Any](arg)}
+    val value = toolBox.eval(cde)
     debug(s"Value $value")
     
-    val uuid = java.util.UUID.randomUUID().toString()
-    staticCache += uuid -> value
-    
     q"$a : ${internal.annotatedType(Annotation(
-      c.typecheck(q"new _root_.squid.statics.withStaticTree($a,$uuid)")
+      c.typecheck(q"new _root_.squid.statics.withStaticTree($tree)")
     ) :: Nil, weakTypeOf[A])}"
     
   }

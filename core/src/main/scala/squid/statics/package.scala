@@ -20,10 +20,10 @@ package object statics {
   
   import scala.language.experimental.macros
   
-  def compileTime[A](a: A): A = macro StaticMacros.compileTimeImpl[A]
+  def compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
   
   @MacroSetting(debug = true)
-  def dbg_compileTime[A](a: A): A = macro StaticMacros.compileTimeImpl[A]
+  def dbg_compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
   
   
   // ---
