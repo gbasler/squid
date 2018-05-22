@@ -91,14 +91,13 @@ an alternative to the current Scala-reflection macros.
 
 ## Installation
 
-Squid currently supports Scala versions `2.11.3` to `2.11.11`
-(more recent versions might work as well, but have not yet been tested).
-A port to Scala `2.12` is underway.
+Squid currently supports Scala versions `2.12.x` and `2.11.3` to `2.11.11`
+(other versions might work as well, but have not been tested).
 
 In your project, add the following to your `build.sbt`:
 
 ```scala
-libraryDependencies += "ch.epfl.data" %% "squid" % "0.2.0-SNAPSHOT"
+libraryDependencies += "ch.epfl.data" %% "squid" % "0.3.0-SNAPSHOT"
 ```
 
 Some features related to [library-defined optimizations](#qsr) and [squid macros](#smacros), 
@@ -265,12 +264,13 @@ Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
 <a name="gpce17">[2]</a>: 
 Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
 [Quoted Staged Rewriting: a Practical Approach to Library-Defined Optimizations](https://conf.researchr.org/event/gpce-2017/gpce-2017-gpce-2017-staged-rewriting-a-practical-approach-to-library-defined-optimization).
-In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017). Best Paper Award.
+In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017). **Best Paper Award.**
 (Get the paper [here](https://infoscience.epfl.ch/record/231076).)
 
-<a name="popl18">[3]</a>:
-Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch.
-[Unifying Analytic and Statically-Typed Quasiquotes](https://popl18.sigplan.org/event/popl-2018-papers-unifying-analytic-and-statically-typed-quasiquotes). To appear in Proc. POPL 2018.
+<a name="popl18">[3]</a>: 
+Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch. 2018.
+[Unifying Analytic and Statically-Typed Quasiquotes](https://popl18.sigplan.org/event/popl-2018-papers-unifying-analytic-and-statically-typed-quasiquotes).
+In Proceedings of the ACM on Programming Languages (POPL 2018).
 (Get the paper [here](https://infoscience.epfl.ch/record/232427).)
 
 
