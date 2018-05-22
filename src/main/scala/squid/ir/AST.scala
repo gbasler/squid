@@ -112,7 +112,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     if (newD eq d) r else rep(newD)
   }
   
-  def boundValUniqueName(bv: BoundVal): String = s"${bv.name}$$${System.identityHashCode(bv)}"
+  def boundValUniqueName(bv: BoundVal): String = s"${bv.name}@${System.identityHashCode(bv)}"
   
   def extractVal(r: Rep): Option[BoundVal] = r |>? { case RepDef(bv:BoundVal) => bv }
   

@@ -18,6 +18,7 @@ benchmark/target/*
 !benchmark/target/benchmarks/
 !benchmark/target/benchmarks/report/
 example/target/
+docs/target/
 
 lib_managed/
 src_managed/

@@ -1,4 +1,4 @@
-# **Squid** ― Scala Quoted DSLs
+# **Squid** ― type-safe metaprogramming for Scala
 
 ![stability-unstable](https://img.shields.io/badge/stability-unstable-yellow.svg)
 [![Join the chat at https://gitter.im/epfldata-squid/Lobby](https://badges.gitter.im/epfldata-squid/Lobby.svg)](https://gitter.im/epfldata-squid/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
@@ -24,9 +24,15 @@ Squid uses **advanced static typing** techniques to prevent common metaprogrammi
 
 ## A Short Example
 
+```tut:invisible
+import example.doc._
+import example.doc.IntroExample._
+import example.doc.IntroExample.IR.Predef._
+```
+
 To give a quick taste of Squid's capabilities,
 here is a very basic example of program manipulation.
-The full source code can be [found here, in the example folder](/example/src/main/scala/example/doc/IntroExample.scala).
+The full source code can be [found here, in the example folder](https://github.com/epfldata/squid/tree/master/example/src/main/scala/example/doc/IntroExample.scala).
 
 Assume we define some library function `foo` as below:
 
@@ -43,6 +49,11 @@ The `@embed` annotation allows Squid to the see the method implementations insid
 What follows is an example REPL session demonstrating some program manipulation
 using Squid quasiquotes, 
 transformers and first-class term rewriting:
+
+```tut
+// Syntax `code"t"` represents term `t` in some specified intermediate representation
+val pgrm0 = code"Test.foo(1 :: 2 :: 3 :: Nil) + 1"
+```
 
 ```scala
 // Syntax `code"t"` represents term `t` in some specified intermediate representation
@@ -78,7 +89,7 @@ It is then possible to turn this into a static program optimizer,
 so that writing the following expression 
 expands at compile time into just `println(2)`,
 as show in the
-[IntroExampleTest](/example/src/test/scala/example/doc/IntroExampleTest.scala#L25)
+[IntroExampleTest](https://github.com/epfldata/squid/tree/master/example/src/test/scala/example/doc/IntroExampleTest.scala#L25)
 file:
 
 ```scala
@@ -89,7 +100,7 @@ We could also turn this into a dedicated [Squid macro](#smacros),
 an alternative to the current Scala-reflection macros.
 
 
-## Installation
+## Installation – Getting Started
 
 Squid currently supports Scala versions `2.12.x` and `2.11.3` to `2.11.11`
 (other versions might work as well, but have not been tested).
@@ -128,7 +139,7 @@ Quasiquotes are the primitive tool that Squid provides to manipulate program fra
 –– building, composing and decomposing them.
 Quasiquotes are central to most aspects of program transformation in Squid.
 
-[You can find an in-depth tutorial about Squid quasiquotes here.](/doc/tuto/Quasiquotes.md)
+[You can find an in-depth tutorial about Squid quasiquotes here.](tutorial/)
 
 **Note:**
 In the original Squid papers [[1]](#scala17) and [[2]](#gpce17),
@@ -153,7 +164,7 @@ While Squid quasiquotes focus on expressions (not definitions), Squid also provi
 
 
 As a quick reference for Squid users, 
-we provide a [cheat sheet](doc/reference/Quasiquotes.md) that summarizes the features of Squid quasiquotes. Also see the [quasiquotes tutorial](/doc/tuto/Quasiquotes.md).
+we provide a [cheat sheet](https://github.com/epfldata/squid/tree/master/doc/reference/Quasiquotes.md) that summarizes the features of Squid quasiquotes. Also see the [quasiquotes tutorial](tutorial/).
 
 
 
@@ -182,7 +193,7 @@ which are used to optimize _at compile time_ delimited portions of a user's code
 Together with quoted staged rewriting, 
 this capability allows for quite flexible and safe library-defined optimizations [[2]](#gpce17).
 
-[Click here to learn more about static optimizers.](doc/Transformers.md#static-optimizers)
+[Click here to learn more about static optimizers.](https://github.com/epfldata/squid/tree/master/doc/Transformers.md#static-optimizers)
 
 
 
@@ -195,7 +206,7 @@ This is achieved via Scala mixin-composition and quasiquote-based rewriting decl
 Squid transformers are type-preserving, 
 and they make sure that transformed programs remain well-typed and well-scoped.
 
-[Click here to learn more about Squid transformers.](doc/Transformers.md)
+[Click here to learn more about Squid transformers.](https://github.com/epfldata/squid/tree/master/doc/Transformers.md)
 
 
 <a name="irs"/>
@@ -208,7 +219,7 @@ used to encode program fragments.
 Custom IRs can be implemented and plugged into Squid to gain the high-level, type-safe features offered by Squid. 
 This is done by implementing Squid's object algebra interface [[1]](#scala17).
 
-[Click here to learn more about Squid intermediate representations.](doc/Intermediate_Representations.md)
+[Click here to learn more about Squid intermediate representations.](lso see the [quasiquotes tutorial](https://github.com/epfldata/squid/tree/master/doc/Intermediate_Representations.md)
 
 
 

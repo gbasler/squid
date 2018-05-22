@@ -1,0 +1,36 @@
+options:
+
+  - title: Squid Tutorial
+    url: tutorial
+    menu_type: tutorial
+    menu_section: tutorial
+
+    nested_options:
+     - title: »  Getting Started
+       url: tutorial/0-getting-started.html
+       menu_type: tutorial
+     - title: »  Basic Concepts
+       url: tutorial/1-basics.html
+       menu_type: tutorial
+     - title: »  Multi-Stage Programming
+       url: tutorial/2-staging.html
+       menu_type: tutorial
+     - title: »  Code Pattern Matching
+       url: tutorial/3-matching.html
+       menu_type: tutorial
+     - title: »  Code Rewriting
+       url: tutorial/4-rewriting.html
+       menu_type: tutorial
+     - title: »  Advanced Topics on Quasiquotes and Rewriting
+       url: tutorial/5-advanced.html
+       menu_type: tutorial
+     - title: »  Debugging Quasiquotes and Rewritings
+       url: tutorial/6-debugging.html
+       menu_type: tutorial
+
+  - title: Squid Reference
+    url: reference
+    menu_type: reference
+    menu_section: reference
+
+

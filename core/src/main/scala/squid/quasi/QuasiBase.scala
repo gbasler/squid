@@ -122,7 +122,7 @@ self: Base =>
       Code[T,Ctx](rep) // could do an asInstanceOf if we were sure only Code extends AnyCode; but now we have Variable
     
     /** Useful when we have non-(easily-)denotable contexts (e.g., rewrite rule contexts) */
-    def withContextOf[C <: Ctx](x: Code[Any, C]): Code[T,C] = withContext
+    def withContextOf(x: ContextErased { type Ctx <: AnyCode.this.Ctx }): Code[T,x.Ctx] = withContext[x.Ctx]
     
   }
   object AnyCode {
@@ -174,7 +174,7 @@ self: Base =>
     
     override def unsafe_asClosedCode = this.asInstanceOf[ClosedCode[T]]
     
-    override def withContextOf[D <: Ctx](x: Code[Any, D]): Code[T,D] = this // so we don't have to recreate a Code box
+    override def withContext[C <: Ctx]: Code[T,Ctx] = this
     
     override def toString: String = {
       val repStr = showRep(rep)

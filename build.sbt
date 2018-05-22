@@ -35,11 +35,11 @@ lazy val commonSettings = Seq(
   parallelExecution in Test := false,
   resolvers += Resolver.sonatypeRepo("snapshots"),
   resolvers += Resolver.sonatypeRepo("releases"),
-  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
-, unmanagedSources in Compile := (unmanagedSources in Compile).value.filterNot(_.getPath.contains("_perso"))
-, libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5"
-, libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-, libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4"
+  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
+  unmanagedSources in Compile := (unmanagedSources in Compile).value.filterNot(_.getPath.contains("_perso")),
+  libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+  libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4",
   
 //, libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.3" % "test" cross CrossVersion.full
 //  // For the ammonite REPL:
@@ -54,10 +54,7 @@ lazy val commonSettings = Seq(
 lazy val main = (project in file(".")).
   dependsOn(core).
   dependsOn(core % "test->test").
-  settings(commonSettings: _*).
-  settings(
-    name := "squid"
-  )
+  settings(commonSettings: _*)
 
 lazy val core = (project in file("core")).
   dependsOn(core_macros).
@@ -113,3 +110,66 @@ lazy val publishSettings = Seq(
   publishArtifact in Test := false,
   publishArtifact in packageDoc := !squidIsSnapshot // publishing doc is super slow -- don't do it for snapshots to ease development
 )
+
+import microsites.ExtraMdFileConfig
+
+val makeMicrositeNoTut: TaskKey[Unit] = taskKey[Unit]("Main Task to build a Microsite")
+val makeMicrositeQuick: TaskKey[Unit] = taskKey[Unit]("Main Task to build a Microsite")
+
+lazy val micrositeSettings = Seq(
+  micrositeName := "Squid",
+  micrositeDescription := "Squid ― type-safe metaprogramming for Scala",
+  micrositeAuthor := "Lionel Parreaux (@lptk)",
+  micrositeBaseUrl := "/squid",
+  micrositeDocumentationUrl := "/squid/reference",
+  micrositeGithubOwner := "epfldata",
+  micrositeGithubRepo := "squid",
+  micrositeHighlightTheme := "atom-one-light",
+  micrositeOrganizationHomepage := "https://data.epfl.ch/",
+  includeFilter in makeSite := "*.html" | "*.css" | "*.png" | "*.jpg" | "*.gif" | "*.js" | "*.swf" | "*.yml" | "*.md" | "*.svg",
+  micrositeCssDirectory := (resourceDirectory in Compile).value / "microsite" / "styles",
+  micrositeJsDirectory := (resourceDirectory in Compile).value / "microsite" / "js",
+  fork in tut := true,
+  git.remoteRepo := "git@github.com:epfldata/squid.git",
+  micrositeExtraMdFiles := Map(
+    //file("CONTRIBUTING.md") -> ExtraMdFileConfig(
+    //  "contributing.md",
+    //  "home",
+    //   Map("title" -> "Contributing", "section" -> "contributing", "position" -> "50")
+    //),
+    file("README.md") -> ExtraMdFileConfig(
+      "index.md",
+      "home",
+      Map("title" -> "Home", "section" -> "home", "position" -> "0")
+    )
+  ),
+  makeMicrositeNoTut := {
+    Def
+      .sequential(
+        microsite,
+        //tut,
+        //micrositeTutExtraMdFiles,
+        makeSite,
+        micrositeConfig
+      )
+      .value
+  },
+  makeMicrositeQuick := {
+    Def
+      .sequential(
+        microsite,
+        tutQuick,
+        //micrositeTutExtraMdFiles,
+        makeSite,
+        micrositeConfig
+      )
+      .value
+  },
+)
+
+lazy val docs = (project in file("docs"))
+  .enablePlugins(MicrositesPlugin)
+  .settings(moduleName := "docs")
+  .settings(commonSettings)
+  .settings(micrositeSettings)
+  .dependsOn(example)

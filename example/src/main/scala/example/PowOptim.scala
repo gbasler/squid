@@ -27,12 +27,14 @@ object PowOptim extends App {
   import Code.Predef._
   import Code.Quasicodes._
   
-  def opt[T,C](pgrm: Code[T,C]) = pgrm rewrite {
+  def opt[T,C](pgrm: Code[T,C]): Code[T,C] = pgrm rewrite {
     case code"Math.pow($x, ${Const(d)})"
-    if d.isValidInt && (0 to 16 contains d.toInt) =>
-      var acc = code"1.0" withContextOf x
-      for (n <- 1 to d.toInt) acc = code"$acc * $x"
-      acc
+    if d.isValidInt && (0 to 16 contains d.toInt)
+    =>
+      val xv = Variable[Double]
+      var acc = code"1.0" withContextOf xv
+      for (n <- 1 to d.toInt) acc = code"$acc * $xv"
+      code"val $xv = $x; $acc"
   }
   
   import Math._

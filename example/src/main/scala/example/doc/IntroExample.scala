@@ -24,12 +24,12 @@ import squid.quasi.{phase, embed}
 // See: /README.md
 object IntroExample extends App {
   
-  object Embedding extends SimpleANF with StandardEffects {
+  object IR extends SimpleANF with StandardEffects {
     embed(Test)
   }
-  import Embedding.Predef._
-  import Embedding.Quasicodes._
-  import Embedding.Lowering
+  import IR.Predef._
+  import IR.Quasicodes._
+  import IR.Lowering
   
   val pgrm0 = code"(Test.foo(1 :: 2 :: 3 :: Nil) + 1).toDouble"
   println(pgrm0)
@@ -45,7 +45,7 @@ object IntroExample extends App {
   
   // Making a dedicated static optimizer –– see the usage example in test file `IntroExampleTest`:
   
-  class TestOptimizer extends Embedding.SelfCodeTransformer {
+  class TestOptimizer extends IR.SelfCodeTransformer {
     def transform[T,C](pgrm0: Code[T,C]): Code[T,C] = {
       // same transformation as above:
       val pgrm1 = pgrm0 transformWith (new Lowering('MyPhase) with BottomUpTransformer)

@@ -67,7 +67,7 @@ trait Base extends TypingBase with quasi.QuasiBase {
   
   /** High-level interface whose implementations should specify how to construct (and potentially also deconstruct) constants */
   trait ConstAPI {
-    def apply[T: CodeType](v: T): Code[T,Any] = `internal Code`(const(v))
+    def apply[T: CodeType](v: T): ClosedCode[T] = `internal Code`(const(v))
   }
   val Const: ConstAPI
   
