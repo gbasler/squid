@@ -175,11 +175,11 @@ class StaticOptimizerMacros(override val c: whitebox.Context) extends statics.Co
     debug(s"Dumping folder: $dumpFolder")
     
     dumpFolder foreach { dumpFolder => 
-      val ctx = s"$dumpFolder/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
+      val ctx = s"${dumpFolder.folderName}/Gen.${pos.source.file.name.takeWhile(_ != '.')}.${name getOrElse pos.line}.scala"
       Optim.setContext(ctx)
     }
     
-    newCode = Optim.optimizeRep(newCode)
+    newCode = Optim.optimizeOffline(newCode)
     
     debug("Optimized Code: "+Base.showRep(newCode))
     

@@ -5,10 +5,11 @@ package stagerwr2
 import stagerwr.MyOptimizer.{optimize, dbg_optimize, optimizeAs, dbg_optimizeAs}
 import squid.statics._
 import squid.DumpFolder
+import org.scalatest.FunSuite
 
-object StaticOptTests extends App {
+//object StaticOptTests extends App {
 //object StaticOptTests extends StaticOptTests with App
-//class StaticOptTests {
+class StaticOptTests extends FunSuite {
   
   implicit val df = compileTime(DumpFolder("/tmp"))
   //implicit val df: DumpFolder = compileTime(DumpFolder("/tmp"))
@@ -30,7 +31,16 @@ object StaticOptTests extends App {
     f(0)
   }
   
+  // Checks that the dumped optimization file was created and written-to successfully at compile-time by above `optimizeAs` call
+  compileTimeExec {
+    scala.Predef.assert(scala.io.Source.fromFile("/tmp/Gen.StaticOptTests.MyOptTest.scala").getLines.next ==
+      "// --- Embedded Program ---")
+  }
   
-  println(r)
+  test("Program Result") {
+    
+    assert(r == 42)
+    
+  }
   
 }

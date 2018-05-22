@@ -3,10 +3,10 @@ package stagerwr
 import squid._
 import squid.ir.{BindingNormalizer, TopDownTransformer}
 import utils._
-import squid.quasi.{phase, embed, dbg_embed}
-import squid.lib.{transparent,transparencyPropagating}
+import squid.quasi.{dbg_embed, embed, phase}
+import squid.lib.{transparencyPropagating, transparent}
 
-class MyOptimizer extends stagerwr.Optimizer {
+class MyOptimizer extends stagerwr.Optimizer with squid.lang.LoggingOptimizer {
   
   //println("E "+Embedding.methods)
   Embedding.embed(Definitions)
