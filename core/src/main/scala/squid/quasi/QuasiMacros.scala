@@ -168,6 +168,7 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
   lazy val CodeSym = symbolOf[QuasiBase#Code[_,_]]
   lazy val AnyCodeSym = symbolOf[QuasiBase#AnyCode[_]]
   lazy val VariableSym = symbolOf[QuasiBase#Variable[_]]
+  //lazy val VariableCtxSym = symbolOf[QuasiBase#Variable[Any]#Ctx] // doesn't seem to work!! – prints "free type Ctx"
   
   // TODO generalize to handle AnyCode and retrieve the path-dependent context type... (if well-defined/not existential!)
   def asCode(tp: Type, typeOfBase: Type) = tp.baseType(CodeSym) |>? {

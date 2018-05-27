@@ -58,7 +58,6 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
   val scal = q"_root_.scala"
   
   
-  lazy val VariableCtxSym = symbolOf[QuasiBase#Variable[Any]#Ctx]
   def variableContext(tree: Tree) = {
     val singt = singletonTypeOf(tree).getOrElse(throw QuasiException(
       s"Cannot use variable of non-singleton type ${tree.tpe}",
@@ -516,10 +515,6 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
               if (!boundScopes.valuesIterator.exists(_ =:= ctx)) termScope ::= ctx
               q"$v.rep".asInstanceOf[b.Rep]
               
-              
-            case q"$baseTree.$$Code[$tpt]($idt)" =>
-              val tree = q"$baseTree.$$[$tpt,$Any]($idt.unsafe_asClosedCode)"
-              liftTerm(tree, parent, expectedType)
               
             /** Replaces insertion unquotes with whatever `insert` feels like inserting.
               * In the default quasi config case, this will be the trees representing the inserted elements. */
