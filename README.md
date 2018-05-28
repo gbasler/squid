@@ -15,6 +15,8 @@ Squid extends multi-stage programming capabilities with support for code inspect
 helps with the compilation of **domain-specific languages** (DSL) embedded in Scala [[1]](#scala17).
 Squid uses **advanced static typing** techniques to prevent common metaprogramming errors, such as scope extrusion [[3]](#popl18).
 
+[Link to the Squid tutorial.](http://epfldata.github.io/squid/tutorial)
+
 <!-- TODO: give concrete application examples to pique curiosity/generate interest -->
 
 **Caution:** Squid is still experimental, and the interfaces it exposes may slightly change in the future. This applies especially to the semi-internal interfaces used to implement intermediate representation backends (the `Base` trait and derived).
@@ -139,7 +141,7 @@ Quasiquotes are the primitive tool that Squid provides to manipulate program fra
 –– building, composing and decomposing them.
 Quasiquotes are central to most aspects of program transformation in Squid.
 
-[You can find an in-depth tutorial about Squid quasiquotes here.](tutorial/)
+[You can find an in-depth tutorial about Squid quasiquotes here.](http://epfldata.github.io/squid/tutorial)
 
 **Note:**
 In the original Squid papers [[1]](#scala17) and [[2]](#gpce17),
@@ -164,7 +166,7 @@ While Squid quasiquotes focus on expressions (not definitions), Squid also provi
 
 
 As a quick reference for Squid users, 
-we provide a [cheat sheet](https://github.com/epfldata/squid/tree/master/doc/reference/Quasiquotes.md) that summarizes the features of Squid quasiquotes. Also see the [quasiquotes tutorial](tutorial/).
+we provide a [cheat sheet](https://github.com/epfldata/squid/tree/master/doc/reference/Quasiquotes.md) that summarizes the features of Squid quasiquotes. Also see the [quasiquotes tutorial](http://epfldata.github.io/squid/tutorial).
 
 
 
