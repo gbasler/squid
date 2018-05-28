@@ -355,6 +355,8 @@ self: Base =>
       * will still be reported... */
     implicit def `use of ir instead of code` = SuppressWarning.`use of ir instead of code`
     
+    implicit def equateAnyAnyRef[A](implicit ev: A =:= AnyRef): A =:= Any = ev.asInstanceOf[A =:= Any]
+    
   }
   
   

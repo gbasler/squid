@@ -19,6 +19,7 @@ import squid.utils.meta.RuntimeUniverseHelpers.sru
 
 class MultiStage extends MyFunSuite {
   import TestDSL.Predef._
+  import TestDSL.LegacyPredef._
   import TestDSL.Quasicodes._
   
   test("Nested Quoted Types") {
