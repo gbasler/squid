@@ -169,9 +169,9 @@ lazy val micrositeSettings = Seq(
   },
 )
 
-lazy val docs = (project in file("docs"))
+lazy val site = (project in file("site"))
   .enablePlugins(MicrositesPlugin)
-  .settings(moduleName := "docs")
+  .settings(moduleName := "site")
   .settings(commonSettings)
   .settings(micrositeSettings)
   .dependsOn(example)
