@@ -1,3 +1,5 @@
+**`/!\` This tutorial is obsolete. For the most recent Squid tutorial, see [epfldata.github.io/squid/tutorial](http://epfldata.github.io/squid/tutorial). `/!\`**
+
 # Squid Contextual Quasiquotes Tutorial
 
 
