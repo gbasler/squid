@@ -140,7 +140,7 @@ lazy val micrositeSettings = Seq(
     //   Map("title" -> "Contributing", "section" -> "contributing", "position" -> "50")
     //),
     file("README.md") -> ExtraMdFileConfig(
-      "index.md",
+      "home.md",
       "home",
       Map("title" -> "Home", "section" -> "home", "position" -> "0")
     )
