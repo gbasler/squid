@@ -1,0 +1,183 @@
+<html><head><title>Squid: Code Rewriting</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Lionel Parreaux (@lptk)" /><meta name="description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="og:image" content="/squid/img/poster.png" /><meta name="og:title" content="Squid: Code Rewriting" /><meta name="og:site_name" content="Squid" /><meta name="og:url" content="" /><meta name="og:type" content="website" /><meta name="og:description" content="Squid ― type-safe metaprogramming for Scala" /><link rel="icon" type="image/png" href="/squid/img/favicon.png" /><meta name="twitter:title" content="Squid: Code Rewriting" /><meta name="twitter:image" content="img/poster.png" /><meta name="twitter:description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/squid/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/squid/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/squid/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/squid/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/squid/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/squid/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/squid/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/squid/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/squid/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/squid/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/squid/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/squid/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/squid/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/squid/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/squid/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/squid/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/squid/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/squid/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/squid/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/squid/img/favicon310x150.png" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/squid/highlight/styles/atom-one-light.css" /><link rel="stylesheet" href="/squid/css/style.css" /><link rel="stylesheet" href="/squid/css/palette.css" /><link rel="stylesheet" href="/squid/css/codemirror.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><ul id="sidebar" class="sidebar-nav"><li class="sidebar-brand"><a href="/squid/" class="brand"><div class="brand-wrapper"><span>Squid</span></div></a></li> <li><a href="/squid/tutorial" class="">Squid Tutorial</a> <ul class="sub_section"> <li><a href="/squid/tutorial/0-getting-started.html" class="">»  Getting Started</a></li> <li><a href="/squid/tutorial/1-basics.html" class="">»  Basic Concepts</a></li> <li><a href="/squid/tutorial/2-staging.html" class="">»  Multi-Stage Programming</a></li> <li><a href="/squid/tutorial/3-matching.html" class="">»  Code Pattern Matching</a></li> <li><a href="/squid/tutorial/4-rewriting.html" class="">»  Code Rewriting</a></li> <li><a href="/squid/tutorial/5-advanced.html" class="">»  Advanced Topics on Quasiquotes and Rewriting</a></li> <li><a href="/squid/tutorial/6-debugging.html" class="">»  Debugging Quasiquotes and Rewritings</a></li></ul></li> </ul></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li id="gh-eyes-item" class="hidden-xs"><a href="https://github.com/epfldata/squid"><i class="fa fa-eye"></i><span>WATCH<span id="eyes" class="label label-default">--</span></span></a></li><li id="gh-stars-item" class="hidden-xs"><a href="https://github.com/epfldata/squid"><i class="fa fa-star-o"></i><span>STARS<span id="stars" class="label label-default">--</span></span></a></li><li><a href="#" onclick="shareSiteTwitter('Squid Squid ― type-safe metaprogramming for Scala');"><i class="fa fa-twitter"></i></a></li><li><a href="#" onclick="shareSiteFacebook('Squid Squid ― type-safe metaprogramming for Scala');"><i class="fa fa-facebook"></i></a></li><li><a href="#" onclick="shareSiteGoogle();"><i class="fa fa-google-plus"></i></a></li></ul></div></div></div></div><div id="content" data-github-owner="epfldata" data-github-repo="squid"><div class="content-wrapper"><section><h1 id="code-rewriting">Code Rewriting</h1>
+
+<p>In the <a href="3-matching.html">previous section</a>, we saw how to pattern match individual code fragments.
+We can use the same syntax to do something more interesting:
+automatically rewrite all subexpressions of a given program.
+A rewrite rule is a <em><code class="highlighter-rouge">code"pattern" =&gt; rewritten code</code></em> pair that will be matched and applied to each subexpression of an input program.
+Therefore, it has to behave polymorphically with respect to the way it handles contexts…</p>
+
+<h2 id="reminder-on-context-polymorphism">Reminder on Context Polymorphism</h2>
+
+<p>We have seen that context requirements are encoded using Scala intersection types,
+and that context types could be abstracted as type parameters.
+For instance, one can define:</p>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="n">s</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>
+<span class="k">def</span> <span class="n">intro</span><span class="o">[</span><span class="kt">C</span><span class="o">](</span><span class="n">n</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">Int</span>, <span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span><span class="s">"$s * $n"</span>
+<span class="k">def</span> <span class="n">outro</span><span class="o">[</span><span class="kt">C</span><span class="o">](</span><span class="n">q</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">C</span> <span class="kt">&amp;</span> <span class="kt">s.Ctx</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span><span class="s">"{($s) =&gt; $q}"</span>
+</code></pre></div></div>
+
+<p>Function <code class="highlighter-rouge">intro</code> reuses term <code class="highlighter-rouge">n</code> of context <code class="highlighter-rouge">C</code> and <em>introduces</em> a free variable <code class="highlighter-rouge">s</code>,
+yielding context <code class="highlighter-rouge">Code[String, C{val s: String}]</code>.
+On the other hand, <code class="highlighter-rouge">outro</code> takes a term <code class="highlighter-rouge">q</code> of context <code class="highlighter-rouge">C</code> <em>extended with</em> <code class="highlighter-rouge">s: String</code> and captures that variable
+by constructing a bigger term and inserting <code class="highlighter-rouge">q</code> in a context where <code class="highlighter-rouge">y</code> is defined.</p>
+
+<p>Here are a few usage examples:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="o">{</span> <span class="k">val</span> <span class="n">x</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">];</span> <span class="k">val</span> <span class="n">a</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1 + $x"</span>
+     <span class="o">|</span>   <span class="k">val</span> <span class="n">b</span> <span class="k">=</span> <span class="n">intro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">a</span><span class="o">);</span> <span class="k">val</span> <span class="n">c</span> <span class="k">=</span> <span class="n">outro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">b</span><span class="o">);</span> <span class="c1">// type arguments cannot be inferred
+</span>     <span class="o">|</span>   <span class="n">code</span><span class="s">"val $x = 3; $c"</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">apply</span><span class="o">(</span><span class="s">"test!"</span><span class="o">)</span> <span class="o">}</span>
+<span class="n">res0</span><span class="k">:</span> <span class="kt">String</span> <span class="o">=</span> <span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span>
+</code></pre></div></div>
+
+<h2 id="rewrite-rules">Rewrite Rules</h2>
+
+<p>To transform a term <code class="highlighter-rouge">t</code>, one can use the following syntax:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t</span> <span class="n">rewrite</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"..."</span> <span class="k">=&gt;</span> <span class="n">code1</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"..."</span> <span class="k">=&gt;</span> <span class="n">code2</span>
+  <span class="o">...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">rewrite</code> is a macro that makes sure each case only rewrites its pattern
+to a term with the same type.
+The context of terms extracted from rewrite rule patterns
+are freshly-generated types of the form <code class="highlighter-rouge">&lt;context @ l:c&gt;</code>,
+where <code class="highlighter-rouge">l</code> is the line and <code class="highlighter-rouge">c</code> is the column of the <code class="highlighter-rouge">case</code> corresponding to the rule.</p>
+
+<p>In case the context on the right-hand of a case side is more restrictive than the context of the pattern,
+the result of the rewriting will be associated with a context capturing those extra requirements.
+For example, notice how the result of the rewriting below has type <code class="highlighter-rouge">Code[Unit,d.Ctx]</code> whereas the original term had type <code class="highlighter-rouge">Code[Unit,Any]</code>.
+This is because we have introduced a free variable in the right-hand side of the rewrite rule.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">d</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span>
+<span class="n">d</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">](</span><span class="n">d</span><span class="k">@</span><span class="mi">2089635346</span><span class="o">)</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"val x = 42; println(x.toDouble)"</span> <span class="n">rewrite</span> <span class="o">{</span>
+     <span class="o">|</span>   <span class="k">case</span> <span class="n">code</span><span class="s">"($n:Int).toDouble"</span> <span class="k">=&gt;</span> <span class="n">code</span><span class="s">"$d + 1"</span> <span class="o">}</span>
+<span class="n">res1</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">d.Ctx</span><span class="o">]</span> <span class="k">=</span>
+<span class="n">code</span><span class="s">"""{
+  val x_0 = 42;
+  scala.Predef.println(d@2089635346.+(1))
+}"""</span>
+</code></pre></div></div>
+
+<p>In the code above, the type of extracted term <code class="highlighter-rouge">n</code> is <code class="highlighter-rouge">Code[Double,&lt;context @ 1:16&gt;]</code> and
+the type of the rewritten term <code class="highlighter-rouge">code"$d + 1"</code> has its context requirement refined as <code class="highlighter-rouge">Code[Double,&lt;context @ 1:y&gt; &amp; d.Ctx]</code>.</p>
+
+<h2 id="fixed-point-and-top-down-rewriting">Fixed Point and Top-Down Rewriting</h2>
+
+<p>A similar macro, <code class="highlighter-rouge">fix_rewrite</code>, does the same as <code class="highlighter-rouge">rewrite</code> but applies the rewriting over and over again until the program stops changing (it reaches a fixed point).</p>
+
+<p>By default, <code class="highlighter-rouge">rewrite</code> and <code class="highlighter-rouge">fix_rewrite</code> rewrites terms in a bottom-up fashion.
+Top-down variants are also available as <code class="highlighter-rouge">topDown_rewrite</code> and <code class="highlighter-rouge">fix_topDown_rewrite</code>,
+respectively.</p>
+
+<h2 id="limitations-and-caveats">Limitations and Caveats</h2>
+
+<p>Beware of the power of <code class="highlighter-rouge">rewrite_fix</code> and <code class="highlighter-rouge">fix_topDown_rewrite</code>, which may expand a term unboundedly and diverge 
+(triggering a recursion limit).</p>
+
+<p>In some cases, even <code class="highlighter-rouge">topDown_rewrite</code> may introduce non-termination, 
+as the rewriting is done in recrusive a top-down traversal order 
+― if the rewritten term grows in size and is admissible to be transformed again, 
+the rewriting may diverge.
+Online normalization (such as automatic ANF conversion) may also sometimes trigger this problem in surprising ways. (See <a href="https://github.com/epfldata/squid/issues/3">this issue</a>, for example.)</p>
+
+<p>See the <a href="https://github.com/epfldata/squid/blob/master/doc/Transformers.md">transformers documentation</a>
+if you want more control over transformations, and to be able to define more precise optimization passes.</p>
+
+<h2 id="the-power-functions-again">The Power Functions Again!</h2>
+
+<p>We are now equipped to write an optimization pass that will transform any program,
+rewriting calls to <code class="highlighter-rouge">Math.pow(x,n)</code>
+to a more efficient sequence of multiplications in the case where <code class="highlighter-rouge">n</code> is a small constant integer.
+We make use of the context-polymorphic <code class="highlighter-rouge">power</code> function defined in the 
+<a href="2-staging.html#back-to-the-power-function">section on multi-stage programming</a>.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">opt</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">](</span><span class="n">pgrm</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">]</span> <span class="k">=</span> <span class="n">pgrm</span> <span class="n">rewrite</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"Math.pow($x, ${Const(d)})"</span>
+  <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">isValidInt</span> <span class="o">&amp;&amp;</span> <span class="o">(</span><span class="mi">0</span> <span class="n">to</span> <span class="mi">16</span> <span class="n">contains</span> <span class="n">d</span><span class="o">.</span><span class="n">toInt</span><span class="o">)</span>
+  <span class="k">=&gt;</span> <span class="n">power</span><span class="o">(</span><span class="n">d</span><span class="o">.</span><span class="n">toInt</span><span class="o">,</span> <span class="n">code</span><span class="s">"$x"</span><span class="o">)</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>The condition guard for this rewriting to apply is that the extracted constant <code class="highlighter-rouge">d</code>
+should be a valid 32-bit integer (<code class="highlighter-rouge">Int</code> in Scala), and that it should be in the range <code class="highlighter-rouge">0 to 16</code>.
+For example:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">opt</span><span class="o">(</span><span class="n">code</span><span class="o">{</span> <span class="k">val</span> <span class="n">x</span> <span class="k">=</span> <span class="n">readInt</span><span class="o">;</span> <span class="n">println</span><span class="o">(</span><span class="nc">Math</span><span class="o">.</span><span class="n">pow</span><span class="o">(</span><span class="n">x</span><span class="o">,</span><span class="mi">4</span><span class="o">))</span> <span class="o">})</span>
+<span class="n">res2</span><span class="k">:</span> <span class="kt">IR.Predef.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span>
+<span class="n">code</span><span class="s">"""{
+  val x_0 = scala.Predef.readInt();
+  scala.Predef.println(1.0.*(x_0.toDouble).*(x_0.toDouble).*(x_0.toDouble).*(x_0.toDouble))
+}"""</span>
+</code></pre></div></div>
+
+<p>For completeness, we show below a self-contained version of <code class="highlighter-rouge">opt</code>,
+that uses a for loop to build the resulting of the rewrite rule.
+It demonstrates that indeed any staged computation can happen on the right-hand side of a rewriting,
+combining the powers of rule-based program rewriting with multi-stage programming.
+This implementation also let-binds the base argument to <code class="highlighter-rouge">pow</code> so as to avoid potential code duplication.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">opt</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">](</span><span class="n">pgrm</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">]</span> <span class="k">=</span> <span class="n">pgrm</span> <span class="n">rewrite</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"Math.pow($x, ${Const(d)})"</span>
+  <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">isValidInt</span> <span class="o">&amp;&amp;</span> <span class="o">(</span><span class="mi">0</span> <span class="n">to</span> <span class="mi">16</span> <span class="n">contains</span> <span class="n">d</span><span class="o">.</span><span class="n">toInt</span><span class="o">)</span>
+  <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="n">xv</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span>
+    <span class="k">var</span> <span class="n">acc</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1.0"</span> <span class="n">withContextOf</span> <span class="n">xv</span>
+    <span class="k">for</span> <span class="o">(</span><span class="n">n</span> <span class="k">&lt;-</span> <span class="mi">1</span> <span class="n">to</span> <span class="n">d</span><span class="o">.</span><span class="n">toInt</span><span class="o">)</span> <span class="n">acc</span> <span class="k">=</span> <span class="n">code</span><span class="s">"$acc * $xv"</span>
+    <span class="n">code</span><span class="s">"val $xv = $x; $acc"</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>We use helper method <code class="highlighter-rouge">withContextOf</code> to type <code class="highlighter-rouge">code"1.0"</code> as <code class="highlighter-rouge">Code[Double,xv.Ctx]</code>
+(it is equivalent to <code class="highlighter-rouge">code"1.0" : Code[Double,xv.Ctx]</code>)
+so that we can later assign <code class="highlighter-rouge">code"$acc * $x"</code> to it in the loop
+– otherwise, the variable would have an incompatible type and Scala would reject the assignment.
+This helper method can also be applied to code values, so <code class="highlighter-rouge">code"1.0" withContextOf x</code>
+would be given type <code class="highlighter-rouge">Code[Double,&lt;context @ 2:16&gt;]</code>.</p>
+
+<p>Let us now try out our optimization!</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">import</span> <span class="nn">Math._</span>
+<span class="k">import</span> <span class="nn">Math._</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">normCode</span> <span class="k">=</span> <span class="n">opt</span><span class="o">(</span><span class="n">code</span><span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span><span class="kt">Double</span><span class="o">,</span><span class="n">y</span><span class="k">:</span><span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">sqrt</span><span class="o">(</span><span class="n">pow</span><span class="o">(</span><span class="n">x</span><span class="o">,</span><span class="mi">2</span><span class="o">)</span> <span class="o">+</span> <span class="n">pow</span><span class="o">(</span><span class="n">y</span><span class="o">,</span><span class="mi">2</span><span class="o">))</span> <span class="o">})</span>
+<span class="n">normCode</span><span class="k">:</span> <span class="kt">IR.Predef.Code</span><span class="o">[(</span><span class="kt">Double</span>, <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="kt">Double</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span>
+<span class="n">code</span><span class="s">"""((x_0: scala.Double, y_1: scala.Double) =&gt; java.lang.Math.sqrt(({
+  val xv_2 = x_0;
+  1.0.*(xv_2).*(xv_2)
+}).+({
+  val xv_3 = y_1;
+  1.0.*(xv_3).*(xv_3)
+})))"""</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">norm</span> <span class="k">=</span> <span class="n">normCode</span><span class="o">.</span><span class="n">compile</span>
+<span class="n">norm</span><span class="k">:</span> <span class="o">(</span><span class="kt">Double</span><span class="o">,</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$5$249a6716c4484e1db01471ee7170c46d</span><span class="o">.</span><span class="nc">__wrapper$5$249a6716c4484e1db01471ee7170c46d$$$Lambda$8774</span><span class="o">/</span><span class="mi">622607570</span><span class="nd">@fcddf0d</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">norm</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span><span class="mi">2</span><span class="o">)</span>
+<span class="n">res3</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">2.23606797749979</span>
+</code></pre></div></div>
+
+<p>The full code demonstrating this example is
+<a href="https://github.com/LPTK/Squid/blob/master/example/src/main/scala/example/PowOptim.scala">available in the squid/example project</a>.</p>
+
+<h2 id="note-on-intermediate-representations">Note on Intermediate Representations</h2>
+
+<p>Depending on one’s use cases,
+the power of rewrite rules can be multiplied by using an intermediate representation with desirable properties.
+For example, when using an ANF IR
+(see the reference on <a href="https://github.com/epfldata/squid/blob/master/doc/Intermediate_Representations.md">intermediate representation</a>),
+we do not need to worry about code duplication,
+and defensive let-binding of extracted programs as done above becomes unnecessary.
+For more on this, see
+<a href="/squid/#gpce17">our GPCE 2017 paper [2]</a>.</p>
+
+</section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/squid/highlight/highlight.pack.js"></script><script>hljs.configure({
+languages:['scala','java','bash']
+});
+hljs.initHighlighting();
+             </script><script>((window.gitter = {}).chat = {}).options = {
+room: 'epfldata/squid'};</script><script src="https://sidecar.gitter.im/dist/sidecar.v1.js"></script><script src="/squid/js/main.js"></script></body></html>

@@ -1,0 +1,240 @@
+<html><head><title>Squid: Code Pattern Matching</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Lionel Parreaux (@lptk)" /><meta name="description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="og:image" content="/squid/img/poster.png" /><meta name="og:title" content="Squid: Code Pattern Matching" /><meta name="og:site_name" content="Squid" /><meta name="og:url" content="" /><meta name="og:type" content="website" /><meta name="og:description" content="Squid ― type-safe metaprogramming for Scala" /><link rel="icon" type="image/png" href="/squid/img/favicon.png" /><meta name="twitter:title" content="Squid: Code Pattern Matching" /><meta name="twitter:image" content="img/poster.png" /><meta name="twitter:description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/squid/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/squid/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/squid/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/squid/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/squid/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/squid/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/squid/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/squid/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/squid/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/squid/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/squid/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/squid/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/squid/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/squid/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/squid/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/squid/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/squid/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/squid/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/squid/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/squid/img/favicon310x150.png" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/squid/highlight/styles/atom-one-light.css" /><link rel="stylesheet" href="/squid/css/style.css" /><link rel="stylesheet" href="/squid/css/palette.css" /><link rel="stylesheet" href="/squid/css/codemirror.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><ul id="sidebar" class="sidebar-nav"><li class="sidebar-brand"><a href="/squid/" class="brand"><div class="brand-wrapper"><span>Squid</span></div></a></li> <li><a href="/squid/tutorial" class="">Squid Tutorial</a> <ul class="sub_section"> <li><a href="/squid/tutorial/0-getting-started.html" class="">»  Getting Started</a></li> <li><a href="/squid/tutorial/1-basics.html" class="">»  Basic Concepts</a></li> <li><a href="/squid/tutorial/2-staging.html" class="">»  Multi-Stage Programming</a></li> <li><a href="/squid/tutorial/3-matching.html" class="">»  Code Pattern Matching</a></li> <li><a href="/squid/tutorial/4-rewriting.html" class="">»  Code Rewriting</a></li> <li><a href="/squid/tutorial/5-advanced.html" class="">»  Advanced Topics on Quasiquotes and Rewriting</a></li> <li><a href="/squid/tutorial/6-debugging.html" class="">»  Debugging Quasiquotes and Rewritings</a></li></ul></li> </ul></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li id="gh-eyes-item" class="hidden-xs"><a href="https://github.com/epfldata/squid"><i class="fa fa-eye"></i><span>WATCH<span id="eyes" class="label label-default">--</span></span></a></li><li id="gh-stars-item" class="hidden-xs"><a href="https://github.com/epfldata/squid"><i class="fa fa-star-o"></i><span>STARS<span id="stars" class="label label-default">--</span></span></a></li><li><a href="#" onclick="shareSiteTwitter('Squid Squid ― type-safe metaprogramming for Scala');"><i class="fa fa-twitter"></i></a></li><li><a href="#" onclick="shareSiteFacebook('Squid Squid ― type-safe metaprogramming for Scala');"><i class="fa fa-facebook"></i></a></li><li><a href="#" onclick="shareSiteGoogle();"><i class="fa fa-google-plus"></i></a></li></ul></div></div></div></div><div id="content" data-github-owner="epfldata" data-github-repo="squid"><div class="content-wrapper"><section><h1 id="code-pattern-matching">Code Pattern Matching</h1>
+
+<h2 id="code-as-data-in-a-statically-typed-setting">Code as Data, in a Statically Typed Setting</h2>
+
+<p>We have seen that metaprogramming in
+Squid is statically typed and prevents the occurrence of type mismatches or unbound variable errors,
+in the tradition of <em>MetaML</em>.
+On the other hand, in the tradition of <em>Lisp</em>, Squid views code as (executable) data that one can <em>inspect</em> (or <em>analyse</em>) and <em>rewrite</em>.
+This is made possible in a type-safe way by statically tracking context requirements, as presented in
+<a href="2-staging.html#contexts-and-open-terms">the previous section</a>.</p>
+
+<p>The functional way of analysing data and extracting patterns from it is to use pattern matching.
+In Squid, one can pattern-match program fragments just like one pattern-matches data.
+Holes in patterns behave like extractors, allowing programmers to take apart code expressions:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm</span> <span class="k">=</span> <span class="n">code</span><span class="s">"readInt * 2 + 1"</span>
+<span class="n">pgrm</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.readInt().*(2).+(1)"</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">m</span> <span class="k">=</span> <span class="n">pgrm</span> <span class="k">match</span> <span class="o">{</span> <span class="k">case</span> <span class="n">code</span><span class="s">"($n: Int) + 1"</span> <span class="k">=&gt;</span> <span class="n">n</span> <span class="o">}</span>
+<span class="n">m</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.readInt().*(2)"</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">code</span><span class="s">"($m: Int) + 1"</span> <span class="k">=</span> <span class="n">pgrm</span>
+<span class="n">m</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.readInt().*(2)"</span>
+</code></pre></div></div>
+
+<p>(In the code above, the second REPL line is equivalent to the first one, using Scala syntactic sugar.)</p>
+
+<p>Pattern-matching is sensitive to contexts.
+For example, extracting a subterm in a context where a binding exists
+will give to the extracted subterm a type that reflects the potential dependency:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="n">funBody</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(x: Int) =&gt; x + 1"</span> <span class="k">match</span> <span class="o">{</span> <span class="k">case</span> <span class="n">code</span><span class="s">"($y: Int) =&gt; $b"</span> <span class="k">=&gt;</span> <span class="n">b</span> <span class="o">}</span>
+</code></pre></div></div>
+
+<p>The code above matches a lambda that binds some parameter <code class="highlighter-rouge">y</code> of type <code class="highlighter-rouge">Int</code> in some body <code class="highlighter-rouge">b</code>;
+it extracts two values: <code class="highlighter-rouge">y</code> of type <code class="highlighter-rouge">Variable[Int]</code> and <code class="highlighter-rouge">b</code> of type <code class="highlighter-rouge">Code[Int, y.Ctx]</code>.
+Note that since <code class="highlighter-rouge">y</code> is only defined withing the pattern matching branch,
+the type inferred by Scala for <code class="highlighter-rouge">funBody</code>,
+which is <em>dependent</em> on <code class="highlighter-rouge">y</code>, is an existential:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">funBody</span>
+<span class="n">res0</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">y.Ctx</span><span class="o">]</span> <span class="k">forSome</span> <span class="o">{</span> <span class="k">val</span> <span class="n">y</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]{</span><span class="k">type</span> <span class="kt">OuterCtx</span> <span class="o">=</span> <span class="nc">Any</span><span class="o">}</span> <span class="o">}</span> <span class="k">=</span> <span class="n">code</span><span class="s">"x@434319217.+(1)"</span>
+</code></pre></div></div>
+
+<p>In practice, we will avoid losing track of the variables our code values depend upon, as above,
+because existentials in Scala are not very useful.</p>
+
+<p><strong>Note:</strong> by now, it should be clear that <em><strong>the names of bound variable do not matter</strong></em>
+― we extracted function body <code class="highlighter-rouge">b</code> using <code class="highlighter-rouge">y</code> as the parameter,
+even though the code we matched was written using a parameter named <code class="highlighter-rouge">x</code>.</p>
+
+<p>Just like <code class="highlighter-rouge">Const</code> can be used to construct constants into code by <em>lifting</em> current-stage values,
+we can also use it to <em>extract</em> constant current-stage values:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">funBody</span> <span class="k">match</span> <span class="o">{</span> <span class="k">case</span> <span class="n">code</span><span class="s">"($z: Int) + (${Const(k)}: Int)"</span> <span class="k">=&gt;</span> <span class="n">k</span> <span class="o">}</span>
+<span class="n">res1</span><span class="k">:</span> <span class="kt">Int</span> <span class="o">=</span> <span class="mi">1</span>
+</code></pre></div></div>
+
+<p>In the examples above, it is necessary to provide the type of extracted terms,
+because the <code class="highlighter-rouge">+</code> operation
+in Scala is ad-hoc polymorphic. Writing a pattern like <code class="highlighter-rouge">case code"($x: Long) * $y"</code> will give us an error such as:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ambiguous reference to overloaded definition,
+both method * in class Long of type (x: Char)Long
+and  method * in class Long of type (x: Byte)Long
+match argument types (Nothing)
+</code></pre></div></div>
+
+<p><strong>Caveat</strong>: Because of
+<a href="https://issues.scala-lang.org/browse/SI-194">the infamous <code class="highlighter-rouge">any2stringadd</code></a>
+implicit conversion, syntax <code class="highlighter-rouge">code"($x: Int) + $y"</code> will make Scala think that
+<code class="highlighter-rouge">y</code> has type <code class="highlighter-rouge">String</code> and <code class="highlighter-rouge">+</code> is string concatenation…</p>
+
+<h2 id="note-on-parametric-polymorphism">Note on Parametric Polymorphism</h2>
+
+<p>In general, to use a non-concrete type <code class="highlighter-rouge">T</code> within a quasiquote,
+one has to provide an implicit <em>type representation</em> evidence, of type <code class="highlighter-rouge">CodeType[T]</code>.
+For example, the <code class="highlighter-rouge">mkEmpty</code> function below returns a program that builds an empty list for any given type <code class="highlighter-rouge">T</code>:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">def</span> <span class="n">mkEmpty</span><span class="o">[</span><span class="kt">T</span><span class="o">](</span><span class="k">implicit</span> <span class="n">ev</span><span class="k">:</span> <span class="kt">CodeType</span><span class="o">[</span><span class="kt">T</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span><span class="s">"List.empty[T]"</span>
+<span class="n">mkEmpty</span><span class="k">:</span> <span class="err">[</span><span class="kt">T</span><span class="err">]</span><span class="o">(</span><span class="kt">implicit</span> <span class="kt">ev:</span> <span class="kt">IR.Predef.CodeType</span><span class="o">[</span><span class="kt">T</span><span class="o">])</span><span class="nc">IR</span><span class="o">.</span><span class="nc">ClosedCode</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">T</span><span class="o">]]</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">mkEmpty</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">Int</span><span class="o">]]</span>
+<span class="n">res2</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">Int</span><span class="o">]]]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.collection.immutable.List.empty[scala.Option[scala.Int]]"</span>
+</code></pre></div></div>
+
+<p>As we can see, <code class="highlighter-rouge">Option[Int]</code> is persisted in the resulting code fragment (it is not erased).
+This is because code fragments are <em>internally</em> typed in addition to being statically typed
+― they carry type representations at runtime, which is necessary for precise pattern matching.</p>
+
+<p>Note that Scala also provides the equivalent shortcut syntax for passing implicit evidence:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">mkEmpty</span><span class="o">[</span><span class="kt">T:CodeType</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"List.empty[T]"</span>
+</code></pre></div></div>
+
+<p><strong>Note for advanced users:</strong> it is sometimes possible to retrieve type representations
+from existing code values so that no implicit type evidence is needed.
+Below is an example:</p>
+
+<!-- 
+```scala
+def mkSingle[T:CodeType,C](x: Code[T,C]) = code"List($x)"
+``` -->
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">mkSingle</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">](</span><span class="n">x</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span><span class="s">"List[${x.Typ}](${x.withUnderlyingTyp})"</span>
+</code></pre></div></div>
+
+<p>Because <code class="highlighter-rouge">Code</code> is covariant, but <code class="highlighter-rouge">CodeType</code> is invariant,
+the type representation stored inside a term <code class="highlighter-rouge">x</code> of type <code class="highlighter-rouge">Code[T,C]</code>
+does <em>not</em> necessarily have type <code class="highlighter-rouge">CodeType[T]</code>;
+instead, in general it will have type <code class="highlighter-rouge">CodeType[T0]</code> for some <code class="highlighter-rouge">T0 &lt;: T</code>.
+This <code class="highlighter-rouge">T0</code> can be referred to as <code class="highlighter-rouge">x.Typ</code>.
+In the above,
+<code class="highlighter-rouge">x</code> has type <code class="highlighter-rouge">Code[T,C]</code> but a <code class="highlighter-rouge">Code[x.Typ,C]</code> is required, which can be obtained by calling <code class="highlighter-rouge">x.withUnderlyingTyp</code>.</p>
+
+<h2 id="matching-types">Matching Types</h2>
+
+<p>In order to make code manipulation polymorphic, we need a way to extract types as well as values.
+This is done with a similar syntax.
+Consider the following rewriting, which implements β-reduction (lambda application inlining):</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">beta</span><span class="o">[</span><span class="kt">T:CodeType</span>,<span class="kt">C</span><span class="o">](</span><span class="n">x</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">x</span> <span class="k">match</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"(($v: $t) =&gt; $body: T)($a)"</span> <span class="k">=&gt;</span> <span class="n">body</span><span class="o">.</span><span class="n">subs</span><span class="o">(</span><span class="n">v</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="n">a</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">beta</span><span class="o">(</span><span class="n">code</span><span class="s">"((x: Int) =&gt; x + x + 1)(readInt)"</span><span class="o">)</span>
+<span class="n">res3</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.readInt().+(scala.Predef.readInt()).+(1)"</span>
+</code></pre></div></div>
+
+<p>In the right-hand side of this <code class="highlighter-rouge">case</code> expression,
+extracted value <code class="highlighter-rouge">body</code> has type <code class="highlighter-rouge">Code[T, C &amp; v.Ctx]</code> (see the tutorial section on
+<a href="2-staging.html#contexts-and-open-terms">contexts</a> to understand this syntax),
+and extracted variable <code class="highlighter-rouge">v</code> has type <code class="highlighter-rouge">Variable[t.Typ]</code>
+where <code class="highlighter-rouge">t</code> is the local extracted type representation extracted from the pattern.
+Note that <code class="highlighter-rouge">t</code> is a <em>value</em> representing a type, not a type per se. 
+So one cannot write <code class="highlighter-rouge">Option[Code[t,C]]</code>, for example; instead one has to write <code class="highlighter-rouge">Option[Code[t.Typ,C]]</code>
+where path-dependent type <code class="highlighter-rouge">t.Typ</code> <em>reflects</em> in the type system what <code class="highlighter-rouge">t</code> represents at runtime,
+a.k.a what <code class="highlighter-rouge">t</code> <em>reifies</em>.
+Perhaps paradoxically, <code class="highlighter-rouge">t</code> can be viewed as having type <code class="highlighter-rouge">t: CodeType[t.Typ]</code>.</p>
+
+<p>Thanks to an implicit macro provided by Squid,
+extracted types will be picked up automatically from the context in which they appear and used as implicit type representation evidence.</p>
+
+<p><strong>Note</strong>:
+Of course, in the presence of effects,
+the β-reduction above is unsound as it duplicates the argument.
+An alternative implementation could be:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">beta</span><span class="o">[</span><span class="kt">T:CodeType</span>,<span class="kt">C</span><span class="o">](</span><span class="n">x</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">x</span> <span class="k">match</span> <span class="o">{</span>
+  <span class="k">case</span> <span class="n">code</span><span class="s">"(($v: $t) =&gt; $body: T)($a)"</span> <span class="k">=&gt;</span> <span class="n">code</span><span class="s">"val $v = $a; $body"</span> <span class="c1">// theoretically equivalent
+</span><span class="o">}</span>
+</code></pre></div></div>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">beta</span><span class="o">(</span><span class="n">code</span><span class="s">"((x: Int) =&gt; x + x + 1)(readInt)"</span><span class="o">)</span>
+<span class="n">res4</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span>
+<span class="n">code</span><span class="s">"""{
+  val x_0 = scala.Predef.readInt();
+  x_0.+(x_0).+(1)
+}"""</span>
+</code></pre></div></div>
+
+<p>Another way of avoiding the problem with code duplication would be to use an ANF IR
+(see reference on <a href="https://github.com/epfldata/squid/blob/master/doc/Intermediate_Representations.md">intermediatde representation</a>),
+in which every non-trivial subexpressions is bound to a temporary values,
+so this problem would not exist.</p>
+
+<h2 id="comparing-types-and-terms">Comparing Types and Terms</h2>
+
+<p>Squid provides a way of comparing program framents and their type representations for equivalence and subtyping.
+This is done with the <code class="highlighter-rouge">=~=</code> and <code class="highlighter-rouge">&lt;:&lt;</code> functions respectively,
+as demonstrated below:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"val x = 0; x+1"</span> <span class="o">=~=</span> <span class="n">code</span><span class="s">"val y = 0; y+1"</span>
+<span class="n">res5</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"List(1,2,3)"</span><span class="o">.</span><span class="nc">Typ</span> <span class="o">&lt;:&lt;</span> <span class="n">codeTypeOf</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">AnyVal</span><span class="o">]]</span>
+<span class="n">res6</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+</code></pre></div></div>
+
+<p>Pattern matching can also make subtyping hypotheses about extracted terms,
+which is sometimes required for making a pattern type check.
+This is done with the <code class="highlighter-rouge">$t where (t &lt;:&lt; ...)</code> and <code class="highlighter-rouge">$t where (... &lt;:&lt; t)</code> syntaxes,
+as below:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">def</span> <span class="n">test</span><span class="o">[</span><span class="kt">T:CodeType</span>,<span class="kt">C</span><span class="o">](</span><span class="n">cde</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">cde</span> <span class="k">match</span> <span class="o">{</span>
+     <span class="o">|</span>   <span class="k">case</span> <span class="n">code</span><span class="s">"($self: Option[$t where (t &lt;:&lt; T)]).getOrElse[T]($other)"</span> <span class="k">=&gt;</span>
+     <span class="o">|</span>     <span class="n">code</span><span class="s">"$self.fold($other)(identity)"</span>
+     <span class="o">|</span>   <span class="k">case</span> <span class="k">_</span> <span class="k">=&gt;</span> <span class="n">cde</span>
+     <span class="o">|</span> <span class="o">}</span>
+<span class="n">test</span><span class="k">:</span> <span class="err">[</span><span class="kt">T</span><span class="o">,</span> <span class="n">C</span><span class="err">]</span><span class="o">(</span><span class="n">cde</span><span class="k">:</span> <span class="kt">IR.Predef.Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">])(</span><span class="k">implicit</span> <span class="n">evidence$1</span><span class="k">:</span> <span class="kt">IR.Predef.CodeType</span><span class="o">[</span><span class="kt">T</span><span class="o">])</span><span class="nc">IR</span><span class="o">.</span><span class="nc">Code</span><span class="o">[</span><span class="kt">T</span>,<span class="kt">C</span><span class="o">]</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">test</span><span class="o">(</span><span class="n">code</span><span class="s">"Some(1).getOrElse[Any]('ko)"</span><span class="o">)</span>
+<span class="n">res7</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Any</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"""scala.Some.apply[scala.Int](1).fold[scala.Any](scala.Symbol.apply("ko"))(((x_0: scala.Int) =&gt; scala.Predef.identity[scala.Int](x_0)))"""</span>
+</code></pre></div></div>
+
+<p>(In Scala’s <code class="highlighter-rouge">Option[A]</code> class, method <code class="highlighter-rouge">getOrElse</code> has type <code class="highlighter-rouge">[B &gt;: A](default: =&gt; B): B</code>.)</p>
+
+<p><strong>Caveat:</strong> currently, these type bounds are
+<a href="https://github.com/epfldata/squid/issues/15">not dynamically checked</a>,
+so you will need to check them manually if necessary, as in:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="k">case</span> <span class="n">code</span><span class="s">"$cde: $t where (t &lt;:&lt; List[Any])"</span> <span class="k">=&gt;</span>  <span class="c1">// wrong, cf. current limitation
+</span>  <span class="k">case</span> <span class="n">code</span><span class="s">"$cde: $t where (t &lt;:&lt; List[Any])"</span> <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;:&lt;</span> <span class="n">codeTypeOf</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Any</span><span class="o">]]</span> <span class="k">=&gt;</span> <span class="c1">// ok
+</span></code></pre></div></div>
+
+<h2 id="note-on-legacy-nominal-context-system">Note on Legacy Nominal Context System</h2>
+
+<p>Squid will let you match binding without <em>extracting</em> a first-class <code class="highlighter-rouge">Variable</code> value,
+as in the following:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">funBody</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(x: Int) =&gt; x + 1"</span> <span class="k">match</span> <span class="o">{</span> <span class="k">case</span> <span class="n">code</span><span class="s">"(y: Int) =&gt; $b"</span> <span class="k">=&gt;</span> <span class="n">b</span> <span class="o">}</span>
+<span class="n">funBody</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">Any</span><span class="o">{</span><span class="kt">val</span> <span class="kt">y:</span> <span class="kt">Int</span><span class="o">}]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"?y.+(1)"</span>
+</code></pre></div></div>
+
+<p>This works,
+and results in an open term whose context is a structural type <code class="highlighter-rouge">{val y: Int}</code>,
+which can be bound later:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"List(1,2,3).foreach(y =&gt; println($funBody))"</span>
+<span class="n">res8</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.collection.immutable.List.apply[scala.Int](1, 2, 3).foreach[scala.Unit](((y_0: scala.Int) =&gt; scala.Predef.println(y_0.+(1))))"</span>
+</code></pre></div></div>
+
+<p>In fact, you can even create such open terms manually, using the <code class="highlighter-rouge">?y</code> syntax:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">assert</span><span class="o">(</span><span class="n">funBody</span> <span class="o">=~=</span> <span class="n">code</span><span class="s">"(?y:Int) + 1"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>However, <strong>this approach is strongly discouraged</strong>,
+as it is not hygienic.
+Indeed, combined with context abstraction, it can lead to type mismatches in generated code
+(for details on this, see <a href="/squid/#popl18">our POPL 2018 paper [3]</a>).</p>
+
+<p>Some properties of contexts as structural types:
+Squid quasiquotes will on occasion “merge” types together using intersection types (in current Scala, written using <code class="highlighter-rouge">with</code>).
+We have <code class="highlighter-rouge">C{val x: A; val y: Int} with D{val x: B}</code> equivalent to <code class="highlighter-rouge">(C with D){val x: A with B; val y: Int}</code>.
+Also, double refinement <code class="highlighter-rouge">C{val x: A}{val y: B}</code> is just <code class="highlighter-rouge">C{val x: A; val y: B}</code>.</p>
+
+</section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/squid/highlight/highlight.pack.js"></script><script>hljs.configure({
+languages:['scala','java','bash']
+});
+hljs.initHighlighting();
+             </script><script>((window.gitter = {}).chat = {}).options = {
+room: 'epfldata/squid'};</script><script src="https://sidecar.gitter.im/dist/sidecar.v1.js"></script><script src="/squid/js/main.js"></script></body></html>

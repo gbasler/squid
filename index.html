@@ -1,0 +1,258 @@
+<html><head><title>Squid: Home</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Lionel Parreaux (@lptk)" /><meta name="description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="og:image" content="/squid/img/poster.png" /><meta name="og:title" content="Squid: Home" /><meta name="og:site_name" content="Squid" /><meta name="og:url" content="" /><meta name="og:type" content="website" /><meta name="og:description" content="Squid ― type-safe metaprogramming for Scala" /><link rel="icon" type="image/png" href="/squid/img/favicon.png" /><meta name="twitter:title" content="Squid: Home" /><meta name="twitter:image" content="img/poster.png" /><meta name="twitter:description" content="Squid ― type-safe metaprogramming for Scala" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/squid/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/squid/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/squid/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/squid/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/squid/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/squid/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/squid/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/squid/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/squid/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/squid/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/squid/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/squid/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/squid/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/squid/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/squid/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/squid/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/squid/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/squid/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/squid/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/squid/img/favicon310x150.png" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/squid/highlight/styles/atom-one-light.css" /><link rel="stylesheet" href="/squid/css/style.css" /><link rel="stylesheet" href="/squid/css/palette.css" /><link rel="stylesheet" href="/squid/css/codemirror.css" /></head><body><header id="site-header"><div class="navbar-wrapper"><div class="container"><div class="row"><div class="col-xs-6"><a href="/squid/" class="brand"><div class="icon-wrapper"><span>Squid</span></div></a></div><div class="col-xs-6"><nav class="text-right"><ul class=""><li><a href="https://github.com/epfldata/squid"><i class="fa fa-github"></i><span class="hidden-xs">GitHub</span></a></li><li><a href="/squid/reference"><i class="fa fa-file-text"></i><span class="hidden-xs">Documentation</span></a></li></ul></nav></div></div></div></div><div class="jumbotron"><div class="container"><h1 class="text-center">Squid ― type-safe metaprogramming for Scala</h1><h2></h2><p class="text-center"><a href="https://github.com/epfldata/squid" class="btn btn-outline-inverse">View on GitHub</a></p></div></div><div><ul class="horizontalNav">                   <li><a class=" active " href="/squid/">Home</a></li>  <li><a class="" href="/squid/tutorial.html">Squid Tutorial</a></li>  <li><a class="" href="/squid/reference.html">Squid Reference</a></li> </ul></div></header><main id="site-main"><section class="use"><div class="container"><div id="content"><h1 id="squid--type-safe-metaprogramming-for-scala"><strong>Squid</strong> ― type-safe metaprogramming for Scala</h1>
+
+<p><img src="https://img.shields.io/badge/stability-unstable-yellow.svg" alt="stability-unstable" />
+<a href="https://gitter.im/epfldata-squid/Lobby?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://badges.gitter.im/epfldata-squid/Lobby.svg" alt="Join the chat at https://gitter.im/epfldata-squid/Lobby" /></a></p>
+
+<h2 id="introduction">Introduction</h2>
+
+<p><strong>Squid</strong> (for the approximative contraction of <strong>Sc</strong>ala <strong>Qu</strong>ot<strong>ed</strong> <strong>D</strong>SLs)
+is a <strong>metaprogramming</strong> framework 
+that facilitates the <strong>type-safe</strong> manipulation of <strong>Scala programs</strong>.
+Squid extends multi-stage programming capabilities with support for code inspection and code transformation. It has special support for 
+<strong>library-defined optimizations</strong> <a href="#gpce17">[2]</a> and 
+helps with the compilation of <strong>domain-specific languages</strong> (DSL) embedded in Scala <a href="#scala17">[1]</a>.
+Squid uses <strong>advanced static typing</strong> techniques to prevent common metaprogramming errors, such as scope extrusion <a href="#popl18">[3]</a>.</p>
+
+<!-- TODO: give concrete application examples to pique curiosity/generate interest -->
+
+<p><strong>Caution:</strong> Squid is still experimental, and the interfaces it exposes may slightly change in the future. This applies especially to the semi-internal interfaces used to implement intermediate representation backends (the <code class="highlighter-rouge">Base</code> trait and derived).</p>
+
+<p><a name="early-example"></a></p>
+
+<h2 id="a-short-example">A Short Example</h2>
+
+<p>To give a quick taste of Squid’s capabilities,
+here is a very basic example of program manipulation.
+The full source code can be <a href="https://github.com/epfldata/squid/tree/master/example/src/main/scala/example/doc/IntroExample.scala">found here, in the example folder</a>.</p>
+
+<p>Assume we define some library function <code class="highlighter-rouge">foo</code> as below:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@embed</span> <span class="k">object</span> <span class="nc">Test</span> <span class="o">{</span>
+  <span class="nd">@phase</span><span class="o">(</span><span class="ss">'MyPhase)</span> <span class="c1">// phase specification helps with mechanized inlining
+</span>  <span class="k">def</span> <span class="n">foo</span><span class="o">[</span><span class="kt">T</span><span class="o">](</span><span class="n">xs</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">T</span><span class="o">])</span> <span class="k">=</span> <span class="n">xs</span><span class="o">.</span><span class="n">head</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>The <code class="highlighter-rouge">@embed</code> annotation allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
+–– note that this annotation is <em>not</em> required in general, as non-annotated classes and methods can also be used inside quasiquotes.</p>
+
+<p>What follows is an example REPL session demonstrating some program manipulation
+using Squid quasiquotes, 
+transformers and first-class term rewriting:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="c1">// Syntax `code"t"` represents term `t` in some specified intermediate representation
+</span>     <span class="o">|</span> <span class="k">val</span> <span class="n">pgrm0</span> <span class="k">=</span> <span class="n">code</span><span class="s">"Test.foo(1 :: 2 :: 3 :: Nil) + 1"</span>
+<span class="n">pgrm0</span><span class="k">:</span> <span class="kt">example.doc.IntroExample.IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
+<span class="n">code</span><span class="s">"""{
+  val x_0 = example.doc.Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
+  x_0.+(1)
+}"""</span>
+</code></pre></div></div>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Syntax `code"t"` represents term `t` in some specified intermediate representation
+</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm0</span> <span class="k">=</span> <span class="n">code</span><span class="s">"Test.foo(1 :: 2 :: 3 :: Nil) + 1"</span>
+<span class="n">pgrm0</span><span class="k">:</span> <span class="kt">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"""
+  val x_0 = Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
+  x_0.+(1).toDouble
+"""</span>
+<span class="c1">// ^ triple-quotation """ is for multi-line strings
+</span>
+<span class="c1">// `Lowering('P)` builds a transformer that inlines all functions marked with phase `P`
+// Here we inline `Test.foo`, which is annotated at phase `'MyPhase`
+</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm1</span> <span class="k">=</span> <span class="n">pgrm0</span> <span class="n">transformWith</span> <span class="o">(</span><span class="k">new</span> <span class="nc">Lowering</span><span class="o">(</span><span class="ss">'MyPhase)</span> <span class="k">with</span> <span class="nc">BottomUpTransformer</span><span class="o">)</span>
+<span class="n">pgrm1</span><span class="k">:</span> <span class="kt">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1).head.+(1).toDouble"</span>
+
+<span class="c1">// Next, we perform a fixed-point rewriting to partially-evaluate
+// the statically-known parts of our program:
+</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm2</span> <span class="k">=</span> <span class="n">pgrm1</span> <span class="n">fix_rewrite</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="n">code</span><span class="s">"($xs:List[$t]).::($x).head"</span> <span class="k">=&gt;</span> <span class="n">x</span>
+    <span class="k">case</span> <span class="n">code</span><span class="s">"(${Const(n)}:Int) + (${Const(m)}:Int)"</span> <span class="k">=&gt;</span> <span class="nc">Const</span><span class="o">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">m</span><span class="o">)</span>
+  <span class="o">}</span>
+<span class="n">pgrm2</span><span class="k">:</span> <span class="kt">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"2.toDouble"</span>
+
+<span class="c1">// Finally, let's runtime-compile and evaluate that program!
+</span><span class="o">&gt;</span> <span class="n">pgrm2</span><span class="o">.</span><span class="n">compile</span>
+<span class="n">res0</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">2.0</span>
+</code></pre></div></div>
+
+<p>Naturally, this simple REPL session can be generalized into a proper domain-specific compiler that will work on any input program 
+(for example, see the stream fusion compiler <a href="#gpce17">[2]</a>).</p>
+
+<p>It is then possible to turn this into a static program optimizer,
+so that writing the following expression 
+expands at compile time into just <code class="highlighter-rouge">println(2)</code>,
+as show in the
+<a href="https://github.com/epfldata/squid/tree/master/example/src/test/scala/example/doc/IntroExampleTest.scala#L25">IntroExampleTest</a>
+file:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">MyOptimizer</span><span class="o">.</span><span class="n">optimize</span><span class="o">{</span> <span class="n">println</span><span class="o">(</span><span class="nc">Test</span><span class="o">.</span><span class="n">foo</span><span class="o">(</span><span class="mi">1</span> <span class="o">::</span> <span class="mi">2</span> <span class="o">::</span> <span class="mi">3</span> <span class="o">::</span> <span class="nc">Nil</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="o">}</span>
+</code></pre></div></div>
+
+<p>We could also turn this into a dedicated <a href="#smacros">Squid macro</a>,
+an alternative to the current Scala-reflection macros.</p>
+
+<h2 id="installation--getting-started">Installation – Getting Started</h2>
+
+<p>Squid currently supports Scala versions <code class="highlighter-rouge">2.12.x</code> and <code class="highlighter-rouge">2.11.3</code> to <code class="highlighter-rouge">2.11.11</code>
+(other versions might work as well, but have not been tested).</p>
+
+<p>In your project, add the following to your <code class="highlighter-rouge">build.sbt</code>:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">libraryDependencies</span> <span class="o">+=</span> <span class="s">"ch.epfl.data"</span> <span class="o">%%</span> <span class="s">"squid"</span> <span class="o">%</span> <span class="s">"0.3.0-SNAPSHOT"</span>
+</code></pre></div></div>
+
+<p>Some features related to <a href="#qsr">library-defined optimizations</a> and <a href="#smacros">squid macros</a>, 
+such as <code class="highlighter-rouge">@embed</code> and <code class="highlighter-rouge">@macroDef</code>, 
+require the use of the <a href="https://docs.scala-lang.org/overviews/macros/paradise.html">macro-paradise</a>  plugin.
+To use these features, add the following to your <code class="highlighter-rouge">build.sbt</code>:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="n">paradiseVersion</span> <span class="k">=</span> <span class="s">"2.1.0"</span>
+
+<span class="n">autoCompilerPlugins</span> <span class="o">:=</span> <span class="kc">true</span>
+
+<span class="n">addCompilerPlugin</span><span class="o">(</span><span class="s">"org.scalamacros"</span> <span class="o">%</span> <span class="s">"paradise"</span> <span class="o">%</span> <span class="n">paradiseVersion</span> <span class="n">cross</span> <span class="nc">CrossVersion</span><span class="o">.</span><span class="n">full</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>In case you wish to use a more recent version that has not yet been published,
+you’ll have to clone this repository
+and publish Squid locally,
+which can be done by executing the script in <code class="highlighter-rouge">bin/publishLocal.sh</code>.</p>
+
+<h2 id="overview-of-features">Overview of Features</h2>
+
+<h3 id="squid-quasiquotes">Squid Quasiquotes</h3>
+
+<p>Quasiquotes are the primitive tool that Squid provides to manipulate program fragments 
+–– building, composing and decomposing them.
+Quasiquotes are central to most aspects of program transformation in Squid.</p>
+
+<p><a href="tutorial/">You can find an in-depth tutorial about Squid quasiquotes here.</a></p>
+
+<p><strong>Note:</strong>
+In the original Squid papers <a href="#scala17">[1]</a> and <a href="#gpce17">[2]</a>,
+we used <code class="highlighter-rouge">Code[T]</code> as the type of program fragments.
+With the introduction of scope safety and our POPL 2018 paper <a href="#popl18">[3]</a>,
+this type now takes an extra parameter, as in <code class="highlighter-rouge">Code[T,C]</code> where <code class="highlighter-rouge">C</code> represent the term’s context requirements.<br />
+One cans still use type <code class="highlighter-rouge">OpenCode[T]</code> when context requirements are not important; this type has limited capabilities (no <code class="highlighter-rouge">run</code> or <code class="highlighter-rouge">compile</code>, for instance), but can be turned into a closed code type with method <code class="highlighter-rouge">unsafe_asClosedCode</code>.
+On the other hand, <code class="highlighter-rouge">ClosedCode[T]</code> (a synonym for <code class="highlighter-rouge">Code[T,{}]</code>) is the type of closed program fragments.</p>
+
+<h4 id="type-safe-code-manipulation">Type-Safe Code Manipulation</h4>
+
+<p>Unlike the standard <a href="https://docs.scala-lang.org/overviews/quasiquotes/intro.html">Scala Reflection quasiquotes</a>,
+Squid quasiquotes are statically-typed and hygienic, 
+ensuring that manipulated programs remain well-scoped and well-typed 
+and that variable bindings and other symbols do not get mixed up.
+Still, Squid quasiquotes support a flexible pattern-matching syntax 
+and facilities to traverse programs recursively while applying transformations.</p>
+
+<p>While Squid quasiquotes focus on expressions (not definitions), Squid also provides a way to <em>embed</em> arbitrary class and object definitions so that their methods can be inlined effortlessly, at the discretion of the metaprogrammer.</p>
+
+<p>As a quick reference for Squid users, 
+we provide a <a href="https://github.com/epfldata/squid/tree/master/doc/reference/Quasiquotes.md">cheat sheet</a> that summarizes the features of Squid quasiquotes. Also see the <a href="tutorial/">quasiquotes tutorial</a>.</p>
+
+<p><a name="msp"></a>
+<a name="qsr"></a></p>
+
+<h3 id="multi-stage-programming-and-quoted-staged-rewriting">Multi-Stage Programming and Quoted Staged Rewriting</h3>
+
+<p>Squid fully support the multi-staged programming paradigm (MSP), 
+allowing the composition and evaluation of program fragments at runtime
+(via runtime compilation or reflective interpretation).</p>
+
+<p>In addition, since Squid provides type-safe code inspection capabilities
+(a novelty in the field of statically-typed staging),
+it can be used to achieve quoted staged rewriting (QSR) <a href="#gpce17">[2]</a>,
+an approach to program optimization that mixes the advantages of user-defined rewrite rules, strategic program transformation and MSP.</p>
+
+<p><a name="ldo"></a></p>
+
+<h3 id="library-defined-optimizations">Library-Defined Optimizations</h3>
+
+<p>Squid provides tools to create <em>static optimizers</em>, 
+which are used to optimize <em>at compile time</em> delimited portions of a user’s codebase.
+Together with quoted staged rewriting, 
+this capability allows for quite flexible and safe library-defined optimizations <a href="#gpce17">[2]</a>.</p>
+
+<p><a href="https://github.com/epfldata/squid/tree/master/doc/Transformers.md#static-optimizers">Click here to learn more about static optimizers.</a></p>
+
+<p><a name="transformers"></a></p>
+
+<h3 id="program-transformation-support">Program Transformation Support</h3>
+
+<p>Squid supports the definition and composition of custom program transformers and transformation strategies.
+This is achieved via Scala mixin-composition and quasiquote-based rewriting declarations.
+Squid transformers are type-preserving, 
+and they make sure that transformed programs remain well-typed and well-scoped.</p>
+
+<p><a href="https://github.com/epfldata/squid/tree/master/doc/Transformers.md">Click here to learn more about Squid transformers.</a></p>
+
+<p><a name="irs"></a></p>
+
+<h3 id="intermediate-representations">Intermediate Representations</h3>
+
+<p>Squid quasiquotes, and Squid’s infrastructure in general, are unique 
+in that they are generic in the actual intermediate representation (IR)
+used to encode program fragments.
+Custom IRs can be implemented and plugged into Squid to gain the high-level, type-safe features offered by Squid. 
+This is done by implementing Squid’s object algebra interface <a href="#scala17">[1]</a>.</p>
+
+<p>[Click here to learn more about Squid intermediate representations.](lso see the <a href="https://github.com/epfldata/squid/tree/master/doc/Intermediate_Representations.md">quasiquotes tutorial</a></p>
+
+<p><a name="smacros"></a></p>
+
+<h3 id="squid-macros">Squid Macros</h3>
+
+<p>Squid macros are an experimental type-safe alternative to legacy scala-reflect macros, based on Squid’s infrastructure.
+The current implementation is a very rough prototype that should not yet be relied upon.</p>
+
+<p>As an example, here is <a href="#early-example">the short program transformation</a> 
+showed at the beginning of this document,
+rewritten as a Squid macro:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@macroDef</span><span class="o">(</span><span class="nc">Embedding</span><span class="o">)</span>
+<span class="k">def</span> <span class="n">myMacro</span><span class="o">(</span><span class="n">pgrm0</span><span class="k">:</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="c1">// in this scope, `pgrm0` has type `Code[Double]`
+</span>  <span class="k">val</span> <span class="n">pgrm1</span> <span class="k">=</span> <span class="n">pgrm0</span> <span class="n">transformWith</span> <span class="o">(</span><span class="k">new</span> <span class="nc">Lowering</span><span class="o">(</span><span class="ss">'MyPhase)</span> <span class="k">with</span> <span class="nc">BottomUpTransformer</span><span class="o">)</span>
+  <span class="k">val</span> <span class="n">pgrm2</span> <span class="k">=</span> <span class="n">pgrm1</span> <span class="n">rewrite</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="n">code</span><span class="s">"($xs:List[$t]).::($x).head"</span> <span class="k">=&gt;</span> <span class="n">x</span>
+    <span class="k">case</span> <span class="n">code</span><span class="s">"(${Const(n)}:Int) + (${Const(m)}:Int)"</span> <span class="k">=&gt;</span> <span class="nc">Const</span><span class="o">(</span><span class="n">n</span><span class="o">+</span><span class="n">m</span><span class="o">)</span>
+  <span class="o">}</span>
+  <span class="n">pgrm2</span>
+<span class="o">}</span>
+
+<span class="c1">// the following should appear in a different project:
+</span><span class="n">myMacro</span><span class="o">(</span><span class="nc">Test</span><span class="o">.</span><span class="n">foo</span><span class="o">(</span><span class="mi">1</span> <span class="o">::</span> <span class="mi">2</span> <span class="o">::</span> <span class="mi">3</span> <span class="o">::</span> <span class="nc">Nil</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="c1">// expands into `2.toDouble`
+</span></code></pre></div></div>
+
+<p>(Note: the <code class="highlighter-rouge">macroDef</code> feature currently lives in experimental branch <code class="highlighter-rouge">squid-macros</code>.)</p>
+
+<h2 id="applications-of-squid">Applications of Squid</h2>
+
+<p>Squid is new. See the <a href="example/src/main/scala/">examples folder</a> for examples. A little query compiler built with Squid can be found <a href="https://github.com/epfldata/sc-public/tree/master/relation-dsl-squid">here</a>. Another LINQ-inspired query engine build with Squid can be found <a href="https://github.com/epfldata/dbstage">here</a>.</p>
+
+<h2 id="publications">Publications</h2>
+
+<p><a name="scala17">[1]</a>: 
+Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
+<a href="https://conf.researchr.org/event/scala-2017/scala-2017-papers-squid-type-safe-hygienic-and-reusable-quasiquotes">Squid: Type-Safe, Hygienic, and Reusable Quasiquotes</a>. In Proceedings of the 2017 8th ACM SIGPLAN Symposium on Scala (SCALA 2017).
+(Get the paper <a href="https://infoscience.epfl.ch/record/231700">here</a>.)
+<!-- https://doi.org/10.1145/3136000.3136005 --></p>
+
+<p><a name="gpce17">[2]</a>: 
+Lionel Parreaux, Amir Shaikhha, and Christoph E. Koch. 2017.
+<a href="https://conf.researchr.org/event/gpce-2017/gpce-2017-gpce-2017-staged-rewriting-a-practical-approach-to-library-defined-optimization">Quoted Staged Rewriting: a Practical Approach to Library-Defined Optimizations</a>.
+In Proceedings of the 2017 ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE 2017). <strong>Best Paper Award.</strong>
+(Get the paper <a href="https://infoscience.epfl.ch/record/231076">here</a>.)</p>
+
+<p><a name="popl18">[3]</a>: 
+Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch. 2018.
+<a href="https://popl18.sigplan.org/event/popl-2018-papers-unifying-analytic-and-statically-typed-quasiquotes">Unifying Analytic and Statically-Typed Quasiquotes</a>.
+In Proceedings of the ACM on Programming Languages (POPL 2018).
+(Get the paper <a href="https://infoscience.epfl.ch/record/232427">here</a>.)</p>
+
+</div></div></section><section class="technologies"><div class="container"><div class="row"></div></div></section></main><footer id="site-footer"><div class="container"><div class="row"><div class="col-xs-6"><p>Squid is designed and developed by <a href="https://data.epfl.ch/" target="_blank">Lionel Parreaux (@lptk)</a></p></div><div class="col-xs-6"><p class="text-right"><a href="https://github.com/epfldata/squid"><span class="fa fa-github"></span>View on GitHub</a></p></div></div><div class="row"><div class="col-xs-6"><p>Website built with <a href="https://47deg.github.io/sbt-microsites/" target="_blank">Sbt-microsites</a> - © 2016 <a href="https://www.47deg.com/" target="_blank">47 Degrees</a></p></div></div></div></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/squid/highlight/highlight.pack.js"></script><script>hljs.configure({
+languages:['scala','java','bash']
+});
+hljs.initHighlighting();
+             </script><script>((window.gitter = {}).chat = {}).options = {
+room: 'epfldata/squid'};</script><script src="https://sidecar.gitter.im/dist/sidecar.v1.js"></script></body></html>
