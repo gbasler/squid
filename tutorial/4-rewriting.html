@@ -52,14 +52,14 @@ For example, notice how the result of the rewriting below has type <code class="
 This is because we have introduced a free variable in the right-hand side of the rewrite rule.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">d</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span>
-<span class="n">d</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">](</span><span class="n">d</span><span class="k">@</span><span class="mi">928698655</span><span class="o">)</span>
+<span class="n">d</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">](</span><span class="n">d</span><span class="k">@</span><span class="mi">585844081</span><span class="o">)</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"val x = 42; println(x.toDouble)"</span> <span class="n">rewrite</span> <span class="o">{</span>
      <span class="o">|</span>   <span class="k">case</span> <span class="n">code</span><span class="s">"($n:Int).toDouble"</span> <span class="k">=&gt;</span> <span class="n">code</span><span class="s">"$d + 1"</span> <span class="o">}</span>
 <span class="n">res1</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">d.Ctx</span><span class="o">]</span> <span class="k">=</span>
 <span class="n">code</span><span class="s">"""{
   val x_0 = 42;
-  scala.Predef.println(d@928698655.+(1))
+  scala.Predef.println(d@585844081.+(1))
 }"""</span>
 </code></pre></div></div>
 
@@ -155,7 +155,7 @@ would be given type <code class="highlighter-rouge">Code[Double,&lt;context @ 2:
 })))"""</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">norm</span> <span class="k">=</span> <span class="n">normCode</span><span class="o">.</span><span class="n">compile</span>
-<span class="n">norm</span><span class="k">:</span> <span class="o">(</span><span class="kt">Double</span><span class="o">,</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$5$aa081f24184e47daae4412d2fdb70651</span><span class="o">.</span><span class="nc">__wrapper$5$aa081f24184e47daae4412d2fdb70651$$$Lambda$43156</span><span class="o">/</span><span class="mi">79488231</span><span class="k">@</span><span class="mi">330</span><span class="n">a6b01</span>
+<span class="n">norm</span><span class="k">:</span> <span class="o">(</span><span class="kt">Double</span><span class="o">,</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$5$0567450d4df443ffa4431243ea65bc55</span><span class="o">.</span><span class="nc">__wrapper$5$0567450d4df443ffa4431243ea65bc55$$$Lambda$47877</span><span class="o">/</span><span class="mi">719440300</span><span class="k">@</span><span class="mi">5672395</span><span class="n">e</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">norm</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span><span class="mi">2</span><span class="o">)</span>
 <span class="n">res3</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">2.23606797749979</span>
