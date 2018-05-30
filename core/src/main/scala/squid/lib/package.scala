@@ -43,7 +43,7 @@ package object lib {
     def := (that: A) : Unit
     def ! : A
     override def equals(that: Any) = that |>? { case v: MutVar[_] => this.! == v.! } Else false
-    override def toString = s"Var(${this!})"
+    override def toString = s"MutVar(${this!})"
   }
   object MutVar {
     def apply[A](init: A): MutVar[A] = new MutVar[A] {

@@ -41,13 +41,13 @@ lazy val commonSettings = Seq(
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4",
   
-//, libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.3" % "test" cross CrossVersion.full
-//  // For the ammonite REPL:
-//, sourceGenerators in Test += Def.task {
-//    val file = (sourceManaged in Test).value / "amm.scala"
-//    IO.write(file, """object amm extends App { ammonite.Main().run() }""")
-//    Seq(file)
-//  }.taskValue
+  //libraryDependencies += "com.lihaoyi" % "ammonite" % "1.1.2" % "test" cross CrossVersion.full,
+  //// For the ammonite REPL:
+  //sourceGenerators in Test += Def.task {
+  //  val file = (sourceManaged in Test).value / "amm.scala"
+  //  IO.write(file, """object amm extends App { ammonite.Main().run() }""")
+  //  Seq(file)
+  //}.taskValue,
   
 ) ++ publishSettings
 
