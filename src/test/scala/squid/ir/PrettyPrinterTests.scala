@@ -19,7 +19,7 @@ import org.scalatest.FunSuite
 import MacroTesters._
 
 class PrettyPrinterTests extends FunSuite {
-  object b extends ir.SimpleAST
+  object b extends ir.SimpleAST with lang.ScalaCore
   
   val Inter = new ir.PrettyPrinter
   

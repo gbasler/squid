@@ -89,6 +89,7 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
       pf(a)
       this
     }
+    def and_debug (pf: PartialFunction[AnyCode[_],Unit]) = DSL.debugFor(and(pf))
   }
   
   implicit class Matches(self: AnyCode[_]) {

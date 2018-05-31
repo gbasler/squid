@@ -20,7 +20,7 @@ import squid.anf.analysis.BlockHelpers
 
 object SimpleANFTests {
   
-  object DSL extends SimpleANF
+  object DSL extends SimpleANF with lang.ScalaCore
     with BlockHelpers
     // with StandardEffects  // commented because some tests currently rely on things like Int ops to be effectful...
   

@@ -60,7 +60,7 @@ class OnlineTransfo extends MyFunSuite(OnlineTransfo.DSL) {
 }
 object OnlineTransfo {
   
-  object DSL extends SimpleAST with OnlineOptimizer with SimpleRuleBasedTransformer {
+  object DSL extends SimpleAST with lang.ScalaCore with OnlineOptimizer with SimpleRuleBasedTransformer {
     import Predef._
     
     transformExtractors = true

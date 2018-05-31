@@ -18,12 +18,13 @@ import lang._
 import quasi._
 import ir._
 
-object MyBase extends SimpleAST with ClassEmbedder
-object TestDSL extends SimpleAST with ClassEmbedder
-object NormDSL extends SimpleAST with ClassEmbedder with OnlineOptimizer with BindingNormalizer //with BlockNormalizer
-object CrossStageDSL extends SimpleAST with ClassEmbedder with CrossStageAST
+class TestBase extends SimpleAST with ClassEmbedder with ScalaCore
+object MyBase extends TestBase
+object TestDSL extends TestBase
+object NormDSL extends TestBase with OnlineOptimizer with BindingNormalizer //with BlockNormalizer
+object CrossStageDSL extends TestBase with CrossStageAST
 
-object LegacyTestDSL extends SimpleAST with ClassEmbedder {
+object LegacyTestDSL extends TestBase {
   override val newExtractedBindersSemantics: Boolean = false
 }
 
