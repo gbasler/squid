@@ -217,7 +217,7 @@ so you will need to check them manually if necessary, as in:
 
 
 
-## Note on Legacy Nominal Context System
+## Note on the Legacy Nominal Context System
 
 Squid will let you match binding without _extracting_ a first-class `Variable` value,
 as in the following:
