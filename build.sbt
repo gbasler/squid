@@ -54,7 +54,10 @@ lazy val commonSettings = Seq(
 lazy val main = (project in file(".")).
   dependsOn(core).
   dependsOn(core % "test->test").
-  settings(commonSettings: _*)
+  settings(commonSettings: _*).
+  settings(
+    name := "squid",
+  )
 
 lazy val core = (project in file("core")).
   dependsOn(core_macros).
