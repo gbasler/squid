@@ -15,11 +15,11 @@
 package squid
 package anf.analysis
 
-import squid.ir.SimpleANF
+import squid.ir.SimpleANFBase
 import squid.lang.InspectableBase
 import utils._
 
-trait BlockHelpers extends SimpleANF { self => // TODO don't make it a Base mixin...
+trait BlockHelpers extends SimpleANFBase { self => // TODO don't make it a Base mixin...
   
   /** Matches expressions that have no subexpressions; note that it does NOT match x.module where `module` is the name
     * of a nested object and `x` is not a static path. */

@@ -57,7 +57,8 @@ case class ExecStats(shared: Bool, atLeastOnce: Bool, atMostOnce: Bool, srcOccur
 object ExecStats {
   val Once = ExecStats(false, true, true, 1)
 }
-class SimpleANF extends AST with CurryEncoding with SimpleEffects { anf =>
+class SimpleANF extends SimpleANFBase
+trait SimpleANFBase extends AST with CurryEncoding with SimpleEffects { anf =>
   
   object ANFDebug extends PublicTraceDebug
   

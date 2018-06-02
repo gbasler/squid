@@ -31,7 +31,8 @@ import collection.mutable
   *       equate alpha-equivalent terms and give them the same hashCode.
   * 
   */
-class SchedulingANF extends SimpleANF {
+class SchedulingANF extends SimpleANF with SchedulingANFBase
+trait SchedulingANFBase extends SimpleANFBase {
   
   /*
   caching all closed terms is possible, because of the huge qty of duplicated-code with different bound variable names
