@@ -195,13 +195,13 @@ self: IntermediateBase => // for 'repType' TODO rm
                 //  s"$typ <:< $xtyp but !($xtyp >:> Any) and ${xtyp.typeSymbol} is not a base type of $typ")
               assert(typ <:< ruh.Nothing,
                 s"$typ <:< $xtyp but !($typ <:< Nothing) and ${xtyp.typeSymbol} is not a base type of $typ")
-                Stream continually ruh.Nothing
+                Stream continually None
               }
               else return None
             case base if base |> isErroneous => return erron
             case base =>
               debug(s"$va $typ is an instance of ${xtyp.typeSymbol} as '$base'")
-              base.typeArgs.toStream
+              base.typeArgs.toStream.map(Some.apply)
           }
           
           if (isDebugEnabled) {
@@ -212,7 +212,9 @@ self: IntermediateBase => // for 'repType' TODO rm
           assert(!baseTargs.hasDefiniteSize || xtyp.typeArgs.size == baseTargs.size)
           
           val extr = (baseTargs zip xtyp.typeArgs zip xtyp.typeSymbol.asType.typeParams) map {
-            case ((a,b), p) => extractType(a, b, (Variance of p.asType) * va) getOrElse (return None) }
+            case ((a,b), p) =>
+              val newVa = (Variance of p.asType) * va
+              extractType(a.fold[TypeRep](ExtractedType(newVa,ruh.Nothing,ruh.Any))(TypeRep), b, newVa) getOrElse (return None) }
           
           val extr2 = targs zip typ.typeSymbol.asType.typeParams map {case(ta,tp) => /*Variance.of(tp.asType) match {
             //case Covariant | Invariant => extractType(ta, Nothing, Contravariant)
@@ -230,7 +232,7 @@ self: IntermediateBase => // for 'repType' TODO rm
           debug(s"${xtyp.typeSymbol} and ${typ.typeSymbol} cannot be matched invariantly")
           None
           
-        } else {
+        } else { // Here, either we're in covariant case, or the typeSymbols match (or both)
           
           val base = xtyp.baseType(typ.typeSymbol).orElse(NoType)
           // ^ this `.orElse(NoType)` seems to semantically do nothing; in fact, it will convert a NoType in the wrong 
@@ -245,12 +247,12 @@ self: IntermediateBase => // for 'repType' TODO rm
               assert((xtyp <:< ruh.Nothing) || (xtyp <:< ruh.Null),
                 s"$xtyp <:< $typ but !($xtyp <:< Nothing) and ${typ.typeSymbol} is not a base type of $xtyp")
               
-              Stream continually ruh.Nothing
+              Stream continually None
             }
             else return None
           }
           else if (base |> isErroneous) return erron
-          else base.typeArgs.toStream
+          else base.typeArgs.toStream.map(Some.apply)
           
           if (isDebugEnabled) {
             val ets = targs zip baseTargs zip (typ.typeSymbol.asType.typeParams map (Variance of _.asType) map (_ * va))
@@ -260,7 +262,9 @@ self: IntermediateBase => // for 'repType' TODO rm
           assert(!baseTargs.hasDefiniteSize || targs.size == baseTargs.size, s"$baseTargs $targs")
           
           val extr = (targs zip baseTargs zip typ.typeSymbol.asType.typeParams) map {
-            case ((a,b), p) => extractType(a, b, (Variance of p.asType) * va) getOrElse (return None) }
+            case ((a,b), p) =>
+              val newVa = (Variance of p.asType) * va
+              extractType(a, b.fold[TypeRep](ExtractedType(newVa,ruh.Nothing,ruh.Any))(TypeRep), newVa) getOrElse (return None) }
           
           //dbg("EXTR",extr)
           Some(extr.foldLeft[Extract](Map(), Map(), Map()){case(acc,a) => merge(acc,a) getOrElse (return None)})

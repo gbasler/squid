@@ -373,6 +373,19 @@ class TypeMatching extends MyFunSuite {
     
   }
   
+  test("Case from dbStage") {
+    
+    val c0 = code"Dummy[Int => Int](???)"
+    
+    c0 matches {
+      case code"Dummy[$ta => $tb]($x)" =>
+        eqt(x, code"???")
+        eqt(ta, codeTypeOf[Any])
+        eqt(tb, codeTypeOf[Int])
+    }
+    
+  }
+  
 }
 
 object TypeMatching {
@@ -387,6 +400,7 @@ object TypeMatching {
   
   // taken from use case matching fastparse constructs:
   def parserApi[T,R](x: T)(f: T => R) = Some(x->f(x))
+  
+  class Dummy[T]
+  def Dummy[T](arg: => T): Dummy[T] = ???
 }
-
-
