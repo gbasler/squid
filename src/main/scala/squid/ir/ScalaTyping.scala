@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ self: IntermediateBase => // for 'repType' TODO rm
     // As an example, in: `Some(0) match { case code"Some($v:$t)" => ... }`, `t` is inferred as `+Int..Any`; here the
     // intuitive thing to do when asked to materialize it (as in: pick a single type) is to make it `Int`, not `Any`.
   {
-    assert(lb <:< ub)
+    assert(lb <:< ub, s"! $lb <:< $ub")
     override lazy val toString = variance.symbol * variance.asInt.abs +
       (if (lb =:= ub) s"$ub"
       else if (lb <:< ruh.Nothing) s"..$ub"

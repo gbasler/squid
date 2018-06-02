@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import java.io.NotSerializableException
 import utils._
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import ruh.sru
-import squid.ir.IRException
 import squid.lang.Base
 import squid.lang.CrossStageEnabled
 
@@ -32,6 +31,8 @@ trait MetaBases {
   object Helpers extends {val uni: u.type = u} with meta.UniverseHelpers[u.type]
   import Helpers.TreeOps
   
+  def runtimeSymbols: squid.ir.RuntimeSymbols = squid.ir.RuntimeSymbols
+  
   def freshName(hint: String): TermName
   def curatedFreshName(hint: String): TermName =
     //freshName(hint replace('$', '_'))
@@ -42,7 +43,7 @@ trait MetaBases {
     import squid.utils.serial._
     val str = try serialize(x) catch {
         case ns: NotSerializableException =>
-          throw IRException(s"Could not persist non-serializable value: ${x}", Some(ns))
+          throw squid.ir.IRException(s"Could not persist non-serializable value: ${x}", Some(ns))
       }
     q"_root_.squid.utils.serial.deserialize($str)"
   }
@@ -282,7 +283,7 @@ trait MetaBases {
     def freshName(hint: String): TermName = MetaBases.this.freshName(hint)
     
     
-    def loadTypSymbol(fullName: String): TypSymbol = () => ir.RuntimeSymbols.loadTypSymbol(fullName)
+    def loadTypSymbol(fullName: String): TypSymbol = () => runtimeSymbols.loadTypSymbol(fullName)
     
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
@@ -416,13 +417,14 @@ trait MetaBases {
 
 object MetaBases {
   
-  object Runtime extends MetaBases {
+  object Runtime extends Runtime
+  class Runtime extends MetaBases {
     val u: sru.type = sru
     
     private var varCount = 0
     def freshName(hint: String) = sru.TermName(hint+s"_$varCount") alsoDo (varCount += 1)
     
-    class ScalaReflectionBaseWithOwnNames extends Runtime.ScalaReflectionBase {
+    class ScalaReflectionBaseWithOwnNames extends ScalaReflectionBase {
       private var varCount = 0
       override def freshName(hint: String): sru.TermName = sru.TermName(hint+s"_$varCount") alsoDo (varCount += 1)
     }

@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   def repType(r: Rep): TypeRep
   def boundValType(bv: BoundVal): TypeRep
   
-  val DefaultExtrudedHandler = (bv: BoundVal) => throw ir.IRException(s"Extruded (free) variable cannot be reinterpreted: $bv")
+  val DefaultExtrudedHandler = (bv: BoundVal) => throw squid.ir.IRException(s"Extruded (free) variable cannot be reinterpreted: $bv")
   
   def reinterpret(r: Rep, newBase: Base)(extrudedHandle: (BoundVal => newBase.Rep) = DefaultExtrudedHandler): newBase.Rep
   
@@ -154,7 +154,15 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     
   }
   
-  import quasi.MetaBases.Runtime.ScalaReflectionBaseWithOwnNames
+  object Runtime extends quasi.MetaBases.Runtime {
+    /** Prefer our own instance of RuntimeSymbols if we are extending one; as it could have some methods overridden
+      * to hook into symbol loading.
+      * This is also done in StaticOptimizer. */
+    override val runtimeSymbols = ibase match {
+      case rs: squid.ir.RuntimeSymbols => rs
+      case _ => super.runtimeSymbols
+    }
+  }
   
   def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, extrudedHandle: (BoundVal => MBM.u.Tree) = DefaultExtrudedHandler): MBM.u.Tree = {
     reinterpret(rep, SRB)(extrudedHandle)
@@ -164,7 +172,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     scalaTreeIn(MBM)(SRB.asInstanceOf[MBM.ScalaReflectionBase], rep, extrudedHandle.asInstanceOf[BoundVal => MBM.u.Tree])
   
   final def scalaTree(rep: Rep, extrudedHandle: (BoundVal => sru.Tree) = DefaultExtrudedHandler, hideCtors0: Bool = false, markHoles: Bool = false): sru.Tree =
-    scalaTreeIn(quasi.MetaBases.Runtime)(new ScalaReflectionBaseWithOwnNames {
+    scalaTreeIn(Runtime)(new Runtime.ScalaReflectionBaseWithOwnNames {
       override val hideCtors: Boolean = hideCtors0
       override val markHolesWith_? : Boolean = markHoles
     }, rep, extrudedHandle)

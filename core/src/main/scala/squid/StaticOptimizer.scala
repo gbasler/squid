@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -186,6 +186,11 @@ class StaticOptimizerMacros(override val c: whitebox.Context) extends statics.Co
     object MBM extends MetaBases {
       val u: c.universe.type = c.universe
       def freshName(hint: String) = c.freshName(TermName(hint))
+      /** See similar definition in IntermediateBase. */
+      override val runtimeSymbols = Base match {
+        case rs: squid.ir.RuntimeSymbols => rs
+        case _ => super.runtimeSymbols
+      }
     }
     val MB = new MBM.ScalaReflectionBase
     

@@ -184,6 +184,7 @@ self: Base =>
       * -- in fact, now that we have `Ctx = C @uncheckedVariance` it's not really useful anymore... */
     override def withTypeOf[Typ >: T](x: AnyCode[Typ]) = this: Code[Typ,C]
     
+    def asOpenCode: OpenCode[T] = this
     override def unsafe_asClosedCode = this.asInstanceOf[ClosedCode[T]]
     
     override def withContext[C <: Ctx]: Code[T,Ctx] = this

@@ -571,19 +571,19 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
                 * However, method type parameters seem to always be tagged as invariant.
                 * This was kind of restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
                 * We now match method type parameters covariantly, although I'm not sure it is sound. At least the fact we
-                * now also match the *returned types* prevents obvious unsoundness sources.
-                */
+                * now also match the *returned types* prevents obvious unsoundness sources. [EDIT: we no longer do]
+                * See also the relevant comments in squid/src/test/scala/squid/functional/Soundness.scala */
               //mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
               mergeAll( (targs1 zip targs2) map { case (a,b) => a extract (b, Covariant) } )
             }
             a <- mergeAll( (args1 zip args2) map { case (as,bs) => extractArgList(as, bs) } )  //oh_and print("[Args:] ") and println
-          
+            
             /** It should not be necessary to match return types, knowing that we already match all term and type arguments.
-              * On the other hand, it might break legitimate things like (()=>42).apply():Any =~= (()=>42:Any).apply(),
+              * On the other hand, doing so would break legitimate things like (()=>42).apply():Any =~= (()=>42:Any).apply(),
               * in which case the return type of .apply is Int in the former and Any in the latter, but everything else is equivalent */
             //rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
             rt = EmptyExtract
-          
+            
             m0 <- merge(s, t)
             m1 <- merge(m0, a)
             m2 <- merge(m1, rt)
