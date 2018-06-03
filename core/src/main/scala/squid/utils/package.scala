@@ -36,6 +36,8 @@ package object utils {
     * See: https://stackoverflow.com/questions/35903100/what-does-t-do-in-scala/35916154#35916154 */
   type Narrow[T] = T{}
   
+  type Id[T] = T
+  
   /** Tag type to be interpreted by quasiquotes as an existential named [Unknown Context],
     * useful to ensure rewrite rules are fully parametric in the context of the terms they match */
   final class UnknownContext private() // TODO extend <extruded type>

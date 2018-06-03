@@ -20,6 +20,7 @@ import squid.lang.InspectableBase
 import squid.lang.{RecRewrite,TopDownRewrite}
 import squid.quasi.EmbeddingException
 import squid.quasi.QuasiBase
+import squid.quasi.QuasiException
 import squid.utils.MacroUtils.{MacroSetting, MacroDebug, MacroDebugger}
 import utils._
 import utils.CollectionUtils._
@@ -298,7 +299,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         val (alias, xtor, subPatterns) = pat match {
           case UnApply(fun, args) => (None, fun, args)
           case Bind(alias, UnApply(fun, args)) => (Some(alias), fun, args)
-          case _ => throw EmbeddingException("Unrecognized pattern shape: "+showCode(pat))
+          case _ => throw QuasiException("Unrecognized pattern shape: "+showCode(pat))
         }
         
         /** List[(name of the map in the Extract artifact, pattern name)] */
@@ -356,7 +357,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
               q"val $scrutName = $scrut; ${internal.valDef(b.symbol,q"$scrutName")}; ${patMat(q"$scrutName", pat, body)}"
             case k @ Literal(Constant(c)) =>
               q"if ($scrut == $k) $body else None"
-            case p => throw EmbeddingException(s"Pattern shape not yet supported in rewrite rule: ${showCode(p)}")
+            case p => throw QuasiException(s"Pattern shape not yet supported in rewrite rule: ${showCode(p)}")
           }
         }
         

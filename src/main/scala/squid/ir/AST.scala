@@ -312,7 +312,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   
   object Const extends ConstAPI {
-    def unapply[T: CodeType](ir: Code[T,_]): Option[T] = dfn(ir.rep) match {
+    def unapply[T: CodeType](cde: AnyCode[T]): Option[T] = dfn(cde.rep) match {
       case cst @ Constant(v) if typLeq(cst.typ, codeTypeOf[T].rep) => Some(v.asInstanceOf[T])
       case _ => None
     }

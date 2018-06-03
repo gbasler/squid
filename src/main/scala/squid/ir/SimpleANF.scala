@@ -270,7 +270,7 @@ trait SimpleANFBase extends AST with CurryEncoding with SimpleEffects { anf =>
             case LetIn(p, v, b) if v.isPure =>
               inline(p, b, v)
           }
-        } 
+        }
         construct(init)
       case _ =>
         //assert(dfn isTrivial)

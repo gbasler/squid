@@ -57,7 +57,9 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   
   val Const: ConstAPI
   trait ConstAPI extends super.ConstAPI {
-    def unapply[T: CodeType](ir: Code[T,_]): Option[T]
+    def unapply[T: CodeType](cde: AnyCode[T]): Option[T]
+    // ^ using OpenCode[T] or Code[T,Nothing] for the type of `cde` gives:
+    //     Warning:(33, 25) abstract type Bottom in type pattern RewritingTests.this.DSL.Code[T,squid.utils.Bottom] (the underlying of RewritingTests.this.DSL.OpenCode[T]) is unchecked since it is eliminated by erasure
   }
   
   def separateCrossStageNodes(r: Rep): Rep -> List[Any] = {
