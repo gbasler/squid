@@ -258,12 +258,19 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
     
     var unquotedTypes = List[(TypeName, Type, Tree)]() // fresh name; type; type rep tree
     
-    def unquoteType(name: TypeName, tp: Type, tree: Tree) = tp.baseType(CodeTSym) match {
+    def unquoteType(name: TypeName, tp: Type, tree: Tree): Tree = tp.baseType(CodeTSym) match {
       case TypeRef(tpbase,CodeTSym,tp::Nil) if tpbase =:= base.tpe =>
         unquotedTypes ::= ((name.toTypeName, tp, tree))
         tq"$tp"
       case TypeRef(_,_,_) => throw EmbeddingException(s"Cannot unquote type '$tp': it is not from base $base.")
-      case _ => throw EmbeddingException(s"Cannot unquote type '$tp': it is not a CodeType[_].")
+      case _ =>
+        //throw EmbeddingException(s"Cannot unquote type '$tp': it is not a CodeType[_].")
+        debug(s"Type '$tp' is not a CodeType[_]; trying to see if implicitly convertible.")
+        val newTree = try c.typecheck(q"$base.codeTypeOf($tree)", silent = false) // codeTypeOf takes a CodeType[T] argument, inferring the T for us
+          catch { case e: TypecheckException =>
+            throw QuasiException(s"Cannot unquote object of type '$tp' as a type: ${e.msg}", Some(e.pos)) }
+        debug(s"Resutl[${newTree.tpe}]: $newTree")
+        unquoteType(name, newTree.tpe, newTree)
     }
     
     var hasStuckSemi = Option.empty[TermName]

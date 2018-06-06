@@ -66,4 +66,23 @@ class TypeImplicits extends MyFunSuite {
     
   }
   
+  
+  import scala.language.implicitConversions
+  val strCodeType = codeTypeOf[String]
+  implicit def toCode(str: String) = strCodeType
+  
+  test("Inserting Types by Implicit Conversion") {
+    
+    same(codeTypeOf("test"), strCodeType)
+    
+    eqt(code"Option.empty[${"test"}]", code"Option.empty[String]")
+    
+    assertDoesNotCompile(""" code"Option.empty[${42}]" """)
+    // ^ Quasiquote Error: Cannot unquote object of type 'Int(42)' as a type: type mismatch;
+    //     found   : Int(42)
+    //     required: squid.TestDSL.CodeType[?]
+    //        code"Option.empty[${42}]"
+    
+  }
+  
 }
