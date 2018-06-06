@@ -113,7 +113,7 @@ trait SchedulingANFBase extends SimpleANFBase {
   
   // Need to override these so the new SchedulingReinterpreter is mixed in:
   
-  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = ANFDebug.muteFor { muteFor {
+  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree) = DefaultExtrudedHandler): MBM.u.Tree = ANFDebug.muteFor { muteFor {
     new ReinterpreterToScala {
       val MetaBases: MBM.type = MBM
       val newBase: SRB.type = SRB

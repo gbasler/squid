@@ -110,7 +110,7 @@ trait ASTReinterpreter { ast: AST =>
   
   /* --- --- --- Specialized Scala reinterpretation, reverting virtualized constructs --- --- --- */
   
-  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = muteFor {
+  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree) = DefaultExtrudedHandler): MBM.u.Tree = muteFor {
     new ReinterpreterToScala {
       val MetaBases: MBM.type = MBM
       val newBase: SRB.type = SRB

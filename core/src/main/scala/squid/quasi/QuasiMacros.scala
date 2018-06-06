@@ -381,7 +381,7 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
                 throw QuasiException("Inserted variable functions are currently only supported for function arity 1.", Some(t.pos))
                 
               case _ => 
-                debug(s"Unrecognized insertion of type '${t.tpe}': ${t}\n –– typing may be imprecise as a result.")
+                debug(s"Unrecognized insertion of type '${t.tpe}': ${t} –– typing may be imprecise as a result.")
                 q"$base.$$($t)"
             }
             

@@ -500,7 +500,7 @@ trait SimpleANFBase extends AST with CurryEncoding with SimpleEffects { anf =>
   import utils.meta.{RuntimeUniverseHelpers => ruh}
   import ruh.sru
   
-  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree = ANFDebug.muteFor { muteFor {
+  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree) = DefaultExtrudedHandler): MBM.u.Tree = ANFDebug.muteFor { muteFor {
     new ReinterpreterToScala {
       val MetaBases: MBM.type = MBM
       val newBase: SRB.type = SRB
