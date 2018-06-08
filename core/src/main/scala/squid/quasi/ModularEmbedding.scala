@@ -163,7 +163,14 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   }
   
   
-  def liftAnnot(a: Annotation, parent: Tree)(implicit ctx: Map[TermSymbol, BoundVal]): Annot = a.tree match {
+  type Ctx = Map[TermSymbol, BoundVal]
+  
+  def liftAnnots(vdef: ValDef, parent: Tree)(implicit ctx: Ctx): List[Annot] = {
+    (if (vdef.mods hasFlag Flag.IMPLICIT) (liftType(typeOf[squid.lib.Implicit]),Nil)::Nil 
+     else Nil
+    ) ++ vdef.symbol.annotations.map(liftAnnot(_, parent))
+  }
+  def liftAnnot(a: Annotation, parent: Tree)(implicit ctx: Ctx): Annot = a.tree match {
     case Apply(Select(New(tp), TermName("<init>")), as) =>
       (liftType(tp.tpe), Args(as map (arg => liftTerm(arg, a.tree, None)): _*) :: Nil) // FIXME varargs will be misinterpreted
     case _ => throw EmbeddingException.Unsupported(s"Unrecognized annotation shape: `@$a`")
@@ -171,8 +178,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   // TODO pull in all remaining cases from Embedding
   /** @throws EmbeddingException */
-  def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Map[TermSymbol, BoundVal]): Rep = {
-    def rec(x1: Tree, expTpe: Option[Type])(implicit ctx: Map[TermSymbol, BoundVal]): Rep = liftTerm(x1, x, expTpe)
+  def liftTerm(x: Tree, parent: Tree, expectedType: Option[Type], inVarargsPos: Boolean = false)(implicit ctx: Ctx): Rep = {
+    def rec(x1: Tree, expTpe: Option[Type])(implicit ctx: Ctx): Rep = liftTerm(x1, x, expTpe)
     
     //debug(List(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?") mkString " ")
     //dbg(s"TRAVERSING",showCode(x),s"[${x.tpe}]  <:",expectedType getOrElse "?")
@@ -247,7 +254,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
           else value -> liftType(tpt.tpe)
         }
         
-        val bound = bindVal(name.toString, valType, vdef.symbol.annotations map (a => liftAnnot(a, x)))
+        val bound = bindVal(name.toString, valType, liftAnnots(vdef, x))
         
         val body = rec(
           setType( q"..$b",x.tpe ), // doing this kind of de/re-structuring loses the type
@@ -371,7 +378,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         val (params, bindings) = ps map {
           case p @ ValDef(mods, name, tpt, _) =>
             traverseTypeTree(tpt)
-            val bv = bindVal(name.toString, liftType(p.symbol.typeSignature), p.symbol.annotations map (a => liftAnnot(a, x)))
+            val bv = bindVal(name.toString, liftType(p.symbol.typeSignature), liftAnnots(p,x))
             bv -> (p.symbol.asTerm -> bv)
         } unzip;
         

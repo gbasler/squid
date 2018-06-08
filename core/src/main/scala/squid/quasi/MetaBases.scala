@@ -267,7 +267,7 @@ trait MetaBases {
     val markHolesWith_? = false
     
     type Rep = Tree
-    type BoundVal = (TermName, TypeRep)
+    type BoundVal = (TermName, TypeRep, Bool) // (name, type, is-implicit?)
     type TypeRep = Tree
     
     type MtdSymbol = TermName
@@ -288,7 +288,10 @@ trait MetaBases {
     
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here
-      freshName(name toString) -> typ  // We need fresh names to avoid wrong capture; eg: when introducing a new parameter name in the middle of a program
+      (freshName(name toString),
+        // ^ We need fresh names to avoid wrong capture; eg: when introducing a new parameter name in the middle of a program
+        typ,
+        annots.collectFirst{case (tq"squid.lib.`package`.Implicit",_)=>} isDefined)
     //def bindVal(name: String, typ: TypeRep): BoundVal = TermName("_$"+name) -> typ
     
     def readVal(v: BoundVal): Rep = q"${v._1}"
@@ -298,11 +301,13 @@ trait MetaBases {
     }
     def lambda(params: List[BoundVal], body: => Rep): Rep = lamImpl(params,body)
     private def lamImpl(params: List[BoundVal], body: => Rep): Rep = q"""
-      (..${params map { case (vn, vt) => q"val $vn: $vt" }}) => $body
+      (..${params map { case (vn, vt, impl) => q"${mkMods(impl)} val $vn: $vt" }}) => $body
     """
     
+    protected def mkMods(isImplicit: Bool) = if (isImplicit) Modifiers(Flag.IMPLICIT) else Modifiers()
+    
     override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
-      val ${bound._1}: ${if (ascribeValBindings) bound._2 else tq""} = $value
+      ${mkMods(bound._3)} val ${bound._1}: ${if (ascribeValBindings) bound._2 else tq""} = $value
       ..$body
     """
       //val ${bound._1}: ${if (ascribeValBindings) bound._2 else EmptyTree} = $value  // mks errors like Error:(65, 21) value + is not a member of <notype>

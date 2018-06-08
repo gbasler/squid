@@ -54,6 +54,24 @@ class PrettyPrinting extends MyFunSuite {
     
   }
   
+  test("Implicit Bindings") {
+    
+    same(code"implicit val x = 42; implicitly[Int]+1".rep |> showRep, """{
+      |  implicit val x_0 = 42;
+      |  scala.Predef.implicitly[scala.Int](x_0).+(1)
+      |}""".stripMargin)
+    
+    same(code"{implicit x: Int => implicitly[Int]+1}".rep |> showRep,
+      "(implicit x_0: scala.Int => scala.Predef.implicitly[scala.Int](x_0).+(1))")
+    
+    // Equivalently, can use annotation of the underlying encoding explicitly:
+    same(code"@squid.lib.Implicit val x = 42; implicitly(x)+1".rep |> showRep, """{
+      |  implicit val x_0 = 42;
+      |  scala.Predef.implicitly[scala.Int](x_0).+(1)
+      |}""".stripMargin)
+    
+  }
+  
   test("Null variables") {
     
     same(code"var x: Int = ${nullValue[Int]}; x+1"

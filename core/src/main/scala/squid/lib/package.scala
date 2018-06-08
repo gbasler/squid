@@ -104,4 +104,6 @@ package object lib {
   import scala.annotation.{StaticAnnotation, compileTimeOnly}
   class ExtractedBinder extends StaticAnnotation
   
+  class Implicit extends StaticAnnotation
+  
 }

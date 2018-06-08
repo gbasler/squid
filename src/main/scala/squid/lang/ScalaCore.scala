@@ -60,4 +60,3 @@ trait ScalaCore
 @mirror[squid.lib.`package`.type] trait SquidLibMirror
 @mirror[squid.lib.MutVar[_]] trait VarMirror
 @mirror[Predef.type] trait PredefMirror
-

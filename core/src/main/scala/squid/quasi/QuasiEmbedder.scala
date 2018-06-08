@@ -461,7 +461,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
                       bound
                     } else {
                       // Q: need to check tpt here?
-                      b.bindVal(name.toString, liftType(p.symbol.typeSignature), p.symbol.annotations map (a => liftAnnot(a, x)))
+                      b.bindVal(name.toString, liftType(p.symbol.typeSignature), liftAnnots(p,x))
                     }
                   bv -> (p.symbol.asTerm -> bv)
               } unzip;
