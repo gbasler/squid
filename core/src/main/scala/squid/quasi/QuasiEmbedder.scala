@@ -495,7 +495,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
               
               if (mods.hasFlag(Flag.MUTABLE)) throw QuasiException(
                 "Insertion of symbol in place of mutable variables is not yet supported; " +
-                  "explicitly use the squid.Var[T] data type instead", Some(vdef.pos))
+                  "explicitly use the squid.lib.MutVar[T] data type instead", Some(vdef.pos))
               
               val (bound,cntx) = interpretInsertedVariableSymbol(name, tpt)
               

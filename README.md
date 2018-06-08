@@ -110,6 +110,8 @@ Squid currently supports Scala versions `2.12.x` and `2.11.3` to `2.11.11`
 In your project, add the following to your `build.sbt`:
 
 ```scala
+resolvers += Resolver.sonatypeRepo("snapshots")
+
 libraryDependencies += "ch.epfl.data" %% "squid" % "0.3.0-SNAPSHOT"
 ```
 
