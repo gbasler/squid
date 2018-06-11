@@ -146,6 +146,8 @@ object TrickyTypes {
     lazy val cde = code"Option.empty[Typ]" // Note: here Squid uses the implicit value available
     type Typ2
     lazy val cde2 = code"Option.empty[Typ2]" // Note: here in the absence of implicit, Squid widens the type to ModularMetaprog#Typ2!!
+    
+    class Foo[A]
   }
   class ModularMetaprogImpl[T: CodeType] extends ModularMetaprog {
     type Typ = T

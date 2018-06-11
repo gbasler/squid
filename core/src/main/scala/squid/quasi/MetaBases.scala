@@ -345,7 +345,7 @@ trait MetaBases {
       val pre = self match {
         // sometimes `staticTypeApp` produces such trees, and it really corresponds to a type projection:
         case tq"$t.${tn:TypeName}" =>
-          return tq"$t.$tn#${TypeName(tp.name.toString)}"
+          return tq"$t.$tn#${TypeName(tp.name.toString)}[..$targs]"
         case tq"$t.type" => t
         case _ => self
       }

@@ -131,6 +131,14 @@ class PrettyPrinting extends MyFunSuite {
     
   }
   
+  test("Tricky Types") {
+    import TrickyTypes._
+    
+    same(code"Option.empty[ModularMetaprog#Foo[Int]]".rep |> showRep,
+      "scala.Option.empty[(squid.feature.TrickyTypes.ModularMetaprog)#Foo[scala.Int]]")
+    
+  }
+  
 }
 object PrettyPrinting {
   type T
