@@ -31,7 +31,7 @@ class MultiStage extends MyFunSuite {
 
   }
   
-  test("Nested ir expressions") {
+  test("Nested code expressions") {
     
     {
       val ir2 = code{ code{42} } : Code[Code[Int,{}],{}]
@@ -62,12 +62,13 @@ class MultiStage extends MyFunSuite {
      * (See cod eat end of file.)
      */
     
-    //assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
-    // ^ Note: this used to work because `base.MtdSymbol` is abstract type squid.utils.meta.RuntimeUniverseHelpers.sru.MethodSymbol,
+    assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
+    // ^ Note: this used to [not] work [anymore] because `base.MtdSymbol` is abstract type squid.utils.meta.RuntimeUniverseHelpers.sru.MethodSymbol,
     //         which was not embedded and fell back on a type tag.
     //         But now that we try to embed abstract types, it widens the base to scala.reflect.api.JavaUniverse because
     //         squid.utils.meta.RuntimeUniverseHelpers.sru is a val (not module) and we don't handle val-dependent types.
-    assert(codeTypeOf[base.MtdSymbol] =:= codeTypeOf[scala.reflect.api.JavaUniverse#MethodSymbol])
+    //         [EDIT]: now we do handle val-dependent types if they have a static path
+    //assert(codeTypeOf[base.MtdSymbol] =:= codeTypeOf[scala.reflect.api.JavaUniverse#MethodSymbol])
     
     // Note:
     //code{ code{ code{ List(1,2,3) map (_ + 1 toDouble) } } }
@@ -76,7 +77,7 @@ class MultiStage extends MyFunSuite {
     
   }
   
-  test("Doubly-Nested ir expressions") {
+  test("Doubly-Nested code expressions") {
     
     {
       val ir3 = code{ code{ code{scala.None} } } : Code[Code[Code[Option[Int],{}],{}],{}]

@@ -477,13 +477,35 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
       
   }
   
+  /* Scala's `dealias` won't actually dealias value definitions with a singleton type, so we have to do it here. 
+   * Note: had some problems here when trying to use .widen and then test type equality... it turns out that this
+   * doesn't work and that Scala's type equivalence relation is NOT transitive!
+   * For example, as interpreted from within the CrossStageTests class, we have:
+   *   typeOf[DSL.type]       =:= typeOf[CrossStageDSL.type]  ==  true
+   *   typeOf[DSL.type].widen =:= typeOf[CrossStageDSL.type]  ==  true
+   *   typeOf[DSL.type].widen =:= typeOf[DSL.type]            ==  false (!!!)
+   * (also: typeOf[CrossStageDSL.type] =:= typeOf[CrossStageDSL.type].widen == true) */
+  protected def dealiasSingleTypes(tp: Type): Option[Type] = tp |> {
+    case single @ SingleType(pre,sym) =>
+      val w = single.widen
+      if (w match {
+        case SingleType(_,_)=> true
+        case TypeRef(_,sym,Nil) => sym.isModuleClass
+        case _ => false
+      }) Some(w)
+      else sym.typeSignature match {
+        case NullaryMethodType(tp @ SingleType(_,_)) => dealiasSingleTypes(tp) orElse Some(tp)
+        case _ => None
+      }
+    case _ => None
+  }
   
   /** wide/deal represent whether we have already tried to widened/dealias this type */
   final def liftType(tp: Type, wide: Boolean = false): TypeRep = {
-    val dealiased = tp.dealias
+    val dealiased = tp.dealias |> (d => d |> dealiasSingleTypes getOrElse d)
     lazy val dealiasedDifferent = dealiased =/= tp
     typeCache.getOrElseUpdate(dealiased, try {
-      debug(s"Matching type $tp" + (if (dealiasedDifferent) s" ~> ${dealiased}" else ""))
+      debug(s"Matching ${if (wide) "widened " else ""}type $tp" + (if (dealiasedDifferent) s" ~> ${dealiased}" else ""))
       liftTypeUncached(dealiased, wide)
     } catch {
       // This exists mainly to cope with the likes of scala.List.Coll, which is a CBF type alias containing an existential...
@@ -526,6 +548,10 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
 
     case SingleType(pre, sym) if sym.isStatic && sym.isModule => // TODO understand diffce with ThisType 
       staticModuleType(sym.fullName)
+      
+    // Handling path-dependent types rooted in static `val` definitions:
+    case st @ SingleType(prefix, sym) if sym.isStatic && sym.isTerm && sym.asTerm.isStable =>
+      valType(liftType(prefix), sym.name.toString) // Q: overloading could cause problems?
       
     case tpe @ RefinedType(tp :: Nil, scp) if scp.isEmpty =>
       liftType(tp)

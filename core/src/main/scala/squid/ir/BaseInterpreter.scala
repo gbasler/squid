@@ -259,6 +259,8 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   def moduleType(fullName: String): TypeRep = () => ???
   def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = () => typ
+  def valType(self: TypeRep, valName: String): TypeRep = () =>
+    self().toType.member(TermName(valName)).typeSignature.typeSymbol.asType
   def constType(value: Any, underlying: TypeRep): TypeRep = () => ???
   
   object Const extends ConstAPI {

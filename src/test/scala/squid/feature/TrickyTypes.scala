@@ -121,12 +121,41 @@ class TrickyTypes extends MyFunSuite {
   test("Modular Metaprogramming") {
     
     val mm = new ModularMetaprogImpl[Int]
-    println(mm.cde)
     eqt(mm.cde, code"Option.empty[Int]")
-    println(mm.cde2)
     eqt(mm.cde2, code"Option.empty[ModularMetaprog#Typ2]")
     // TODO only embed abstract types when static path to them is static?
     //      indeed, it would be more useful for programmers to reject the definition of cde2 above than accept it
+    
+  }
+  
+  import scala.reflect.runtime.{universe => sru}
+  def sameType[T:sru.WeakTypeTag](cde: OpenCode[Any]) =
+    assert(cde.Typ.rep.tpe =:= sru.weakTypeOf[T], s"${cde.Typ.rep.tpe} =/= ${sru.weakTypeOf[T]}")
+  
+  test("Path-Dependent Types") {
+    
+    sameType[Option[pdt.Typ]]             (code"Option.empty[pdt.Typ]")
+    sameType[Option[sru.TypeTag[pdt.Typ]]](code"Option.empty[sru.TypeTag[pdt.Typ]]")
+    
+    // This one is not considered a static path (though it should b, in principle):
+    //sameType[Option[pdt.nestedPdt.Typ]](code"Option.empty[pdt.nestedPdt.Typ]") // nope
+    same(code"Option.empty[pdt.nestedPdt.Typ]".toString, "code\"scala.Option.empty[(squid.feature.TrickyTypes.ModularMetaprog)#Typ]\"")
+    //sameType[Option[ModularMetaprog#Typ]](code"Option.empty[pdt.nestedPdt.Typ]" alsoApply println)
+    //sameType[Option[ModularMetaprog#Typ]](code"Option.empty[pdt.nestedPdt.nestedPdt.Typ]" alsoApply println)
+    // ^ for some reason, return false with: 'Option[squid.feature.TrickyTypes.ModularMetaprog#Typ] =/= Option[squid.feature.TrickyTypes.ModularMetaprog#Typ]'
+    
+    sameType[Option[pdt.NestedModule.type]]    (code"Option.empty[pdt.NestedModule.type]")
+    sameType[Option[List[pdt.Typ]]]            (code"Option.empty[pdt.NestedModule.Typ]")
+    sameType[Option[List[List[pdt.Typ]]]]      (code"Option.empty[pdt.NestedModule.NestedModule.Typ]")
+    sameType[Option[List[List[List[pdt.Typ]]]]](code"Option.empty[pdt.NestedModule.nestedPdt.NestedModule.Typ]")
+    
+  }
+  
+  test("Path-Dependent Type Aliases") {
+    
+    sameType[Option[pdt.Typ]](code"Option.empty[pdtAlias.Typ]")
+    sameType[Option[List[pdt.Typ]]](code"Option.empty[pdtAlias.nestedModuleAlias.Typ]")
+    sameType[Option[List[pdt.Typ]]](code"Option.empty[pdt.NestedModule.Typ]")
     
   }
   
@@ -148,10 +177,20 @@ object TrickyTypes {
     lazy val cde2 = code"Option.empty[Typ2]" // Note: here in the absence of implicit, Squid widens the type to ModularMetaprog#Typ2!!
     
     class Foo[A]
+    
+    val nestedPdt: ModularMetaprog
+    object NestedModule extends ModularMetaprogImpl[List[Typ]]
+    //object NestedModule extends ModularMetaprogImpl // NOTE: infers type param as Typ because it's the only type implicit in scope! 
+    val nestedModuleAlias: NestedModule.type
   }
   class ModularMetaprogImpl[T: CodeType] extends ModularMetaprog {
     type Typ = T
     val Typ = codeTypeOf[T] // Note: in Scala 2.12 (but not 2.11), it is sufficient to write: `implicitly`
+    lazy val nestedPdt = new ModularMetaprogImpl[List[T]]
+    lazy val nestedModuleAlias = NestedModule
   }
+  
+  val pdt: ModularMetaprog = new ModularMetaprogImpl[Int]
+  val pdtAlias: pdt.type = pdt
   
 }

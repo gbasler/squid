@@ -23,10 +23,24 @@ trait TypingBase { self: Base =>
   /** Internal, untype representation of code type */
   type TypeRep <: AnyRef  // AnyRef bound so it can be used in squid.utils.Lazy (see EmbeddedType.asStaticallyAppliedType)
   
-  def uninterpretedType[A: TypeTag]: TypeRep
-  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep // make targs a vararg?
-  def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep 
+  /** A type application with prefix `self`; for example:
+    *     typeApp('scala.Predef.type', 'DummyImplicit', Nil) ~~> 'scala.Predef.DummyImplicit'
+    *     typeApp('squid.feature.TrickyTypes.ModularMetaprog', 'Typ', Nil) ~~> 'squid.feature.TrickyTypes.ModularMetaprog#Typ' */
+  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep
+  
+  /** A type application where the type symbol is static (so no prefix needed); for example:
+    *     typeApp('scala.collection.immutable.List', 'Int') => 'scala.collection.immutable.List[Int]'*/
+  def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep
+  
+  /** The singleton type of a constant literal. */
   def constType(value: Any, underlying: TypeRep): TypeRep
+  
+  /** The singleton type of a stable `val` definition; the `self` type here is usually required/assumed to be a simple
+    * path made of calls to `staticModuleType` and `valType`. */
+  def valType(self: TypeRep, valName: String): TypeRep
+  
+  /** A fallback function to embed a type usign its Scala-reflection type tag. */
+  def uninterpretedType[A: TypeTag]: TypeRep
   
   type TypSymbol
   def loadTypSymbol(fullName: String): TypSymbol 

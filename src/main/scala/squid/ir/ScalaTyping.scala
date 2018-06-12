@@ -99,6 +99,9 @@ self: IntermediateBase => // for 'repType' TODO rm
     sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
   }
   
+  def valType(self: TypeRep, valName: String): TypeRep =
+    sru.internal.singleType(self, self.tpe.member(sru.TermName(valName)))
+  
   
   def constType(value: Any, underlying: TypeRep): TypeRep = constType(value)
   def constType(value: Any): TypeRep = sru.internal.constantType(sru.Constant(value))

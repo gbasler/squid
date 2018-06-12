@@ -199,6 +199,7 @@ trait MetaBases {
       symbols += n -> s
       q"$n"
     }
+    def valType(self: TypeRep, valName: String): TypeRep = q"$Base.valType($self, $valName)"
     
     def constType(value: Any, underlying: TypeRep): TypeRep = q"$Base.constType(${Constant(value)}, $underlying)"
     
@@ -354,6 +355,12 @@ trait MetaBases {
         tq"$pre.${TermName(tp.name.toString)}.type"
       }
       else tq"$pre.${TypeName(tp.name.toString)}[..$targs]"
+    }
+    def valType(self: TypeRep, valName: String): TypeRep = self match {
+      case tq"$t.type" => tq"$t.${TermName(valName)}.type"
+      case _ =>
+        val exName = freshName("x")
+        tq"$exName.${TermName(valName)}.type forSome { val $exName: $self }"
     }
     def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val tp = typ()

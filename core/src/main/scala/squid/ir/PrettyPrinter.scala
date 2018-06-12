@@ -194,10 +194,12 @@ class PrettyPrinter extends Base with TraceDebug {
 
   def moduleType(fullName: String): TypeRep = fullName
 
-  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = typ
+  def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = typ // [incorrect approximation]
 
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep =
     if (targs.nonEmpty) s"$typ[${targs.mkString(", ")}]" else typ
+  
+  def valType(self: TypeRep, valName: String): TypeRep = s"$self.$valName.type" // [incorrect approximation]
   
   def constType(value: Any, underlying: TypeRep): TypeRep = ???
 

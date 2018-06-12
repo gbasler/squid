@@ -130,8 +130,13 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     def compile(implicit ev: Ctx =:= Any): Typ = {
       val (newRep,csvals) = separateCrossStageNodes(self.rep)
       val tree = scalaTree(newRep, hideCtors0 = false) // note ctor
-      if (showCompiledTrees) System.err.println("Compiling tree: "+sru.showCode(tree))
-      val r = IntermediateBase.toolBox.eval(tree)
+      def show = System.err.println("Compiling tree: "+sru.showCode(tree))
+      if (showCompiledTrees) show
+      val r = try IntermediateBase.toolBox.eval(tree) catch {
+        case e: scala.tools.reflect.ToolBoxError =>
+          if (!showCompiledTrees) show // only show compiled tree if not already shown above
+          throw e
+      }
       val applied = (r,csvals) match {
         case (_, Nil) => r
         case (f:(Any=>Any)@unchecked, a0::Nil) => f(a0)
