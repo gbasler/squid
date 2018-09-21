@@ -52,9 +52,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   def const(value: Any): Rep = rep(Constant(value))
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
-  def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) alsoDo (varCount += 1)
+  def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) // alsoDo (varCount += 1)
   protected def freshNameImpl(n: Int) = "val$"+n
-  protected final def freshName: String = freshNameImpl(varCount)
+  protected final def freshName: String = freshNameImpl(varCount) alsoDo (varCount += 1)
   private var varCount = 0
   
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
@@ -342,7 +342,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   // To do later: refactor this class for more convenience -- use a unique id in addition to the name
   case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
-    def renew = new BoundVal(name+freshName)(typ,annots) alsoDo (varCount += 1)
+    def renew = new BoundVal(name+freshName)(typ,annots) //alsoDo (varCount += 1)
     
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name
