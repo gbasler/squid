@@ -25,7 +25,7 @@ object matching {
   object `true`
   object `false`
   
-  abstract class Case[A,R] { def apply(a: A): Option[R] }
+  abstract class Case[-A,+R] { def apply(a: A): Option[R] }
   
   class CaseBuilder[T] {
     @transparencyPropagating

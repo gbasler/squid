@@ -93,7 +93,19 @@ object CollectionUtils {
     }
   }
   
-  
-  
+  implicit class MutSetHelper[A](private val repr: mutable.Set[A]) {
+    def setAndIfUnset(a: A, action: => Unit): Unit = {
+      if (!repr(a)) {
+        repr += a
+        action 
+      }
+    }
+    def setAndIfUnset[R](a: A, action: => R, default: => R): R = {
+      if (!repr(a)) {
+        repr += a
+        action 
+      } else default
+    }
+  }
   
 }
