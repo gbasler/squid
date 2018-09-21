@@ -87,8 +87,6 @@ package object utils {
     
     def withTypeOf[T >: A](x: T): T = __self: T
     
-    @inline def optionUnless(cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
-    
   }
   
   implicit final class LazyGenHelper[A](__self: => A) {
@@ -97,6 +95,7 @@ package object utils {
     @inline def optionIf(cond: A => Bool): Option[A] = if (cond(__self)) Some(__self) else None
     
     @inline def optionUnless(cond: Bool): Option[A] = if (!cond) Some(__self) else None
+    @inline def optionUnless(cond: A => Bool): Option[A] = if (!cond(__self)) Some(__self) else None
     
   }
   
@@ -149,6 +148,11 @@ package object utils {
     def mapLines(f: String => String) = splitSane('\n') map f mkString "\n"
     def indent(pre: String) = mapLines(pre + _)
     def indent: String = indent("\t")
+  }
+  
+  implicit class BoolTraversableOps(private val self: TraversableOnce[Bool]) extends AnyVal {
+    def any = self.exists(identity)
+    def all = self.forall(identity)
   }
   
   @showAsInfix

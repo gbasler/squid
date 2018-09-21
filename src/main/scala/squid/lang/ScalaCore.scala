@@ -28,7 +28,7 @@ trait ScalaCore
   with DoubleMirror
   with StringMirror
   // ---
-  with OptionMirror
+  with OptionMirror with Some$Mirror with SomeMirror with None$Mirror
   with EitherMirror
   with FunctionMirror
   // ---
@@ -49,6 +49,9 @@ trait ScalaCore
 @mirror[String] trait StringMirror
 
 @mirror[Option[_]] trait OptionMirror
+@mirror[Some.type] trait Some$Mirror
+@mirror[Some[_]] trait SomeMirror
+@mirror[None.type] trait None$Mirror
 @mirror[Either[_,_]] trait EitherMirror
 @mirror[Function[_,_]] trait FunctionMirror
 

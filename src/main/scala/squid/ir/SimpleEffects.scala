@@ -20,6 +20,7 @@ import squid.lib.transparent
 import utils._
 
 import collection.mutable
+import scala.reflect.ClassTag
 
 /** Rudimentary (simplistic?) effect system for AST.
   * 
@@ -161,6 +162,7 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[String]
   transparentTyps += typeSymbol[Symbol]
   transparentTyps += typeSymbol[Symbol.type]
+  transparentTyps += typeSymbol[ClassTag[_]]
   
   // TODO should make these @read but not pure:
   //pureTyps += sru.typeOf[Any].typeSymbol.asType // for, eg, `asInstanceOf`, `==` etc.
@@ -240,5 +242,7 @@ trait StandardEffects extends SimpleEffects {
   //}
   
   transparencyPropagatingMtds += methodSymbol[scala.Predef.type]("identity")
+  
+  transparencyPropagatingMtds += methodSymbol[scala.reflect.ClassTag.type]("apply")
   
 }

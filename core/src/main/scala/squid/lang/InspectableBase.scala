@@ -62,7 +62,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
       case cse: this.type with CrossStageEnabled => r => cse.extractCrossStage(r.asInstanceOf[cse.Rep])
       case _ => r => None
     }
-    var boundCSVals = mutable.Map.empty[Any,BoundVal]
+    val boundCSVals = mutable.Map.empty[Any,BoundVal]
     val singleStage = bottomUp(r) { r =>
       extractCS(r).fold(r) { v =>
         boundCSVals.getOrElseUpdate(v, bindVal("cs", repType(r), Nil)) |> readVal
