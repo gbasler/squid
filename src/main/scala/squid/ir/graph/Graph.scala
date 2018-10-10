@@ -89,6 +89,7 @@ class Graph extends AST with CurryEncoding { graph =>
       edges += v -> initialDef
     }
     def asBoundBy(v: Val) = {
+      //println(s"$initialDef bound by $v")
       assert(_bound === null)
       bind(v)
       this
@@ -96,13 +97,18 @@ class Graph extends AST with CurryEncoding { graph =>
     def maybeBound = Option(_bound)
     def bound = {
       //if (_bound === null) bind(freshBoundVal(initialDef.typ))
-      if (_bound === null) bind(initialDef match {
-        case v: Val => v
-        case _ => freshBoundVal(initialDef.typ)
-      })
+      //if (_bound === null) bind(initialDef match {
+      //  case v: Val => v
+      //  case _ => freshBoundVal(initialDef.typ)
+      //})
+      if (_bound === null) initialDef match {
+        case v: Val => _bound = v
+        case _ => bind(freshBoundVal(initialDef.typ))
+      }
       _bound
     }
     def dfn: Def = edges.getOrElse(bound, bound)
+    //def dfn: Def = edges.getOrElse(bound, ???)
     def maybeDfn: Def = maybeBound flatMap edges.get getOrElse initialDef
   
     override def toString = {
@@ -143,6 +149,7 @@ class Graph extends AST with CurryEncoding { graph =>
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
     override val showValTypes = false
+    override val desugarLetBindings = false
     override def apply(r: Rep): String = r match {
       case Rep(d) if d.isSimple => apply(d)
       //case _ => super.apply(r)
@@ -180,38 +187,45 @@ class Graph extends AST with CurryEncoding { graph =>
   
   //override def showRep(r: Rep) = {
   def showGraph(r: Rep) = {
-    val printed = mutable.Set.empty[Rep] // TODO rm
+    //val printed = mutable.Set.empty[Rep] // TODO rm
+    
     //println(iterator(r).toList)
     //showGraph(r)
     //iterator(r).collect{ case nde @ Node(_: NonTrivialDef|_: Rep) if !printed(nde) =>
     //iterator(r).collect{ case nde @ Node(_: NonTrivialDef|_: Node) if !printed(nde) =>
     //iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) if {assert(!printed(nde));!printed(nde)} =>
-    iterator(r).collect{ case nde @ Rep(d) if !d.isSimple && {assert(!printed(nde));!printed(nde)} =>
-      printed(nde) = true
+    //iterator(r).collect{ case nde @ Rep(d) if !d.isSimple && {assert(!printed(nde));!printed(nde)} =>
+    //  printed(nde) = true
+    //iterator(r).toList.reverse.collect { case nde @ Rep(d) if !d.isSimple =>
+    reverseIterator(r).collect { case nde @ Rep(d) if !d.isSimple =>
       //nde.toString
       //s"$nde = ${nde|>dfn}"
       //s"$nde = ${nde.get}"
       s"${nde.bound} = ${d};\n"
     //}.toList.reverse.mkString(";\n")
-    }.toList.reverse.mkString + r.simpleString
+    }.mkString + r.simpleString
   }
   //def showGraph(r: Rep) = {
   //}
-  def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(mutable.HashSet.empty)
-  def mkIterator(r: Rep)(implicit done: mutable.HashSet[Rep]): Iterator[Rep] =
+  def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
+  def reverseIterator(r: Rep): Iterator[Rep] = mkIterator(r)(true,mutable.HashSet.empty)
+  def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] =
     //if (done(r)) Iterator.empty else {
     //  done(r) = true
     //  Iterator.single(r) ++ defn.mkIterator
     //}
     //done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
-    done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfn(r)), Iterator.empty)
-  def mkDefIterator(dfn: Def)(implicit done: mutable.HashSet[Rep]): Iterator[Rep] = dfn match {
+    done.setAndIfUnset(r.bound,
+      if (rev) mkDefIterator(dfn(r)) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(dfn(r)),
+      Iterator.empty)
+  def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn match {
     case MethodApp(self, mtd, targs, argss, tp) =>
       mkIterator(self) ++ argss.flatMap(_.reps.flatMap(mkIterator))
     case Abs(_, b) => mkIterator(b)
     case Ascribe(r, _) => mkIterator(r)
     case Module(r, _, _) => mkIterator(r)
-    case Rep(d) => mkDefIterator(d)
+    //case Rep(d) => mkDefIterator(d) // TODO rm?
+    case _:SyntheticVal => ??? // TODO
     case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
     //case Abs(_, _) | Ascribe(_, _) | MethodApp(_, _, _, _, _) | Module(_, _, _) | NewObject(_) | SplicedHoleClass(_, _) => ???
   }
@@ -328,11 +342,22 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   
   def reduceStep(r: Rep): Bool = {
+    println(s"Reduce $r")
     
-    r match {
-      case Apply(f,arg) =>
+    r.dfn match {
+      //case Apply(f,arg) =>
+      //  println(f)
+      //  println(edges get f.bound)
+      //  println(edges)
+      //case Apply(Rep(Abs(_,_)),arg) =>
+      case LetIn(p, v, b) => // matches redexes across Ascribe nodes
         ???
-      case _ => false
+      case MethodApp(self, mtd, targs, argss, tp) =>
+        reduceStep(self) || argss.iterator.flatMap(_.reps.iterator).exists(reduceStep)
+      case Abs(_, b) => reduceStep(b)
+      case Ascribe(r, _) => reduceStep(r)
+      case Module(r, _, _) => reduceStep(r)
+      case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => false
     }
     
   }

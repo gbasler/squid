@@ -131,6 +131,7 @@ trait ASTHelpers extends Base { self: AST =>
     val showReturnTypes = false
     val showMtdReturnType = showReturnTypes
     val showHoleInfo = false
+    val desugarLetBindings = true
     
     var ident = 0
     def apply(r: Rep): String = apply(dfn(r))
@@ -140,7 +141,7 @@ trait ASTHelpers extends Base { self: AST =>
       case NewObject(typ) => s"new ${typ |> apply}"
       case Typed(BoundVal(name), typ) => if (showValTypes) s"[$name:${typ |> apply}]" else name
       case Abs(p, b) => s"{$p => ${apply(b)}}"
-      case LetIn(p, v, b) => s"let $p = ${apply(v) alsoDo (ident += 2)} in${s"->${b.typ}" optionIf showReturnTypes Else ""}\n${try " " * ident + apply(b) finally ident -= 2}"
+      case LetIn(p, v, b) if desugarLetBindings => s"let $p = ${apply(v) alsoDo (ident += 2)} in${s"->${b.typ}" optionIf showReturnTypes Else ""}\n${try " " * ident + apply(b) finally ident -= 2}"
       //case Imperative(effs, res) => s"{ ${effs map apply mkString "; "}; $res }"
       case imp@Imperative(effs, res) => s"{\n${ident += 2; try ((effs :+ res) map apply map (" " * ident + _ + "\n") mkString) finally ident -= 2}${" " * ident}}${s"->${imp.typ}" optionIf showReturnTypes Else ""}"
       case MethodApp(s, m, ts, ass, typ) => 
