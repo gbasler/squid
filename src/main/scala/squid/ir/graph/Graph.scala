@@ -12,42 +12,125 @@ class Graph extends AST with CurryEncoding { graph =>
   object GraphDebug extends PublicTraceDebug
   
   //val edges = mutable.Map.empty[Rep,Def]
-  val edges = mutable.Map.empty[Val,Def] // invariant: Def never a Node... (that Node<:Def is a little messed up)
+  val edges = mutable.Map.empty[Val,Def]
+  //val edges = mutable.Map.empty[Val,Rep]
   
-  //class Rep(v: Val)
-  type Rep = Val
-  class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
-    override def toString = {
-      val d = dfnOrGet(this)
-      if (d.isSimple) super.toString else s"${super.toString} = ${d}"
-    }
-  }
-  //class Node(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
-  //  def get = edges(this)
-  //  //override def toString = if (get.isSimple) {
-  //  //  println(name,get,get.getClass)
-  //  //  get.toString
-  //  //} else super.toString
+  ////class Rep(v: Val)
+  //type Rep = Val
+  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+  //  override def toString = {
+  //    val d = dfnOrGet(this)
+  //    if (d.isSimple) super.toString else s"${super.toString} = ${d}"
+  //  }
   //}
-  //type Node = Rep
-  //type Node = Val
-  object Rep {
-    def unapply(r: Rep): Def|>Option = edges get r
-    //def unapply(r: Rep): Some[Def] = edges(r) into Some.apply
+  ////class Node(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+  ////  def get = edges(this)
+  ////  //override def toString = if (get.isSimple) {
+  ////  //  println(name,get,get.getClass)
+  ////  //  get.toString
+  ////  //} else super.toString
+  ////}
+  ////type Node = Rep
+  ////type Node = Val
+  //object Rep {
+  //  def unapply(r: Rep): Def|>Option = edges get r
+  //  //def unapply(r: Rep): Some[Def] = edges(r) into Some.apply
+  //}
+  
+  // Synthetic vals are never supposed to be let-bound...?
+  class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) with Rep {
+    //override def toString = {
+    //  val d = dfnOrGet(this)
+    //  if (d.isSimple) super.toString else s"${super.toString} = ${d}"
+    //}
+    def dfn = this
   }
-  override protected def freshNameImpl(n: Int) = "$"+n
+  
+  //sealed abstract class Rep {
+  //sealed abstract trait Rep {
+  //  def dfn: Def
+  //}
+  
+  //override protected def freshNameImpl(n: Int) = "$"+n
+  override protected def freshNameImpl(n: Int) = "@"+n
   
   class Id
   type CtorSymbol = Class[_]
   
+  //case class Expr(dfn: Def) extends Rep {
+  //}
+  //sealed abstract class Expr extends Rep
+  //case class Ref(v: Val) extends Expr
+  //class DelayedRef(v: Val) extends Expr
+  //class Expr(getDfn: => Def) extends Rep {
+  //  //lazy val bound: Val = 
+  //  private var _bound: Val = _
+  //  private def bind(v: Val) = {
+  //    _bound = v
+  //    edges += v -> getDfn
+  //  }
+  //  def asBoundBy(v: Val) = {
+  //    assert(_bound === null)
+  //    bind(v)
+  //    this
+  //  }
+  //  def bound = {
+  //    if (_bound === null) bind(freshBoundVal(dfn.typ))
+  //    _bound
+  //  }
+  //}
+  //class Expr(initialDef: Def) extends Rep {
+  class Rep(initialDef: Def) {
+    //lazy val bound: Val = 
+    private var _bound: Val = _
+    private def bind(v: Val) = {
+      _bound = v
+      edges += v -> initialDef
+    }
+    def asBoundBy(v: Val) = {
+      assert(_bound === null)
+      bind(v)
+      this
+    }
+    def maybeBound = Option(_bound)
+    def bound = {
+      //if (_bound === null) bind(freshBoundVal(initialDef.typ))
+      if (_bound === null) bind(initialDef match {
+        case v: Val => v
+        case _ => freshBoundVal(initialDef.typ)
+      })
+      _bound
+    }
+    def dfn: Def = edges.getOrElse(bound, bound)
+    def maybeDfn: Def = maybeBound flatMap edges.get getOrElse initialDef
+  
+    override def toString = {
+      val d = maybeDfn
+      if (d.isSimple) d.toString else s"${maybeBound getOrElse "<...>"} = $maybeDfn"
+    }
+    def simpleString = {
+      val d = dfn
+      if (d.isSimple) d.toString else bound.toString
+    }
+  }
+  //object Expr {
+  object Rep {
+    def apply(d: Def) = new Rep(d)
+    def unapply(e: Rep) = Some(e.dfn)
+  }
+  
   case class Call(call: Id, result: Rep) extends SyntheticVal("C", result.typ) {
+  //case class Call(call: Id, result: Rep) extends Rep {
     
   }
-  //case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
+  ////case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
   case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends SyntheticVal("A", cbr.typ) {
+  //case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends Rep {
     
   }
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
+  //case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends Rep {
     
   }
   
@@ -59,25 +142,29 @@ class Graph extends AST with CurryEncoding { graph =>
   //}
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
+    override val showValTypes = false
     override def apply(r: Rep): String = r match {
       case Rep(d) if d.isSimple => apply(d)
-      case _ => super.apply(r)
+      //case _ => super.apply(r)
+      case _ => super.apply(r.bound)
     }
     //override def apply(d: Def): String = if (get.isSimple) {
   }
   
   // Implementations of AST methods:
   
-  def rep(dfn: Def) = dfn match {
-    case v: Val => v
-    //case _ => freshBoundVal(dfn.typ) alsoApply {edges += _ -> dfn}
-    case _ => new SyntheticVal(freshName.tail, dfn.typ) also {edges += _ -> dfn}
-  }
+  def rep(dfn: Def) = Rep(dfn)
+  //def rep(dfn: Def) = dfn match {
+  //  case v: Val => v
+  //  //case _ => freshBoundVal(dfn.typ) alsoApply {edges += _ -> dfn}
+  //  case _ => new SyntheticVal(freshName.tail, dfn.typ) also {edges += _ -> dfn}
+  //}
   
   //def dfn(r: Rep) = edges(r)
   //def dfn(r: Rep) = r match { case Node(d) => d  case bv => bv }
-  def dfn(r: Rep): Def = r
-  def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
+  //def dfn(r: Rep): Def = r
+  def dfn(r: Rep): Def = r.dfn
+  //def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
   
   def repType(r: Rep) = r|>dfn typ
   
@@ -104,9 +191,9 @@ class Graph extends AST with CurryEncoding { graph =>
       //nde.toString
       //s"$nde = ${nde|>dfn}"
       //s"$nde = ${nde.get}"
-      s"$nde = ${d};\n"
+      s"${nde.bound} = ${d};\n"
     //}.toList.reverse.mkString(";\n")
-    }.toList.reverse.mkString + r
+    }.toList.reverse.mkString + r.simpleString
   }
   //def showGraph(r: Rep) = {
   //}
@@ -116,7 +203,8 @@ class Graph extends AST with CurryEncoding { graph =>
     //  done(r) = true
     //  Iterator.single(r) ++ defn.mkIterator
     //}
-    done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
+    //done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
+    done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfn(r)), Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit done: mutable.HashSet[Rep]): Iterator[Rep] = dfn match {
     case MethodApp(self, mtd, targs, argss, tp) =>
       mkIterator(self) ++ argss.flatMap(_.reps.flatMap(mkIterator))
@@ -131,7 +219,8 @@ class Graph extends AST with CurryEncoding { graph =>
   
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     //??? // oops, need a Node here
-    {edges += bound -> value} thenReturn body
+    //{edges += bound -> value} thenReturn body
+    value.asBoundBy(bound) thenReturn body
   
   
   
@@ -184,12 +273,14 @@ class Graph extends AST with CurryEncoding { graph =>
     //  case Rep(d) => d
     //  case _ => r
     //})
-    def apply(r: Rep) = {
-      val d = dfnOrGet(r)
-      //if (d.isSimple) apply(d)
-      //else apply(r:Def)
-      apply(if (d.isSimple) d else r)
-    }
+    def apply(r: Rep): newBase.Rep = ???
+    //def apply(r: Rep) = {
+    //  //val d = dfnOrGet(r)
+    //  val d = dfn(r)
+    //  //if (d.isSimple) apply(d)
+    //  //else apply(r:Def)
+    //  apply(if (d.isSimple) d else r)
+    //}
     def applyTopLevel(r: Rep) = {
       val rtyp = rect(r.typ)
       //iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) => nde -> d }.foldRight(apply(r)){
@@ -205,8 +296,8 @@ class Graph extends AST with CurryEncoding { graph =>
       //iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) => nde -> d }.foldLeft(() => apply(r)){
       iterator(r).collect{ case nde @ Rep(d) if !d.isSimple => nde -> d }.foldLeft(() => apply(r)){
         case (termFun, nde -> d) =>
-          val b = nde |> recv
-          bound += nde -> b
+          val b = nde.bound |> recv
+          bound += nde.bound -> b
           () => {
             val v = apply(d)
             newBase.letin(b, v, termFun(), rtyp)

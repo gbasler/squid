@@ -127,6 +127,7 @@ trait ASTHelpers extends Base { self: AST =>
   def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter {
     
+    val showValTypes = true
     val showReturnTypes = false
     val showMtdReturnType = showReturnTypes
     val showHoleInfo = false
@@ -137,7 +138,7 @@ trait ASTHelpers extends Base { self: AST =>
       case Constant(str: String) => '"' + str + '"'
       case Constant(v) => s"$v"
       case NewObject(typ) => s"new ${typ |> apply}"
-      case Typed(BoundVal(name), typ) => s"[$name:${typ |> apply}]"
+      case Typed(BoundVal(name), typ) => if (showValTypes) s"[$name:${typ |> apply}]" else name
       case Abs(p, b) => s"{$p => ${apply(b)}}"
       case LetIn(p, v, b) => s"let $p = ${apply(v) alsoDo (ident += 2)} in${s"->${b.typ}" optionIf showReturnTypes Else ""}\n${try " " * ident + apply(b) finally ident -= 2}"
       //case Imperative(effs, res) => s"{ ${effs map apply mkString "; "}; $res }"
