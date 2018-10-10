@@ -15,6 +15,9 @@ class Graph extends AST with CurryEncoding { graph =>
   val edges = mutable.Map.empty[Val,Def]
   //val edges = mutable.Map.empty[Val,Rep]
   
+  def rebind(v: Val, d: Def): Unit = edges += v -> d
+  def rebind(r: Rep, d: Def): Unit = rebind(r.bound, d)
+  
   ////class Rep(v: Val)
   //type Rep = Val
   //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
@@ -55,7 +58,7 @@ class Graph extends AST with CurryEncoding { graph =>
   //override protected def freshNameImpl(n: Int) = "$"+n
   override protected def freshNameImpl(n: Int) = "@"+n
   
-  class Id
+  //class Id
   type CtorSymbol = Class[_]
   
   //case class Expr(dfn: Def) extends Rep {
@@ -110,7 +113,13 @@ class Graph extends AST with CurryEncoding { graph =>
     def dfn: Def = edges.getOrElse(bound, bound)
     //def dfn: Def = edges.getOrElse(bound, ???)
     def maybeDfn: Def = maybeBound flatMap edges.get getOrElse initialDef
-  
+    
+    override def equals(that: Any) = that match {
+      case r: Rep => r.bound === bound
+      case _ => false
+    }
+    override def hashCode = bound.hashCode
+    
     override def toString = {
       val d = maybeDfn
       if (d.isSimple) d.toString else s"${maybeBound getOrElse "<...>"} = $maybeDfn"
@@ -126,15 +135,16 @@ class Graph extends AST with CurryEncoding { graph =>
     def unapply(e: Rep) = Some(e.dfn)
   }
   
-  case class Call(call: Id, result: Rep) extends SyntheticVal("C", result.typ) {
+  case class Call(cid: CallId, result: Rep) extends SyntheticVal("C"+cid, result.typ) {
   //case class Call(call: Id, result: Rep) extends Rep {
     
   }
   ////case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
-  case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends SyntheticVal("A", cbr.typ) {
+  case class Arg(cid: CallId, cbr: Rep, els: Option[Rep]) extends SyntheticVal("A"+cid, cbr.typ) {
   //case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends Rep {
     
   }
+  // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
   //case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends Rep {
     
@@ -156,6 +166,12 @@ class Graph extends AST with CurryEncoding { graph =>
       case _ => super.apply(r.bound)
     }
     //override def apply(d: Def): String = if (get.isSimple) {
+    override def apply(d: Def): String = d match {
+      case Call(cid, res) => s"C[$cid](${res |> apply})"
+      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + els.fold("")("|"+apply(_))
+      case _:SyntheticVal => ??? // TODO
+      case _ => super.apply(d)
+    }
   }
   
   // Implementations of AST methods:
@@ -225,6 +241,10 @@ class Graph extends AST with CurryEncoding { graph =>
     case Ascribe(r, _) => mkIterator(r)
     case Module(r, _, _) => mkIterator(r)
     //case Rep(d) => mkDefIterator(d) // TODO rm?
+    case Call(cid, res) =>
+      mkIterator(res)
+    case Arg(cid, cbr, els) =>
+      mkIterator(cbr) ++ els.iterator.flatMap(mkIterator)
     case _:SyntheticVal => ??? // TODO
     case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
     //case Abs(_, _) | Ascribe(_, _) | MethodApp(_, _, _, _, _) | Module(_, _, _) | NewObject(_) | SplicedHoleClass(_, _) => ???
@@ -336,32 +356,64 @@ class Graph extends AST with CurryEncoding { graph =>
   implicit class GraphDefOps(private val self: Def) {
     def isSimple = self match {
       case _: SyntheticVal => false
-      case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => true
+      //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => true
+      case _: LeafDef => true
       case _ => false
     }
   }
   
   def reduceStep(r: Rep): Bool = {
-    println(s"Reduce $r")
+    println(s"> Reduce $r")
     
     r.dfn match {
       //case Apply(f,arg) =>
       //  println(f)
       //  println(edges get f.bound)
       //  println(edges)
-      //case Apply(Rep(Abs(_,_)),arg) =>
-      case LetIn(p, v, b) => // matches redexes across Ascribe nodes
-        ???
+      //case Apply(ar @ Rep(Abs(_,_)),arg) =>
+      case Apply(ar @ Rep(Abs(p,b)),v) =>
+      //case BetaRedex(p, v, b) => // matches redexes across Ascribe nodes
+        val cid = new CallId("β")
+        //Call(id, b) |> rep
+        rebind(r.bound, Call(cid, b))
+        // TODO also rebind usages... p
+        val newp = bindVal(p.name+"'",p.typ,p.annots)
+        mkArgs(p, cid, v, newp.toRep)(b)
+        rebind(ar.bound, Abs(newp, b)(ar.typ))
+        true
       case MethodApp(self, mtd, targs, argss, tp) =>
         reduceStep(self) || argss.iterator.flatMap(_.reps.iterator).exists(reduceStep)
       case Abs(_, b) => reduceStep(b)
       case Ascribe(r, _) => reduceStep(r)
       case Module(r, _, _) => reduceStep(r)
-      case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => false
+      //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => false
+      case _: LeafDef => false
     }
     
   }
   
+  def mkArgs(p: Val, cid: CallId, arg: Rep, els: Rep)(r: Rep): Unit = {
+    val traversed = mutable.HashSet.empty[Rep]
+    def rec(r: Rep): Unit = traversed.setAndIfUnset(r, r.dfn match {
+      case `p` => rebind(r, Arg(cid, arg, Some(els)))
+      //case `p` => Rep(Arg(cid, arg, Some(r.dfn.toRep)))
+      case Call(_, res) => rec(res)
+      case MethodApp(self, mtd, targs, argss, tp) =>
+        rec(self)
+        argss.iterator.flatMap(_.reps.iterator).foreach(rec)
+      //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) =>
+      case _: LeafDef =>
+    })
+    rec(r)
+  }
   
   
+  
+}
+
+object CallId { private var curId = 0; def reset(): Unit = curId = 0 }
+class CallId(val name: String) {
+  val uid: Int = CallId.curId alsoDo (CallId.curId += 1)
+  def uidstr: String = s"$name$uid"
+  override def toString: String = uidstr
 }
