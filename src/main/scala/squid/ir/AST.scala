@@ -341,7 +341,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   type Val = BoundVal
   // To do later: refactor this class for more convenience -- use a unique id in addition to the name
-  case class BoundVal(name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def {
+  /*case*/ class BoundVal(val name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def { self =>
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
     def renew = new BoundVal(name+freshName)(typ,annots) //alsoDo (varCount += 1)
     
@@ -356,6 +356,12 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
     override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
     //override def hashCode(): Int = name.hashCode // should be inherited
+    
+    def copy(name: String = self.name)(typ: TypeRep = self.typ, annots: List[Annot] = self.annots) = new BoundVal(name)(typ, annots)
+  }
+  object BoundVal {
+    def apply(name: String)(typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
+    def unapply(bv: BoundVal) = Some(bv.name)
   }
   def boundValType(bv: BoundVal) = bv.typ
   
