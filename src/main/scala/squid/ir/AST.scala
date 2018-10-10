@@ -340,11 +340,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   type Val = BoundVal
   // To do later: refactor this class for more convenience -- use a unique id in addition to the name
-  /*case*/ class BoundVal(val name: String)(val typ: TypeRep, val annots: List[Annot]) extends Def { self =>
+  /*case*/ class BoundVal(val name: String)(val typ: TypeRep, val annots: List[Annot]) extends LeafDef { self =>
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
     def renew = new BoundVal(name+freshName)(typ,annots) //alsoDo (varCount += 1)
     
-    def toRep = rep(this)
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name
       val extr: Extract =
@@ -377,7 +376,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def apply(name: String)(typ: TypeRep,originalSymbol: Option[BoundVal] = None, matchedSymbol: Option[BoundVal] = None) = HoleClass(name: String,typ: TypeRep)(originalSymbol,matchedSymbol)
     def unapply(x:Hole) = HoleClass.unapply(x) map (_._1)
   }
-  case class HoleClass(name: String, typ: TypeRep)(val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef
+  case class HoleClass(name: String, typ: TypeRep)(val originalSymbol: Option[BoundVal] = None, val matchedSymbol: Option[BoundVal] = None) extends NonTrivialDef with LeafDef
   type SplicedHole = SplicedHoleClass
   object SplicedHole {
     def apply(name: String)(typ: TypeRep) = SplicedHoleClass(name: String,typ: TypeRep)
@@ -390,7 +389,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   sealed trait ConstantLike { val value: Any }
   
-  case class Constant(value: Any) extends Def with ConstantLike {
+  case class Constant(value: Any) extends LeafDef with ConstantLike {
     lazy val typ = value match {
       case () => TypeRep(ruh.Unit)
       //case null => TypeRep(ruh.Null) // Not necessary; Scala creates a constant type Null(null) -- note: that type is a strict subtype of Null...
@@ -403,7 +402,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   
   // Note: would have probably been simpler to just give Constant a smart constructor/destructor and discriminate based on type...
-  case class CrossStageValue protected(value: Any, typ: TypeRep) extends Def with ConstantLike
+  case class CrossStageValue protected(value: Any, typ: TypeRep) extends LeafDef with ConstantLike
   
   case class Abs(param: BoundVal, body: Rep)(val typ: TypeRep) extends Def {
     def ptyp = param.typ
@@ -430,7 +429,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   case class NewObject(typ: TypeRep) extends NonTrivialDef
   
-  case class StaticModule(fullName: String) extends Def {
+  case class StaticModule(fullName: String) extends LeafDef {
     lazy val typ = staticModuleType(fullName)
   }
   
@@ -451,10 +450,13 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   case class Module(prefix: Rep, name: String, typ: TypeRep) extends Def
   
+  sealed trait LeafDef extends Def
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
+    
+    def toRep = rep(this)
     
     lazy val unboundVals = self.unboundVals(this)
     def isClosed = unboundVals.isEmpty
