@@ -50,9 +50,10 @@ package object utils {
   
   implicit final class Alsoable[T](private val self: T) extends AnyVal {
     
-    // TODO rename to just `also`
     @inline def alsoApply(effect_f: T => Unit) = { effect_f(self); self }
     @inline def alsoApply_?(effect_f: PartialFunction[T,Unit]) = { effect_f.runWith(_=>())(self); self }
+    // TODO move old usages of the above to `also`
+    @inline def also(effect_f: T => Unit) = { effect_f(self); self }
     
     @inline def alsoDo(effect: Unit) = self
     

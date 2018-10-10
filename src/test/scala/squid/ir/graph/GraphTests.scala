@@ -25,9 +25,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
   
   test("A") {
     
-    val c = code"readInt+1"
+    //val c = code"readInt+1"
+    val c = code"scala.util.Random.nextInt+1"
     println(c.rep)
     println(c)
+    println(c.run)
     println(DSL.showGraph(c.rep))
     
     
