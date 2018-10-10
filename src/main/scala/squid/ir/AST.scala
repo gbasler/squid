@@ -344,6 +344,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
     def renew = new BoundVal(name+freshName)(typ,annots) //alsoDo (varCount += 1)
     
+    def toRep = rep(this)
     def toHole(model: BoundVal): Extract -> Hole = {
       val newName = model.name
       val extr: Extract =

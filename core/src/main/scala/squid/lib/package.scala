@@ -106,4 +106,8 @@ package object lib {
   
   class Implicit extends StaticAnnotation
   
+  
+  def unbound(name: String): Nothing = sys.error(s"Unbound variable: $name")
+  
+  
 }
