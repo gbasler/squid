@@ -7,7 +7,7 @@ import squid.utils.CollectionUtils.MutSetHelper
 import scala.collection.mutable
 
 /* In the future, we may want to remove `with CurryEncoding` and implement proper multi-param lambdas... */
-class Graph extends AST with CurryEncoding {
+class Graph extends AST with CurryEncoding { graph =>
   
   object GraphDebug extends PublicTraceDebug
   
@@ -16,10 +16,15 @@ class Graph extends AST with CurryEncoding {
   
   //class Rep(v: Val)
   type Rep = Val
-  class SyntheticVal(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots)
+  class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+    override def toString = {
+      val d = dfnOrGet(this)
+      if (d.isSimple) super.toString else s"${super.toString} = ${d}"
+    }
+  }
   //class Node(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
   //  def get = edges(this)
-  //  //override def toString = if (get.isTrivial) {
+  //  //override def toString = if (get.isSimple) {
   //  //  println(name,get,get.getClass)
   //  //  get.toString
   //  //} else super.toString
@@ -32,8 +37,22 @@ class Graph extends AST with CurryEncoding {
   }
   override protected def freshNameImpl(n: Int) = "$"+n
   
+  class Id
+  type CtorSymbol = Class[_]
+  
+  case class Call(call: Id, result: Rep) extends SyntheticVal("C", result.typ) {
+    
+  }
+  //case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
+  case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends SyntheticVal("A", cbr.typ) {
+    
+  }
+  case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
+    
+  }
+  
   //override def prettyPrint(d: Def) = d match {
-  //  case Node(d) if d.isTrivial =>
+  //  case Node(d) if d.isSimple =>
   //    ???
   //    prettyPrint(d)
   //  case _ => super.prettyPrint(d)
@@ -41,10 +60,10 @@ class Graph extends AST with CurryEncoding {
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
     override def apply(r: Rep): String = r match {
-      case Rep(d) if d.isTrivial => apply(d)
+      case Rep(d) if d.isSimple => apply(d)
       case _ => super.apply(r)
     }
-    //override def apply(d: Def): String = if (get.isTrivial) {
+    //override def apply(d: Def): String = if (get.isSimple) {
   }
   
   // Implementations of AST methods:
@@ -52,7 +71,7 @@ class Graph extends AST with CurryEncoding {
   def rep(dfn: Def) = dfn match {
     case v: Val => v
     //case _ => freshBoundVal(dfn.typ) alsoApply {edges += _ -> dfn}
-    case _ => new SyntheticVal(freshName.tail)(dfn.typ) also {edges += _ -> dfn}
+    case _ => new SyntheticVal(freshName.tail, dfn.typ) also {edges += _ -> dfn}
   }
   
   //def dfn(r: Rep) = edges(r)
@@ -65,12 +84,12 @@ class Graph extends AST with CurryEncoding {
   //override def showRep(r: Rep) = r match {
   //  //case Node(_:NonTrivialDef) => super.showRep(r)
   //  //case Node(d) => 
-  //  case Node(d) if r.isTrivial => 
+  //  case Node(d) if r.isSimple => 
   //    println(d,d.getClass)
   //    d.toString
   //  case _ => super.showRep(r)
   //}
-  //override def showRep(r: Rep) = if (r.isTrivial) sh
+  //override def showRep(r: Rep) = if (r.isSimple) sh
   
   //override def showRep(r: Rep) = {
   def showGraph(r: Rep) = {
@@ -79,7 +98,8 @@ class Graph extends AST with CurryEncoding {
     //showGraph(r)
     //iterator(r).collect{ case nde @ Node(_: NonTrivialDef|_: Rep) if !printed(nde) =>
     //iterator(r).collect{ case nde @ Node(_: NonTrivialDef|_: Node) if !printed(nde) =>
-    iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) if {assert(!printed(nde));!printed(nde)} =>
+    //iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) if {assert(!printed(nde));!printed(nde)} =>
+    iterator(r).collect{ case nde @ Rep(d) if !d.isSimple && {assert(!printed(nde));!printed(nde)} =>
       printed(nde) = true
       //nde.toString
       //s"$nde = ${nde|>dfn}"
@@ -98,9 +118,13 @@ class Graph extends AST with CurryEncoding {
     //}
     done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit done: mutable.HashSet[Rep]): Iterator[Rep] = dfn match {
-    case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
     case MethodApp(self, mtd, targs, argss, tp) =>
       mkIterator(self) ++ argss.flatMap(_.reps.flatMap(mkIterator))
+    case Abs(_, b) => mkIterator(b)
+    case Ascribe(r, _) => mkIterator(r)
+    case Module(r, _, _) => mkIterator(r)
+    case Rep(d) => mkDefIterator(d)
+    case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
     //case Abs(_, _) | Ascribe(_, _) | MethodApp(_, _, _, _, _) | Module(_, _, _) | NewObject(_) | SplicedHoleClass(_, _) => ???
   }
   
@@ -162,9 +186,9 @@ class Graph extends AST with CurryEncoding {
     //})
     def apply(r: Rep) = {
       val d = dfnOrGet(r)
-      //if (d.isTrivial) apply(d)
+      //if (d.isSimple) apply(d)
       //else apply(r:Def)
-      apply(if (d.isTrivial) d else r)
+      apply(if (d.isSimple) d else r)
     }
     def applyTopLevel(r: Rep) = {
       val rtyp = rect(r.typ)
@@ -178,7 +202,8 @@ class Graph extends AST with CurryEncoding {
       //    bound += nde -> b
       //    () => newBase.letin(b, v, termFun(), rtyp)
       //}
-      iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) => nde -> d }.foldLeft(() => apply(r)){
+      //iterator(r).collect{ case nde @ Rep(d: NonTrivialDef) => nde -> d }.foldLeft(() => apply(r)){
+      iterator(r).collect{ case nde @ Rep(d) if !d.isSimple => nde -> d }.foldLeft(() => apply(r)){
         case (termFun, nde -> d) =>
           val b = nde |> recv
           bound += nde -> b
@@ -194,6 +219,32 @@ class Graph extends AST with CurryEncoding {
       val newBase: NewBase.type = NewBase
       override val extrudedHandle = ExtrudedHandle
     } applyTopLevel r apply ()
+  
+  
+  implicit class GraphRepOps(private val self: Rep) {
+    //def reduceStep: Rep = graph.reduceStep(self) thenReturn self
+    def reduceStep = self optionIf graph.reduceStep _
+    def showGraph = graph.showGraph(self)
+    def iterator = graph.iterator(self)
+  }
+  
+  implicit class GraphDefOps(private val self: Def) {
+    def isSimple = self match {
+      case _: SyntheticVal => false
+      case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => true
+      case _ => false
+    }
+  }
+  
+  def reduceStep(r: Rep): Bool = {
+    
+    r match {
+      case Apply(f,arg) =>
+        ???
+      case _ => false
+    }
+    
+  }
   
   
   
