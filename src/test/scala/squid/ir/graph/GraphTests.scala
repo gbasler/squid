@@ -30,14 +30,15 @@ class GraphTests extends MyFunSuite(MyGraph) {
     val c = code"val f = (x: Int) => x+1; f(scala.util.Random.nextInt) * f(2)"
     
     //println(c.rep)
-    //println(c)
+    println(c)
     //println(c.run)
-    println(c.rep.iterator.toList.mkString("\n"))
+    //println(c.rep.iterator.toList.mkString("\n"))
     println
     println(DSL.showGraph(c.rep))
     //println(DSL.reduceStep(c.rep))
     println
     println(c.rep.reduceStep.map(_.showGraph))
+    println(c)
     
     
   }
