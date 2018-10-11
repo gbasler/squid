@@ -216,7 +216,23 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
   // Note that this will not wrap refined type in an upcast (it doesn't apply 'ascribeIfNot')
-  def substituteVal(r: Rep, v: BoundVal, arg: => Rep): Rep = new PartialTransformer(self => {
+  def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
+    val arg = Lazy(mkArg)
+    val freeInArg = Lazy(freeVariables(arg.value)) // we can't do this early because of the lazy semantics of `substituteVal`
+    new PartialTransformer(self => {
+      case RepDef(`v`) => arg.value
+      case r @ RepDef(Abs(`v`,_)) => r
+      case r @ RepDef(Abs(v2,body)) =>
+        val newBody = self(body)
+        if (arg.computed && freeInArg.value.contains(v2)) {
+          val v3 = bindVal(v2.name+"_", v2.typ, v2.annots)
+          val newBody = self(substituteValFastUnhygienic(body, v2, v3 |> rep))
+          // ^ we need to rebuild the substitution to avoid mixing the legit occrrences witht he ones introduced by arg!!
+          Abs(v3, newBody)(r.typ) |> rep
+        } else if (newBody eq body) r else Abs(v2,newBody)(r.typ) |> rep
+    })(r)
+  }
+  protected def substituteValFastUnhygienic(r: Rep, v: BoundVal, arg: Rep): Rep = new PartialTransformer(self => {
     case RepDef(`v`) => arg
     case r @ RepDef(Abs(`v`,_)) => r
   })(r)

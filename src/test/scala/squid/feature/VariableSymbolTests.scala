@@ -297,7 +297,7 @@ class VariableSymbolTests extends MyFunSuite {
     
     val p0 = code"($v:Int) => $v + $w"
     val p1 = w.substitute[Int => Int, v.Ctx](p0, v.toCode)
-    //eqt(p1, code"(a:Int) => a + a", false)  // FIXME
+    eqt(p1, code"(a:Int) => a + a", false)
     eqt(p1, code"(a:Int) => a + $v")
     
     // FIXME? Should these really compare equal?
