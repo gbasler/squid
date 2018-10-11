@@ -219,16 +219,26 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     val arg = Lazy(mkArg)
     val freeInArg = Lazy(freeVariables(arg.value)) // we can't do this early because of the lazy semantics of `substituteVal`
+    def captureAvoiding(self: PartialTransformer, v2: Val, body: Rep) = {
+      val v3 = bindVal(v2.name+"_", v2.typ, v2.annots)
+      val newBody = self(substituteValFastUnhygienic(body, v2, v3 |> rep))
+      Abs(v3, newBody)(r.typ) |> rep
+    }
     new PartialTransformer(self => {
       case RepDef(`v`) => arg.value
       case r @ RepDef(Abs(`v`,_)) => r
+      case r @ RepDef(Abs(v2,body)) if arg.computed => // if we can already look at the free variables, this is faster
+        if (freeInArg.value.contains(v2)) captureAvoiding(self,v2,body)
+        else {
+          val newBody = self(body)
+          if (newBody eq body) r else Abs(v2,newBody)(r.typ) |> rep
+        }
       case r @ RepDef(Abs(v2,body)) =>
-        val newBody = self(body)
+        assert(!arg.computed && !freeInArg.computed)
+        val newBody = self(body) // need to try with 'body' in case it evaluates 'arg'
         if (arg.computed && freeInArg.value.contains(v2)) {
-          val v3 = bindVal(v2.name+"_", v2.typ, v2.annots)
-          val newBody = self(substituteValFastUnhygienic(body, v2, v3 |> rep))
+          captureAvoiding(self,v2,body)
           // ^ we need to rebuild the substitution to avoid mixing the legit occrrences witht he ones introduced by arg!!
-          Abs(v3, newBody)(r.typ) |> rep
         } else if (newBody eq body) r else Abs(v2,newBody)(r.typ) |> rep
     })(r)
   }
