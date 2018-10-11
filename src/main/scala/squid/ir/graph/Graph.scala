@@ -88,25 +88,35 @@ class Graph extends AST with CurryEncoding { graph =>
     //lazy val bound: Val = 
     private var _bound: Val = _
     private def bind(v: Val) = {
+      assert(_bound === null)
       _bound = v
+      val proc = postProcess(this)
+      if (proc.bound =/= _bound) _bound = proc.bound
+    }
+    private def bindAsNew(v: Val): Unit = {
+      //bind(v) alsoDo {edges += v -> initialDef}
+      bind(v)
       edges += v -> initialDef
     }
     def asBoundBy(v: Val) = {
       //println(s"$initialDef bound by $v")
-      assert(_bound === null)
-      bind(v)
+      //assert(_bound === null)
+      bindAsNew(v)
       this
     }
     def maybeBound = Option(_bound)
-    def bound = {
+    def bound: Val = {
       //if (_bound === null) bind(freshBoundVal(initialDef.typ))
       //if (_bound === null) bind(initialDef match {
       //  case v: Val => v
       //  case _ => freshBoundVal(initialDef.typ)
       //})
       if (_bound === null) initialDef match {
-        case v: Val => _bound = v
-        case _ => bind(freshBoundVal(initialDef.typ))
+        case v: Val => bind(v)
+        case _ =>
+          //val bnd = 
+          bindAsNew(freshBoundVal(initialDef.typ))
+          //if (bnd)
       }
       _bound
     }
@@ -131,7 +141,7 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   //object Expr {
   object Rep {
-    def apply(d: Def) = new Rep(d)
+    //def apply(d: Def) = new Rep(d)
     def unapply(e: Rep) = Some(e.dfn)
   }
   
@@ -176,7 +186,10 @@ class Graph extends AST with CurryEncoding { graph =>
   
   // Implementations of AST methods:
   
-  def rep(dfn: Def) = Rep(dfn)
+  //def rep(dfn: Def) = Rep(dfn)
+  def rep(dfn: Def) =
+    //postProcess(new Rep(dfn)) // would force the Rep too early (before it's let bound), resulting in binder duplication...
+    new Rep(dfn)
   //def rep(dfn: Def) = dfn match {
   //  case v: Val => v
   //  //case _ => freshBoundVal(dfn.typ) alsoApply {edges += _ -> dfn}
@@ -187,8 +200,8 @@ class Graph extends AST with CurryEncoding { graph =>
   //def dfn(r: Rep) = r match { case Node(d) => d  case bv => bv }
   //def dfn(r: Rep): Def = r
   
-  //def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
-  def dfn(r: Rep): Def = r.bound
+  def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
+  //def dfn(r: Rep): Def = r.bound
   
   //def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
   
@@ -305,6 +318,9 @@ class Graph extends AST with CurryEncoding { graph =>
   
   //abstract class Reinterpreter extends super.Reinterpreter {
   trait Reinterpreter extends super.Reinterpreter {
+    
+    override val recoverLetIns = false
+    
     /*
     //def apply(r: Rep) = apply(dfn(r):Def)
     //def apply(r: Rep) = apply(dfnOrGet(r):Def)
@@ -424,11 +440,11 @@ class Graph extends AST with CurryEncoding { graph =>
       //else bindOrGet(r.bound) alsoDo {params.head += r}
       else recv(r.bound) |> newBase.readVal alsoDo {params.head += r}
     case _ =>
-      println(s"> Apply $r (${pointers(r).map(_.bound)})")
+      //println(s"> Apply $r (${pointers(r).map(_.bound)})")
       if (pointers(r).size > 1) {
         functions.getOrElseUpdate(r, {
         //functions.getOrElse(r, {
-          println(s"> Making function for ${r.bound}...")
+        //  println(s"> Making function for ${r.bound}...")
           val rtyp = rect(r.typ)
           val params -> res = scheduleFunction(r)
           println(s"> Function: $params -> $res")
@@ -453,7 +469,8 @@ class Graph extends AST with CurryEncoding { graph =>
       else apply(r.dfn)
     }
     //protected def bindOrGet(v: Val) = bound.getOrElseUpdate(v, recv(v)) |> newBase.readVal
-    override protected def recv(v: Val) = bound.getOrElse(v, super.recv(v))
+    override protected def recv(v: Val): newBase.BoundVal =
+      bound.getOrElse(v, super.recv(v)) // FIXME calling super.recv in the wrong order messes with some interpreters, such as BaseInterpreter
     /*
     override def apply(d: Def) = d match {
       case Call(cid, res) =>

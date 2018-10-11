@@ -176,8 +176,9 @@ self: Base =>
     
     override def withContext[C <: Ctx]: Code[T,Ctx] = this
     
+    def show = showRep(rep)
     override def toString: String = {
-      val repStr = showRep(rep)
+      val repStr = show
       val quote = if ((repStr contains '\n') || (repStr contains '"')) "\"" * 3 else "\""
       s"code$quote$repStr$quote"
     }

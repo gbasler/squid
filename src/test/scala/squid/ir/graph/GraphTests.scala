@@ -20,6 +20,12 @@ import utils._
 
 object MyGraph extends Graph
 
+//object GraphTests {
+//  def nextInt = scala.util.Random.nextInt
+//}
+//import GraphTests._
+import scala.util.Random.nextInt
+
 class GraphTests extends MyFunSuite(MyGraph) {
   import DSL.Predef._
   
@@ -31,6 +37,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
       println(cur)
       println
     } while (DSL.reduceStep(cur.rep))
+    println(" --- END ---")
   }
   
   test("A") {
@@ -64,6 +71,50 @@ class GraphTests extends MyFunSuite(MyGraph) {
     process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(2) + f(3)(4)")
     
     process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(f(3)(4))")
+    
+  }
+  
+  
+  /*
+  
+    Note:
+      rewriting as implemented is currently a little dangerous: it will rewrite things bound to variables and used
+      several times, possibly duplicating some work
+      in contrast, it seems GHC only rewrite variables used once... (is that true?)
+     
+  */
+  
+  
+  //def rw(c: ClosedCode[Any]) = c also println rewrite {
+  //  case code"readInt.toDouble" => code"readDouble"
+  //} also println
+  def rw(c: ClosedCode[Any]) = {
+    var mod = true
+    var cur = c
+    println("\n--> "+cur.show)
+    println(cur.rep.showGraph)
+    while (mod) {
+      mod = false
+      cur = cur rewrite {
+        case code"readInt.toDouble" => mod = true; code"readDouble"
+        case code"(($x: $xt) => $body:$bt)($arg)" => mod = true; body.subs(x) ~> arg
+      } also (r => if (mod) println(" ~> "+r))
+    }
+  }
+  
+  test("Rw 1") {
+    
+    //code"readInt+1-1" also println rewrite {
+    //  case code"readInt" => code"nextInt"
+    //  //case code"($a:Int)-($b:Int)" => code"$a*$b" // FIXME better error (vararg)
+    //  case code"($a:Int)-($b:Int)" => code"$a * $b"
+    //} also println
+    
+    rw(code"readInt.toDouble+1-1")
+    
+    //base debugFor
+    rw(code"val ri = (_:Unit) => readInt; ri(()).toDouble+ri(()).toDouble")
+    
     
   }
   
