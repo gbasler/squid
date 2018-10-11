@@ -186,7 +186,10 @@ class Graph extends AST with CurryEncoding { graph =>
   //def dfn(r: Rep) = edges(r)
   //def dfn(r: Rep) = r match { case Node(d) => d  case bv => bv }
   //def dfn(r: Rep): Def = r
-  def dfn(r: Rep): Def = r.dfn
+  
+  //def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
+  def dfn(r: Rep): Def = r.bound
+  
   //def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
   
   def repType(r: Rep) = r|>dfn typ
@@ -232,7 +235,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //}
     //done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
     done.setAndIfUnset(r.bound,
-      if (rev) mkDefIterator(dfn(r)) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(dfn(r)),
+      if (rev) mkDefIterator(r.dfn) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(r.dfn),
       Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn match {
     case MethodApp(self, mtd, targs, argss, tp) =>
@@ -246,7 +249,8 @@ class Graph extends AST with CurryEncoding { graph =>
     case Arg(cid, cbr, els) =>
       mkIterator(cbr) ++ els.iterator.flatMap(mkIterator)
     case _:SyntheticVal => ??? // TODO
-    case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
+    case _: LeafDef => Iterator.empty
+    //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
     //case Abs(_, _) | Ascribe(_, _) | MethodApp(_, _, _, _, _) | Module(_, _, _) | NewObject(_) | SplicedHoleClass(_, _) => ???
   }
   
@@ -299,7 +303,9 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   */
   
-  abstract class Reinterpreter extends super.Reinterpreter {
+  //abstract class Reinterpreter extends super.Reinterpreter {
+  trait Reinterpreter extends super.Reinterpreter {
+    /*
     //def apply(r: Rep) = apply(dfn(r):Def)
     //def apply(r: Rep) = apply(dfnOrGet(r):Def)
     //def apply(r: Rep) = apply(r match {
@@ -336,14 +342,137 @@ class Graph extends AST with CurryEncoding { graph =>
             val v = apply(d)
             newBase.letin(b, v, termFun(), rtyp)
           }
+      }()
+    }
+    */
+    val pointers = mutable.Map.empty[Rep,mutable.Set[Rep]]
+    def applyTopLevel(r: Rep) = {
+      val analysed = mutable.HashSet.empty[Rep]
+      def analyse(r: Rep): Unit = /*println(s"> Analayse $r") thenReturn*/ analysed.setAndIfUnset(r, {
+        pointers.getOrElseUpdate(r,mutable.Set.empty)
+        def addptr(m:Rep): Unit = {
+          //println(s"Add ${r.bound} -> ${m} ${pointers.get(m)}")
+          pointers.getOrElseUpdate(m,mutable.Set.empty) += r
+          analyse(m)
+        }
+        r.dfn match {
+          //case _: Constant | _: Module | _: Sym =>
+          //case Function(params, result) => addptr(result)
+          //case Arg(nodes) => nodes.valuesIterator.foreach(addptr)
+          //case Call(cid, res) => addptr(res)
+          //case Appli(sym, args) => args.foreach(addptr)
+          //case Split(scrut, branches) => addptr(scrut); branches.foreach(_._2 |> addptr)
+          case MethodApp(self, mtd, targs, argss, tp) =>
+            addptr(self)
+            argss.iterator.flatMap(_.reps.iterator).foreach(addptr)
+          case Abs(_, b) => addptr(b)
+          case Ascribe(r, _) => addptr(r)
+          case Module(r, _, _) => addptr(r)
+          case Call(_, res) => addptr(res)
+          case Arg(_, cbr, els) => addptr(cbr); els.foreach(addptr)
+          //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => false
+          case _: LeafDef =>
+        }
+      })
+      analyse(r)
+      val Seq() -> res = scheduleFunction(r) // TODO B/E
+      val rtyp = rect(r.typ)
+      functions.foldLeft(res) {
+        case (acc, f -> ((nf,_))) => newBase.letin(f.bound |> bound, nf, acc, rtyp)
+      }
+      //res
+    }
+    def scheduleFunction(r: Rep): Seq[Val] -> newBase.Rep = {
+      ctx ::= mutable.Buffer.empty
+      params ::= mutable.Buffer.empty
+      val res = params.head -> apply(r.dfn)
+      ctx = ctx.tail
+      params = params.tail
+      res
+    }
+    //var ctx: List[List[CallId]] = Nil
+    var ctx: List[mutable.Buffer[CallId]] = Nil
+    var params: List[mutable.Buffer[Val]] = Nil
+    //var functions = mutable.Map.empty[Rep,newBase.Rep]
+    //var functions = mutable.Map.empty[Rep,newBase.Rep->newBase.Rep]
+    var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
+    //def apply(r: Rep): newBase.Rep = {
+    //  //ctx ::= Nil
+    //  r.dfn match {
+    //    case Arg(cid, cbr, els) =>
+    //      ???
+    //    case d =>
+    //      apply()
+    //  }
+    //}
+    def apply(r: Rep): newBase.Rep = if (pointers.isEmpty) applyTopLevel(r) else {
+      println(s"> Apply $r (${pointers(r).map(_.bound)})")
+      if (pointers(r).size > 1) {
+        functions.getOrElseUpdate(r, {
+        //functions.getOrElse(r, {
+          println(s"> Making function...")
+          val rtyp = rect(r.typ)
+          val params -> res = scheduleFunction(r)
+          println(s"> Function: $params -> $res")
+          //functions += r ->
+          val fdef =
+          params.foldRight(res) {
+            case (p, acc) => newBase.lambda(recv(p)::Nil, acc)//(rtyp)
+          }
+          //bound += r.bound -> newBase.bindVal(r.bound.name, rtyp, Nil)
+          //params.foldRight(res) {
+          val call = () =>
+          params.foldRight(r.bound |> recv |> newBase.readVal) {
+            case (p, acc) =>
+              //newBase.app(acc, recv(p) |> newBase.readVal)(rtyp)
+              newBase.app(acc, edges(p) |> apply)(rtyp)
+          }
+          fdef -> call
+          //res
+        })._2()
+      }
+      else apply(r.dfn)
+    }
+    override def apply(d: Def) = d match {
+      case Call(cid, res) =>
+        ctx.head += cid
+        apply(res) alsoDo ctx.head.remove(ctx.head.indices.last)
+      case Arg(cid, cbr, els) =>
+        //params.head += 
+        //???
+        
+        //if (ctx.head.lastOption.contains(cid)) apply(cbr) alsoDo ctx.head.remove(ctx.head.indices.last)
+        //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get.bound}
+        
+        if (ctx.head.nonEmpty) {
+          assert(ctx.head.last === cid)
+          ctx.head.remove(ctx.head.indices.last)
+          apply(cbr) alsoDo {ctx.head += cid}
+        }
+        else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get.bound}
+        
+      case _ => super.apply(d)
+    }
+    /*
+    def apply(r: Rep): newBase.Rep = {
+      schedule(r)(Nil)
+    }
+    def schedule(r: Rep)(implicit ctx: List[CallId]): newBase.Rep = {
+      r.dfn match {
+        case Arg(cid, cbr, els) =>
+          ???
+        case d =>
+          apply()
       }
     }
+    */
   }
   override def reinterpret(r: Rep, NewBase: squid.lang.Base)(ExtrudedHandle: (BoundVal => NewBase.Rep) = DefaultExtrudedHandler): NewBase.Rep =
     new Reinterpreter {
       val newBase: NewBase.type = NewBase
       override val extrudedHandle = ExtrudedHandle
-    } applyTopLevel r apply ()
+    } applyTopLevel r
+    //} apply r //applyTopLevel r
   
   
   implicit class GraphRepOps(private val self: Rep) {
@@ -403,9 +532,11 @@ class Graph extends AST with CurryEncoding { graph =>
         argss.iterator.flatMap(_.reps.iterator).foreach(rec)
       //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) =>
       case _: LeafDef =>
+      case _ => ??? // TODO
     })
     rec(r)
   }
+  
   
   
   

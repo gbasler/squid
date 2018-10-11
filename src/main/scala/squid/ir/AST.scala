@@ -382,7 +382,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def apply(name: String)(typ: TypeRep) = SplicedHoleClass(name: String,typ: TypeRep)
     def unapply(x:SplicedHole) = SplicedHoleClass.unapply(x) map (_._1)
   }
-  case class SplicedHoleClass(name: String, typ: TypeRep) extends NonTrivialDef // should probably be a wrapper over Hole
+  case class SplicedHoleClass(name: String, typ: TypeRep) extends NonTrivialDef with LeafDef // should probably be a wrapper over Hole
   
   override def hopHole(name: String, typ: TypeRep, yes: List[List[Val]], no: List[Val]) = rep(new HOPHole(name, typ, yes, no))
   class HOPHole(name: String, typ: TypeRep, val yes: List[List[Val]], val no: List[Val]) extends HoleClass(name, typ)()
@@ -427,7 +427,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
   }
   
-  case class NewObject(typ: TypeRep) extends NonTrivialDef
+  case class NewObject(typ: TypeRep) extends NonTrivialDef with LeafDef
   
   case class StaticModule(fullName: String) extends LeafDef {
     lazy val typ = staticModuleType(fullName)
