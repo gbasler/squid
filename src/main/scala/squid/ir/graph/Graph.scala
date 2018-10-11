@@ -375,14 +375,15 @@ class Graph extends AST with CurryEncoding { graph =>
         }
       })
       analyse(r)
-      val Seq() -> res = scheduleFunction(r) // TODO B/E
+      //val Seq() -> res = scheduleFunction(r) // TODO B/E
+      val res = apply(r)
       val rtyp = rect(r.typ)
       functions.foldLeft(res) {
         case (acc, f -> ((nf,_))) => newBase.letin(f.bound |> bound, nf, acc, rtyp)
       }
       //res
     }
-    def scheduleFunction(r: Rep): Seq[Val] -> newBase.Rep = {
+    def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
       ctx ::= mutable.Buffer.empty
       params ::= mutable.Buffer.empty
       val res = params.head -> apply(r.dfn)
@@ -391,8 +392,9 @@ class Graph extends AST with CurryEncoding { graph =>
       res
     }
     //var ctx: List[List[CallId]] = Nil
-    var ctx: List[mutable.Buffer[CallId]] = Nil
-    var params: List[mutable.Buffer[Val]] = Nil
+    //var ctx: List[mutable.Buffer[CallId]] = Nil
+    var ctx: List[mutable.Buffer[CallId]] = mutable.Buffer.empty[CallId]::Nil
+    var params: List[mutable.Buffer[Rep]] = Nil
     //var functions = mutable.Map.empty[Rep,newBase.Rep]
     //var functions = mutable.Map.empty[Rep,newBase.Rep->newBase.Rep]
     var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
@@ -405,27 +407,44 @@ class Graph extends AST with CurryEncoding { graph =>
     //      apply()
     //  }
     //}
-    def apply(r: Rep): newBase.Rep = if (pointers.isEmpty) applyTopLevel(r) else {
+    def apply(r: Rep): newBase.Rep = if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
+    case Call(cid, res) =>
+      ctx.head += cid
+      apply(res) alsoDo ctx.head.remove(ctx.head.indices.last)
+    case Arg(cid, cbr, els) =>
+      if (ctx.head.nonEmpty) {
+        //assert(ctx.head.last === cid)
+        if (ctx.head.last === cid) {
+          ctx.head.remove(ctx.head.indices.last)
+          apply(cbr) alsoDo {ctx.head += cid}
+        } else els.fold(???)(apply) // TODO B/E
+      }
+      //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
+      else if (params.isEmpty) els.fold(???)(apply) // TODO B/E
+      //else bindOrGet(r.bound) alsoDo {params.head += r}
+      else recv(r.bound) |> newBase.readVal alsoDo {params.head += r}
+    case _ =>
       println(s"> Apply $r (${pointers(r).map(_.bound)})")
       if (pointers(r).size > 1) {
         functions.getOrElseUpdate(r, {
         //functions.getOrElse(r, {
-          println(s"> Making function...")
+          println(s"> Making function for ${r.bound}...")
           val rtyp = rect(r.typ)
           val params -> res = scheduleFunction(r)
           println(s"> Function: $params -> $res")
           //functions += r ->
           val fdef =
           params.foldRight(res) {
-            case (p, acc) => newBase.lambda(recv(p)::Nil, acc)//(rtyp)
+            case (p, acc) => newBase.lambda(recv(p.bound)::Nil, acc)//(rtyp)
           }
           //bound += r.bound -> newBase.bindVal(r.bound.name, rtyp, Nil)
           //params.foldRight(res) {
+          val rv = r.bound |> recv
           val call = () =>
-          params.foldRight(r.bound |> recv |> newBase.readVal) {
-            case (p, acc) =>
+          params.foldRight(rv |> newBase.readVal) {
+            case (param, acc) =>
               //newBase.app(acc, recv(p) |> newBase.readVal)(rtyp)
-              newBase.app(acc, edges(p) |> apply)(rtyp)
+              newBase.app(acc, param |> apply)(rtyp)
           }
           fdef -> call
           //res
@@ -433,6 +452,9 @@ class Graph extends AST with CurryEncoding { graph =>
       }
       else apply(r.dfn)
     }
+    //protected def bindOrGet(v: Val) = bound.getOrElseUpdate(v, recv(v)) |> newBase.readVal
+    override protected def recv(v: Val) = bound.getOrElse(v, super.recv(v))
+    /*
     override def apply(d: Def) = d match {
       case Call(cid, res) =>
         ctx.head += cid
@@ -445,14 +467,18 @@ class Graph extends AST with CurryEncoding { graph =>
         //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get.bound}
         
         if (ctx.head.nonEmpty) {
-          assert(ctx.head.last === cid)
-          ctx.head.remove(ctx.head.indices.last)
-          apply(cbr) alsoDo {ctx.head += cid}
+          //assert(ctx.head.last === cid)
+          if (ctx.head.last === cid) {
+            ctx.head.remove(ctx.head.indices.last)
+            apply(cbr) alsoDo {ctx.head += cid}
+          } else els.fold(???)(apply) // TODO B/E
         }
-        else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get.bound}
+        //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
+        else apply(r.bound) alsoDo {params.head += r}
         
       case _ => super.apply(d)
     }
+    */
     /*
     def apply(r: Rep): newBase.Rep = {
       schedule(r)(Nil)
@@ -527,12 +553,16 @@ class Graph extends AST with CurryEncoding { graph =>
       case `p` => rebind(r, Arg(cid, arg, Some(els)))
       //case `p` => Rep(Arg(cid, arg, Some(r.dfn.toRep)))
       case Call(_, res) => rec(res)
+      case Arg(_, cbr, els) => rec(cbr); els.foreach(rec)
+      case Abs(_, b) => rec(b)
+      case Split(_,_) => ??? // TODO
+      case Ascribe(r,_) => rec(r)
+      case Module(r,_,_) => rec(r)
       case MethodApp(self, mtd, targs, argss, tp) =>
         rec(self)
         argss.iterator.flatMap(_.reps.iterator).foreach(rec)
       //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) =>
       case _: LeafDef =>
-      case _ => ??? // TODO
     })
     rec(r)
   }

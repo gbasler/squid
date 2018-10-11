@@ -23,8 +23,18 @@ object MyGraph extends Graph
 class GraphTests extends MyFunSuite(MyGraph) {
   import DSL.Predef._
   
+  def process(c: ClosedCode[Any]) = {
+    val cur = c
+    do {
+      println
+      println(DSL.showGraph(c.rep))
+      println(cur)
+      println
+    } while (DSL.reduceStep(cur.rep))
+  }
+  
   test("A") {
-    
+    /*
     //val c = code"readInt+1"
     //val c = code"scala.util.Random.nextInt+1"
     val c = code"val f = (x: Int) => x+1; f(scala.util.Random.nextInt) * f(2)"
@@ -32,6 +42,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //println(c.rep)
     println(c)
     //println(c.run)
+    //println(c.compile)
     //println(c.rep.iterator.toList.mkString("\n"))
     println
     println(DSL.showGraph(c.rep))
@@ -39,7 +50,20 @@ class GraphTests extends MyFunSuite(MyGraph) {
     println
     println(c.rep.reduceStep.map(_.showGraph))
     println(c)
+    //println(c.compile)
+    */
     
+    process(code"val f = (x: Int) => x+1; f(scala.util.Random.nextInt) * f(2)")
+    
+  }
+  
+  test("B") {
+    
+    process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(2)")
+    
+    process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(2) + f(3)(4)")
+    
+    process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(f(3)(4))")
     
   }
   
