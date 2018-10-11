@@ -40,6 +40,7 @@ trait ASTReinterpreter { ast: AST =>
     def apply(r: Rep): newBase.Rep
     
     val ascribeBoundValsWhenNull = false  // also applies to bindings with value of type Nothing since Nothing <: Null
+    val recoverLetIns = true  // reinterprets beta redexes as let bindings
     
     val extrudedHandle: BoundVal => newBase.Rep = bv => lastWords(s"Extruded variable: $bv")
     
@@ -50,7 +51,7 @@ trait ASTReinterpreter { ast: AST =>
     protected def apply(d: Def): newBase.Rep = d match {
         
       case cnst @ Constant(v) => newBase.const(v)
-      case LetIn(bv, vl, body) =>
+      case LetIn(bv, vl, body) if recoverLetIns =>
         val v = apply(vl)
         val av = if (ascribeBoundValsWhenNull && vl.typ <:< ruh.Null) newBase.ascribe(v, rect(vl.typ)) else v
         newBase.letin(bv |> recv, av, apply(body), rect(body.typ))
