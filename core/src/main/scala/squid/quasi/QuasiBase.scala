@@ -197,11 +197,8 @@ self: Base =>
     def substitute[S,C](body: Code[S,C & Ctx], mkArg: => Code[T,C])(implicit ev: self.type <:< InspectableBase): Code[S,C] = {
       val arg = Lazy(mkArg)
       val b = self.asInstanceOf[self.type with InspectableBase]
-      val rv = rep
-      // TODO fix shadowing and capture problems (see VariableSymbolTests.scala)
-      Code(b.bottomUpPartial(body.rep.asInstanceOf[b.Rep]){
-        case r if r == rv => arg.value.rep.asInstanceOf[b.Rep]
-      }.asInstanceOf[Rep])
+      // We use capture-avoiding substitution to avoid substituting in scope where same symbol is bound (see VariableSymbolTests.scala)
+      Code(b.substituteVal(body.rep.asInstanceOf[b.Rep], bound.asInstanceOf[b.BoundVal], arg.value.rep.asInstanceOf[b.Rep]).asInstanceOf[Rep])
     }
     def isFreeIn[T](cde: OpenCode[T])(implicit ev: self.type <:< InspectableBase): Bool =
       substitute[T,Nothing](cde, return false) thenReturn true

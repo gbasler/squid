@@ -173,7 +173,7 @@ class VariableSymbolTests extends MyFunSuite {
     def foo[T:CodeType,C](p: Code[T,C]): Code[T,C] = { code"val $v = 0; $p" }
     var p: Code[Int,v.Ctx] = null
     p = foo(code"$v + 1") // this has type Code[Int,v.Ctx], but it does not actually contain any occurrences of `v`
-    //v.substitute(p, fail) eqt code"val a = 0; a+1" // FIXME substitution under same binder
+    v.substitute(p, fail) eqt code"val a = 0; a+1" // substitution under same binder
     
     
   }
@@ -284,9 +284,9 @@ class VariableSymbolTests extends MyFunSuite {
     val p0 = code"(($v:Int) => $v+1, $v)"
     val p1 = v.substitute(p0,code"readInt")
     
-    // FIXME: avoid substitution under same binder:
-    //eqt(p1, code"(($v:Int) => readInt+1, readInt)", false)
-    //eqt(p1, code"(($w:Int) => $w+1, readInt)")
+    // Avoids substitution under same binder:
+    eqt(p1, code"(($v:Int) => readInt+1, readInt)", false)
+    eqt(p1, code"(($w:Int) => $w+1, readInt)")
     
   }
   

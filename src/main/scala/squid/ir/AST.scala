@@ -123,16 +123,16 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   def transformRep(r: Rep)(pre: Rep => Rep, post: Rep => Rep = identity): Rep = (new RepTransformer(pre,post))(r)
   
-  def transformOtherDef(d: Def)(pre: Rep => Rep, post: Rep => Rep): Def =
-    lastWords(s"Not supported: transformation of $d")
+  //def transformOtherDef(d: Def)(pre: Rep => Rep, post: Rep => Rep): Def =
+  //  lastWords(s"Not supported: transformation of $d")
   
-  class RepTransformer(pre: Rep => Rep, post: Rep => Rep) {
+  class RepTransformer(pre: Rep => Rep, post: Rep => Rep) extends SimpleTransformer {
     
     //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
     /* Optimized version that prevents recreating too many Rep's: */
-    def apply(_r: Rep): Rep = {
+    override def apply(_r: Rep): Rep = {
       //post(r |> mapDef(apply))
-      try post(pre(_r) |> mapDef(apply)) |> ascribeIfNot(_r.typ) catch { // Q: semantics if `post` throws??
+      try post(pre(_r) |> super.apply) |> ascribeIfNot(_r.typ) catch { // Q: semantics if `post` throws??
         case EarlyReturnAndContinueExc(cont) =>
           val r = nestDbg(cont(apply))
           debug(s"${Console.RED}Returned early and continued with:${Console.RESET} $r")
@@ -148,6 +148,12 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       else if (wrtp <:< wtp) ascribe(r,wtp)
       else System.err.println(s"Term of type $tp was rewritten to a term of type ${wrtp}, not a known subtype.") thenReturn r
     }
+    
+  }
+  
+  class SimpleTransformer {
+    
+    def apply(r: Rep): Rep = mapDef(apply)(r)
     
     def apply(d: Def): Def = {
       //println(s"Traversing $r")
@@ -191,12 +197,17 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         case v: BoundVal => v
         case Constant(_) => d
         case cs: CrossStageValue => cs
-        case d => transformOtherDef(d)(pre,post)
+        //case d => transformOtherDef(d)(pre,post)
         //case or: OtherRep => or.transform(f)
       }
       //println(s"Traversed $r, got $ret")
       ret
     }
+    
+  }
+  class PartialTransformer(transformf: PartialTransformer => PartialFunction[Rep, Rep]) extends SimpleTransformer {
+    val transform = transformf(this)
+    override def apply(r: Rep): Rep = transform.applyOrElse(r, super.apply)
   }
   
   def bottomUp(r: Rep)(f: Rep => Rep): Rep = transformRep(r)(identity, f)
@@ -204,6 +215,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   //def bottomUpPartial(r: Rep)(f: PartialFunction[Rep, Rep]): Rep = bottomUp(r)(r => f applyOrElse (r, identity[Rep]))
   
+  // Note that this will not wrap refined type in an upcast (it doesn't apply 'ascribeIfNot')
+  def substituteVal(r: Rep, v: BoundVal, arg: => Rep): Rep = new PartialTransformer(self => {
+    case RepDef(`v`) => arg
+    case r @ RepDef(Abs(`v`,_)) => r
+  })(r)
   
   
   
