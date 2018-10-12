@@ -254,6 +254,11 @@ class Graph extends AST with CurryEncoding { graph =>
     //}.toList.reverse.mkString(";\n")
     }.mkString + r.simpleString
   }
+  def showGraphRev(r: Rep) = r.simpleString + " where:" + {
+    iterator(r).collect { case nde @ Rep(d) if !d.isSimple =>
+      s"\n\t${nde.bound} = ${d};"
+    }.mkString
+  }
   //def showGraph(r: Rep) = {
   //}
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
@@ -338,6 +343,7 @@ class Graph extends AST with CurryEncoding { graph =>
     // TODO use an intermediate representation that understands a higher-level concept of functions and:
     //   - can merge several control-flow boolean parameters into one integer flag parameter
     //   - can prune useless branches (to refine)
+    // TODO the target IR should defunctionalize the continuations we generate here...
     // TODO detect effects or costly computations and do not lift them out of nested expr
     //   if we're not sure the path must be taken
     //   or if the path isn't 'pure', in the case of effects (if the path's effects interact with the arg's effects)
@@ -455,12 +461,22 @@ class Graph extends AST with CurryEncoding { graph =>
     def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
       println(s"> Schfun $r ${alwaysBoundAt(r)}")
       cctx ::= mutable.Buffer.empty
+      val oldvctx = vctx
+      vctx = Set.empty
       //params ::= (vctx,mutable.Buffer.empty)
       params ::= (alwaysBoundAt(r),mutable.Buffer.empty)
       val res = params.head._2 -> apply(r.dfn)
+      vctx = oldvctx
       cctx = cctx.tail
       params = params.tail
       res
+      
+      //vctx = oldvctx
+      //cctx = cctx.tail
+      //val ps = params.head._2
+      //params = params.tail
+      //val res = ps -> apply(r.dfn)
+      //res
     }
     //var ctx: List[List[CallId]] = Nil
     //var ctx: List[mutable.Buffer[CallId]] = Nil
@@ -503,11 +519,18 @@ class Graph extends AST with CurryEncoding { graph =>
       else {
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
-        if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        if (r.dfn.unboundVals subsetOf vctx) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
-          println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
+          //println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1} ${r.dfn.unboundVals -- params.head._1 toList}")
+          println(s"Oops: ${r.dfn.unboundVals} not in ${vctx} for:  ${r.showGraphRev}")
+          
+          // Generate boolean params to know which subexpression to compute;
+          // Problem: expressions under an Arg may contain variables only bound in some of the _callers_, so using them
+          // here won't work with traditional PL semantics (it could be made to work with dynamic scopes or global stack variables)
+          /*
           val p = bindVal("Φ", Predef.implicitType[Bool].rep, Nil)
           val rtyp = r.typ |> rect
           //params.head._2 += Arg(cid, const(true), Some(const(false))).toRep
@@ -519,13 +542,42 @@ class Graph extends AST with CurryEncoding { graph =>
               //newBase.byName(apply(Arg(cid,cbr,None))), // SOF
               newBase.byName(els.fold(???)(apply))
             )::Nil,rtyp)
+          */
+          // Solution for now: resort to using lambdas, and assume a later defunc phase will remove them... (should be easy-ish in these cases)
+          ///*
+          //val extrudedVals = r.dfn.unboundVals -- params.head._1 toList;
+          //assert(extrudedVals.nonEmpty)
+          //val extrudedVals = r.dfn.unboundVals -- vctx toList;
+          val extrudedVals = vctx.toList
+          val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), r.typ), Nil)
+          //val rtyp = r.typ |> rect
+          val appSym = ruh.FunctionType.symbol(extrudedVals.size).toType.member(sru.TermName("apply")).asMethod
+          //newBase.mapp(k, appSym, rtyp)()(extrudedVals:_*)
+          vctx += k
+          recv(k)
+          apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*))) alsoDo {
+            vctx -= k
+            params.head._2 += Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), Some(lambda(extrudedVals, els.getOrElse(???)))))
+          }
+          //apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*)) also(r=>println(r.showGraphRev))) alsoDo {vctx -= k}
+          //*/
+          //val extrudedVals1 = cbr.dfn.unboundVals -- params.head._1 toList;
+          //val extrudedVals2 = r.dfn.unboundVals -- params.head._1 toList;
+          //assert(extrudedVals.nonEmpty)
+          //val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), r.typ), Nil)
+          ////val rtyp = r.typ |> rect
+          //params.head._2 += Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), Some(lambda(extrudedVals, ))))
+          //val appSym = ruh.FunctionType.symbol(extrudedVals.size).toType.member(sru.TermName("apply")).asMethod
+          ////newBase.mapp(k, appSym, rtyp)()(extrudedVals:_*)
+          //apply(mapp(k.toRep, appSym, r.typ)()(Args(extrudedVals.map(rep):_*)))
+          
         }
       }
     case _ =>
       //val addedBinding = r.dfn |>? { case Abs(v, _) => vctx += v; v }
       //println(s"> Apply $r (${pointers(r).map(_.bound)})")
       //(if (pointers(r).size > 1) {
-      (if (pointers.get(r).exists(_.size > 1)) { // pointers may not be defined on newly created nodes
+      if (pointers.get(r).exists(_.size > 1)) { // pointers may not be defined on newly created nodes
         functions.getOrElseUpdate(r, {
         //functions.getOrElse(r, {
         //  println(s"> Making function for ${r.bound}...")
@@ -551,11 +603,12 @@ class Graph extends AST with CurryEncoding { graph =>
           //res
         })._2()
       }
-      else apply(r.dfn)) //alsoDo {addedBinding.foreach(vctx -= _)}
+      else apply(r.dfn)
+      //) alsoDo {addedBinding.foreach(vctx -= _)}
     }
     override def apply(d: Def) = d match {
       case d @ Abs(bv, _) =>
-        assert(!vctx(bv)) // TODO if so, refresh
+        assert(!vctx(bv), s"$bv in $vctx") // TODO if so, refresh
         vctx += bv
         super.apply(d) alsoDo {vctx -= bv}
       case _ => super.apply(d)
@@ -614,6 +667,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //def reduceStep: Rep = graph.reduceStep(self) thenReturn self
     def reduceStep = self optionIf graph.reduceStep _
     def showGraph = graph.showGraph(self)
+    def showGraphRev = graph.showGraphRev(self)
     def showRep = graph.showRep(self)
     def iterator = graph.iterator(self)
   }

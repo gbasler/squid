@@ -14,6 +14,7 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
   
   implicit def toRep(d: Def): Rep = d.toRep
   val IntPlus = `scala.Int`.`method +:3`.value
+  val IntToDouble = `scala.Int`.`method toDouble`.value
   val Int = typeRepOf[Int]
   
   val c0,c1 = new CallId
@@ -34,7 +35,7 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
   
   test("B") {
     
-    val shd = abs(v, Arg(c0, w, Some(Arg(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), Some(v)))))
+    val shd = abs(v, Arg(c0, w, Some(Arg(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), Some(v)))) |> (mapp(_,IntToDouble,Int)()()))
     val g = methodApp(abs(w, Call(c0, shd)), IntPlus, Nil, Args(Call(c1, shd))::Nil, Int)
     println(g)
     println(g.showGraph)
