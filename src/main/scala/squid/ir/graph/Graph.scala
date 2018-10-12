@@ -335,6 +335,14 @@ class Graph extends AST with CurryEncoding { graph =>
   
   //abstract class Reinterpreter extends super.Reinterpreter {
   trait Reinterpreter extends super.Reinterpreter {
+    // TODO use an intermediate representation that understands a higher-level concept of functions and:
+    //   - can merge several control-flow boolean parameters into one integer flag parameter
+    //   - can prune useless branches (to refine)
+    // TODO detect effects or costly computations and do not lift them out of nested expr
+    //   if we're not sure the path must be taken
+    //   or if the path isn't 'pure', in the case of effects (if the path's effects interact with the arg's effects)
+    // TODO allow passing in args only closed in some of the calls... the other calls passing null...
+    //   again, should only be done if the path is sure to be taken... assuming we're coming from that call!
     
     override val recoverLetIns = false
     
@@ -378,13 +386,20 @@ class Graph extends AST with CurryEncoding { graph =>
       }()
     }
     */
+    
     val pointers = mutable.Map.empty[Rep,mutable.Set[Rep]]
+    val alwaysBoundAt = mutable.Map.empty[Rep,Set[Val]]
     def applyTopLevel(r: Rep) = {
+      
       val analysed = mutable.HashSet.empty[Rep]
       def analyse(r: Rep): Unit = /*println(s"> Analayse $r") thenReturn*/ analysed.setAndIfUnset(r, {
         pointers.getOrElseUpdate(r,mutable.Set.empty)
         def addptr(m:Rep): Unit = {
+        //def addptr(m:Rep): Unit = if (m.dfn.isSimple) pointers(m)=mutable.Set.empty else {
           //println(s"Add ${r.bound} -> ${m} ${pointers.get(m)}")
+          
+          //if (m.dfn.isSimple) pointers(m)=mutable.Set.empty else
+          if (!m.dfn.isSimple)
           pointers.getOrElseUpdate(m,mutable.Set.empty) += r
           analyse(m)
         }
@@ -407,7 +422,28 @@ class Graph extends AST with CurryEncoding { graph =>
           case _: LeafDef =>
         }
       })
+      assert(pointers.isEmpty)
       analyse(r)
+      
+      val analysed2 = mutable.HashSet.empty[(Rep,Set[Val])]
+      def analyse2(r: Rep)(implicit vctx: Set[Val]): Unit = analysed2.setAndIfUnset(r -> vctx, r.dfn match {
+        case MethodApp(self, mtd, targs, argss, tp) =>
+          analyse2(self)
+          argss.iterator.flatMap(_.reps.iterator).foreach(analyse2)
+        case Abs(v, b) => analyse2(b)(vctx + v)
+        case Ascribe(r, _) => analyse2(r)
+        case Module(r, _, _) => analyse2(r)
+        case Call(_, res) => analyse2(res)
+        case Arg(_, cbr, els) => analyse2(cbr); els.foreach(analyse2)
+        case _: LeafDef =>
+      })
+      analyse2(r)(Set.empty)
+      assert(alwaysBoundAt.isEmpty)
+      alwaysBoundAt ++= analysed2.groupBy(_._1).mapValues(_.unzip._2.reduce(_ & _))
+      //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n\t${k.bound} -> ${v.mkString(",")}"})}")
+      //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${k.bound} -> ${v}"}).mkString}")
+      println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${v} \t${k.bound}"}).mkString}")
+      
       //val Seq() -> res = scheduleFunction(r) // TODO B/E
       val res = apply(r)
       val rtyp = rect(r.typ)
@@ -417,9 +453,10 @@ class Graph extends AST with CurryEncoding { graph =>
       //res
     }
     def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
-      //println(s"Schfun $r $vctx")
+      println(s"> Schfun $r ${alwaysBoundAt(r)}")
       cctx ::= mutable.Buffer.empty
-      params ::= (vctx,mutable.Buffer.empty)
+      //params ::= (vctx,mutable.Buffer.empty)
+      params ::= (alwaysBoundAt(r),mutable.Buffer.empty)
       val res = params.head._2 -> apply(r.dfn)
       cctx = cctx.tail
       params = params.tail
@@ -469,13 +506,19 @@ class Graph extends AST with CurryEncoding { graph =>
         if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
+          // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
+          println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
           val p = bindVal("Φ", Predef.implicitType[Bool].rep, Nil)
           val rtyp = r.typ |> rect
           //params.head._2 += Arg(cid, const(true), Some(const(false))).toRep
           params.head._2 += Rep.bound(p, Arg(cid, const(true), Some(const(false))))
           newBase.methodApp(newBase.staticModule("squid.lib.package"),
             newBase.loadMtdSymbol(newBase.loadTypSymbol("squid.lib.package$"), "IfThenElse"),
-            rtyp::Nil, newBase.Args(recv(p) |> newBase.readVal, newBase.byName(apply(cbr)), newBase.byName(els.fold(???)(apply)))::Nil, rtyp)
+            rtyp::Nil, newBase.Args(recv(p) |> newBase.readVal,
+              newBase.byName(apply(cbr)),
+              //newBase.byName(apply(Arg(cid,cbr,None))), // SOF
+              newBase.byName(els.fold(???)(apply))
+            )::Nil,rtyp)
         }
       }
     case _ =>
