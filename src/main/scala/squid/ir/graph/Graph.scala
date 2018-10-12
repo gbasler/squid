@@ -254,10 +254,9 @@ class Graph extends AST with CurryEncoding { graph =>
     //}.toList.reverse.mkString(";\n")
     }.mkString + r.simpleString
   }
-  def showGraphRev(r: Rep) = r.simpleString + " where:" + {
-    iterator(r).collect { case nde @ Rep(d) if !d.isSimple =>
-      s"\n\t${nde.bound} = ${d};"
-    }.mkString
+  def showGraphRev(r: Rep) = r.simpleString + {
+    val defsStr = iterator(r).collect { case nde @ Rep(d) if !d.isSimple => s"\n\t${nde.bound} = ${d};" }.mkString
+    if (defsStr.isEmpty) "" else " where:" + defsStr
   }
   //def showGraph(r: Rep) = {
   //}
@@ -520,7 +519,7 @@ class Graph extends AST with CurryEncoding { graph =>
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
-        if (r.dfn.unboundVals subsetOf vctx) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        if (vctx.isEmpty || (r.dfn.unboundVals subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
