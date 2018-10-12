@@ -327,6 +327,7 @@ self: Base =>
     
     implicit class QuasiContext(private val ctx: StringContext) extends self.Quasiquotes.QuasiContext(ctx)
     
+    // TODO rename to `synthesizeTypeRep` and make it not wrap into a CodeType
     implicit def implicitType[T]: CodeType[T] = macro QuasiBlackboxMacros.implicitTypeImpl[QC, T]
     
     object dbg {
