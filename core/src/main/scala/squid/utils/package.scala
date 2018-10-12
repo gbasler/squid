@@ -109,6 +109,8 @@ package object utils {
     @inline def Else[B >: A](x: => B): B = __self getOrElse x
     @inline def retainIf(cond: => Bool): Option[A] = if (__self.isDefined && !cond) None else __self
     @inline def retainUnless(cond: => Bool): Option[A] = if (__self.isDefined && cond) None else __self
+    /** Like fold, but type inference works better in this order */
+    @inline def dlof[B](f: A => B)(d: B): B = __self.fold(d)(f)
   }
   def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
   

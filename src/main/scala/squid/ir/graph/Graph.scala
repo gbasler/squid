@@ -85,8 +85,13 @@ class Graph extends AST with CurryEncoding { graph =>
   //}
   //class Expr(initialDef: Def) extends Rep {
   class Rep(initialDef: Def) {
+    //def this(v: Val, d: Def) = {
+    //  //this._bound = v
+    //  this(d) alsoDo{_bound = v}
+    //}
     //lazy val bound: Val = 
     private var _bound: Val = _
+    //protected var _bound: Val = _
     private def bind(v: Val) = {
       assert(_bound === null)
       _bound = v
@@ -142,6 +147,11 @@ class Graph extends AST with CurryEncoding { graph =>
   //object Expr {
   object Rep {
     //def apply(d: Def) = new Rep(d)
+    //def bound(v: Val, d: Def) = new Rep(d) {
+    //  //_bound = v
+    //  asBoundBy(v)
+    //}
+    def bound(v: Val, d: Def) = new Rep(d).asBoundBy(v)
     def unapply(e: Rep) = Some(e.dfn)
   }
   
@@ -158,6 +168,13 @@ class Graph extends AST with CurryEncoding { graph =>
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
   //case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends Rep {
     
+  }
+  
+  override protected def unboundVals(d: Def): Set[Val] = d match {
+    case Call(cid, res) => res.dfn.unboundVals
+    case Arg(cid, cbr, els) => cbr.dfn.unboundVals ++ els.dlof(_.dfn.unboundVals)(Set.empty)
+    case _:SyntheticVal => ??? // TODO
+    case _ => super.unboundVals(d)
   }
   
   //override def prettyPrint(d: Def) = d match {
@@ -400,17 +417,20 @@ class Graph extends AST with CurryEncoding { graph =>
       //res
     }
     def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
-      ctx ::= mutable.Buffer.empty
-      params ::= mutable.Buffer.empty
-      val res = params.head -> apply(r.dfn)
-      ctx = ctx.tail
+      //println(s"Schfun $r $vctx")
+      cctx ::= mutable.Buffer.empty
+      params ::= (vctx,mutable.Buffer.empty)
+      val res = params.head._2 -> apply(r.dfn)
+      cctx = cctx.tail
       params = params.tail
       res
     }
     //var ctx: List[List[CallId]] = Nil
     //var ctx: List[mutable.Buffer[CallId]] = Nil
-    var ctx: List[mutable.Buffer[CallId]] = mutable.Buffer.empty[CallId]::Nil
-    var params: List[mutable.Buffer[Rep]] = Nil
+    var cctx: List[mutable.Buffer[CallId]] = mutable.Buffer.empty[CallId]::Nil
+    var vctx: Set[Val] = Set.empty
+    //var params: List[mutable.Buffer[Rep]] = Nil
+    var params: List[(Set[Val],mutable.Buffer[Rep])] = Nil
     //var functions = mutable.Map.empty[Rep,newBase.Rep]
     //var functions = mutable.Map.empty[Rep,newBase.Rep->newBase.Rep]
     var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
@@ -424,24 +444,45 @@ class Graph extends AST with CurryEncoding { graph =>
     //  }
     //}
     def apply(r: Rep): newBase.Rep = if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
+    //case d @ Abs(bv, _) =>
+    //  assert(!vctx(bv)) // TODO if so, refresh
+    //  vctx += bv
+    //  super.apply(d) alsoDo {vctx -= bv}
     case Call(cid, res) =>
-      ctx.head += cid
-      apply(res) alsoDo ctx.head.remove(ctx.head.indices.last)
+      cctx.head += cid
+      apply(res) alsoDo cctx.head.remove(cctx.head.indices.last)
     case Arg(cid, cbr, els) =>
-      if (ctx.head.nonEmpty) {
+      //println(s"Arg $r")
+      if (cctx.head.nonEmpty) {
         //assert(ctx.head.last === cid)
-        if (ctx.head.last === cid) {
-          ctx.head.remove(ctx.head.indices.last)
-          apply(cbr) alsoDo {ctx.head += cid}
+        if (cctx.head.last === cid) {
+          cctx.head.remove(cctx.head.indices.last)
+          apply(cbr) alsoDo {cctx.head += cid}
         } else els.fold(???)(apply) // TODO B/E
       }
       //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
       else if (params.isEmpty) els.fold(???)(apply) // TODO B/E
       //else bindOrGet(r.bound) alsoDo {params.head += r}
-      else recv(r.bound) |> newBase.readVal alsoDo {params.head += r}
+      else {
+        //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
+        //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
+        if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
+          // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
+          val p = bindVal("Φ", Predef.implicitType[Bool].rep, Nil)
+          val rtyp = r.typ |> rect
+          //params.head._2 += Arg(cid, const(true), Some(const(false))).toRep
+          params.head._2 += Rep.bound(p, Arg(cid, const(true), Some(const(false))))
+          newBase.methodApp(newBase.staticModule("squid.lib.package"),
+            newBase.loadMtdSymbol(newBase.loadTypSymbol("squid.lib.package$"), "IfThenElse"),
+            rtyp::Nil, newBase.Args(recv(p) |> newBase.readVal, newBase.byName(apply(cbr)), newBase.byName(els.fold(???)(apply)))::Nil, rtyp)
+        }
+      }
     case _ =>
+      //val addedBinding = r.dfn |>? { case Abs(v, _) => vctx += v; v }
       //println(s"> Apply $r (${pointers(r).map(_.bound)})")
-      if (pointers(r).size > 1) {
+      //(if (pointers(r).size > 1) {
+      (if (pointers.get(r).exists(_.size > 1)) { // pointers may not be defined on newly created nodes
         functions.getOrElseUpdate(r, {
         //functions.getOrElse(r, {
         //  println(s"> Making function for ${r.bound}...")
@@ -461,12 +502,20 @@ class Graph extends AST with CurryEncoding { graph =>
             case (param, acc) =>
               //newBase.app(acc, recv(p) |> newBase.readVal)(rtyp)
               newBase.app(acc, param |> apply)(rtyp)
+              //newBase.app(acc, param |> recv |> newBase.readVal)(rtyp)
           }
           fdef -> call
           //res
         })._2()
       }
-      else apply(r.dfn)
+      else apply(r.dfn)) //alsoDo {addedBinding.foreach(vctx -= _)}
+    }
+    override def apply(d: Def) = d match {
+      case d @ Abs(bv, _) =>
+        assert(!vctx(bv)) // TODO if so, refresh
+        vctx += bv
+        super.apply(d) alsoDo {vctx -= bv}
+      case _ => super.apply(d)
     }
     //protected def bindOrGet(v: Val) = bound.getOrElseUpdate(v, recv(v)) |> newBase.readVal
     override protected def recv(v: Val): newBase.BoundVal =
@@ -522,12 +571,13 @@ class Graph extends AST with CurryEncoding { graph =>
     //def reduceStep: Rep = graph.reduceStep(self) thenReturn self
     def reduceStep = self optionIf graph.reduceStep _
     def showGraph = graph.showGraph(self)
+    def showRep = graph.showRep(self)
     def iterator = graph.iterator(self)
   }
   
   implicit class GraphDefOps(private val self: Def) {
     def isSimple = self match {
-      case _: SyntheticVal => false
+      //case _: SyntheticVal => false  // actually considered trivial?
       //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => true
       case _: LeafDef => true
       case _ => false
@@ -590,7 +640,7 @@ class Graph extends AST with CurryEncoding { graph =>
 }
 
 object CallId { private var curId = 0; def reset(): Unit = curId = 0 }
-class CallId(val name: String) {
+class CallId(val name: String = "") {
   val uid: Int = CallId.curId alsoDo (CallId.curId += 1)
   def uidstr: String = s"$name$uid"
   override def toString: String = uidstr
