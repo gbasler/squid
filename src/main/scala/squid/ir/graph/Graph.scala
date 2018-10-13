@@ -84,50 +84,9 @@ class Graph extends AST with CurryEncoding { graph =>
   //  }
   //}
   //class Expr(initialDef: Def) extends Rep {
-  class Rep(initialDef: Def) {
-    //def this(v: Val, d: Def) = {
-    //  //this._bound = v
-    //  this(d) alsoDo{_bound = v}
-    //}
-    //lazy val bound: Val = 
-    private var _bound: Val = _
-    //protected var _bound: Val = _
-    private def bind(v: Val) = {
-      assert(_bound === null)
-      _bound = v
-      val proc = postProcess(this)
-      if (proc.bound =/= _bound) _bound = proc.bound
-    }
-    private def bindAsNew(v: Val): Unit = {
-      //bind(v) alsoDo {edges += v -> initialDef}
-      bind(v)
-      edges += v -> initialDef
-    }
-    def asBoundBy(v: Val) = {
-      //println(s"$initialDef bound by $v")
-      //assert(_bound === null)
-      bindAsNew(v)
-      this
-    }
-    def maybeBound = Option(_bound)
-    def bound: Val = {
-      //if (_bound === null) bind(freshBoundVal(initialDef.typ))
-      //if (_bound === null) bind(initialDef match {
-      //  case v: Val => v
-      //  case _ => freshBoundVal(initialDef.typ)
-      //})
-      if (_bound === null) initialDef match {
-        case v: Val => bind(v)
-        case _ =>
-          //val bnd = 
-          bindAsNew(freshBoundVal(initialDef.typ))
-          //if (bnd)
-      }
-      _bound
-    }
+  class Rep(val bound: Val, initialDef: Def) {
+    rebind(bound, initialDef)
     def dfn: Def = edges.getOrElse(bound, bound)
-    //def dfn: Def = edges.getOrElse(bound, ???)
-    def maybeDfn: Def = maybeBound flatMap edges.get getOrElse initialDef
     
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
@@ -136,8 +95,8 @@ class Graph extends AST with CurryEncoding { graph =>
     override def hashCode = bound.hashCode
     
     override def toString = {
-      val d = maybeDfn
-      if (d.isSimple) d.toString else s"${maybeBound getOrElse "<...>"} = $maybeDfn"
+      val d = dfn
+      if (d.isSimple) d.toString else s"$bound = $d"
     }
     def simpleString = {
       val d = dfn
@@ -151,7 +110,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //  //_bound = v
     //  asBoundBy(v)
     //}
-    def bound(v: Val, d: Def) = new Rep(d).asBoundBy(v)
+    def bound(v: Val, d: Def) = new Rep(v,d)
     def unapply(e: Rep) = Some(e.dfn)
   }
   
@@ -206,7 +165,12 @@ class Graph extends AST with CurryEncoding { graph =>
   //def rep(dfn: Def) = Rep(dfn)
   def rep(dfn: Def) =
     //postProcess(new Rep(dfn)) // would force the Rep too early (before it's let bound), resulting in binder duplication...
-    new Rep(dfn)
+    //new Rep(freshBoundVal(dfn.typ), dfn)
+    dfn match {
+      case bv: BoundVal =>
+        new Rep(bv, bv)
+      case _ => new Rep(freshBoundVal(dfn.typ), dfn)
+    }
   //def rep(dfn: Def) = dfn match {
   //  case v: Val => v
   //  //case _ => freshBoundVal(dfn.typ) alsoApply {edges += _ -> dfn}
@@ -292,7 +256,9 @@ class Graph extends AST with CurryEncoding { graph =>
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     //??? // oops, need a Node here
     //{edges += bound -> value} thenReturn body
-    value.asBoundBy(bound) thenReturn body
+    //new Rep(bound, value.dfn) thenReturn body
+    //rebind(bound, value.dfn) thenReturn body
+    body alsoDo rebind(bound, value.dfn)
   
   
   
