@@ -15,6 +15,10 @@ class Graph extends AST with CurryEncoding { graph =>
   val edges = mutable.Map.empty[Val,Def]
   //val edges = mutable.Map.empty[Val,Rep]
   
+  def bind(v: Val, d: Def): Unit = {
+    require(!edges.isDefinedAt(v))
+    rebind(v, d)
+  }
   def rebind(v: Val, d: Def): Unit = edges += v -> d
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   
@@ -109,7 +113,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //def bound(v: Val, d: Def) = new Rep(v,d)
     def bound(v: Val, d: Def) = {
       assert(!d.isInstanceOf[Val] || d.isInstanceOf[SyntheticVal])
-      new Rep(v) alsoDo rebind(v, d)
+      new Rep(v) alsoDo bind(v, d)
     }
     def unapply(e: Rep) = Some(e.dfn)
   }
@@ -171,7 +175,7 @@ class Graph extends AST with CurryEncoding { graph =>
         new Rep(bv)
       case _ =>
         val v = freshBoundVal(dfn.typ)
-        rebind(v, dfn)
+        bind(v, dfn)
         new Rep(v)
     }
   //def rep(dfn: Def) = dfn match {
@@ -260,11 +264,12 @@ class Graph extends AST with CurryEncoding { graph =>
     //??? // oops, need a Node here
     //{edges += bound -> value} thenReturn body
     //new Rep(bound, value.dfn) thenReturn body
-    rebind(bound, value.dfn) thenReturn body
+    bind(bound, value.dfn) thenReturn body
     //body alsoDo rebind(bound, value.dfn)
   
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
+    ///*
     //println(s"Subs $v in ${r.bound}")
     val cid = new CallId("α")
     var occurs = false
@@ -272,6 +277,21 @@ class Graph extends AST with CurryEncoding { graph =>
     val res = if (occurs) Call(cid, subsd) |> rep else r
     //println(s"Subs yield: ${res.showGraphRev}")
     res
+    //*/
+    
+    // Kinda wrong: doesn't check for occurrences in 'mkArg'
+    // but maybe in the graph IR we can assume it won't be a problem since we have more stringent requirements for the
+    // use of bindings (due to the global 'egdes' map)
+    // Also, seems to cause a SOF in the tests
+    /*
+    // less safe but much more efficient:
+    val occurs = r.dfn.unboundVals contains v
+    if (occurs) {
+      val cid = new CallId("α")
+      rebind(v, Arg(cid, mkArg, Some(v |> readVal)))
+      Call(cid, r) |> rep
+    } else r
+    */
   }
   override def mapDef(f: Def => Def)(r: Rep) = {
     val d = r.dfn
@@ -290,6 +310,22 @@ class Graph extends AST with CurryEncoding { graph =>
       else Call(cid,res2)
     case _ => super.mapRep(rec)(d)
   }
+  //override def extractVal(r: Rep) = Some(r.bound)
+  override def extractVal(r: Rep) = super.extractVal(r).orElse(Some(r.bound))
+  
+  
+  /*
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+    
+    def rec(xtor: Rep, xtee: Rep) = xtor.dfn -> xtee.dfn match {
+      case Constant(v1) -> Constant(v2) if v1 == v2 => 
+    }
+    rec(xtor, xtee)
+    
+    ???
+    
+  }
+  */
   
   
   
@@ -677,7 +713,7 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   
   def reduceStep(r: Rep): Bool = {
-    println(s"> Reduce $r")
+    println(s"> Reducing... $r")
     
     r.dfn match {
       //case Apply(f,arg) =>
