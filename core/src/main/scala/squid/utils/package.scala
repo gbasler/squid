@@ -111,6 +111,14 @@ package object utils {
     @inline def retainUnless(cond: => Bool): Option[A] = if (__self.isDefined && cond) None else __self
     /** Like fold, but type inference works better in this order */
     @inline def dlof[B](f: A => B)(d: B): B = __self.fold(d)(f)
+    
+    def mapConserve(f: A => A) = __self match {
+      case Some(a0) =>
+        val a1 = f(a0)
+        if ((a1.asInstanceOf[AnyRef]) eq a0.asInstanceOf[AnyRef]) __self
+        else Some(a1)
+      case None => __self
+    }
   }
   def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
   
