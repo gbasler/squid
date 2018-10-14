@@ -151,6 +151,49 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
   }
   
+  protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
+    // Special handling of redexes so that they are traversed argument-first (otherwise, it would be body-first)
+    case app @ Apply(a @ RepDef(_: Abs),v) => // This is so that let-bindings are traversed in the expected order...
+      val newV = rec(v)
+      val newA = rec(a)
+      val tp = app.typ
+      if (newA eq a) if (newV eq v) d else Apply(a,newV,tp) else Apply(newA,newV,tp)
+    case a @ Abs(p, b) =>
+      val newB = rec(b)
+      if (newB eq b) d else Abs(p, newB)(a.typ) // Note: we do not transform the parameter; it could lead to surprising behaviors (esp. in case of erroneous transform)
+    case Ascribe(r,t) => 
+      val newR = rec(r)
+      if (newR eq r) d else Ascribe.mk(newR,t) getOrElse dfn(newR)
+    case Hole(_) | SplicedHole(_) | NewObject(_) => d
+    case StaticModule(fullName) => d
+    case Module(pref, name, typ) =>
+      val newPref = rec(pref)
+      if (newPref eq pref) d else Module(newPref, name, typ)
+    case MethodApp(self, mtd, targs, argss, tp) =>
+      val newSelf = rec(self)
+      var sameArgs = true
+      def tr2 = (r: Rep) => {
+        //if (r.asInstanceOf[ANF#Rep].uniqueId == 125)
+        //  42
+        val newR = rec(r)
+        if (!(newR eq r))
+          sameArgs = false
+        newR
+      }
+      def trans(args: Args) = Args(args.reps map tr2: _*)
+      val newArgss = argss map { // TODO use List.mapConserve in Args if possible?
+        case as: Args => trans(as)
+        case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
+        case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), tr2(va))
+      }
+      if ((newSelf eq self) && sameArgs) d else MethodApp(newSelf, mtd, targs, newArgss, tp)
+    case v: BoundVal => v
+    case Constant(_) => d
+    case cs: CrossStageValue => cs
+    //case d => transformOtherDef(d)(pre,post)
+    //case or: OtherRep => or.transform(f)
+  }
+  
   class SimpleTransformer {
     
     def apply(r: Rep): Rep = mapDef(apply)(r)
@@ -158,48 +201,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def apply(d: Def): Def = {
       //println(s"Traversing $r")
       val rec: Rep => Rep = apply
-      val ret = d match {
-        // Special handling of redexes so that they are traversed argument-first (otherwise, it would be body-first)
-        case app @ Apply(a @ RepDef(_: Abs),v) => // This is so that let-bindings are traversed in the expected order...
-          val newV = rec(v)
-          val newA = rec(a)
-          val tp = app.typ
-          if (newA eq a) if (newV eq v) d else Apply(a,newV,tp) else Apply(newA,newV,tp)
-        case a @ Abs(p, b) =>
-          val newB = rec(b)
-          if (newB eq b) d else Abs(p, newB)(a.typ) // Note: we do not transform the parameter; it could lead to surprising behaviors (esp. in case of erroneous transform)
-        case Ascribe(r,t) => 
-          val newR = rec(r)
-          if (newR eq r) d else Ascribe.mk(newR,t) getOrElse dfn(newR)
-        case Hole(_) | SplicedHole(_) | NewObject(_) => d
-        case StaticModule(fullName) => d
-        case Module(pref, name, typ) =>
-          val newPref = rec(pref)
-          if (newPref eq pref) d else Module(newPref, name, typ)
-        case MethodApp(self, mtd, targs, argss, tp) =>
-          val newSelf = rec(self)
-          var sameArgs = true
-          def tr2 = (r: Rep) => {
-            //if (r.asInstanceOf[ANF#Rep].uniqueId == 125)
-            //  42
-            val newR = rec(r)
-            if (!(newR eq r))
-              sameArgs = false
-            newR
-          }
-          def trans(args: Args) = Args(args.reps map tr2: _*)
-          val newArgss = argss map { // TODO use List.mapConserve in Args if possible?
-            case as: Args => trans(as)
-            case ArgsVarargs(as, vas) => ArgsVarargs(trans(as), trans(vas))
-            case ArgsVarargSpliced(as, va) => ArgsVarargSpliced(trans(as), tr2(va))
-          }
-          if ((newSelf eq self) && sameArgs) d else MethodApp(newSelf, mtd, targs, newArgss, tp)
-        case v: BoundVal => v
-        case Constant(_) => d
-        case cs: CrossStageValue => cs
-        //case d => transformOtherDef(d)(pre,post)
-        //case or: OtherRep => or.transform(f)
-      }
+      val ret = mapRep(rec)(d)
       //println(s"Traversed $r, got $ret")
       ret
     }

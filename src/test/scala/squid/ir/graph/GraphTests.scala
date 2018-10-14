@@ -91,15 +91,18 @@ class GraphTests extends MyFunSuite(MyGraph) {
   def rw(c: ClosedCode[Any]) = {
     var mod = true
     var cur = c
-    println("\n--> "+cur.show)
-    println(cur.rep.showGraph)
+    println("\n-> "+cur.rep.showGraphRev)
+    println(cur.show)
     while (mod) {
       mod = false
       cur = cur rewrite {
         case code"readInt.toDouble" => mod = true; code"readDouble"
-        case code"(($x: $xt) => $body:$bt)($arg)" => mod = true; body.subs(x) ~> arg
-      } also (r => if (mod) println(" ~> "+r))
+        case code"(($x: $xt) => $body:$bt)($arg)" =>
+          //println(s"! $arg")
+          mod = true; body.subs(x) ~> arg
+      } also (r => if (mod) println("~> "+r.rep.showGraphRev+"\n"+r.show))
     }
+    println(" --- END ---\n")
   }
   
   test("Rw 1") {
@@ -115,6 +118,13 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //base debugFor
     rw(code"val ri = (_:Unit) => readInt; ri(()).toDouble+ri(()).toDouble")
     
+    
+  }
+  
+  test("Rw 2") {
+    
+    //rw(code"val ri = (n:Int) => readInt+n; ri(nextInt*2).toDouble+ri(42).toDouble")
+    rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(readInt)")
     
   }
   

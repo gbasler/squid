@@ -16,17 +16,17 @@ class Graph extends AST with CurryEncoding { graph =>
   //val edges = mutable.Map.empty[Val,Rep]
   
   def rebind(v: Val, d: Def): Unit = edges += v -> d
-  def rebind(r: Rep, d: Def): Unit = rebind(r.bound, d)
+  def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   
   ////class Rep(v: Val)
   //type Rep = Val
-  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots) {
   //  override def toString = {
   //    val d = dfnOrGet(this)
   //    if (d.isSimple) super.toString else s"${super.toString} = ${d}"
   //  }
   //}
-  ////class Node(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
+  ////class Node(name: String)(typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots) {
   ////  def get = edges(this)
   ////  //override def toString = if (get.isSimple) {
   ////  //  println(name,get,get.getClass)
@@ -41,8 +41,8 @@ class Graph extends AST with CurryEncoding { graph =>
   //}
   
   // Synthetic vals are never supposed to be let-bound...?
-  class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) {
-  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name: String)(typ, annots) with Rep {
+  class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots) {
+  //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots) with Rep {
     //override def toString = {
     //  val d = dfnOrGet(this)
     //  if (d.isSimple) super.toString else s"${super.toString} = ${d}"
@@ -97,10 +97,7 @@ class Graph extends AST with CurryEncoding { graph =>
       val d = dfn
       if (d.isSimple) d.toString else s"$bound = $d"
     }
-    def simpleString = {
-      val d = dfn
-      if (d.isSimple) d.toString else bound.toString
-    }
+    def simpleString = if (dfn.isSimple) dfn.toString else bound.toString
   }
   //object Expr {
   object Rep {
@@ -267,6 +264,33 @@ class Graph extends AST with CurryEncoding { graph =>
     //body alsoDo rebind(bound, value.dfn)
   
   
+  override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
+    //println(s"Subs $v in ${r.bound}")
+    val cid = new CallId("α")
+    var occurs = false
+    val subsd = super.substituteVal(r, v, {occurs = true; Arg(cid, mkArg, Some(v |> readVal)) |> rep})
+    val res = if (occurs) Call(cid, subsd) |> rep else r
+    //println(s"Subs yield: ${res.showGraphRev}")
+    res
+  }
+  override def mapDef(f: Def => Def)(r: Rep) = {
+    val d = r.dfn
+    val newD = f(d)
+    rebind(r, newD)
+  }
+  override protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
+    case Arg(cid,cbr,els) =>
+      val cbr2 = rec(cbr)
+      val els2 = els.mapConserve(rec)
+      if ((cbr2 eq cbr) && (els2 eq els)) d
+      else Arg(cid,cbr2,els2)
+    case Call(cid,res) =>
+      val res2 = rec(res)
+      if (res2 eq res) d
+      else Call(cid,res2)
+    case _ => super.mapRep(rec)(d)
+  }
+  
   
   
   import squid.quasi.MetaBases
@@ -419,7 +443,7 @@ class Graph extends AST with CurryEncoding { graph =>
       alwaysBoundAt ++= analysed2.groupBy(_._1).mapValues(_.unzip._2.reduce(_ & _))
       //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n\t${k.bound} -> ${v.mkString(",")}"})}")
       //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${k.bound} -> ${v}"}).mkString}")
-      println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${v} \t${k.bound}"}).mkString}")
+      //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${v} \t${k.bound}"}).mkString}")
       
       //val Seq() -> res = scheduleFunction(r) // TODO B/E
       val res = apply(r)
