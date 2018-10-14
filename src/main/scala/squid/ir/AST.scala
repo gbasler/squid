@@ -417,10 +417,15 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
   }
   
-  case class Ascribe private(self: Rep, typ: TypeRep) extends Def {
+  case class Ascribe private(self: Rep, typ: TypeRep) extends BasicDef {
     //require(!(self.typ =:= typ)) // in the future, re-enable this?
     //if (self.typ =:= typ) sys.error(s"Warning: annotating term $self of type ${self.typ} with equivalent type $typ")
     // ^ should never happened, as constructor is now private
+    def reps: Seq[Rep] = self::Nil
+    def rebuild(reps: Seq[Rep]): BasicDef = {
+      val Seq(r) = reps
+      Ascribe(r, typ)
+    }
   }
   object Ascribe {
     // Note: naming this `apply` works in Sala 2.12 but not 2.11 due to overloading with private case class ctor...
@@ -430,13 +435,33 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
   }
   
-  case class NewObject(typ: TypeRep) extends NonTrivialDef with LeafDef
+  case class NewObject(typ: TypeRep) extends NonTrivialDef with LeafDef with BasicDef
   
   case class StaticModule(fullName: String) extends LeafDef {
     lazy val typ = staticModuleType(fullName)
   }
   
-  case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends NonTrivialDef {
+  case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends NonTrivialDef with BasicDef {
+    
+    def reps: Seq[Rep] = argss.flatMap(_.reps)
+    def rebuild(reps: Seq[Rep]): BasicDef = {
+      def rec(argss: List[ArgList], reps: Seq[Rep]): List[ArgList] = argss match {
+        case Args(as@_*)::ass =>
+          require(reps.size >= as.size)
+          val (rs0,rs1) = reps.splitAt(as.size)
+          Args(rs0:_*)::rec(ass,rs1)
+        case ArgsVarargs(as0,as1)::ass =>
+          val (as01:Args)::(as11:Args)::ass1 = rec(as0::as1::ass,reps)
+          ArgsVarargs(as01,as11)::ass1
+        case ArgsVarargSpliced(as,a)::ass =>
+          val (as1:Args)::Args(a1)::ass1 = rec(as::Args(a)::ass,reps)
+          ArgsVarargSpliced(as1,a1)::ass1
+        case Nil =>
+          val Seq() = reps
+          Nil
+      }
+      MethodApp(self, sym, targs, rec(argss, reps), typ)
+    }
     
     lazy val phase = { // TODO cache annotations for each sym
       import ruh.sru._
@@ -451,9 +476,25 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
     
   }
-  case class Module(prefix: Rep, name: String, typ: TypeRep) extends Def
+  case class Module(prefix: Rep, name: String, typ: TypeRep) extends Def with BasicDef {
+    def reps: Seq[Rep] = prefix::Nil
+    def rebuild(reps: Seq[Rep]): BasicDef = {
+      val Seq(r) = reps
+      Module(r, name, typ)
+    }
+  }
   
-  sealed trait LeafDef extends Def
+  sealed trait BasicDef extends Def {
+    def reps: Seq[Rep]
+    def rebuild(reps: Seq[Rep]): BasicDef  // TODO conserve 'eq' object equality if nothing changed?
+  }
+  sealed trait LeafDef extends BasicDef {
+    def reps: Seq[Rep] = Nil
+    def rebuild(reps: Seq[Rep]): BasicDef = {
+      val Seq() = reps
+      this
+    }
+  }
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
   sealed trait Def { // Q: why not make it a class with typ as param?
     val typ: TypeRep
