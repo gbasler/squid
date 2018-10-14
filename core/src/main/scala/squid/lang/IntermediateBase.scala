@@ -55,6 +55,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   def boundValUniqueName(bv: BoundVal): String
   
   def extractVal(r: Rep): Option[BoundVal]
+  def `internal assertExtractVal`(r: Rep): BoundVal = extractVal(r) getOrElse lastWords(s"Not a val: ${r.show}")
   
   
   implicit class IntermediateRepOps(private val self: Rep) {

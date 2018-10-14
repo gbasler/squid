@@ -381,7 +381,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
               //  - or it is used as a Variable (cf: extracted binders syntax `val $a = ...` or `($a:T) => ...`)
               pat.tpe.baseType(VariableSymbol.value) match { // here we distinguish in which case we are, based on expected pattern type
                 case NoType => patMat(q"__b__.`internal Code`(__extr__.$mapName($name))", pat, acc)
-                case TypeRef(_,_,_) => patMat(q"__b__.mkVariable(__b__.extractVal(__extr__.$mapName($name)).get).asInstanceOf[${pat.tpe}]", pat, acc)
+                case TypeRef(_,_,_) => patMat(q"__b__.mkVariable(__b__.`internal assertExtractVal`(__extr__.$mapName($name))).asInstanceOf[${pat.tpe}]", pat, acc)
               }
               
             case ((pat, (mapName @ TermName("_2"), name)), acc) =>
