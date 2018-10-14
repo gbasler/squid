@@ -84,8 +84,7 @@ class Graph extends AST with CurryEncoding { graph =>
   //  }
   //}
   //class Expr(initialDef: Def) extends Rep {
-  class Rep(val bound: Val, initialDef: Def) {
-    rebind(bound, initialDef)
+  class Rep(val bound: Val) {
     def dfn: Def = edges.getOrElse(bound, bound)
     
     override def equals(that: Any) = that match {
@@ -110,7 +109,11 @@ class Graph extends AST with CurryEncoding { graph =>
     //  //_bound = v
     //  asBoundBy(v)
     //}
-    def bound(v: Val, d: Def) = new Rep(v,d)
+    //def bound(v: Val, d: Def) = new Rep(v,d)
+    def bound(v: Val, d: Def) = {
+      assert(!d.isInstanceOf[Val] || d.isInstanceOf[SyntheticVal])
+      new Rep(v) alsoDo rebind(v, d)
+    }
     def unapply(e: Rep) = Some(e.dfn)
   }
   
@@ -168,8 +171,11 @@ class Graph extends AST with CurryEncoding { graph =>
     //new Rep(freshBoundVal(dfn.typ), dfn)
     dfn match {
       case bv: BoundVal =>
-        new Rep(bv, bv)
-      case _ => new Rep(freshBoundVal(dfn.typ), dfn)
+        new Rep(bv)
+      case _ =>
+        val v = freshBoundVal(dfn.typ)
+        rebind(v, dfn)
+        new Rep(v)
     }
   //def rep(dfn: Def) = dfn match {
   //  case v: Val => v
@@ -257,8 +263,8 @@ class Graph extends AST with CurryEncoding { graph =>
     //??? // oops, need a Node here
     //{edges += bound -> value} thenReturn body
     //new Rep(bound, value.dfn) thenReturn body
-    //rebind(bound, value.dfn) thenReturn body
-    body alsoDo rebind(bound, value.dfn)
+    rebind(bound, value.dfn) thenReturn body
+    //body alsoDo rebind(bound, value.dfn)
   
   
   
