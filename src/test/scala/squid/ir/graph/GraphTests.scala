@@ -96,7 +96,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     while (mod) {
       mod = false
       cur = cur rewrite {
-        case code"readInt.toDouble" => mod = true; code"readDouble"
+        case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => mod = true; Const(n+m)
+        case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
+        case code"($n:Int).toDouble.toInt" => mod = true; n
         case code"(($x: $xt) => $body:$bt)($arg)" =>
           //println(s"! $arg")
           mod = true; body.subs(x) ~> arg
@@ -116,7 +118,10 @@ class GraphTests extends MyFunSuite(MyGraph) {
     rw(code"readInt.toDouble+1-1")
     
     //base debugFor
+    
     rw(code"val ri = (_:Unit) => readInt; ri(()).toDouble+ri(()).toDouble")
+    
+    rw(code"val ri = (n:Int) => n+1+readInt; ri(42).toDouble")
     
     
   }
@@ -126,6 +131,27 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //rw(code"val ri = (n:Int) => readInt+n; ri(nextInt*2).toDouble+ri(42).toDouble")
     rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(readInt)")
     
+    rw(code"val ri = (n:Int) => n+1; ri(nextInt)+ri(42)")
+    
+    rw(code"val ri = (n:Int) => n+1+readInt; ri(0).toDouble+ri(1).toDouble")
+    
+  }
+  
+  test("Simple Cross-Boundary Rewriting (Linear)") {
+    
+    rw(code"val ri = (n:Int) => n.toDouble; ri(nextInt).toInt")
+    
+    rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)")
+    
+  }
+  test("Simple Cross-Boundary Rewriting") {
+    // TODO several calls
+  }
+  test("Basic Cross-Boundary Rewriting") {
+    // TODO several args
+  }
+  test("Complex Cross-Boundary Rewriting") {
+    // TODO with currying
   }
   
 }
