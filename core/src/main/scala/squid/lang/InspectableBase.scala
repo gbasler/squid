@@ -52,8 +52,8 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   // Don't think this is still used anywhere:
   def disableRewritingsFor[A](r: => A): A = r
   
-  protected def extract(xtor: Rep, xtee: Rep): Option[Extract]
-  protected def spliceExtract(xtor: Rep, t: Args): Option[Extract]
+  protected def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx): Option[Extract]
+  protected def spliceExtract(xtor: Rep, t: Args)(implicit ctx: XCtx): Option[Extract]
   
   val Const: ConstAPI
   trait ConstAPI extends super.ConstAPI {
@@ -76,12 +76,15 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     newRep -> boundCSVals.toList.unzip._1
   }
   
+  type XCtx
+  def newXCtx: XCtx
+  
   /** The top-level function called by quasiquotes extractors */
   def extractRep(xtor: Rep, xtee: Rep): Option[Extract] = {
     import Console.BOLD
     import Console.RESET
     debug(s"${BOLD}Extracting$RESET $xtee ${BOLD}with$RESET $xtor")
-    nestDbg(extract(xtor, xtee)) alsoApply (res => debug(s"${BOLD}Result:$RESET $res"))
+    nestDbg(extract(xtor, xtee)(newXCtx)) alsoApply (res => debug(s"${BOLD}Result:$RESET $res"))
   }
   
   def `internal checkExtract`(position: String, maps: Extract)(valKeys: String*)(typKeys: String*)(splicedValKeys: String*): Extract = {
@@ -139,7 +142,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     
   }
   protected implicit class ProtectedInspectableRepOps(private val self: Rep) {
-    def extract (that: Rep) = baseSelf.extract(self, that)
+    def extract (that: Rep)(implicit ctx: XCtx) = baseSelf.extract(self, that)
   }
   implicit class InspectableRepOps(private val self: Rep) {
     /** Note: this is only a to-level call to `base.extractRep`; not supposed to be called in implementations of `extract` itself */
@@ -149,7 +152,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     def extract (that: TypeRep, va: Variance) = baseSelf.extractType(self, that, va)
   }
   
-  def extractArgList(self: ArgList, other: ArgList): Option[Extract] = {
+  def extractArgList(self: ArgList, other: ArgList)(implicit ctx: XCtx): Option[Extract] = {
     def extractRelaxed(slf: Args, oth: Args): Option[Extract] = {
       import slf._
       if (reps.size != oth.reps.size) return None

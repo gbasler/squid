@@ -98,7 +98,10 @@ class GraphTests extends MyFunSuite(MyGraph) {
       cur = cur rewrite {
         case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => mod = true; Const(n+m)
         case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
-        case code"($n:Int).toDouble.toInt" => mod = true; n
+        case code"($n:Int).toDouble.toInt" => //mod = true; n
+          mod = true
+          println(s"Rwr ${n.rep.showGraphRev}")
+          n
         case code"(($x: $xt) => $body:$bt)($arg)" =>
           //println(s"! $arg")
           mod = true; body.subs(x) ~> arg

@@ -28,6 +28,9 @@ class SimpleAST extends AST with CurryEncoding { ast =>
   
   def repType(r: Rep): TypeRep = r.dfn.typ
   
+  type XCtx = Unit
+  def newXCtx: XCtx = ()
+  
 }
 
 
