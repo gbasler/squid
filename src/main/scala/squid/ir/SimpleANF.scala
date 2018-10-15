@@ -114,7 +114,7 @@ trait SimpleANFBase extends AST with CurryEncoding with SimpleEffects { anf =>
     
     lazy val boundVals: Set[Val] = anf.boundVals(this)
     
-    def unapply(that: Rep) = extract(this, that)
+    def unapply(that: Rep) = extract(this, that)(newXCtx)
     
     //override def toString = s"$dfn"  // Now that Rep extends IR (for performance), it's a bad idea to override toString
     override def toString = if (isShowing) s"<currently-showing>$dfn" else super.toString
@@ -349,12 +349,15 @@ trait SimpleANFBase extends AST with CurryEncoding with SimpleEffects { anf =>
   }
   // ^ TODO cache these, like for `boundVals`
   
+  type XCtx = Unit
+  def newXCtx: XCtx = ()
   
   /* TODO flexible spliced holes
    * TODO consecutive mutable statement matching like in PardisIR */
   /** Rewrites a Rep by applying a rewriting on the corresponding ANF block;
     * aborting the rewriting if it removes Vals still used later on. */
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = /*ANFDebug muteFor*/ {
+    implicit val ctx: XCtx = newXCtx
     import Console.{BOLD, RESET}
     debug(s"${BOLD}Rewriting$RESET $xtee ${BOLD}with$RESET $xtor")
     //nestDbg(extract(xtor, xtee)) and (res => debug(s"${BOLD}Result:$RESET $res"))

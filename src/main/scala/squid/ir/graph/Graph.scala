@@ -357,6 +357,14 @@ class Graph extends AST with CurryEncoding { graph =>
   override def extractVal(r: Rep) = super.extractVal(r).orElse(Some(r.bound))
   
   
+  //type XCtx = Set[CallId]
+  //def newXCtx: XCtx = Set.empty
+  //type XCtx = (Set[CallId],mutable.Set[CallId])
+  //def newXCtx: XCtx = (Set.empty,mutable.Set.empty)
+  import squid.lib.MutVar
+  type XCtx = (Set[CallId],MutVar[Set[CallId]])
+  def newXCtx: XCtx = (Set.empty,MutVar(Set.empty))
+  
   /*
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     
@@ -370,6 +378,35 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   */
   
+  override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
+    val oldCtx_2 = ctx._2.!
+    val res = xtee.dfn match {
+      //case Arg(cid, cbr, els) => super.extract(xtor, cbr)(ctx + cid) orElse super.extract(xtor, els)
+      case Arg(cid, cbr, els) =>
+        val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2))
+        if (cbrE.isDefined) ctx._2 := ctx._2.! + cid
+        cbrE orElse super.extract(xtor, els)
+      case _ =>
+        //val (rs,ts,rss) = super.extract(xtor, xtee)
+        //(rs,ts,rss)
+        super.extract(xtor, xtee) map {
+          //case (rs,ts,rss) => (rs.mapValues(Call(cid,_).toRep),ts,rss)
+          case (rs,ts,rss) => (rs.mapValues(r => ctx._1.foldRight(r)(Call(_,_).toRep)),ts,rss)
+        }
+    }
+    if (res.isEmpty) ctx._2 := oldCtx_2
+    res
+  }
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+    //super.rewriteRep(xtor: Rep, xtee
+    //implicit val ctx: XCtx = (Set.empty, )
+    val ctx: XCtx = newXCtx
+    //val res = extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code
+    //ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
+    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map {
+      res => ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
+    }
+  }
   
   
   import squid.quasi.MetaBases

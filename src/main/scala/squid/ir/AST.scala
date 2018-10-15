@@ -251,10 +251,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   
   
-  protected def extract(xtor: Rep, xtee: Rep): Option[Extract] = dfn(xtor) extractImpl xtee
+  protected def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx): Option[Extract] = dfn(xtor) extractImpl xtee
   
   //def spliceExtract(xtor: Rep, t: Args): Option[Extract] = ???
-  protected def spliceExtract(xtor: Rep, args: Args): Option[Extract] = xtor match {
+  protected def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx): Option[Extract] = xtor match {
     case RepDef(SplicedHole(name)) => Some(Map(), Map(), Map(name -> args.reps))
     case RepDef(h @ Hole(name)) => // If we extract ($xs*) using ($xs:_*), we have to build a Seq in the object language and return it
       //val rep = methodApp(
@@ -515,7 +515,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     
     lazy val size: Int = 1 + children.map(dfn).map(_.size).sum
     
-    def extractImpl(r: Rep): Option[Extract] = {
+    def extractImpl(r: Rep)(implicit ctx: XCtx): Option[Extract] = {
       //println(s"${this.show} << ${t.show}")
       //dbgs(s"${this} << ${r}")
       dbgs(s"${Console.BOLD}M${Console.RESET}  "+this);dbgs("<< "+r)
