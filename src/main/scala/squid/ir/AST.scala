@@ -127,12 +127,17 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //  lastWords(s"Not supported: transformation of $d")
   
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) extends SimpleTransformer {
+    val done = new java.util.IdentityHashMap[Rep,Rep]() // TODO extract from here (it's only needed for the Graph IR)
     
     //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
     /* Optimized version that prevents recreating too many Rep's: */
-    override def apply(_r: Rep): Rep = {
+    override def apply(_r: Rep): Rep = if (done.containsKey(_r)) {
+      println(s"! Already transformed ${_r}")
+      done.get(_r)
+    } else {
       //post(r |> mapDef(apply))
-      try post(pre(_r) |> super.apply) |> ascribeIfNot(_r.typ) catch { // Q: semantics if `post` throws??
+      try post(pre(_r) |> super.apply) |> ascribeIfNot(_r.typ) also (done.put(_r,_)) // note: putting only at the end; we may still get an infinite loop
+      catch { // Q: semantics if `post` throws??
         case EarlyReturnAndContinueExc(cont) =>
           val r = nestDbg(cont(apply))
           debug(s"${Console.RED}Returned early and continued with:${Console.RESET} $r")
