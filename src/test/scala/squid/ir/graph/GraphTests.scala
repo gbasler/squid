@@ -33,7 +33,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     val cur = c
     do {
       println
-      println(DSL.showGraph(c.rep))
+      println(DSL.showGraphRev(c.rep))
       println(cur)
       println
     } while (DSL.reduceStep(cur.rep))
@@ -103,8 +103,12 @@ class GraphTests extends MyFunSuite(MyGraph) {
           println(s"Rwr ${n.rep.showGraphRev}")
           n
         case code"(($x: $xt) => $body:$bt)($arg)" =>
-          //println(s"! $arg")
-          mod = true; body.subs(x) ~> arg
+          //mod = true; body.subs(x) ~> arg
+          mod = true
+          //println(s"!>> SUBS ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
+          val res = body.subs(x) ~> arg
+          //println(s"!<< SUBS'd ${res.rep.showGraphRev}")
+          res
       } also (r => if (mod) println("~> "+r.rep.showGraphRev+"\n"+r.show))
     }
     println(" --- END ---\n")
@@ -146,6 +150,8 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)")
     
+    // TODO also with non-trivial leaves
+    
   }
   test("Simple Cross-Boundary Rewriting") {
     // TODO several calls
@@ -155,6 +161,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     // TODO with currying
+    rw(code"val f = (x: Int) => (y: Int) => x+y; f(1)(2) + f(3)(4)")
   }
   
 }
