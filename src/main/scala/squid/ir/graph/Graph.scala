@@ -96,6 +96,8 @@ class Graph extends AST with CurryEncoding { graph =>
     
     def isBottom = dfn === Bottom
     
+    def freeVals: Set[Val] = graph.freeVals(dfn)
+    
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
       case _ => false
@@ -123,26 +125,42 @@ class Graph extends AST with CurryEncoding { graph =>
     def unapply(e: Rep) = Some(e.dfn)
   }
   
+  // TODO override reps and rebuild in these? (also, factor reps and children!)
   case class Call(cid: CallId, result: Rep) extends SyntheticVal("C"+cid, result.typ) {
   //case class Call(call: Id, result: Rep) extends Rep {
     
+    // Note that 'unboundVals' won't see this (good, because since it's caching it would be wrong),
+    // because it matches on BoundVal and only calls children in the default case...
+    override def children: Iterator[Rep] = Iterator.single(result)
   }
   ////case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
   case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, cbr.typ) {
   //case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends Rep {
     
+    override def children: Iterator[Rep] = Iterator(cbr,els)
   }
   // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
   //case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends Rep {
     
+    override def children: Iterator[Rep] = Iterator.single(scrut) ++ branches.valuesIterator
   }
   
-  override protected def unboundVals(d: Def): Set[Val] = d match {
-    case Call(cid, res) => res.dfn.unboundVals
-    case Arg(cid, cbr, els) => cbr.dfn.unboundVals ++ els.dfn.unboundVals
-    case _:SyntheticVal => ??? // TODO
-    case _ => super.unboundVals(d)
+  //override protected def unboundVals(d: Def): Set[Val] = d match {
+  //  case Call(cid, res) => res.dfn.unboundVals
+  //  case Arg(cid, cbr, els) => cbr.dfn.unboundVals ++ els.dfn.unboundVals
+  //  case _:SyntheticVal => ??? // TODO
+  //  case _ => super.unboundVals(d)
+  //}
+  //override protected def unboundVals(d: Def): Set[Val] = ???
+  
+  /** contrary to unboundVals and its synonym freeVariables, this does not cache (incompatible with mutability of the
+    * graph), and goes through Arg/Call/Split nodes. It's still fine to use unboundVals, but it will only give the
+    * variables bound by the Rep's immediately used by the Def (which are immutable and can be cached) */
+  def freeVals(d: Def): Set[Val] = d match {
+    case v: Val => Set.single(v)
+    case Abs(v,body) => body.freeVals - v
+    case bd: BasicDef => bd.children.flatMap(_.freeVals).toSet
   }
   
   //override def prettyPrint(d: Def) = d match {
@@ -193,8 +211,8 @@ class Graph extends AST with CurryEncoding { graph =>
   //def dfn(r: Rep) = r match { case Node(d) => d  case bv => bv }
   //def dfn(r: Rep): Def = r
   
-  def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
-  //def dfn(r: Rep): Def = r.bound
+  //def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
+  def dfn(r: Rep): Def = r.bound
   
   //def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
   
@@ -293,7 +311,7 @@ class Graph extends AST with CurryEncoding { graph =>
     val occurs = r.dfn.unboundVals contains v
     if (occurs) {
       val cid = new CallId("α")
-      rebind(v, Arg(cid, mkArg, Some(v |> readVal)))
+      rebind(v, Arg(cid, mkArg, v |> readVal))
       Call(cid, r) |> rep
     } else r
     */
@@ -556,12 +574,13 @@ class Graph extends AST with CurryEncoding { graph =>
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
-        if (vctx.isEmpty || (r.dfn.unboundVals subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        val rfv = r.freeVals
+        if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
-          //println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1} ${r.dfn.unboundVals -- params.head._1 toList}")
-          println(s"Oops: ${r.dfn.unboundVals} not in ${vctx} for:  ${r.showGraphRev}")
+          //println(s"Oops: $r ${rfv} ill-scoped in ${params.head._1} ${rfv -- params.head._1 toList}")
+          println(s"Oops: ${rfv} not in ${vctx} for:  ${r.showGraphRev}")
           
           // Generate boolean params to know which subexpression to compute;
           // Problem: expressions under an Arg may contain variables only bound in some of the _callers_, so using them

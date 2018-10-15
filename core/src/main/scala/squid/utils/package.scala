@@ -124,6 +124,10 @@ package object utils {
   @inline def some[A](x: A): Option[A] = Some(x)
   @inline def none = None
   
+  implicit class SetModuleHelper(private val __self: Set.type) extends AnyVal {
+    def single[A](a: A) = Set.empty + a
+  }
+  
   implicit class FunHelper[A,B](val __self: A => B) extends AnyVal {
     def <| (rhs: A): B = __self(rhs)
     def |>: (lhs: A): B = __self(lhs)
