@@ -116,7 +116,10 @@ class Graph extends AST with CurryEncoding { graph =>
       val d = dfn
       if (d.isSimple) d.toString else s"$bound = $d"
     }
-    def simpleString = if (dfn.isSimple) dfn.toString else bound.toString
+    def simpleString = 
+      if (dfn.isSimple) dfn.toString
+      //if (dfn.isSimple) s"‘$dfn $bound’"
+      else bound.toString
   }
   //object Expr {
   object Rep {
@@ -267,21 +270,13 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   //def showGraph(r: Rep) = {
   //}
-  //var cnt = 0
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
   def reverseIterator(r: Rep): Iterator[Rep] = mkIterator(r)(true,mutable.HashSet.empty)
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] =
-    //if (done(r)) Iterator.empty else {
-    //  done(r) = true
-    //  Iterator.single(r) ++ defn.mkIterator
-    //}
     //done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
-    done.setAndIfUnset(r.bound,{
-      //println(s"${r.bound} ${done}")
-      //if (s"${r.bound} ${done}"==="@7 Set(@7, @34)")cnt+=1
-      //if(cnt>10)???
-      if (rev) mkDefIterator(r.dfn) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(r.dfn)},
-      Iterator.empty)
+    done.setAndIfUnset(r.bound, /*println(s"ite ${r.bound}  ${done}") thenReturn*/ {
+      if (rev) mkDefIterator(r.dfn) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(r.dfn)
+    } /*alsoDo println(s"DONE ite ${r.bound}  ${done}")*/, Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn match {
   //def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = if (done.contains(dfn)) Iterator.empty else dfn match {
     case v:Val if done.contains(v) => Iterator.empty
@@ -294,7 +289,7 @@ class Graph extends AST with CurryEncoding { graph =>
     case Call(cid, res) =>
       mkIterator(res)
     case Arg(cid, cbr, els) =>
-      mkIterator(cbr) ++ els.iterator.flatMap(mkIterator)
+      mkIterator(cbr) ++ mkIterator(els).flatMap(mkIterator)
     case _:SyntheticVal => ??? // TODO
     case _: LeafDef => Iterator.empty
     //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
