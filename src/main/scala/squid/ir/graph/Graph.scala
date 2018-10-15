@@ -418,6 +418,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //   - can merge several control-flow boolean parameters into one integer flag parameter
     //   - can prune useless branches (to refine)
     // TODO the target IR should defunctionalize the continuations we generate here...
+    //   or at least we should use bool or int flag params when possible
     // TODO detect effects or costly computations and do not lift them out of nested expr
     //   if we're not sure the path must be taken
     //   or if the path isn't 'pure', in the case of effects (if the path's effects interact with the arg's effects)
@@ -469,7 +470,12 @@ class Graph extends AST with CurryEncoding { graph =>
     
     val pointers = mutable.Map.empty[Rep,mutable.Set[Rep]]
     val alwaysBoundAt = mutable.Map.empty[Rep,Set[Val]]
+    val liveVals = mutable.Set.empty[Val]
+    
     def applyTopLevel(r: Rep) = {
+      
+      assert(liveVals.isEmpty)
+      liveVals ++= iterator(r).collect{case Rep(Abs(v,_)) => v}
       
       val analysed = mutable.HashSet.empty[Rep]
       def analyse(r: Rep): Unit = /*println(s"> Analayse $r") thenReturn*/ analysed.setAndIfUnset(r, {
@@ -594,7 +600,7 @@ class Graph extends AST with CurryEncoding { graph =>
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
-        val rfv = r.freeVals
+        val rfv = r.freeVals filter liveVals
         if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
