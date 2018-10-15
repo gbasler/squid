@@ -152,7 +152,7 @@ class Graph extends AST with CurryEncoding { graph =>
   //  case _:SyntheticVal => ??? // TODO
   //  case _ => super.unboundVals(d)
   //}
-  //override protected def unboundVals(d: Def): Set[Val] = ???
+  override protected def unboundVals(d: Def): Set[Val] = ??? // to make sure not used, until we make 'dfn' opaque again
   
   /** contrary to unboundVals and its synonym freeVariables, this does not cache (incompatible with mutability of the
     * graph), and goes through Arg/Call/Split nodes. It's still fine to use unboundVals, but it will only give the
@@ -211,8 +211,8 @@ class Graph extends AST with CurryEncoding { graph =>
   //def dfn(r: Rep) = r match { case Node(d) => d  case bv => bv }
   //def dfn(r: Rep): Def = r
   
-  //def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
-  def dfn(r: Rep): Def = r.bound
+  def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
+  //def dfn(r: Rep): Def = r.bound
   
   //def dfnOrGet(r: Rep) = r match { case Rep(d) => d  case bv => bv }
   
@@ -312,6 +312,26 @@ class Graph extends AST with CurryEncoding { graph =>
     if (occurs) {
       val cid = new CallId("α")
       rebind(v, Arg(cid, mkArg, v |> readVal))
+      Call(cid, r) |> rep
+    } else r
+    */
+    
+    // obsolete stub:
+    /*
+    val arg = try mkArg
+    catch { case e: Throwable =>
+      System.err.println(s"Arg construction did not complete for substitution of variable $v." +
+        s" Note that the Graph IR does not support speculative rewriting as of yet.")
+    }
+    val occurs = r.dfn.unboundVals contains v
+    if (occurs) {
+      val cid = new CallId("α")
+      //rebind(v, Arg(cid, mkArg, Some(v |> readVal)))
+      //Call(cid, r) |> rep
+      def rec(r: Rep): Unit = r.dfn match {
+        case Arg(c,v) => 
+      }
+      rec(r)
       Call(cid, r) |> rep
     } else r
     */
@@ -514,7 +534,7 @@ class Graph extends AST with CurryEncoding { graph =>
     }
     def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
       println(s"> Schfun $r ${alwaysBoundAt(r)}")
-      cctx ::= mutable.Buffer.empty
+      cctx ::= mutable.Set.empty
       val oldvctx = vctx
       vctx = Set.empty
       //params ::= (vctx,mutable.Buffer.empty)
@@ -534,7 +554,7 @@ class Graph extends AST with CurryEncoding { graph =>
     }
     //var ctx: List[List[CallId]] = Nil
     //var ctx: List[mutable.Buffer[CallId]] = Nil
-    var cctx: List[mutable.Buffer[CallId]] = mutable.Buffer.empty[CallId]::Nil
+    var cctx: List[mutable.Set[CallId]] = mutable.Set.empty[CallId]::Nil
     var vctx: Set[Val] = Set.empty
     //var params: List[mutable.Buffer[Rep]] = Nil
     var params: List[(Set[Val],mutable.Buffer[Rep])] = Nil
@@ -557,18 +577,18 @@ class Graph extends AST with CurryEncoding { graph =>
     //  super.apply(d) alsoDo {vctx -= bv}
     case Call(cid, res) =>
       cctx.head += cid
-      apply(res) alsoDo cctx.head.remove(cctx.head.indices.last)
+      apply(res) alsoDo {cctx.head -= cid}
     case Arg(cid, cbr, els) =>
       //println(s"Arg $r")
-      if (cctx.head.nonEmpty) {
+      //if (cctx.head.nonEmpty) { // FIXedME
         //assert(ctx.head.last === cid)
-        if (cctx.head.last === cid) {
-          cctx.head.remove(cctx.head.indices.last)
+        if (cctx.head(cid)) {
+          cctx.head -= cid
           apply(cbr) alsoDo {cctx.head += cid}
-        } else apply(els) // TODO B/E
+        //} else apply(els)
       }
       //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
-      else if (params.isEmpty) apply(els) // TODO B/E
+      else if (params.isEmpty) apply(els)
       //else bindOrGet(r.bound) alsoDo {params.head += r}
       else {
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
