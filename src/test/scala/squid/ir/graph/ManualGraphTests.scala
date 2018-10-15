@@ -27,8 +27,8 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
     // ^ can't explain why, bt the above behaves differently; the scheduled code has an additional `val v_0 = squid.lib.unbound("v");` at the top...
     val shd = abs(v, Arg(c0, v, Arg(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v)))
     val g = methodApp(Call(c0, shd), IntPlus, Nil, Args(Call(c1, shd))::Nil, Int)
-    println(g)
-    println(g.showGraph)
+    //println(g)
+    println(g.showGraphRev)
     println(g.showRep)
     
   }
@@ -37,8 +37,8 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
     
     val shd = abs(v, Arg(c0, w, Arg(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v))) |> (mapp(_,IntToDouble,Int)()())
     val g = methodApp(abs(w, Call(c0, shd)), IntPlus, Nil, Args(Call(c1, shd))::Nil, Int)
-    println(g)
-    println(g.showGraph)
+    //println(g)
+    println(g.showGraphRev)
     println(g.showRep)
     
   }
