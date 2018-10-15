@@ -101,7 +101,10 @@ class Graph extends AST with CurryEncoding { graph =>
     
     def isBottom = dfn === Bottom
     
-    def freeVals: Set[Val] = graph.freeVals(dfn)
+    def iterator = graph.iterator(this)
+    
+    //def freeVals: Set[Val] = graph.freeVals(dfn)
+    def freeVals: Set[Val] = iterator.collect{case Rep(v:Val) if !v.isInstanceOf[SyntheticVal] => v}.toSet
     
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
@@ -162,11 +165,12 @@ class Graph extends AST with CurryEncoding { graph =>
   /** contrary to unboundVals and its synonym freeVariables, this does not cache (incompatible with mutability of the
     * graph), and goes through Arg/Call/Split nodes. It's still fine to use unboundVals, but it will only give the
     * variables bound by the Rep's immediately used by the Def (which are immutable and can be cached) */
-  def freeVals(d: Def): Set[Val] = d match {
-    case v: Val if !v.isInstanceOf[SyntheticVal] => Set.single(v)
-    case Abs(v,body) => body.freeVals - v
-    case bd: BasicDef => bd.children.flatMap(_.freeVals).toSet
-  }
+  //def freeVals(d: Def): Set[Val] = d match {
+  //  case v: Val if !v.isInstanceOf[SyntheticVal] => Set.single(v)
+  //  case Abs(v,body) => body.freeVals - v
+  //  case bd: BasicDef => bd.children.flatMap(_.freeVals).toSet
+  //}
+  //def freeVals(d: Def): Set[Val] = iterator(d).collect{case Rep(v:Val) => v}.toSet
   
   //override def prettyPrint(d: Def) = d match {
   //  case Node(d) if d.isSimple =>
@@ -176,17 +180,20 @@ class Graph extends AST with CurryEncoding { graph =>
   //}
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
+    val printed = mutable.Set.empty[Rep]
     override val showValTypes = false
     override val desugarLetBindings = false
-    override def apply(r: Rep): String = r match {
+    override def apply(r: Rep): String = printed.setAndIfUnset(r, r match {
       case Rep(d) if d.isSimple => apply(d)
       //case _ => super.apply(r)
       case _ => super.apply(r.bound)
-    }
+    }, super.apply(r.bound))
     //override def apply(d: Def): String = if (get.isSimple) {
     override def apply(d: Def): String = d match {
       case Call(cid, res) => s"C[$cid](${res |> apply})"
-      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + (if (els.isBottom) "" else "|"+apply(els))
+      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + 
+        //(if (els.isBottom) "" else "|"+apply(els))
+        "|"+apply(els)
       case _:SyntheticVal => ??? // TODO
       case _ => super.apply(d)
     }
@@ -260,6 +267,7 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   //def showGraph(r: Rep) = {
   //}
+  //var cnt = 0
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
   def reverseIterator(r: Rep): Iterator[Rep] = mkIterator(r)(true,mutable.HashSet.empty)
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] =
@@ -268,10 +276,15 @@ class Graph extends AST with CurryEncoding { graph =>
     //  Iterator.single(r) ++ defn.mkIterator
     //}
     //done.setAndIfUnset(r, Iterator.single(r) ++ mkDefIterator(dfnOrGet(r)), Iterator.empty)
-    done.setAndIfUnset(r.bound,
-      if (rev) mkDefIterator(r.dfn) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(r.dfn),
+    done.setAndIfUnset(r.bound,{
+      //println(s"${r.bound} ${done}")
+      //if (s"${r.bound} ${done}"==="@7 Set(@7, @34)")cnt+=1
+      //if(cnt>10)???
+      if (rev) mkDefIterator(r.dfn) ++ Iterator.single(r) else Iterator.single(r) ++ mkDefIterator(r.dfn)},
       Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn match {
+  //def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = if (done.contains(dfn)) Iterator.empty else dfn match {
+    case v:Val if done.contains(v) => Iterator.empty
     case MethodApp(self, mtd, targs, argss, tp) =>
       mkIterator(self) ++ argss.flatMap(_.reps.flatMap(mkIterator))
     case Abs(_, b) => mkIterator(b)
@@ -333,7 +346,7 @@ class Graph extends AST with CurryEncoding { graph =>
     */
     // ^ this version is kinda dumb: it creates a cycle that makes the Reinterpreter SOF
     
-    val occurs = freeVals(r.dfn) contains v
+    val occurs = r.freeVals contains v
     //println(occurs)
     if (occurs) {
       val cid = new CallId("α")
@@ -410,9 +423,9 @@ class Graph extends AST with CurryEncoding { graph =>
   //type XCtx = (Set[CallId],MutVar[Set[CallId]])
   //def newXCtx: XCtx = (Set.empty,MutVar(Set.empty))
   //type XCtx = (Set[CallId], MutVar[(Set[CallId], () => Unit)])
-  type XCtx = (Set[CallId],MutVar[(Rep,Rep) => Rep])
+  type XCtx = (Set[CallId],Set[CallId],MutVar[(Rep,Rep) => Rep])
   //def newXCtx: XCtx = (Set.empty,MutVar(identity))
-  def newXCtx: XCtx = (Set.empty,MutVar((r,_)=>r))
+  def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r))
   
   /*
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
@@ -428,14 +441,33 @@ class Graph extends AST with CurryEncoding { graph =>
   */
   
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
-    val oldCtx_2 = ctx._2.!
+    val oldCtx_2 = ctx._3.!
     val res = xtee.dfn match {
+      case Call(cid, res) if !ctx._1.contains(cid) =>
+        super.extract(xtor, res)((ctx._1, ctx._2 + cid, ctx._3))
       //case Arg(cid, cbr, els) => super.extract(xtor, cbr)(ctx + cid) orElse super.extract(xtor, els)
+        /*
       case Arg(cid, cbr, els) =>
-        val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2))
-        //if (cbrE.isDefined) ctx._2 := ctx._2.! + cid
-        if (cbrE.isDefined) ctx._2 := { (res: Rep, orig: Rep) =>
+        val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2 - cid, ctx._3))
+        //if (cbrE.isDefined) ctx._3 := ctx._3.! + cid
+        if (cbrE.isDefined && !ctx._2.contains(cid)) ctx._3 := { (res: Rep, orig: Rep) =>
           rebind(xtee, els.dfn)
+          Arg(cid,oldCtx_2(res,orig),orig).toRep
+        }
+        cbrE orElse super.extract(xtor, els)
+        */
+      case Arg(cid, cbr, _) if ctx._2 contains cid =>
+        super.extract(xtor, cbr)((ctx._1, ctx._2 - cid, ctx._3))
+      case Arg(cid, cbr, els) =>
+        //val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2 - cid, ctx._3))
+        val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2, ctx._3))
+        //if (cbrE.isDefined) ctx._3 := ctx._3.! + cid
+        //if (cbrE.isDefined && !ctx._2.contains(cid)) ctx._3 := { (res: Rep, orig: Rep) =>
+        if (cbrE.isDefined) ctx._3 := { (res: Rep, orig: Rep) =>
+          rebind(xtee, els.dfn)
+          // ^ FIXME this is not right: it will remove possible paths;
+          //     e.g., in (C0->a|a')+(C1->b|b') we'll get (C0->C1->a+b|@0|@0) where @0 = a'+b'
+          //     I only put it there temporarily; we need a general solution to prevent the same patterns from firing again!
           Arg(cid,oldCtx_2(res,orig),orig).toRep
         }
         cbrE orElse super.extract(xtor, els)
@@ -444,10 +476,14 @@ class Graph extends AST with CurryEncoding { graph =>
         //(rs,ts,rss)
         super.extract(xtor, xtee) map {
           //case (rs,ts,rss) => (rs.mapValues(Call(cid,_).toRep),ts,rss)
-          case (rs,ts,rss) => (rs.mapValues(r => ctx._1.foldRight(r)(Call(_,_).toRep)),ts,rss)
+          case (rs,ts,rss) => (rs.mapValues{r => 
+            val r1 = ctx._1.foldRight(r)(Call(_,_).toRep)
+            //ctx._2.foldRight(r1)(Arg(_,_,Bottom.toRep).toRep)
+            ctx._2.foldRight(r1)(Call(_,_).toRep)
+          },ts,rss)
         }
     }
-    if (res.isEmpty) ctx._2 := oldCtx_2
+    if (res.isEmpty) ctx._3 := oldCtx_2
     res
   }
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
@@ -455,11 +491,11 @@ class Graph extends AST with CurryEncoding { graph =>
     //implicit val ctx: XCtx = (Set.empty, )
     val ctx: XCtx = newXCtx
     //val res = extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code
-    //ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
+    //ctx._3.!.foldRight(res)(Arg(_,_,xtee).toRep)
     //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map {
-    //  res => ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
+    //  res => ctx._3.!.foldRight(res)(Arg(_,_,xtee).toRep)
     //}
-    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._2.!(_,xtee))
+    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee))
   }
   
   

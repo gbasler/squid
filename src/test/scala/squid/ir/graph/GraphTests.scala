@@ -88,6 +88,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
   //def rw(c: ClosedCode[Any]) = c also println rewrite {
   //  case code"readInt.toDouble" => code"readDouble"
   //} also println
+  /*
   def rw(c: ClosedCode[Any]) = {
     var mod = true
     var cur = c
@@ -105,11 +106,62 @@ class GraphTests extends MyFunSuite(MyGraph) {
         case code"(($x: $xt) => $body:$bt)($arg)" =>
           //mod = true; body.subs(x) ~> arg
           mod = true
-          //println(s"!>> SUBS ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
+          println(s"!>> SUBS ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
           val res = body.subs(x) ~> arg
-          //println(s"!<< SUBS'd ${res.rep.showGraphRev}")
+          println(s"!<< SUBS'd ${res.rep.showGraphRev}")
           res
       } also (r => if (mod) println("~> "+r.rep.showGraphRev+"\n"+r.show))
+    }
+    println(" --- END ---\n")
+  }
+  */
+  def rw(c: ClosedCode[Any]) = {
+    var mod = true
+    var cur = c
+    println("\n-> "+cur.rep.showGraphRev)
+    println(cur.show)
+    trait Mixin extends DSL.SelfTransformer {
+      abstract override def transform(rep: DSL.Rep) = {
+        //val res = super.transform(rep)
+        if (!mod) { val res = super.transform(rep)
+          //if (mod) println(s"${Console.BOLD}~> Transformed:${Console.RESET} ${cur.rep.showGraphRev}"+"\n~> "+cur.rep.show)
+          if (mod) println(s"${rep.bound}${Console.BOLD} ~> ${Console.RESET}${res.showGraphRev}")
+          res
+        } else rep
+      }
+    }
+    object Tr extends SimpleRuleBasedTransformer with Mixin with BottomUpTransformer with DSL.SelfTransformer { // FIXME ugly crash if we forget 'with DSL.SelfTransformer'
+      rewrite {
+        case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => mod = true; Const(n+m)
+        case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
+        case r @ code"($n:Int).toDouble.toInt" => //mod = true; n
+          mod = true
+          //println(s"Rwr ${r.rep.bound} with ${n.rep.showGraphRev}")
+          //println(s"Rwr  ${r.rep.showGraphRev}\nWith ${n.rep.showGraphRev}")
+          println(s"Rwr with ${n.rep.bound} of ${r.rep.showGraphRev}")
+          n
+        case code"(($x: $xt) => $body:$bt)($arg)" =>
+          //mod = true; body.subs(x) ~> arg
+          mod = true
+          println(s"!>> SUBS ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
+          val res = body.subs(x) ~> arg
+          println(s"!<< SUBS'd ${res.rep.showGraphRev}")
+          res
+      }
+      
+      //override def transform(rep: DSL.Rep) = {
+      //  val res = super.transform(rep)
+      //  if (mod) println(s"${Console.BOLD}Current Rep:${Console.RESET} ${rep.showGraphRev}"+"\n"+rep.show)
+      //  res
+      //}
+    }
+    while (mod) {
+      mod = false
+      cur = 
+        //cur transformWith Tr 
+        cur transformWith Tr also 
+        //Tr.TranformerDebug.debugFor(cur transformWith Tr) also 
+          (r => if (mod) println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+r.rep.showGraphRev+"\n~> "+r.show))
     }
     println(" --- END ---\n")
   }
@@ -161,7 +213,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     // TODO with currying
-    rw(code"val f = (x: Int) => (y: Int) => x+y; f(1)(2) + f(3)(4)")
+    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
   }
   
 }
