@@ -22,6 +22,9 @@ class Graph extends AST with CurryEncoding { graph =>
   def rebind(v: Val, d: Def): Unit = edges += v -> d
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   
+  val Bottom = bindVal("⊥", Predef.implicitType[Nothing].rep, Nil)
+  bind(Bottom,Bottom) // prevents rebinding of Bottom, just in case
+  
   ////class Rep(v: Val)
   //type Rep = Val
   //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots) {
@@ -91,6 +94,8 @@ class Graph extends AST with CurryEncoding { graph =>
   class Rep(val bound: Val) {
     def dfn: Def = edges.getOrElse(bound, bound)
     
+    def isBottom = dfn === Bottom
+    
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
       case _ => false
@@ -123,7 +128,7 @@ class Graph extends AST with CurryEncoding { graph =>
     
   }
   ////case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
-  case class Arg(cid: CallId, cbr: Rep, els: Option[Rep]) extends SyntheticVal("A"+cid, cbr.typ) {
+  case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, cbr.typ) {
   //case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends Rep {
     
   }
@@ -135,7 +140,7 @@ class Graph extends AST with CurryEncoding { graph =>
   
   override protected def unboundVals(d: Def): Set[Val] = d match {
     case Call(cid, res) => res.dfn.unboundVals
-    case Arg(cid, cbr, els) => cbr.dfn.unboundVals ++ els.dlof(_.dfn.unboundVals)(Set.empty)
+    case Arg(cid, cbr, els) => cbr.dfn.unboundVals ++ els.dfn.unboundVals
     case _:SyntheticVal => ??? // TODO
     case _ => super.unboundVals(d)
   }
@@ -158,7 +163,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //override def apply(d: Def): String = if (get.isSimple) {
     override def apply(d: Def): String = d match {
       case Call(cid, res) => s"C[$cid](${res |> apply})"
-      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + els.fold("")("|"+apply(_))
+      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + (if (els.isBottom) "" else "|"+apply(els))
       case _:SyntheticVal => ??? // TODO
       case _ => super.apply(d)
     }
@@ -273,7 +278,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //println(s"Subs $v in ${r.bound}")
     val cid = new CallId("α")
     var occurs = false
-    val subsd = super.substituteVal(r, v, {occurs = true; Arg(cid, mkArg, Some(v |> readVal)) |> rep})
+    val subsd = super.substituteVal(r, v, {occurs = true; Arg(cid, mkArg, v |> readVal) |> rep})
     val res = if (occurs) Call(cid, subsd) |> rep else r
     //println(s"Subs yield: ${res.showGraphRev}")
     res
@@ -301,7 +306,7 @@ class Graph extends AST with CurryEncoding { graph =>
   override protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
     case Arg(cid,cbr,els) =>
       val cbr2 = rec(cbr)
-      val els2 = els.mapConserve(rec)
+      val els2 = rec(els)
       if ((cbr2 eq cbr) && (els2 eq els)) d
       else Arg(cid,cbr2,els2)
     case Call(cid,res) =>
@@ -454,7 +459,7 @@ class Graph extends AST with CurryEncoding { graph =>
           case Ascribe(r, _) => addptr(r)
           case Module(r, _, _) => addptr(r)
           case Call(_, res) => addptr(res)
-          case Arg(_, cbr, els) => addptr(cbr); els.foreach(addptr)
+          case Arg(_, cbr, els) => addptr(cbr); addptr(els)
           //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => false
           case _: LeafDef =>
         }
@@ -471,7 +476,7 @@ class Graph extends AST with CurryEncoding { graph =>
         case Ascribe(r, _) => analyse2(r)
         case Module(r, _, _) => analyse2(r)
         case Call(_, res) => analyse2(res)
-        case Arg(_, cbr, els) => analyse2(cbr); els.foreach(analyse2)
+        case Arg(_, cbr, els) => analyse2(cbr); analyse2(els)
         case _: LeafDef =>
       })
       analyse2(r)(Set.empty)
@@ -542,10 +547,10 @@ class Graph extends AST with CurryEncoding { graph =>
         if (cctx.head.last === cid) {
           cctx.head.remove(cctx.head.indices.last)
           apply(cbr) alsoDo {cctx.head += cid}
-        } else els.fold(???)(apply) // TODO B/E
+        } else apply(els) // TODO B/E
       }
       //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
-      else if (params.isEmpty) els.fold(???)(apply) // TODO B/E
+      else if (params.isEmpty) apply(els) // TODO B/E
       //else bindOrGet(r.bound) alsoDo {params.head += r}
       else {
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
@@ -588,7 +593,7 @@ class Graph extends AST with CurryEncoding { graph =>
           recv(k)
           apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*))) alsoDo {
             vctx -= k
-            params.head._2 += Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), Some(lambda(extrudedVals, els.getOrElse(???)))))
+            params.head._2 += Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), lambda(extrudedVals, els)))
           }
           //apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*)) also(r=>println(r.showGraphRev))) alsoDo {vctx -= k}
           //*/
@@ -745,10 +750,10 @@ class Graph extends AST with CurryEncoding { graph =>
   def mkArgs(p: Val, cid: CallId, arg: Rep, els: Rep)(r: Rep): Unit = {
     val traversed = mutable.HashSet.empty[Rep]
     def rec(r: Rep): Unit = traversed.setAndIfUnset(r, r.dfn match {
-      case `p` => rebind(r, Arg(cid, arg, Some(els)))
+      case `p` => rebind(r, Arg(cid, arg, els))
       //case `p` => Rep(Arg(cid, arg, Some(r.dfn.toRep)))
       case Call(_, res) => rec(res)
-      case Arg(_, cbr, els) => rec(cbr); els.foreach(rec)
+      case Arg(_, cbr, els) => rec(cbr); rec(els)
       case Abs(_, b) => rec(b)
       case Split(_,_) => ??? // TODO
       case Ascribe(r,_) => rec(r)
