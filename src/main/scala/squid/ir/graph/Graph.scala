@@ -19,7 +19,11 @@ class Graph extends AST with CurryEncoding { graph =>
     require(!edges.isDefinedAt(v))
     rebind(v, d)
   }
-  def rebind(v: Val, d: Def): Unit = edges += v -> d
+  def rebind(v: Val, d: Def): Unit = {
+    require(!v.isInstanceOf[SyntheticVal])
+    //require(!d.isInstanceOf[BoundVal] || d.isInstanceOf[SyntheticVal], s"$d")  // TODO enforce?
+    edges += v -> d
+  }
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   
   val Bottom = bindVal("⊥", Predef.implicitType[Nothing].rep, Nil)
@@ -92,6 +96,7 @@ class Graph extends AST with CurryEncoding { graph =>
   //}
   //class Expr(initialDef: Def) extends Rep {
   class Rep(val bound: Val) {
+    require(!bound.isInstanceOf[SyntheticVal])
     def dfn: Def = edges.getOrElse(bound, bound)
     
     def isBottom = dfn === Bottom
@@ -158,7 +163,7 @@ class Graph extends AST with CurryEncoding { graph =>
     * graph), and goes through Arg/Call/Split nodes. It's still fine to use unboundVals, but it will only give the
     * variables bound by the Rep's immediately used by the Def (which are immutable and can be cached) */
   def freeVals(d: Def): Set[Val] = d match {
-    case v: Val => Set.single(v)
+    case v: Val if !v.isInstanceOf[SyntheticVal] => Set.single(v)
     case Abs(v,body) => body.freeVals - v
     case bd: BasicDef => bd.children.flatMap(_.freeVals).toSet
   }
@@ -194,7 +199,8 @@ class Graph extends AST with CurryEncoding { graph =>
     //postProcess(new Rep(dfn)) // would force the Rep too early (before it's let bound), resulting in binder duplication...
     //new Rep(freshBoundVal(dfn.typ), dfn)
     dfn match {
-      case bv: BoundVal =>
+      //case bv: BoundVal =>
+      case bv: BoundVal if !bv.isInstanceOf[SyntheticVal] =>
         new Rep(bv)
       case _ =>
         val v = freshBoundVal(dfn.typ)
@@ -291,8 +297,15 @@ class Graph extends AST with CurryEncoding { graph =>
     //body alsoDo rebind(bound, value.dfn)
   
   
+  // TODO use the special interpretation of lambda params trick:
+  //   A variable bound by a lambda can be bound in the graph; its interpretation depends on whether we're looking at it
+  //   via the lambda or not.
+  //   This reduces the number of necessary call/args, and avoids the false sharing we have with the ucrrent scheme
+  //     if (isBound(v)) rebind else bind ...
+  //   It should also allow us to do substitution without rebuilding the whole body! (currently needed because we can't
+  //     really replace a variable Rep with a Rep arg'ing that variable, or it would become cyclic)
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
-    ///*
+    /*
     //println(s"Subs $v in ${r.bound}")
     val cid = new CallId("α")
     var occurs = false
@@ -300,21 +313,47 @@ class Graph extends AST with CurryEncoding { graph =>
     val res = if (occurs) Call(cid, subsd) |> rep else r
     //println(s"Subs yield: ${res.showGraphRev}")
     res
-    //*/
+    */
+    
     
     // Kinda wrong: doesn't check for occurrences in 'mkArg'
     // but maybe in the graph IR we can assume it won't be a problem since we have more stringent requirements for the
     // use of bindings (due to the global 'egdes' map)
     // Also, seems to cause a SOF in the tests
+    
     /*
     // less safe but much more efficient:
-    val occurs = r.dfn.unboundVals contains v
+    //val occurs = r.dfn.unboundVals contains v
+    val occurs = freeVals(r.dfn) contains v
     if (occurs) {
       val cid = new CallId("α")
       rebind(v, Arg(cid, mkArg, v |> readVal))
       Call(cid, r) |> rep
     } else r
     */
+    // ^ this version is kinda dumb: it creates a cycle that makes the Reinterpreter SOF
+    
+    val occurs = freeVals(r.dfn) contains v
+    //println(occurs)
+    if (occurs) {
+      val cid = new CallId("α")
+      //val arg = mkArg
+      val arg = Arg(cid, mkArg, v |> readVal)
+      
+      val argr = arg |> rep
+      //val subsd = substituteValFastUnhygienic(r, v, Arg(cid, arg, v |> readVal) |> rep)
+      val subsd = substituteValFastUnhygienic(r, v, argr)
+      Call(cid, subsd) |> rep
+      
+      ////iterator(r).foreach {
+      //iterator(r).toArray.foreach {
+      //  //case r @ Rep() =>
+      //  //case r => if (r.bound === v) rebind(r, arg)
+      //  case r => if (r.dfn === v && r.bound =/= v) rebind(r, arg)
+      //}
+      //Call(cid, r) |> rep
+    } else r
+    
     
     // obsolete stub:
     /*
@@ -339,12 +378,14 @@ class Graph extends AST with CurryEncoding { graph =>
   override def mapDef(f: Def => Def)(r: Rep) = {
     val d = r.dfn
     val newD = f(d)
+    //println(s"..mapD $d>$newD")
     rebind(r, newD)
   }
   override protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
     case Arg(cid,cbr,els) =>
       val cbr2 = rec(cbr)
       val els2 = rec(els)
+      //println(s"..mapR $cbr>$cbr2 $els>$els2")
       if ((cbr2 eq cbr) && (els2 eq els)) d
       else Arg(cid,cbr2,els2)
     case Call(cid,res) =>
@@ -353,6 +394,10 @@ class Graph extends AST with CurryEncoding { graph =>
       else Call(cid,res2)
     case _ => super.mapRep(rec)(d)
   }
+  //protected def mapRep_!(rec: Rep => Rep) = {
+  //  val f = mapRep{ r => val r2 = rec(r); if (r neq r2)  }
+  //  (d: Def) =>
+  //}
   //override def extractVal(r: Rep) = Some(r.bound)
   override def extractVal(r: Rep) = super.extractVal(r).orElse(Some(r.bound))
   
@@ -362,8 +407,12 @@ class Graph extends AST with CurryEncoding { graph =>
   //type XCtx = (Set[CallId],mutable.Set[CallId])
   //def newXCtx: XCtx = (Set.empty,mutable.Set.empty)
   import squid.lib.MutVar
-  type XCtx = (Set[CallId],MutVar[Set[CallId]])
-  def newXCtx: XCtx = (Set.empty,MutVar(Set.empty))
+  //type XCtx = (Set[CallId],MutVar[Set[CallId]])
+  //def newXCtx: XCtx = (Set.empty,MutVar(Set.empty))
+  //type XCtx = (Set[CallId], MutVar[(Set[CallId], () => Unit)])
+  type XCtx = (Set[CallId],MutVar[(Rep,Rep) => Rep])
+  //def newXCtx: XCtx = (Set.empty,MutVar(identity))
+  def newXCtx: XCtx = (Set.empty,MutVar((r,_)=>r))
   
   /*
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
@@ -384,7 +433,11 @@ class Graph extends AST with CurryEncoding { graph =>
       //case Arg(cid, cbr, els) => super.extract(xtor, cbr)(ctx + cid) orElse super.extract(xtor, els)
       case Arg(cid, cbr, els) =>
         val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2))
-        if (cbrE.isDefined) ctx._2 := ctx._2.! + cid
+        //if (cbrE.isDefined) ctx._2 := ctx._2.! + cid
+        if (cbrE.isDefined) ctx._2 := { (res: Rep, orig: Rep) =>
+          rebind(xtee, els.dfn)
+          Arg(cid,oldCtx_2(res,orig),orig).toRep
+        }
         cbrE orElse super.extract(xtor, els)
       case _ =>
         //val (rs,ts,rss) = super.extract(xtor, xtee)
@@ -403,9 +456,10 @@ class Graph extends AST with CurryEncoding { graph =>
     val ctx: XCtx = newXCtx
     //val res = extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code
     //ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
-    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map {
-      res => ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
-    }
+    //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map {
+    //  res => ctx._2.!.foldRight(res)(Arg(_,_,xtee).toRep)
+    //}
+    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._2.!(_,xtee))
   }
   
   
