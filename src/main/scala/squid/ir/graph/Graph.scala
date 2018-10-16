@@ -447,7 +447,19 @@ class Graph extends AST with CurryEncoding { graph =>
   //     Could we make that part of the XCtx?
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
-  override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
+  override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = xtor.dfn match {
+  case h @ Hole(name) => // TODO other forms of holes!! HOPHole, SplicedHole...
+    val oldCtx_4 = ctx._4.!
+    ctx._4 := xtee :: ctx._4.!
+    super.extract(xtor, xtee) match {
+      case Some((rs,ts,rss)) =>
+        val r1 = rs(name)
+        val r2 = ctx._1.foldRight(r1)(Call(_,_).toRep)
+        val r3 = ctx._2.foldRight(r2)(Call(_,_).toRep)
+        Some(rs + (name -> r3),ts,rss)
+      case None => ctx._4 := oldCtx_4; None
+    }
+  case _ =>
     //println(s"${xtor.bound} << $xtee")
     val oldCtx_3 = ctx._3.!
     val oldCtx_4 = ctx._4.!
@@ -506,18 +518,7 @@ class Graph extends AST with CurryEncoding { graph =>
           }
         }
         */
-        xtor.dfn match {
-          case h @ Hole(name) =>
-            super.extract(xtor, xtee) map {
-              case (rs,ts,rss) =>
-                val r1 = rs(name)
-                val r2 = ctx._1.foldRight(r1)(Call(_,_).toRep)
-                val r3 = ctx._2.foldRight(r2)(Call(_,_).toRep)
-                (rs + (name -> r3),ts,rss)
-            }
-          // TODO other forms of holes!! HOPHole, SplicedHole...
-          case _ => super.extract(xtor, xtee)
-        }
+        super.extract(xtor, xtee)
     }
     if (res.isEmpty) ctx._3 := oldCtx_3
     if (res.isEmpty) ctx._4 := oldCtx_4
@@ -577,7 +578,9 @@ class Graph extends AST with CurryEncoding { graph =>
   
   override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = rep.dfn match {
     case Call(_,r) => unapplyConst(r,typ)
-    // no case for Arg on purpose...
+    // there was no case for Arg on purpose...
+    // this is not satisfying, because it's partial and biased: will only look at 'cbr' first... in fact it's actually unsound!
+    //case Arg(_,cbr,els) => unapplyConst(cbr,typ) orElse unapplyConst(els,typ)
     case _ => super.unapplyConst(rep,typ)
   }
   
