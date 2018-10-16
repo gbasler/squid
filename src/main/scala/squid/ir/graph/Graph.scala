@@ -446,11 +446,14 @@ class Graph extends AST with CurryEncoding { graph =>
   //     We'd actually need to build a _stream_ of possible matches, and filter it with 'transformed'
   //     Could we make that part of the XCtx?
   
+  //protected def newGXCtx = (Set.empty,Set.empty,Map.empty)
+  
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
-  override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = ???
+  override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
+    extractGraph(xtor,xtee)(GXCtx mk false).headOption map (_.extr)
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     
-    val matches = extractGraph(xtor, xtee)((Set.empty,Set.empty,Map.empty)) flatMap
+    val matches = extractGraph(xtor, xtee)(GXCtx mk true) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     //flatMap {
     //  case extr =>
@@ -514,7 +517,9 @@ class Graph extends AST with CurryEncoding { graph =>
   protected def streamSingle[A](a: A): Stream[A] = a #:: Stream.Empty
   
   //type GXCtx = (Set[CallId], Set[CallId])
-  type GXCtx = (Set[CallId], Set[CallId], Map[Val,Val])
+  //type GXCtx = (Set[CallId], Set[CallId], Map[Val,Val])
+  case class GXCtx(curArgs: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
+  object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Map.empty,traverseArgs) }
   
   def extractGraph(xtor: Rep, xtee: Rep, extractHole: Bool = true)(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
@@ -563,23 +568,23 @@ class Graph extends AST with CurryEncoding { graph =>
           //e = (rs + (name -> r3),ts,rss)
           
           r1 = xtee
-          r2 = ctx._1.foldRight(r1)(Call(_,_).toRep)
-          r3 = ctx._2.foldRight(r2)(Call(_,_).toRep)
+          r2 = ctx.curArgs.foldRight(r1)(Call(_,_).toRep)
+          r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
           e <- merge(typE, repExtract(name -> r3))
           
         } yield GraphExtract fromExtract e
         val inspecting = extractGraph(xtor,xtee,extractHole=false)
         directly ++ inspecting
         
-      case _ -> Call(cid, res) if !(ctx._1 contains cid) =>
-        extractGraph(xtor, res)((ctx._1, ctx._2 + cid, ctx._3))
-      case _ -> Arg(cid, cbr, _) if ctx._2 contains cid =>
-        extractGraph(xtor, cbr)((ctx._1, ctx._2 - cid, ctx._3))
-      case _ -> Arg(cid, cbr, els) =>
+      case _ -> Call(cid, res) if !(ctx.curArgs contains cid) => // FIXME curCalls?
+        extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
+      case _ -> Arg(cid, cbr, _) if ctx.traverseArgs && (ctx.curCalls contains cid) =>
+        extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
+      case _ -> Arg(cid, cbr, els) if ctx.traverseArgs =>
         //(for { cbrE <- extractGraph(xtor, cbr)((ctx._1 + cid, ctx._2)); elsE <- extractGraph(xtor, els) } yield
         //for { cbrE <- cbrE; elsE <- elsE } yield merge(cbrE,elsE)).flatten
         for {
-          cbrE <- extractGraph(xtor, cbr)((ctx._1 + cid, ctx._2, ctx._3)).map { ge =>
+          cbrE <- extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
             ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),orig).toRep)
           }
           elsE <- extractGraph(xtor, els)
@@ -610,7 +615,7 @@ class Graph extends AST with CurryEncoding { graph =>
         // Q: check same type?
         if (
            v1 == v2 // Q: really legit?
-        || ctx._3.get(v1).contains(v2)
+        || ctx.valMap.get(v1).contains(v2)
         ) EmptyExtract |> fromExtract |> streamSingle else Stream.Empty
       //  
       ///** It may be okay to consider constants `1` (Int) and `1.0` (Double) equivalent;
@@ -641,7 +646,7 @@ class Graph extends AST with CurryEncoding { graph =>
           (hExtr,h) = a2.param.toHole(a1.param)
           //m <- mergeGraph(pt, hExtr |> fromExtract)
           m <- merge(pt, hExtr).toStream
-          b <- extractGraph(a1.body, a2.body)((ctx._1, ctx._2, ctx._3 + (a1.param -> a2.param)))
+          b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
           m <- mergeGraph(m |> fromExtract, b)
         } yield m
       //  
