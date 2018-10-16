@@ -186,17 +186,33 @@ class Graph extends AST with CurryEncoding { graph =>
     val printed = mutable.Set.empty[Rep]
     override val showValTypes = false
     override val desugarLetBindings = false
-    override def apply(r: Rep): String = printed.setAndIfUnset(r, r match {
+    //override def apply(r: Rep): String = printed.setAndIfUnset(r, r match {
+    //  case Rep(d) if d.isSimple => apply(d)
+    //  //case _ => super.apply(r)
+    //  case _ => super.apply(r.bound)
+    //}, super.apply(r.bound))
+    override def apply(r: Rep): String = printed.setAndIfUnset(r, (r match {
       case Rep(d) if d.isSimple => apply(d)
       //case _ => super.apply(r)
       case _ => super.apply(r.bound)
-    }, super.apply(r.bound))
+    }) alsoDo {printed -= r}, "[RECURSIVE]"+super.apply(r.bound))
     //override def apply(d: Def): String = if (get.isSimple) {
     override def apply(d: Def): String = d match {
-      case Call(cid, res) => s"C[$cid](${res |> apply})"
-      case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + 
-        //(if (els.isBottom) "" else "|"+apply(els))
-        "|"+apply(els)
+      //case Call(cid, res) => s"C[$cid](${res |> apply})"
+      //case Call(cid, res) => s"$cid⌊${res |> apply}⌋"
+      //case Call(cid, res) => s"〚$cid ${res |> apply}〛"
+      case Call(cid, res) => s"⟦$cid ${res |> apply}⟧"
+      //case Call(cid, res) => s"⟅$cid ${res |> apply}⟆"
+      //case Call(cid, res) => s"$cid❰${res |> apply}❱"
+      //case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + 
+      //  //(if (els.isBottom) "" else "|"+apply(els))
+      //  "|"+apply(els)
+      //case Arg(cid, cbr, els) => s" $cid->${cbr |> apply}|${apply(els)} "
+      //case Arg(cid, cbr, els) => s"〈$cid→${cbr |> apply}|${apply(els)}〉"
+      //case Arg(cid, cbr, els) => s"⟨$cid→${cbr |> apply}|${apply(els)}⟩"
+      //case Arg(cid, cbr, els) => s"$cid→${cbr |> apply}⟨${apply(els)}⟩"
+      //case Arg(cid, cbr, els) => s"$cid➔${cbr |> apply}⟨${apply(els)}⟩"
+      case Arg(cid, cbr, els) => s"$cid➤${cbr |> apply}⟨${apply(els)}⟩"
       case _:SyntheticVal => ??? // TODO
       case _ => super.apply(d)
     }
@@ -476,7 +492,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //    }
     //}
     matches.filterNot(transformed contains xtor -> _.traversedReps).flatMap { ge =>
-      println(s"...considering $xtor << ${ge.traversedReps.map(_.bound)} --> ${ge.extr}")
+      //println(s"...considering $xtor << ${ge.traversedReps.map(_.bound)} --> ${ge.extr}")
       code(ge.extr) |>? {
         case Some(x0) =>
           println(s"...transforming ${xtor.bound} << ${ge.traversedReps.map(_.bound)}")
@@ -576,13 +592,14 @@ class Graph extends AST with CurryEncoding { graph =>
         val inspecting = extractGraph(xtor,xtee,extractHole=false)
         directly ++ inspecting
         
-      case _ -> Call(cid, res) if !(ctx.curArgs contains cid) => // FIXME curCalls?
+      case _ -> Call(cid, res) if !(ctx.curCalls contains cid) =>
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
       case _ -> Arg(cid, cbr, _) if ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> Arg(cid, cbr, els) if ctx.traverseArgs =>
+      case _ -> Arg(cid, cbr, els) if ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
         //(for { cbrE <- extractGraph(xtor, cbr)((ctx._1 + cid, ctx._2)); elsE <- extractGraph(xtor, els) } yield
         //for { cbrE <- cbrE; elsE <- elsE } yield merge(cbrE,elsE)).flatten
+        /*
         for {
           cbrE <- extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
             ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),orig).toRep)
@@ -590,6 +607,19 @@ class Graph extends AST with CurryEncoding { graph =>
           elsE <- extractGraph(xtor, els)
           e <- cbrE merge elsE
         } yield e
+        */
+        val cbrE = extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
+          ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),orig).toRep)
+          //ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,Call(cid,orig).toRep),orig).toRep)
+          //ge.copy(postProcess = (res,orig) => 
+          //  {val orig2 = Call(cid,orig).toRep
+          //  Arg(cid,ge.postProcess(res,orig2),orig2).toRep})
+          //ge.copy(postProcess = (res,orig) => Arg(cid,Call(cid,ge.postProcess(res,orig)).toRep,orig).toRep)
+          //ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),Call(cid,orig).toRep).toRep)
+          //ge.copy(postProcess = (res,orig) => ge.postProcess(Arg(cid,res,orig).toRep,Call(cid,orig).toRep))
+        }
+        val elsE = extractGraph(xtor, els)
+        cbrE ++ elsE
         
       //case (bv @ BoundVal(n1), h @ Hole(n2)) if n1 == n2 && h.matchedSymbol == Some(bv) => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
       //  //Some(EmptyExtract) // I thought the types could not be wrong here (case for Abs checks parameter types)
@@ -1120,7 +1150,10 @@ class Graph extends AST with CurryEncoding { graph =>
     //      apply()
     //  }
     //}
-    def apply(r: Rep): newBase.Rep = if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
+    def apply(r: Rep): newBase.Rep = {
+      //println(s"Scheduling $r [${cctx.head.mkString(",")}] {${vctx.mkString(",")}}")
+      println(s"Schedule [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
+    if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
     //case d @ Abs(bv, _) =>
     //  assert(!vctx(bv)) // TODO if so, refresh
     //  vctx += bv
@@ -1230,7 +1263,7 @@ class Graph extends AST with CurryEncoding { graph =>
       }
       else apply(r.dfn)
       //) alsoDo {addedBinding.foreach(vctx -= _)}
-    }
+    }}
     override def apply(d: Def) = d match {
       case d @ Abs(bv, _) =>
         assert(!vctx(bv), s"$bv in $vctx") // TODO if so, refresh

@@ -162,7 +162,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
         //cur transformWith Tr 
         cur transformWith Tr also 
         //Tr.TranformerDebug.debugFor(cur transformWith Tr) also 
-          (r => if (mod) println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+r.rep.showGraphRev+"\n~> "+r.show))
+          (r => if (mod) println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+r.rep.showGraphRev+"\n~> "+r.show)
+            //thenReturn println(r.rep.iterator.toList.map(r=>s"\n\t\t ${r.bound} :: "+(r.dfn)).mkString)
+          )
     }
     println(" --- END ---\n")
   }
