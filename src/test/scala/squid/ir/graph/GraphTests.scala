@@ -17,6 +17,7 @@ package ir
 package graph
 
 import utils._
+import squid.lib.matching._
 
 object MyGraph extends Graph
 
@@ -28,6 +29,7 @@ import scala.util.Random.nextInt
 
 class GraphTests extends MyFunSuite(MyGraph) {
   import DSL.Predef._
+  import DSL.Quasicodes._
   
   def process(c: ClosedCode[Any]) = {
     val cur = c
@@ -148,6 +150,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
           val res = body.subs(x) ~> arg
           println(s"!<< SUBS'd ${res.rep.showGraphRev}")
           res
+        //case code"Match[Option[$t0],$tr]($opt)($cases*)" =>
+        //  println(s"!!! MATCH ${opt.rep.showGraphRev}")
+        //  ???
+        //case code"Match[Option[$t0],$tr](Some($v:t0))($cases*)" =>
+        //  ???
       }
       
       //override def transform(rep: DSL.Rep) = {
@@ -219,4 +226,37 @@ class GraphTests extends MyFunSuite(MyGraph) {
     rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
   }
   
+  
+  val show = Variable[String => Option[String => String] => String]
+  lazy val showDef = code{ (str: String) => (fmt0: Option[String => String]) => Match(fmt0)(
+    Case[None](_ => str),
+    Case[Some[String => String]](_.value(str)),
+  )}
+  lazy val fooDef = code{
+    (aa: String) => (fmt1: Option[String => String]) =>
+      ($(show))(big.E0(aa))(fmt1) + ($(show))(big.E1(aa))(fmt1)
+  }.unsafe_asClosedCode // Q: why needed?
+  
+  test("Bigger Example (g7)") {
+    
+    rw(code{
+      val $show = $(showDef)
+      val foo = $(fooDef)
+      (bb: String) =>
+        foo(bb)(if (bb == "") None else Some(s => bb + ": " + s))
+    })
+    
+  }
+  
+  test("Motivating Example") {
+    // TODO
+  }
+  
+}
+
+object big {
+  def E0[T](x:T):T=x
+  def E1[T](x:T):T=x
+  def E2[T](x:T):T=x
+  def E3[T](x:T):T=x
 }

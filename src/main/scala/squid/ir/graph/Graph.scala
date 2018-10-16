@@ -521,57 +521,31 @@ class Graph extends AST with CurryEncoding { graph =>
   case class GXCtx(curArgs: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
   object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Map.empty,traverseArgs) }
   
+  /** This is an adaptation of AST#Def#extractImpl; relevant comments are still there but have been stripped here */
   def extractGraph(xtor: Rep, xtee: Rep, extractHole: Bool = true)(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
     
     xtor.dfn -> xtee.dfn match {
-       
+        
       case (_, Ascribe(v,tp)) => // Note: even if 'this' is a Hole, it is needed for term equivalence to ignore ascriptions
         //mergeOpt(typ extract (tp, Covariant), extractImpl(v))
         /** ^ It should not matter what the matchee is ascribed to. We'd like `42` and `42:Any` to be equi-matchable */
         extractGraph(xtor,v)
         
-      //case (Ascribe(v,tp), _) =>
-      //  mergeOpt(tp extract (d.typ, Covariant), v.extract(r))
+      case (Ascribe(v,tp), _) =>
+        for { a <- tp.extract(xtee.typ, Covariant).toStream
+              b <- extractGraph(v,xtee)
+              m <- fromExtract(a) merge b } yield m
         
-      //case (h:HOPHole, _) =>
-      //  typ extract (d.typ, Covariant) flatMap { e =>
-      //    val List(ps) = h.yes // FIXME: generalize
-      //    // This part is a little tricky: we have no easy way to retrieve the types of HOPV parameters...
-      //    // if some of these parameters do not even appear in the term, we give them type Any, which is sound thanks 
-      //    // to function parameter contravariance.
-      //    val psMap = mutable.Map[Val,Val]().withDefault(hs => hs.copy()(typ = Predef.implicitType[Any].rep,hs.annots))
-      //    val rebound = bottomUpPartial(r) {
-      //      case RepDef(h0:Hole) if h0.matchedSymbol exists (ps contains _) => 
-      //        psMap += h0.matchedSymbol.get -> h0.originalSymbol.get
-      //        readVal(h0.originalSymbol.get)
-      //      case RepDef(h0:Hole) if h0.matchedSymbol exists (h.no contains _) =>
-      //        return None
-      //    }
-      //    val f = lambda(ps map psMap, rebound)
-      //    merge(e, repExtract(h.name -> f))
-      //  }
-      //  
-      //case (Hole(name), _) => // Note: will also extract holes... which is important to asses open term equivalence
-      //  // Note: it is not necessary to replace 'extruded' symbols here, since we use Hole's to represent free variables (see case for Abs)
-      //  typ extract (d.typ, Covariant) flatMap { merge(_, (Map(name -> r), Map(), Map())) }
+      case (h:HOPHole, _) => ??? // TODO
+        
       case (Hole(name), _) if extractHole =>
         val directly = for {
           typE <- xtor.typ.extract(xtee.typ, Covariant).toStream
-          
-          //e <- merge(typE, repExtract(name -> xtee))
-          
-          //(rs,ts,rss) <- merge(typE, repExtract(name -> xtee))
-          //r1 = rs(name)
-          //r2 = ctx._1.foldRight(r1)(Call(_,_).toRep)
-          //r3 = ctx._2.foldRight(r2)(Call(_,_).toRep)
-          //e = (rs + (name -> r3),ts,rss)
-          
           r1 = xtee
           r2 = ctx.curArgs.foldRight(r1)(Call(_,_).toRep)
           r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
           e <- merge(typE, repExtract(name -> r3))
-          
         } yield GraphExtract fromExtract e
         val inspecting = extractGraph(xtor,xtee,extractHole=false)
         directly ++ inspecting
@@ -581,71 +555,24 @@ class Graph extends AST with CurryEncoding { graph =>
       case _ -> Arg(cid, cbr, _) if ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> Arg(cid, cbr, els) if ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
-        //(for { cbrE <- extractGraph(xtor, cbr)((ctx._1 + cid, ctx._2)); elsE <- extractGraph(xtor, els) } yield
-        //for { cbrE <- cbrE; elsE <- elsE } yield merge(cbrE,elsE)).flatten
-        /*
-        for {
-          cbrE <- extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
-            ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),orig).toRep)
-          }
-          elsE <- extractGraph(xtor, els)
-          e <- cbrE merge elsE
-        } yield e
-        */
         val cbrE = extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
           ge.copy(argsToRebuild = ge.argsToRebuild + cid)
         }
         val elsE = extractGraph(xtor, els)
         cbrE ++ elsE
         
-      //case (bv @ BoundVal(n1), h @ Hole(n2)) if n1 == n2 && h.matchedSymbol == Some(bv) => // This is needed when we do function matching (see case for Abs); n2 is to be seen as a FV
-      //  //Some(EmptyExtract) // I thought the types could not be wrong here (case for Abs checks parameter types)
-      //  // Before we had `matchedSymbol`, matching extracted binders could cause problems if we did not check the type; it's probably not necessary anymore
-      //  typ.extract(d.typ, Covariant)
-      //  
-      //// Q: really still needed?
-      //case (bv: BoundVal, h: Hole) if h.originalSymbol exists (_ === bv) => // This is needed when we match an extracted binder with a hole that comes from that binder
-      //  Some(EmptyExtract)
-      //  
-      //case (_, Hole(_)) => None
-      //  
-      //case (v1: BoundVal, v2: BoundVal) =>
-      //  // Bound variables are never supposed to be matched;
-      //  // if we match a binder, we'll replace the bound variable with a free variable first
-      //  //throw new AssertionError("Bound variables are not supposed to be matched.")
-      //  
-      //  // actually now with extracted bindings they may be...
-      //  if (v1 == v2) Some(EmptyExtract) else None // check same type?
-      //  
-      //  //if (v1.name == v2.name) Some(EmptyExtract) else None // check same type?
-      case (v1: BoundVal, v2: BoundVal) =>
+      case (_, Hole(_)) => Stream.Empty // Q: case needed?
+        
+      case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
         // Q: check same type?
         if (
            v1 == v2 // Q: really legit?
         || ctx.valMap.get(v1).contains(v2)
         ) EmptyExtract |> fromExtract |> streamSingle else Stream.Empty
-      //  
-      ///** It may be okay to consider constants `1` (Int) and `1.0` (Double) equivalent;
-      //  * however, it's probably a good idea to ensure transitivity of the match-relation, so that (a <~ b and b <~ c) => a <~ c
-      //  * but we'd have 1 <~ 1.0 and 1.0 <~ ($x:Double) but not 1 <~ ($x:Double) */
-      ////case (Constant(v1), Constant(v2)) => if (v1 == v2) Some(EmptyExtract) else None
-      //case (Constant(v1), Constant(v2)) => mergeOpt(extractType(typ, d.typ, Covariant), if (v1 == v2) Some(EmptyExtract) else None)
-      //  
-      //case (a1: Abs, a2: Abs) =>
-      //  // The body of the matched function is recreated with a *free variable* in place of the parameter, and then matched with the
-      //  // body of the matcher, so what the matcher extracts contains potentially (safely) extruded variables.
-      //  for {
-      //    pt <- a1.ptyp extract (a2.ptyp, Contravariant)
-      //    //b <- a1.body.extract(a2.inline(rep(a2.param.toHole(a1.param.name))))
-      //    (hExtr,h) = a2.param.toHole(a1.param)
-      //    b <-
-      //      if (a1.param.isExtractedBinder && newExtractedBindersSemantics) 
-      //           a1.inline(a2.param|>readVal).extract(a2.body) flatMap (merge(hExtr, _))
-      //           // ^ (generates warning cf type change)  TODO: thread extraction context with var mapping instead
-      //      else a1.body.extract(a2.inline(rep(h))) flatMap (merge(hExtr, _))
-      //           // ^ 'a2.param.toHole' is a free variable that 'retains' the memory that it was bound to 'a2.param'
-      //    m <- merge(pt, b)
-      //  } yield m
+        
+      case (Constant(v1), Constant(v2)) =>
+        mergeOpt(extractType(xtor.typ, xtee.typ, Covariant), if (v1 == v2) Some(EmptyExtract) else None).map(fromExtract).toStream
+        
       case (a1: Abs, a2: Abs) =>
         require(a1.param.isExtractedBinder, s"alternative not implemented yet")
         for {
@@ -656,51 +583,15 @@ class Graph extends AST with CurryEncoding { graph =>
           b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
           m <- mergeGraph(m |> fromExtract, b)
         } yield m
-      //  
+        
       case (StaticModule(fullName1), StaticModule(fullName2)) if fullName1 == fullName2 =>
         fromExtract(EmptyExtract) into streamSingle
-      //
-      //case Module(pref0, name0, tp0) -> Module(pref1, name1, tp1) =>
-      //  // Note: if prefixes are matchable, module types should be fine
-      //  // If prefixes are different _but_ type is the same, then it should be the same module!
-      //  // TODO also cross-test with ModuleObject, and ideally later MethodApp... 
-      //  pref0 extract pref1 flatMap If(name0 == name1) orElse extractType(tp0,tp1,Invariant)
-      //  
-      //case (NewObject(tp1), NewObject(tp2)) => GraphExtract fromExtract (tp1 extract (tp2, Covariant)) into streamSingle
+        
+      case Module(pref0, name0, tp0) -> Module(pref1, name1, tp1) =>
+        extractGraph(pref0,pref1).flatMap(_ optionIf name0 == name1) ++ extractType(tp0,tp1,Invariant).map(fromExtract).toStream
+        
       case (NewObject(tp1), NewObject(tp2)) => tp1 extract (tp2, Covariant) map fromExtract toStream
-      //  
-      //case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
-      //  //if mtd1 == mtd2
-      //  //if {val r = mtd1 == mtd2; debug(s"Symbol: ${mtd1.fullName} ${if (r) "===" else "=/="} ${mtd2.fullName}"); r}
-      //  if mtd1 === mtd2 || { debug(s"Symbol: ${mtd1.fullName} =/= ${mtd2.fullName}"); false }
-      //=>
-      //  assert(args1.size == args2.size, s"Inconsistent number of argument lists for method $mtd1: $args1 and $args2")
-      //  assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")
-      //  
-      //  for {
-      //    s <- self1 extract self2
-      //    t <- {
-      //      /** The following used to end with '... extract (b, Variance of p.asType)'.
-      //        * However, method type parameters seem to always be tagged as invariant.
-      //        * This was kind of restrictive. For example, you could not match apply functions like "Seq()" with "Seq[Any]()"
-      //        * We now match method type parameters covariantly, although I'm not sure it is sound. At least the fact we
-      //        * now also match the *returned types* prevents obvious unsoundness sources.
-      //        */
-      //      //mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
-      //      mergeAll( (targs1 zip targs2) map { case (a,b) => a extract (b, Covariant) } )
-      //    }
-      //    a <- mergeAll( (args1 zip args2) map { case (as,bs) => extractArgList(as, bs) } )  //oh_and print("[Args:] ") and println
-      //  
-      //    /** It should not be necessary to match return types, knowing that we already match all term and type arguments.
-      //      * On the other hand, it might break legitimate things like (()=>42).apply():Any =~= (()=>42:Any).apply(),
-      //      * in which case the return type of .apply is Int in the former and Any in the latter, but everything else is equivalent */
-      //    //rt <- tp1 extract (tp2, Covariant)  //oh_and print("[RetType:] ") and println
-      //    rt = EmptyExtract
-      //  
-      //    m0 <- merge(s, t)
-      //    m1 <- merge(m0, a)
-      //    m2 <- merge(m1, rt)
-      //  } yield m2
+        
       case (MethodApp(self1,mtd1,targs1,args1,tp1), MethodApp(self2,mtd2,targs2,args2,tp2))
         if mtd1 === mtd2 || { debug(s"Symbol: ${mtd1.fullName} =/= ${mtd2.fullName}"); false }
       =>
@@ -708,23 +599,15 @@ class Graph extends AST with CurryEncoding { graph =>
         assert(targs1.size == targs2.size, s"Inconsistent number of type arguments for method $mtd1: $targs1 and $targs2")
         for {
           s <- extractGraph(self1,self2)
-          // TODO:
-          t = GraphExtract fromExtract EmptyExtract
-          //t <-
-          //  //mergeAll( (targs1 zip targs2 zip mtd1.typeParams) map { case ((a,b),p) => a extract (b, Covariant) } )
-          //  mergeAll( (targs1 zip targs2) map { case (a,b) => a extract (b, Covariant) } )
-          a <- mergeAllGraph( (args1 zip args2) map { case (as,bs) => extractGraphArgList(as, bs) } )  //oh_and print("[Args:] ") and println
+          t <- mergeAll( (targs1 zip targs2) map { case (a,b) => a extract (b, Covariant) } ).toStream
+          a <- mergeAllGraph( (args1 zip args2) map { case (as,bs) => extractGraphArgList(as, bs) } )
           rt = GraphExtract fromExtract EmptyExtract
-          m0 <- mergeGraph(s, t)
+          m0 <- mergeGraph(s, GraphExtract fromExtract t)
           m1 <- mergeGraph(m0, a)
           m2 <- mergeGraph(m1, rt)
         } yield m2
         
-      case (a:ConstantLike) -> (b:ConstantLike) if a.value === b.value => GraphExtract.Empty #:: Stream.Empty
-        
-      //  // TODO?
-      //case (or: OtherRep, r) => or extractRep r
-      //case (r, or: OtherRep) => or getExtractedBy r
+      case (a:ConstantLike) -> (b:ConstantLike) if a.value === b.value => GraphExtract.Empty |> streamSingle
         
       case _ =>
         //println(s"Nope: ${xtor} << $xtee")
@@ -767,7 +650,12 @@ class Graph extends AST with CurryEncoding { graph =>
       case _ => Stream.Empty
     }
   }
-  def spliceExtractGraph(xtor: Rep, args: Args)(implicit ctx: GXCtx): Stream[GraphExtract] = ??? // TODO
+  def spliceExtractGraph(xtor: Rep, args: Args)(implicit ctx: GXCtx): Stream[GraphExtract] = streamSingle(GraphExtract.fromExtract(xtor match {
+    case RepDef(SplicedHole(name)) => mkExtract()()(name -> args.reps)
+    case RepDef(h @ Hole(name)) => // If we extract ($xs*) using ($xs:_*), we have to build a Seq in the object language and return it
+      mkExtract(name -> mkSeq(args.reps))()()
+    case _ => throw IRException(s"Trying to splice-extract with invalid extractor $xtor")
+  }))
   
   protected def mergeAllGraph(as: TraversableOnce[Stream[GraphExtract]]): Stream[GraphExtract] = {
     if (as isEmpty) return streamSingle(GraphExtract.Empty)
