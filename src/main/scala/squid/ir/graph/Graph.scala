@@ -1093,7 +1093,7 @@ class Graph extends AST with CurryEncoding { graph =>
       }
       //res
     }
-    def scheduleFunction(r: Rep): Seq[Rep] -> newBase.Rep = {
+    def scheduleFunction(r: Rep): Seq[(Set[CallId],Rep)] -> newBase.Rep = {
       println(s"> Schfun $r ${alwaysBoundAt(r)}")
       cctx ::= mutable.Set.empty
       val oldvctx = vctx
@@ -1118,7 +1118,7 @@ class Graph extends AST with CurryEncoding { graph =>
     var cctx: List[mutable.Set[CallId]] = mutable.Set.empty[CallId]::Nil
     var vctx: Set[Val] = Set.empty
     //var params: List[mutable.Buffer[Rep]] = Nil
-    var params: List[(Set[Val],mutable.Buffer[Rep])] = Nil
+    var params: List[(Set[Val],mutable.Buffer[(Set[CallId],Rep)])] = Nil
     //var functions = mutable.Map.empty[Rep,newBase.Rep]
     //var functions = mutable.Map.empty[Rep,newBase.Rep->newBase.Rep]
     var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
@@ -1132,8 +1132,7 @@ class Graph extends AST with CurryEncoding { graph =>
     //  }
     //}
     def apply(r: Rep): newBase.Rep = {
-      //println(s"Scheduling $r [${cctx.head.mkString(",")}] {${vctx.mkString(",")}}")
-      println(s"Schedule ${r.bound} [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
+      //println(s"Schedule ${r.bound} [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
     if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
     //case d @ Abs(bv, _) =>
     //  assert(!vctx(bv)) // TODO if so, refresh
@@ -1161,9 +1160,11 @@ class Graph extends AST with CurryEncoding { graph =>
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         val rfv = r.freeVals filter liveVals
         if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {
-          println(s"> New param: $r  ${rfv} ${vctx}")
+          //println(s"> New param: $r  ${rfv} ${vctx}")
+          
           //params.head._2 += r}
-          params.head._2 += cctx.head.foldRight(r)(Call(_,_).toRep)}
+          //params.head._2 += cctx.head.foldRight(r)(Call(_,_).toRep)}
+          params.head._2 += (cctx.head.toSet->r)}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
@@ -1200,7 +1201,7 @@ class Graph extends AST with CurryEncoding { graph =>
           recv(k)
           apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*))) alsoDo {
             vctx -= k
-            params.head._2 += Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), lambda(extrudedVals, els)))
+            params.head._2 += cctx.head.toSet -> Rep.bound(k, Arg(cid, lambda(extrudedVals, cbr), lambda(extrudedVals, els)))
           }
           //apply(mapp(k|>readVal, appSym, r.typ)()(Args(extrudedVals.map(readVal):_*)) also(r=>println(r.showGraphRev))) alsoDo {vctx -= k}
           //*/
@@ -1230,16 +1231,18 @@ class Graph extends AST with CurryEncoding { graph =>
           //functions += r ->
           val fdef =
           params.foldRight(res) {
-            case (p, acc) => newBase.lambda(recv(p.bound)::Nil, acc)//(rtyp)
+            case ((cids,p), acc) => newBase.lambda(recv(p.bound)::Nil, acc)//(rtyp)
           }
           //bound += r.bound -> newBase.bindVal(r.bound.name, rtyp, Nil)
           //params.foldRight(res) {
           val rv = r.bound |> recv
           val call = () =>
           params.foldRight(rv |> newBase.readVal) {
-            case (param, acc) =>
+            case ((cids,param), acc) =>
               //newBase.app(acc, recv(p) |> newBase.readVal)(rtyp)
-              newBase.app(acc, param |> apply)(rtyp)
+              assert(cids & cctx.head isEmpty, s"$cids & ${cctx.head}") // Q: really? won't it i general be a superset?
+              cctx.head ++= cids
+              newBase.app(acc, param |> apply)(rtyp) alsoDo {cctx.head --= cids}
               //newBase.app(acc, param |> recv |> newBase.readVal)(rtyp)
           }
           fdef -> call
