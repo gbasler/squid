@@ -31,6 +31,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
   import DSL.Predef._
   import DSL.Quasicodes._
   
+  /*
   def process(c: ClosedCode[Any]) = {
     val cur = c
     do {
@@ -75,7 +76,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     process(code"val f = (x: Int) => (y: Int) => x+y; f(1)(f(3)(4))")
     
   }
-  
+  */
   
   /*
   
@@ -222,8 +223,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
     // TODO several args
   }
   test("Complex Cross-Boundary Rewriting") {
-    // TODO with currying
+    
     rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
+    
+    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(f(33)(44))") // FIXME
+    
   }
   
   
