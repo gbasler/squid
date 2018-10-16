@@ -132,7 +132,8 @@ class GraphTests extends MyFunSuite(MyGraph) {
     }
     object Tr extends SimpleRuleBasedTransformer with Mixin with BottomUpTransformer with DSL.SelfTransformer { // FIXME ugly crash if we forget 'with DSL.SelfTransformer'
       rewrite {
-        case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => mod = true; Const(n+m)
+        //case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding $n + $m"); mod = true; Const(n+m)
+        case r @ code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
         case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
         case r @ code"($n:Int).toDouble.toInt" => //mod = true; n
           mod = true

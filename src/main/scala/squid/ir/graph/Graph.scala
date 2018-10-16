@@ -435,6 +435,9 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   */
   
+  //val transformed = mutable.Set.empty[(Rep,Extract => Option[Rep])]
+  protected val transformed = mutable.Set.empty[(Rep,Rep)] // FIXME
+  
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
     val oldCtx_2 = ctx._3.!
     val res = xtee.dfn match {
@@ -459,7 +462,7 @@ class Graph extends AST with CurryEncoding { graph =>
         //if (cbrE.isDefined) ctx._3 := ctx._3.! + cid
         //if (cbrE.isDefined && !ctx._2.contains(cid)) ctx._3 := { (res: Rep, orig: Rep) =>
         if (cbrE.isDefined) ctx._3 := { (res: Rep, orig: Rep) =>
-          rebind(xtee, els.dfn)
+          //rebind(xtee, els.dfn)
           // ^ FIXME this is not right: it will remove possible paths;
           //     e.g., in (C0->a|a')+(C1->b|b') we'll get (C0->C1->a+b|@0|@0) where @0 = a'+b'
           //     I only put it there temporarily; we need a general solution to prevent the same patterns from firing again!
@@ -481,7 +484,9 @@ class Graph extends AST with CurryEncoding { graph =>
     if (res.isEmpty) ctx._3 := oldCtx_2
     res
   }
-  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+  //override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+  //override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = transformed.setAndIfUnset((xtor,xtee), {
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = if (transformed contains (xtor,xtee)) None else {
     //super.rewriteRep(xtor: Rep, xtee
     //implicit val ctx: XCtx = (Set.empty, )
     val ctx: XCtx = newXCtx
@@ -490,8 +495,14 @@ class Graph extends AST with CurryEncoding { graph =>
     //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map {
     //  res => ctx._3.!.foldRight(res)(Arg(_,_,xtee).toRep)
     //}
-    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee))
+    //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee)) also (
+    //  (transformed += ((xtor,xtee))) If _.isDefined
+    //)
+    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee)) into_? {
+      case Some(x) => transformed += ((xtor,xtee)); x
+    }
   }
+  //}, None) alsoDo(println(s"() tr ${transformed.map(a=>a._1.bound+"<<"+a._2.bound)}"))
   
   
   import squid.quasi.MetaBases
