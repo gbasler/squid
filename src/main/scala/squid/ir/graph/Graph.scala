@@ -279,7 +279,7 @@ class Graph extends AST with CurryEncoding { graph =>
     } /*alsoDo println(s"DONE ite ${r.bound}  ${done}")*/, Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn match {
   //def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = if (done.contains(dfn)) Iterator.empty else dfn match {
-    case v:Val if done.contains(v) => Iterator.empty
+  //  case v:Val if done.contains(v) => Iterator.empty // probably not useful
     case MethodApp(self, mtd, targs, argss, tp) =>
       mkIterator(self) ++ argss.flatMap(_.reps.flatMap(mkIterator))
     case Abs(_, b) => mkIterator(b)
@@ -289,7 +289,7 @@ class Graph extends AST with CurryEncoding { graph =>
     case Call(cid, res) =>
       mkIterator(res)
     case Arg(cid, cbr, els) =>
-      mkIterator(cbr) ++ mkIterator(els).flatMap(mkIterator)
+      mkIterator(cbr) ++ mkIterator(els)
     case _:SyntheticVal => ??? // TODO
     case _: LeafDef => Iterator.empty
     //case Constant(_)|BoundVal(_)|CrossStageValue(_, _)|HoleClass(_, _)|StaticModule(_) => Iterator.empty
