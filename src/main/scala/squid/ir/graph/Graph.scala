@@ -123,6 +123,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
   }
   
+  override def runRep(rep: Rep): Any = {
+    SimpleASTBackend runRep treeInSimpleASTBackend(rep)
+  }
+  
   // Implementations of AST methods:
   
   //def rep(dfn: Def) = Rep(dfn)

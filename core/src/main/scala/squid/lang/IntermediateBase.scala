@@ -119,12 +119,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
       newBase.`internal Code`(newBase.wrapConstruct( reinterpret(self.rep, newBase)(DefaultExtrudedHandler) ))
     
     /** Executes the code at runtime using Java reflection */
-    def run(implicit ev: Ctx =:= Any): Typ = {
-      val Inter = new ir.BaseInterpreter
-      // ^ Note: making a new one each time is wasteful, but because it extends RuntimeSymbols, which has mutable
-      //         caches, the BaseInterpreter is not thread-safe... (and Squid tests are ran in parallel)
-      reinterpret(self.rep, Inter)().asInstanceOf[Typ]
-    }
+    def run(implicit ev: Ctx =:= Any): Typ = runRep(self.rep).asInstanceOf[Typ]
     
     /** Compiles and executes the code at runtime using the Scala ToolBox compiler */
     // TODO make `compile` a macro that can capture surrounding vars to fill in existing context dependencies?
@@ -153,6 +148,13 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     
     def showScala: String = ibase.showScala(self rep)
     
+  }
+  
+  def runRep(rep: Rep): Any = {
+    val Inter = new ir.BaseInterpreter
+    // ^ Note: making a new one each time is wasteful, but because it extends RuntimeSymbols, which has mutable
+    //         caches, the BaseInterpreter is not thread-safe... (and Squid tests are ran in parallel)
+    reinterpret(rep, Inter)()
   }
   
   import quasi.MetaBases.Runtime.ScalaReflectionBaseWithOwnNames
