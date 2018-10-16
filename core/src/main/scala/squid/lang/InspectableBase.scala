@@ -152,7 +152,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
     def extract (that: TypeRep, va: Variance) = baseSelf.extractType(self, that, va)
   }
   
-  def extractArgList(self: ArgList, other: ArgList)(implicit ctx: XCtx): Option[Extract] = {
+  protected def extractArgList(self: ArgList, other: ArgList)(implicit ctx: XCtx): Option[Extract] = {
     def extractRelaxed(slf: Args, oth: Args): Option[Extract] = {
       import slf._
       if (reps.size != oth.reps.size) return None
