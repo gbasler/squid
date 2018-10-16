@@ -471,47 +471,30 @@ class Graph extends AST with CurryEncoding { graph =>
     
     val matches = extractGraph(xtor, xtee)(GXCtx mk true) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
-    //flatMap {
-    //  case extr =>
-    //    val reps = ctx._4.!
-    //    if (transformed contains xtor->reps) None else {
-    //      println(s"...considering $xtor << ${reps.map(_.bound)} --> ${extr}")
-    //      //val x = ctx._3.!(x0,xtee)
-    //      ////transformed += ((xtor,xtee))
-    //      //Some(x)
-    //      //code(x0) map ctx._3.! into_? {
-    //      //  case Some(x) => transformed += ((xtor,reps)); x
-    //      //}
-    //      code(extr) |>? {
-    //        case Some(x0) =>
-    //          println(s"...transforming ${xtor.bound} << ${ctx._4.!.map(_.bound)}")
-    //          val x = ctx._3.!(x0,xtee)
-    //          transformed += ((xtor,reps))
-    //          x
-    //      }
-    //    }
-    //}
+    
     matches.filterNot(transformed contains xtor -> _.traversedReps).flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.bound)} --> ${ge.extr}")
       code(ge.extr) |>? {
         case Some(x0) =>
           println(s"...transforming ${xtor.bound} << ${ge.traversedReps.map(_.bound)}")
-          val x = ge.postProcess(x0,xtee)
+          def rebuild(cids: List[CallId], fallBack: Rep): Rep = cids match {
+            case cid :: cids => Arg(cid,rebuild(cids,Call(cid,fallBack).toRep),fallBack).toRep
+            case Nil => x0
+          }
+          val x = rebuild(ge.argsToRebuild.toList, xtee)
           transformed += (xtor -> ge.traversedReps)
           x
       }
     }.headOption
-    //matches.map { ge =>
-    //  if (transformed contains xtor -> ge.traversedReps)
-    //}
     
   }
   
-  protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], postProcess: (Rep,Rep) => Rep) {
+  //protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], postProcess: (Rep,Rep) => Rep) {
+  protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], argsToRebuild: Set[CallId]) {
     def merge(that: GraphExtract): Stream[GraphExtract] =
       graph.merge(extr,that.extr).map(e =>
         //GraphExtract(e, traversedReps ++ that.traversedReps, postProcess andThen that.postProcess)).toStream
-        GraphExtract(e, traversedReps ++ that.traversedReps, (r,o) => that.postProcess(postProcess(r,o),o))).toStream
+        GraphExtract(e, traversedReps ++ that.traversedReps, argsToRebuild ++ that.argsToRebuild)).toStream
     //def map(f: Extract => Extract): GraphExtract = ???
     //def flatMap(f: Extract => GraphExtract): GraphExtract = ???
     def matching (r: Rep) = r.dfn match {
@@ -521,7 +504,7 @@ class Graph extends AST with CurryEncoding { graph =>
   }
   object GraphExtract {
     //val Empty: GraphExtract = GraphExtract(EmptyExtract, Nil, identity)
-    val Empty: GraphExtract = GraphExtract(EmptyExtract, Nil, (r,_)=>r)
+    val Empty: GraphExtract = GraphExtract(EmptyExtract, Nil, Set.empty)
     def fromExtract(e: Extract): GraphExtract = Empty copy (extr = e)
   } 
   //protected implicit class GraphExtractStreamOps(self: Stream[GraphExtract]) {
@@ -609,14 +592,7 @@ class Graph extends AST with CurryEncoding { graph =>
         } yield e
         */
         val cbrE = extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
-          ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),orig).toRep)
-          //ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,Call(cid,orig).toRep),orig).toRep)
-          //ge.copy(postProcess = (res,orig) => 
-          //  {val orig2 = Call(cid,orig).toRep
-          //  Arg(cid,ge.postProcess(res,orig2),orig2).toRep})
-          //ge.copy(postProcess = (res,orig) => Arg(cid,Call(cid,ge.postProcess(res,orig)).toRep,orig).toRep)
-          //ge.copy(postProcess = (res,orig) => Arg(cid,ge.postProcess(res,orig),Call(cid,orig).toRep).toRep)
-          //ge.copy(postProcess = (res,orig) => ge.postProcess(Arg(cid,res,orig).toRep,Call(cid,orig).toRep))
+          ge.copy(argsToRebuild = ge.argsToRebuild + cid)
         }
         val elsE = extractGraph(xtor, els)
         cbrE ++ elsE
