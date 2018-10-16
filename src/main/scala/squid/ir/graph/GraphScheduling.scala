@@ -12,12 +12,13 @@ trait GraphScheduling extends AST { graph: Graph =>
   import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
   import ruh.sru
   
-  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree =
-    SimpleASTBackend.scalaTreeIn(MBM)(SRB,
-      reinterpret(rep, SimpleASTBackend) { bv =>
-        System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
-        SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
-      }, bv => {
+  protected def treeInSimpleASTBackend(rep: Rep) = reinterpret(rep, SimpleASTBackend) { bv =>
+    System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
+    SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
+  }
+  
+  override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: BoundVal => MBM.u.Tree): MBM.u.Tree =
+    SimpleASTBackend.scalaTreeIn(MBM)(SRB, treeInSimpleASTBackend(rep), bv => {
         System.err.println(s"Found a free variable! ${bv}")
         import MBM.u._
         //q"""scala.sys.error(${bv.name}+" not bound")"""
