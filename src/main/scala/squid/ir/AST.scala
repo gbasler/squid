@@ -332,12 +332,12 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   object Const extends ConstAPI {
     import meta.RuntimeUniverseHelpers.sru
-    def unapply[T: CodeType](ir: Code[T,_]): Option[T] = dfn(ir.rep) match {
-      case cst @ Constant(v) if typLeq(cst.typ, codeTypeOf[T].rep) => Some(v.asInstanceOf[T])
-      case _ => None
-    }
+    def unapply[T: CodeType](ir: Code[T,_]): Option[T] = unapplyConst(ir.rep, codeTypeOf[T].rep).asInstanceOf[Option[T]]
   }
-  
+  protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = dfn(rep) match {
+    case cst @ Constant(v) if typLeq(cst.typ, typ) => Some(v)
+    case _ => None
+  }
   
   protected def crossStage(value: Any, trep: TypeRep): Rep = value match {
     case () | _:Bool | _:Char | _:Short | _:Int  | _:Long  | _:Float  | _:Double | _:String | _:Class[_] => const(value)

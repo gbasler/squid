@@ -441,6 +441,10 @@ class Graph extends AST with CurryEncoding { graph =>
   //val transformed = mutable.Set.empty[(Rep,Extract => Option[Rep])]
   protected val transformed = mutable.Set.empty[(Rep,List[Rep])] // FIXedME
   // ^ TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set?
+  // ^ FIXME actually too restrivtive: if it finds ONE POSSIBLE match and does the rewrite, next time it will always
+  //     find the SAME match and not do any rewriting, but another match may have worked!
+  //     We'd actually need to build a _stream_ of possible matches, and filter it with 'transformed'
+  //     Could we make that part of the XCtx?
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
@@ -485,6 +489,7 @@ class Graph extends AST with CurryEncoding { graph =>
         ctx._4 := xtee :: ctx._4.!
         //val (rs,ts,rss) = super.extract(xtor, xtee)
         //(rs,ts,rss)
+        /*
         super.extract(xtor, xtee) map {
           //case (rs,ts,rss) => (rs.mapValues(Call(cid,_).toRep),ts,rss)
           case (rs,ts,rss) => (rs.mapValues{r =>
@@ -496,7 +501,22 @@ class Graph extends AST with CurryEncoding { graph =>
               //ctx._2.foldRight(r1)(Arg(_,_,Bottom.toRep).toRep)
               ctx._2.foldRight(r1)(Call(_,_).toRep)
             }
-          },ts,rss)
+          },ts,rss) also { res =>
+            println(s"GOOD $ctx\n\t$rs\nto\n\t$res")
+          }
+        }
+        */
+        xtor.dfn match {
+          case h @ Hole(name) =>
+            super.extract(xtor, xtee) map {
+              case (rs,ts,rss) =>
+                val r1 = rs(name)
+                val r2 = ctx._1.foldRight(r1)(Call(_,_).toRep)
+                val r3 = ctx._2.foldRight(r2)(Call(_,_).toRep)
+                (rs + (name -> r3),ts,rss)
+            }
+          // TODO other forms of holes!! HOPHole, SplicedHole...
+          case _ => super.extract(xtor, xtee)
         }
     }
     if (res.isEmpty) ctx._3 := oldCtx_3
@@ -532,17 +552,17 @@ class Graph extends AST with CurryEncoding { graph =>
     //  }, None)
     //}
     extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap {
-      case x0 =>
+      case extr =>
         val reps = ctx._4.!
         if (transformed contains xtor->reps) None else {
-          println(s"...considering $xtor << ${reps.map(_.bound)}")
+          println(s"...considering $xtor << ${reps.map(_.bound)} --> ${extr}")
           //val x = ctx._3.!(x0,xtee)
           ////transformed += ((xtor,xtee))
           //Some(x)
           //code(x0) map ctx._3.! into_? {
           //  case Some(x) => transformed += ((xtor,reps)); x
           //}
-          code(x0) |>? {
+          code(extr) |>? {
             case Some(x0) =>
               println(s"...transforming ${xtor.bound} << ${ctx._4.!.map(_.bound)}")
               val x = ctx._3.!(x0,xtee)
@@ -553,6 +573,13 @@ class Graph extends AST with CurryEncoding { graph =>
     }
   }
   //}, None) alsoDo(println(s"() tr ${transformed.map(a=>a._1.bound+"<<"+a._2.bound)}"))
+  
+  
+  override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = rep.dfn match {
+    case Call(_,r) => unapplyConst(r,typ)
+    // no case for Arg on purpose...
+    case _ => super.unapplyConst(rep,typ)
+  }
   
   
   import squid.quasi.MetaBases
