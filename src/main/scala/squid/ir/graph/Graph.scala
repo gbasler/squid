@@ -407,8 +407,10 @@ class Graph extends AST with CurryEncoding { graph =>
   //  (d: Def) =>
   //}
   //override def extractVal(r: Rep) = Some(r.bound)
-  override def extractVal(r: Rep) = super.extractVal(r).orElse(Some(r.bound))
+  override def extractVal(r: Rep) = super.extractVal(r)//.orElse(Some(r.bound))
   
+  def isNormalVal(d: Def): Bool = d.isInstanceOf[BoundVal] && !d.isInstanceOf[SyntheticVal]
+  def isNormalVal(r: Rep): Bool = r.dfn |> isNormalVal
   
   //type XCtx = Set[CallId]
   //def newXCtx: XCtx = Set.empty
@@ -418,9 +420,10 @@ class Graph extends AST with CurryEncoding { graph =>
   //type XCtx = (Set[CallId],MutVar[Set[CallId]])
   //def newXCtx: XCtx = (Set.empty,MutVar(Set.empty))
   //type XCtx = (Set[CallId], MutVar[(Set[CallId], () => Unit)])
-  type XCtx = (Set[CallId],Set[CallId],MutVar[(Rep,Rep) => Rep])
+  //type XCtx = (Set[CallId],Set[CallId],MutVar[(Rep,Rep) => Rep])
+  type XCtx = (Set[CallId],Set[CallId],MutVar[(Rep,Rep) => Rep],MutVar[List[Rep]])
   //def newXCtx: XCtx = (Set.empty,MutVar(identity))
-  def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r))
+  def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r),MutVar(Nil))
   
   /*
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
@@ -436,13 +439,18 @@ class Graph extends AST with CurryEncoding { graph =>
   */
   
   //val transformed = mutable.Set.empty[(Rep,Extract => Option[Rep])]
-  protected val transformed = mutable.Set.empty[(Rep,Rep)] // FIXME
+  protected val transformed = mutable.Set.empty[(Rep,List[Rep])] // FIXedME
+  // ^ TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set?
   
+  override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) = {
-    val oldCtx_2 = ctx._3.!
+    //println(s"${xtor.bound} << $xtee")
+    val oldCtx_3 = ctx._3.!
+    val oldCtx_4 = ctx._4.!
     val res = xtee.dfn match {
       case Call(cid, res) if !ctx._1.contains(cid) =>
-        super.extract(xtor, res)((ctx._1, ctx._2 + cid, ctx._3))
+        //super.extract(xtor, res)((ctx._1, ctx._2 + cid, ctx._3))
+        extract(xtor, res)((ctx._1, ctx._2 + cid, ctx._3, ctx._4))
       //case Arg(cid, cbr, els) => super.extract(xtor, cbr)(ctx + cid) orElse super.extract(xtor, els)
         /*
       case Arg(cid, cbr, els) =>
@@ -454,11 +462,14 @@ class Graph extends AST with CurryEncoding { graph =>
         }
         cbrE orElse super.extract(xtor, els)
         */
+      case Call(_, _) => None
       case Arg(cid, cbr, _) if ctx._2 contains cid =>
-        super.extract(xtor, cbr)((ctx._1, ctx._2 - cid, ctx._3))
+        //super.extract(xtor, cbr)((ctx._1, ctx._2 - cid, ctx._3))
+        extract(xtor, cbr)((ctx._1, ctx._2 - cid, ctx._3, ctx._4))
       case Arg(cid, cbr, els) =>
         //val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2 - cid, ctx._3))
-        val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2, ctx._3))
+        //val cbrE = super.extract(xtor, cbr)((ctx._1 + cid, ctx._2, ctx._3))
+        val cbrE = extract(xtor, cbr)((ctx._1 + cid, ctx._2, ctx._3, ctx._4))
         //if (cbrE.isDefined) ctx._3 := ctx._3.! + cid
         //if (cbrE.isDefined && !ctx._2.contains(cid)) ctx._3 := { (res: Rep, orig: Rep) =>
         if (cbrE.isDefined) ctx._3 := { (res: Rep, orig: Rep) =>
@@ -466,27 +477,36 @@ class Graph extends AST with CurryEncoding { graph =>
           // ^ FIXME this is not right: it will remove possible paths;
           //     e.g., in (C0->a|a')+(C1->b|b') we'll get (C0->C1->a+b|@0|@0) where @0 = a'+b'
           //     I only put it there temporarily; we need a general solution to prevent the same patterns from firing again!
-          Arg(cid,oldCtx_2(res,orig),orig).toRep
+          Arg(cid,oldCtx_3(res,orig),orig).toRep
         }
-        cbrE orElse super.extract(xtor, els)
+        cbrE orElse extract(xtor, els)
       case _ =>
+        //println(s"+= $xtee")
+        ctx._4 := xtee :: ctx._4.!
         //val (rs,ts,rss) = super.extract(xtor, xtee)
         //(rs,ts,rss)
         super.extract(xtor, xtee) map {
           //case (rs,ts,rss) => (rs.mapValues(Call(cid,_).toRep),ts,rss)
-          case (rs,ts,rss) => (rs.mapValues{r => 
-            val r1 = ctx._1.foldRight(r)(Call(_,_).toRep)
-            //ctx._2.foldRight(r1)(Arg(_,_,Bottom.toRep).toRep)
-            ctx._2.foldRight(r1)(Call(_,_).toRep)
+          case (rs,ts,rss) => (rs.mapValues{r =>
+          //case (rs,ts,rss) => (rs.filterNot(_._2 |> isNormalVal).mapValues{r =>
+            if (r|>isNormalVal) { // shoudl not wrap Val's; indeed they may be the result of a symbol extarction!
+              r
+            } else {
+              val r1 = ctx._1.foldRight(r)(Call(_,_).toRep)
+              //ctx._2.foldRight(r1)(Arg(_,_,Bottom.toRep).toRep)
+              ctx._2.foldRight(r1)(Call(_,_).toRep)
+            }
           },ts,rss)
         }
     }
-    if (res.isEmpty) ctx._3 := oldCtx_2
+    if (res.isEmpty) ctx._3 := oldCtx_3
+    if (res.isEmpty) ctx._4 := oldCtx_4
     res
   }
   //override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
   //override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = transformed.setAndIfUnset((xtor,xtee), {
-  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = if (transformed contains (xtor,xtee)) None else {
+  //override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = if (transformed contains (xtor,xtee)) None else {
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     //super.rewriteRep(xtor: Rep, xtee
     //implicit val ctx: XCtx = (Set.empty, )
     val ctx: XCtx = newXCtx
@@ -498,8 +518,38 @@ class Graph extends AST with CurryEncoding { graph =>
     //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee)) also (
     //  (transformed += ((xtor,xtee))) If _.isDefined
     //)
-    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee)) into_? {
-      case Some(x) => transformed += ((xtor,xtee)); x
+    //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code map (ctx._3.!(_,xtee)) into_? {
+    //  case Some(x) => transformed += ((xtor,xtee)); x
+    //}
+    //extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap code flatMap {
+    //  case x0 =>
+    //    //if (transformed contains ctx._4.!) None
+    //    transformed.setAndIfUnset(xtor -> ctx._4.!, {
+    //      println(s"Transforming $xtor << ${ctx._4.!.map(_.bound)}")
+    //      val x = ctx._3.!(x0,xtee)
+    //      //transformed += ((xtor,xtee))
+    //      Some(x)
+    //  }, None)
+    //}
+    extract(xtor, xtee)(ctx) flatMap (merge(_, repExtract(SCRUTINEE_KEY -> xtee))) flatMap {
+      case x0 =>
+        val reps = ctx._4.!
+        if (transformed contains xtor->reps) None else {
+          println(s"...considering $xtor << ${reps.map(_.bound)}")
+          //val x = ctx._3.!(x0,xtee)
+          ////transformed += ((xtor,xtee))
+          //Some(x)
+          //code(x0) map ctx._3.! into_? {
+          //  case Some(x) => transformed += ((xtor,reps)); x
+          //}
+          code(x0) |>? {
+            case Some(x0) =>
+              println(s"...transforming ${xtor.bound} << ${ctx._4.!.map(_.bound)}")
+              val x = ctx._3.!(x0,xtee)
+              transformed += ((xtor,reps))
+              x
+          }
+        }
     }
   }
   //}, None) alsoDo(println(s"() tr ${transformed.map(a=>a._1.bound+"<<"+a._2.bound)}"))
