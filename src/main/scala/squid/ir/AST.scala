@@ -460,7 +460,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   case class MethodApp(self: Rep, sym: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], typ: TypeRep) extends NonTrivialDef with BasicDef {
     
-    def reps: Seq[Rep] = argss.flatMap(_.reps)
+    def reps: Seq[Rep] = self +: argss.flatMap(_.reps)
     def rebuild(reps: Seq[Rep]): BasicDef = {
       def rec(argss: List[ArgList], reps: Seq[Rep]): List[ArgList] = argss match {
         case Args(as@_*)::ass =>
@@ -477,7 +477,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
           val Seq() = reps
           Nil
       }
-      MethodApp(self, sym, targs, rec(argss, reps), typ)
+      MethodApp(reps.head, sym, targs, rec(argss, reps.tail), typ)
     }
     
     lazy val phase = { // TODO cache annotations for each sym
