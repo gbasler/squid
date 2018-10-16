@@ -127,16 +127,16 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   //  lastWords(s"Not supported: transformation of $d")
   
   class RepTransformer(pre: Rep => Rep, post: Rep => Rep) extends SimpleTransformer {
-    val done = new java.util.IdentityHashMap[Rep,Rep]() // TODO extract from here (it's only needed for the Graph IR)
     
     //def apply(r: Rep): Rep = r |> pre |> dfn |> apply |> rep |> post
     /* Optimized version that prevents recreating too many Rep's: */
     override def apply(_r: Rep): Rep = if (done.containsKey(_r)) {
-      println(s"! Already transformed ${_r}")
+      //println(s"! Already transformed ${_r}")
       done.get(_r)
     } else {
       //post(r |> mapDef(apply))
-      try post(pre(_r) |> super.apply) |> ascribeIfNot(_r.typ) also (done.put(_r,_)) // note: putting only at the end; we may still get an infinite loop
+      try /*done.put(_r,_r) thenReturn*/ post(pre(_r) |> super.apply) |> ascribeIfNot(_r.typ) also (done.put(_r,_))
+      // ^ note: not putting only at the end: super.apply puts it at the beginning too...
       catch { // Q: semantics if `post` throws??
         case EarlyReturnAndContinueExc(cont) =>
           val r = nestDbg(cont(apply))
@@ -200,8 +200,20 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   
   class SimpleTransformer {
+    val done = new java.util.IdentityHashMap[Rep,Rep]()  // TODO extract from here (it's only needed for the Graph IR)
+    val doing = new java.util.IdentityHashMap[Rep,Unit]()  // just for printing a debugging message -- TODO rm
     
-    def apply(r: Rep): Rep = mapDef(apply)(r)
+    def apply(r: Rep): Rep = if (done.containsKey(r)) {
+      if (doing.containsKey(r)) {
+        println(s"! Already transforming: ${r}")
+      }
+      //println(s"! Already transformed: ${r}")
+      done.get(r)
+    } else {
+      doing.put(r,())
+      done.put(r,r)
+      mapDef(apply)(r) also (done.put(r,_))
+    } alsoDo (doing.remove(r))
     
     def apply(d: Def): Def = {
       //println(s"Traversing $r")
