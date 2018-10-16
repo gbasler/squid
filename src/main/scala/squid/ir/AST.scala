@@ -281,19 +281,19 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       //  Args()(args.reps: _*) :: Nil, h.typ)
       //Some(Map(name -> rep), Map(), Map())
       //Seq(12)
-      
-      val tp = ruh.sru.lub(args.reps map (_.typ.tpe) toList)
-      
-      val rep = methodApp(
-        staticModule("scala.collection.Seq"),
-        loadMtdSymbol(
-          //loadTypSymbol("scala.collection.Seq"),
-          loadTypSymbol("scala.collection.generic.GenericCompanion"),
-          "apply", None),
-        tp :: Nil,
-        Args()(args.reps: _*) :: Nil, staticTypeApp(loadTypSymbol("scala.collection.Seq"), tp :: Nil))
-      Some(Map(name -> rep), Map(), Map())
+      Some(Map(name -> mkSeq(args.reps)), Map(), Map())
     case _ => throw IRException(s"Trying to splice-extract with invalid extractor $xtor")
+  }
+  protected def mkSeq(args: Seq[Rep]) = {
+    val tp = ruh.sru.lub(args map (_.typ.tpe) toList)
+    methodApp(
+      staticModule("scala.collection.Seq"),
+      loadMtdSymbol(
+        //loadTypSymbol("scala.collection.Seq"),
+        loadTypSymbol("scala.collection.generic.GenericCompanion"),
+        "apply", None),
+      tp :: Nil,
+      Args()(args: _*) :: Nil, staticTypeApp(loadTypSymbol("scala.collection.Seq"), tp :: Nil))
   }
   
   
