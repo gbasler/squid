@@ -3,6 +3,7 @@ package graph
 
 import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
+import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
 import scala.collection.mutable
 
@@ -145,7 +146,7 @@ class Graph extends AST with CurryEncoding { graph =>
     override def children: Iterator[Rep] = Iterator.single(result)
   }
   ////case class Arg(nodes: mutable.Map[Option[Id], Rep]) extends SyntheticVal("C") {
-  case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, cbr.typ) {
+  case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, ruh.uni.lub(cbr.typ.tpe::els.typ.tpe::Nil)) {
   //case class Arg(cid: Id, cbr: Rep, els: Option[Rep]) extends Rep {
     
     override def children: Iterator[Rep] = Iterator(cbr,els)
@@ -927,8 +928,12 @@ class Graph extends AST with CurryEncoding { graph =>
   import ruh.sru
   
   override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: (BoundVal => MBM.u.Tree)): MBM.u.Tree =
-    SimpleASTBackend.scalaTreeIn(MBM)(SRB, reinterpret(rep, SimpleASTBackend)(bv =>
-      SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep), bv => {
+    SimpleASTBackend.scalaTreeIn(MBM)(SRB,
+      reinterpret(rep, SimpleASTBackend) { bv =>
+        System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
+        SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
+      }, bv => {
+        System.err.println(s"Found a free variable! ${bv}")
         import MBM.u._
         //q"""scala.sys.error(${bv.name}+" not bound")"""
         q"""squid.lib.unbound(${bv.name})"""
@@ -1128,13 +1133,14 @@ class Graph extends AST with CurryEncoding { graph =>
     //}
     def apply(r: Rep): newBase.Rep = {
       //println(s"Scheduling $r [${cctx.head.mkString(",")}] {${vctx.mkString(",")}}")
-      println(s"Schedule [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
+      println(s"Schedule ${r.bound} [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
     if (pointers.isEmpty) applyTopLevel(r) else r.dfn match {
     //case d @ Abs(bv, _) =>
     //  assert(!vctx(bv)) // TODO if so, refresh
     //  vctx += bv
     //  super.apply(d) alsoDo {vctx -= bv}
     case Call(cid, res) =>
+      assert(!cctx.head(cid))
       cctx.head += cid
       apply(res) alsoDo {cctx.head -= cid}
     case Arg(cid, cbr, els) =>
@@ -1147,19 +1153,22 @@ class Graph extends AST with CurryEncoding { graph =>
         //} else apply(els)
       }
       //else apply(els.get.bound/*TODO B/E*/) alsoDo {params.head += els.get}
-      else if (params.isEmpty) apply(els)
+      else if (params.isEmpty) apply(els) // if we're not scheduling a function, there is no one to delegate arguments to...
       //else bindOrGet(r.bound) alsoDo {params.head += r}
       else {
         //if (!(r.dfn.unboundVals subsetOf params.head._1)) println(s"Oops: $r ${r.dfn.unboundVals} ill-scoped in ${params.head._1}")
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         val rfv = r.freeVals filter liveVals
-        if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
+        if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {
+          println(s"> New param: $r  ${rfv} ${vctx}")
+          //params.head._2 += r}
+          params.head._2 += cctx.head.foldRight(r)(Call(_,_).toRep)}
         else { // cannot extract impl node as a parameter, because it refers to variables not bound at all calls
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
           //println(s"Oops: $r ${rfv} ill-scoped in ${params.head._1} ${rfv -- params.head._1 toList}")
-          println(s"Oops: ${rfv} not in ${vctx} for:  ${r.showGraphRev}")
+          println(s"> Oops: ${rfv} not in ${vctx} for:  ${r.showGraphRev}")
           
           // Generate boolean params to know which subexpression to compute;
           // Problem: expressions under an Arg may contain variables only bound in some of the _callers_, so using them
@@ -1239,7 +1248,9 @@ class Graph extends AST with CurryEncoding { graph =>
       }
       else apply(r.dfn)
       //) alsoDo {addedBinding.foreach(vctx -= _)}
-    }}
+    }} 
+    //.also { res => println(s"Scheduled ${r.bound} = $res") }
+    
     override def apply(d: Def) = d match {
       case d @ Abs(bv, _) =>
         assert(!vctx(bv), s"$bv in $vctx") // TODO if so, refresh
