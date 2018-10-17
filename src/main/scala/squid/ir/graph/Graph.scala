@@ -5,10 +5,13 @@ import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
+import scala.collection.immutable.ListSet
 import scala.collection.mutable
 
 /* In the future, we may want to remove `with CurryEncoding` and implement proper multi-param lambdas... */
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
+  
+  val onlineOptimizeCalls = true
   
   object GraphDebug extends PublicTraceDebug
   
@@ -59,7 +62,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       else bound.toString
   }
   object Rep {
-    def bound(v: Val, d: Def) = {
+    protected[graph] def bound(v: Val, d: Def) = {
       assert(!d.isInstanceOf[Val] || d.isInstanceOf[SyntheticVal])
       new Rep(v) alsoDo bind(v, d)
     }
@@ -81,8 +84,24 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     // because it matches on BoundVal and only calls children in the default case...:
     override def children: Iterator[Rep] = Iterator.single(result)
   }
+  object Call {
+    //def apply(cid: CallId, result: Rep) = result.dfn match {
+    //  case Arg(`cid`, cbr, _) if onlineOptimizeCalls => cbr.dfn
+    //  case _ => new Call(cid,result)
+    //}
+  }
   case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, ruh.uni.lub(cbr.typ.tpe::els.typ.tpe::Nil)) {
     override def children: Iterator[Rep] = Iterator(cbr,els)
+  }
+  object ArgSet {
+    def unbuild(cid: CallId, cbr: Rep, els: Rep): List[CallId] -> Rep = cbr.dfn match {
+      case Arg(cid0,cbr0,e@Rep(Call(`cid`,`els`))) => unbuild(cid0,cbr0,e) ||> (_.::(cid) -> _)
+      case _ => (cid :: Nil) -> cbr
+    }
+    def unapply(c: Arg): Some[(List[CallId],Rep,Rep)] = {
+      val cs -> e = unbuild(c.cid, c.cbr, c.els)
+      Some(cs.distinct, e, c.els)
+    }
   }
   // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
@@ -97,11 +116,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //}
   override protected def unboundVals(d: Def): Set[Val] = ??? // to make sure not used, until we make 'dfn' opaque again
   
+  private val colors = List(/*Console.BLACK,*/Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B)
+  private def colorOf(cid: CallId) = colors(cid.uid%colors.size)
+  
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter extends super.DefPrettyPrinter {
     val printed = mutable.Set.empty[Rep]
     override val showValTypes = false
     override val desugarLetBindings = false
+    var curCol = Console.BLACK
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r match {
       case Rep(d) if d.isSimple => apply(d)
       //case _ => super.apply(r)
@@ -111,21 +134,38 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       //case Call(cid, res) => s"C[$cid](${res |> apply})"
       //case Call(cid, res) => s"$cid⌊${res |> apply}⌋"
       //case Call(cid, res) => s"〚$cid ${res |> apply}〛"
-      case Call(cid, res) => s"⟦$cid ${res |> apply}⟧"
+      case Call(cid, res) =>
+        //s"⟦$cid ${res |> apply}⟧"
+        val col = colorOf(cid)
+        s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
+        //s"$col⟦$curCol$cid ${res |> apply}$col⟧$curCol"
       //case Arg(cid, cbr, els) => s"$cid->${cbr |> apply}" + 
       //  //(if (els.isBottom) "" else "|"+apply(els))
       //  "|"+apply(els)
+      //case Arg(cid, cbr, els) => s"$cid?${cbr |> apply}!${apply(els)}"
+      //case Arg(cid, cbr, els) => s"$cid${Console.BOLD}?${Console.RESET}${cbr |> apply}${Console.BOLD}|${Console.RESET}${apply(els)}"
+      case ArgSet(cids, cbr, els) =>
+        val oldCol = curCol
+        curCol = colorOf(cids.last)
+        s"${cids.map(c=>colorOf(c)+c).mkString("&")}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+        /*
+      case Arg(cid, cbr, els) =>
+        val oldCol = curCol
+        //val col = colors(cid.uid%colors.size)
+        curCol = colorOf(cid)
+        //s"$cid${Console.BOLD}⟨${Console.RESET}${cbr |> apply}${Console.BOLD}⟩${Console.RESET}${apply(els)}"
+        //s"$cid$curCol⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+        s"$curCol$cid⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+        */
       //case Arg(cid, cbr, els) => s"$cid→${cbr |> apply}⟨${apply(els)}⟩"
       //case Arg(cid, cbr, els) => s"$cid➔${cbr |> apply}⟨${apply(els)}⟩"
-      case Arg(cid, cbr, els) => s"$cid➤${cbr |> apply}⟨${apply(els)}⟩"
+      //case Arg(cid, cbr, els) => s"$cid➤${cbr |> apply}⟨${apply(els)}⟩"
+        
       case _:SyntheticVal => ??? // TODO
       case _ => super.apply(d)
     }
   }
   
-  override def runRep(rep: Rep): Any = {
-    SimpleASTBackend runRep treeInSimpleASTBackend(rep)
-  }
   
   // Implementations of AST methods:
   
@@ -137,11 +177,54 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       //case bv: Val =>
       case bv: Val if isNormalVal(bv) =>
         new Rep(bv)
+        
+      //case RedundantlyWrapped(r) => r  // FIXME seems to make things diverge
+        
       case _ =>
         val v = freshBoundVal(dfn.typ)
         bind(v, dfn)
         new Rep(v)
     }
+  /*
+  object RedundantlyWrapped {
+    //def rec(d: Def)(implicit cctx: Set[CallId]) = d |>? {
+    //  case Call(cid, res) if !(cctx contains cid) => rec(res)(cctx + cid)
+    //  case Arg(cid, cbr, els) if cctx contains cid => rec(cbr)(cctx - cid)
+    //}
+    //def unapply(d: Def) = rec(d)
+    def rec(rep: Rep)(implicit cctx: ListSet[CallId]): Set[CallId] -> Rep = rep.dfn match {
+      case Call(cid, res) if !(cctx contains cid) => rec(res)(cctx + cid)
+      case Arg(cid, cbr, els) if cctx contains cid => rec(cbr)(cctx - cid)
+      case _ => cctx -> rep
+    }
+    def unapply(d: Def) = d |>?? {
+      case Call(cid, res) =>
+        //val cs->r = rec(res)(Set single cid)
+        //val cs->r = rec(res)(Nil)
+        val cs->r = rec(res)(ListSet.empty + cid)
+        //if (c === cid && )
+        if (r === res) None
+        else println(s"$cs: $d -> $r") thenReturn Some(cs.foldRight(r)(Call(_,_).toRep))
+    }
+  }
+  */
+  object RedundantlyWrapped {
+    def rec(cid: CallId, rep: Rep): Option[() => Rep] = rep.dfn match {
+      case Call(`cid`, res) => None
+      case Call(cid0, res) => rec(cid,res).map(f => () => Call(cid0,f()).toRep)
+      case Arg(`cid`, cbr, els) => Some(() => cbr)
+      case Arg(cid0, cbr, els) => for {
+        cbrR <- rec(cid,cbr)
+        cbrE <- rec(cid,els)
+      //} yield Some(() => Arg(cid0, cbrR(), cbrE()))
+      } yield () => Arg(cid0, cbrR(), cbrE()).toRep
+      case _: LeafDef => Some(() => rep) // TODO also defs with no relevant Arg in reps
+      case _ => None
+    }
+    def unapply(d: Def) = d |>?? {
+      case Call(cid, res) => rec(cid,res).map(_())
+    }
+  }
   
   def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
   //def dfn(r: Rep): Def = r.bound
