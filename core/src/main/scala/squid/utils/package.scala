@@ -70,6 +70,7 @@ package object utils {
     
     @inline def |> [B] (rhs: A => B): B = rhs(__self)
     @inline def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    @inline def |>?? [B] (rhs: PartialFunction[A, Option[B]]): Option[B] = rhs applyOrElse (__self, Function const None)
     @inline def |>! [B] (rhs: PartialFunction[A, B]): B = rhs(__self)
     
     /** Like |> but expects the function to return the same type */
@@ -89,6 +90,9 @@ package object utils {
     
     def withTypeOf[T >: A](x: T): T = __self: T
     
+  }
+  implicit final class PairHelper[A0,A1](private val __self: (A0,A1)) extends AnyVal {
+    @inline def ||> [B] (rhs: (A0,A1) => B): B = rhs(__self._1, __self._2)
   }
   
   implicit final class LazyGenHelper[A](__self: => A) {
