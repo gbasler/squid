@@ -57,16 +57,16 @@ trait GraphRewriting extends AST { graph: Graph =>
       code(ge.extr) |>? {
         case Some(x0) =>
           println(s"...transforming ${xtor.bound} << ${ge.traversedReps.map(_.bound)}")
-          def rebuild(cids: List[CallId], fallBack: Rep): Rep = cids match {
-            case cid :: cids => Arg(cid,rebuild(cids,Call(cid,fallBack).toRep),fallBack).toRep
-            case Nil => x0
-          }
-          val x = rebuild(ge.argsToRebuild.toList, xtee)
+          val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
           transformed += (xtor -> ge.traversedReps)
           x
       }
     }.headOption
     
+  }
+  protected[graph] def rebuild(rep: Rep, cids: List[CallId], fallBack: Rep): Rep = cids match {
+    case cid :: cids => Arg(cid,rebuild(rep,cids,Call(cid,fallBack).toRep),fallBack).toRep
+    case Nil => rep
   }
   
   protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], argsToRebuild: Set[CallId]) {
