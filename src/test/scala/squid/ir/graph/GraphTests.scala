@@ -123,7 +123,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
     var cur = c
     println("\n-> "+cur.rep.showGraphRev)
     println(cur.show)
-    println("== "+cur.run)
+    def printEval = {
+      println(s"== ${cur.run}\n== ${DSL.scheduleAndRun(cur.rep)}")
+      //println(s"== ${cur.run}\n== ${DSL.scheduleAndCompile(cur.rep)}")
+    }
+    printEval
     trait Mixin extends DSL.SelfTransformer {
       abstract override def transform(rep: DSL.Rep) = {
         //val res = super.transform(rep)
@@ -167,13 +171,12 @@ class GraphTests extends MyFunSuite(MyGraph) {
     }
     while (mod) {
       mod = false
-      cur = 
-        //cur transformWith Tr 
-        cur transformWith Tr also 
-        //Tr.TranformerDebug.debugFor(cur transformWith Tr) also 
-          (r => if (mod) println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+r.rep.showGraphRev+"\n~> "+r.show+"\n== "+cur.run)
-            //thenReturn println(r.rep.iterator.toList.map(r=>s"\n\t\t ${r.bound} :: "+(r.dfn)).mkString)
-          )
+      cur = cur transformWith Tr
+      if (mod) {
+        //println(r.rep.iterator.toList.map(r=>s"\n\t\t ${r.bound} :: "+(r.dfn)).mkString)
+        println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cur.rep.showGraphRev+"\n~> "+cur.show)
+        printEval
+      }
     }
     println(" --- END ---\n")
   }
@@ -225,9 +228,14 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     
-    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
+    //rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
     
     rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(f(33)(44))") // FIXME
+    
+    // TODO:
+    //rw(code"val f = (x: Int) => (y: Int) => x+y; f(f(11)(22),33)")
+    //rw(code"val f = (x: Int) => (y: Int) => x+y; val g = (z: Int) => f(f(11)(z),f(z)(22)); g(30) + g(40)")
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => f(x)(y); f(11)(f(33)(44))")
     
   }
   

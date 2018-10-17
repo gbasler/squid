@@ -12,6 +12,41 @@ trait GraphScheduling extends AST { graph: Graph =>
   import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
   import ruh.sru
   
+  override def runRep(rep: Rep): Any = eval(rep)
+  
+  type CCtx = Map[CallId, Int]
+  def hasCall(cid: CallId)(implicit cctx: CCtx) = cctx(cid) > 0
+  def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + (cid -> (cctx(cid)+1))
+  def withoutCall(cid: CallId)(implicit cctx: CCtx) = {
+    val old = cctx(cid)
+    require(old > 0)
+    cctx + (cid -> (old-1))
+  }
+  def emptyCCtx: CCtx = Map.empty.withDefaultValue(0)
+  
+  /** Note: currently creates garbage Reps – could save edges and restore them later... */
+  def eval(rep: Rep) = {
+    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.dfn match {
+      case Call(cid,res) => rec(res)(withCall(cid), vctx)
+      case Arg(cid,cbr,els) if hasCall(cid) => rec(cbr)(withoutCall(cid), vctx)
+      case Arg(cid,cbr,els) => assert(cctx(cid) == 0); rec(els)
+      case Abs(p,b) =>
+        Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
+      case v: Val => vctx(v)
+      case Ascribe(r, tp) => rec(r)
+      case c: ConstantLike => c
+      case bd: BasicDef =>
+        val (reps,bound) = bd.reps.map(r => r -> r.bound.copy()()).unzip
+        val curried = bound.foldRight(bd.rebuild(bound.map(readVal)).toRep)(abs(_,_))
+        val fun = scheduleAndRun(curried)
+        reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
+    }
+    rec(rep)(emptyCCtx,Map.empty).value
+  }
+  
+  def scheduleAndRun(rep: Rep): Any = SimpleASTBackend runRep rep |> treeInSimpleASTBackend
+  def scheduleAndCompile(rep: Rep): Any = SimpleASTBackend compileRep rep |> treeInSimpleASTBackend
+  
   protected def treeInSimpleASTBackend(rep: Rep) = reinterpret(rep, SimpleASTBackend) { bv =>
     System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
     SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
@@ -25,6 +60,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         q"""squid.lib.unbound(${bv.name})"""
       })
   
+  // FIXME: use proper CCtx instead of a simple Set[CallId]
   trait Reinterpreter extends super.Reinterpreter {
     // TODO use an intermediate representation that understands a higher-level concept of functions and:
     //   - can merge several control-flow boolean parameters into one integer flag parameter

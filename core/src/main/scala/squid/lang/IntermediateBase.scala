@@ -123,28 +123,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     
     /** Compiles and executes the code at runtime using the Scala ToolBox compiler */
     // TODO make `compile` a macro that can capture surrounding vars to fill in existing context dependencies?
-    def compile(implicit ev: Ctx =:= Any): Typ = {
-      val (newRep,csvals) = separateCrossStageNodes(self.rep)
-      val tree = scalaTree(newRep, hideCtors0 = false) // note ctor
-      def show = System.err.println("Compiling tree: "+sru.showCode(tree))
-      if (showCompiledTrees) show
-      val r = try IntermediateBase.toolBox.eval(tree) catch {
-        case e: scala.tools.reflect.ToolBoxError =>
-          if (!showCompiledTrees) show // only show compiled tree if not already shown above
-          throw e
-      }
-      val applied = (r,csvals) match {
-        case (_, Nil) => r
-        case (f:(Any=>Any)@unchecked, a0::Nil) => f(a0)
-        case (f:((Any,Any)=>Any)@unchecked, a0::a1::Nil) => f(a0,a1)
-        case (f:((Any,Any,Any)=>Any)@unchecked, a0::a1::a2::Nil) => f(a0,a1,a2)
-        case (f:((Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::Nil) => f(a0,a1,a2,a3)
-        case (f:((Any,Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::a4::Nil) => f(a0,a1,a2,a3,a4)
-        case (f:((Any,Any,Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::a4::a5::Nil) => f(a0,a1,a2,a3,a4,a5)
-        case _ => lastWords(s"unsupported arity (${csvals.size}) for cross-stage compilation of $tree with $csvals")
-      }
-      applied.asInstanceOf[Typ]
-    }
+    def compile(implicit ev: Ctx =:= Any): Typ = compileRep(self.rep).asInstanceOf[Typ]
     
     def showScala: String = ibase.showScala(self rep)
     
@@ -155,6 +134,28 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
     // ^ Note: making a new one each time is wasteful, but because it extends RuntimeSymbols, which has mutable
     //         caches, the BaseInterpreter is not thread-safe... (and Squid tests are ran in parallel)
     reinterpret(rep, Inter)()
+  }
+  def compileRep(rep: Rep): Any = {
+    val (newRep,csvals) = separateCrossStageNodes(rep)
+    val tree = scalaTree(newRep, hideCtors0 = false) // note ctor
+    def show = System.err.println("Compiling tree: "+sru.showCode(tree))
+    if (showCompiledTrees) show
+    val r = try IntermediateBase.toolBox.eval(tree) catch {
+      case e: scala.tools.reflect.ToolBoxError =>
+        if (!showCompiledTrees) show // only show compiled tree if not already shown above
+        throw e
+    }
+    val applied = (r,csvals) match {
+      case (_, Nil) => r
+      case (f:(Any=>Any)@unchecked, a0::Nil) => f(a0)
+      case (f:((Any,Any)=>Any)@unchecked, a0::a1::Nil) => f(a0,a1)
+      case (f:((Any,Any,Any)=>Any)@unchecked, a0::a1::a2::Nil) => f(a0,a1,a2)
+      case (f:((Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::Nil) => f(a0,a1,a2,a3)
+      case (f:((Any,Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::a4::Nil) => f(a0,a1,a2,a3,a4)
+      case (f:((Any,Any,Any,Any,Any,Any)=>Any)@unchecked, a0::a1::a2::a3::a4::a5::Nil) => f(a0,a1,a2,a3,a4,a5)
+      case _ => lastWords(s"unsupported arity (${csvals.size}) for cross-stage compilation of $tree with $csvals")
+    }
+    applied
   }
   
   import quasi.MetaBases.Runtime.ScalaReflectionBaseWithOwnNames
