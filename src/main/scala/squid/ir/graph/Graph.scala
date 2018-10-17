@@ -309,7 +309,25 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       val cid = new CallId("α")
       val arg = Arg(cid, mkArg, v |> readVal)
       val argr = arg |> rep
-      val subsd = substituteValFastUnhygienic(r, v, argr)
+      
+      val traversed = mutable.Set.empty[Rep] // FIME probably not right
+      
+      //val subsd = substituteValFastUnhygienic(r, v, argr)
+      
+      def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.setAndIfUnset(r, r.dfn match {
+        case Call(cid,res) => rebind(r, Call(cid,rec(res)(withCall(cid))))
+        case Arg(cid,cbr,els) =>
+          // TODO:
+          //if (hasCall(cid)) rec(cbr)(withoutCall(cid))
+          //else 
+            rebind(r, Arg(cid,rec(cbr),rec(els)))
+        case Abs(p,b) => rebind(r, Abs(p,rec(b))(r.typ))
+        case `v` => argr // FIXME wrap in calls?
+        case bd: BasicDef =>
+          rebind(r, mapRep(rec)(bd))
+      }, r)
+      val subsd = rec(r)(emptyCCtx)
+      
       Call(cid, subsd) |> rep
     } else r
     
