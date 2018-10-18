@@ -164,6 +164,15 @@ trait GraphScheduling extends AST { graph: Graph =>
       assert(!cctx.head(cid))
       cctx.head += cid
       apply(res) alsoDo {cctx.head -= cid}
+    // The reason the following is wrong is that a PassArg may ACTUALLY influence control-flow by neutering Arg nodes
+    // that are nested in 'res' – it's always been its primary purpose! – and from here we don't see the full calling
+    // context (to do so, we'd need an analysis of which calls may arrive at the current curCall)
+    /*
+    case PassArg(cid, res) =>
+      val putBack = cctx.head contains cid
+      cctx.head -= cid
+      apply(res) alsoDo {if (putBack) cctx.head += cid}
+    */
     case Arg(cid, cbr, els) =>
       //println(s"Arg $r")
       //if (cctx.head.nonEmpty) { // FIXedME
