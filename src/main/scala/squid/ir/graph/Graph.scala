@@ -321,10 +321,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       
       //val subsd = substituteValFastUnhygienic(r, v, argr)
       
-      //val traversed = mutable.Set.empty[Rep] // FIME probably not right
+      val traversing = mutable.Set.empty[Rep] // FIME probably not right
       val traversed = mutable.Map.empty[Rep,Rep] // FIME probably not right; what about different call contexts?
       
-      def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.getOrElseUpdate(r, r.dfn match {
+      def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.getOrElseUpdate(r, traversing.setAndIfUnset(r, r.dfn match {
         case Call(cid,res) => rebind(r, Call(cid,rec(res)(withCall(cid))))
         case Arg(cid,cbr,els) =>
           // TODO:
@@ -333,10 +333,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
             rebind(r, Arg(cid,rec(cbr),rec(els)))
         case Abs(p,b) => rebind(r, Abs(p,rec(b))(r.typ))
         case `v` => argr // FIXME wrap in calls?
-        case v: Val if v.isSimple => Arg(cid,r,r).toRep
+        case v: Val if v.isSimple => PassArg(cid,r).toRep
         case bd: BasicDef =>
           rebind(r, mapRep(rec)(bd))
-      })
+      }, r))
       val subsd = rec(r)(emptyCCtx)
       
       Call(cid, subsd) |> rep
