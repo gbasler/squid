@@ -69,8 +69,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def unapply(e: Rep) = Some(e.dfn)
   }
   
-  //override protected def freshNameImpl(n: Int) = "$"+n
-  override protected def freshNameImpl(n: Int) = "@"+n
+  override protected def freshNameImpl(n: Int) = "$"+n
+  //override protected def freshNameImpl(n: Int) = "@"+n
   
   /** Synthetic vals are never supposed to be let-bound...? */
   class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots)
@@ -310,11 +310,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       val arg = Arg(cid, mkArg, v |> readVal)
       val argr = arg |> rep
       
-      val traversed = mutable.Set.empty[Rep] // FIME probably not right
-      
       //val subsd = substituteValFastUnhygienic(r, v, argr)
       
-      def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.setAndIfUnset(r, r.dfn match {
+      //val traversed = mutable.Set.empty[Rep] // FIME probably not right
+      val traversed = mutable.Map.empty[Rep,Rep] // FIME probably not right; what about different call contexts?
+      
+      def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.getOrElseUpdate(r, r.dfn match {
         case Call(cid,res) => rebind(r, Call(cid,rec(res)(withCall(cid))))
         case Arg(cid,cbr,els) =>
           // TODO:
@@ -323,9 +324,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
             rebind(r, Arg(cid,rec(cbr),rec(els)))
         case Abs(p,b) => rebind(r, Abs(p,rec(b))(r.typ))
         case `v` => argr // FIXME wrap in calls?
+        case v: Val if v.isSimple => Arg(cid,r,r).toRep
         case bd: BasicDef =>
           rebind(r, mapRep(rec)(bd))
-      }, r)
+      })
       val subsd = rec(r)(emptyCCtx)
       
       Call(cid, subsd) |> rep
