@@ -141,7 +141,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     object Tr extends SimpleRuleBasedTransformer with Mixin with BottomUpTransformer with DSL.SelfTransformer { // FIXME ugly crash if we forget 'with DSL.SelfTransformer'
       rewrite {
         //case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding $n + $m"); mod = true; Const(n+m)
-        case r @ code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
+        case r @ code"(${n0@Const(n)}:Int)+(${m0@Const(m)}:Int)" =>
+          //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
+          println(s"!Constant folding ${r.rep.bound}; i.e., ${n0.rep.simpleString}=$n + ${m0.rep.simpleString}=$m"); mod = true; Const(n+m)
         case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
         case r @ code"($n:Int).toDouble.toInt" => //mod = true; n
           mod = true
@@ -224,18 +226,28 @@ class GraphTests extends MyFunSuite(MyGraph) {
     // TODO several calls
   }
   test("Basic Cross-Boundary Rewriting") {
-    // TODO several args
+    
+    //rw(code"val f = (x: Int) => x+x; f(11) + f(22)")
+    
+    rw(code"val f = (x: Int) => x+x; f(f(22))")
+    
   }
   test("Complex Cross-Boundary Rewriting") {
     
-    //rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
+    val f = code"(x: Int) => (y: Int) => x+y"
     
-    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(f(33)(40))") // FIXME
+    //rw(code"val f = $f; f(11)(22) + 1")
+    
+    //rw(code"val f = $f; f(11)(22) + f(30)(40)")
+    
+    rw(code"val f = $f; f(11)(f(33)(40))") // FIXME not opt: x_2.apply(11).apply(73)
+    
+    //rw(code"val f = $f; f(f(33)(40))")
     
     // TODO:
-    //rw(code"val f = (x: Int) => (y: Int) => x+y; f(f(11)(22),33)")
-    //rw(code"val f = (x: Int) => (y: Int) => x+y; val g = (z: Int) => f(f(11)(z),f(z)(22)); g(30) + g(40)")
-    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => f(x)(y); f(11)(f(33)(44))")
+    //rw(code"val f = $f; f(f(11)(22))(40)") // FIXME SOF
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)") // FIXME SOF
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))") // FIXME not opt: x_2.apply(77).apply(11)
     
   }
   

@@ -104,6 +104,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
   }
   object PassArg {
+    def apply(cid: CallId, res: Rep): Arg = Arg(cid, res, res)
     def unapply(a: Arg): Option[CallId -> Rep] = a.cid -> a.cbr optionIf (a.cbr === a.els)
   }
   // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
@@ -119,7 +120,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //}
   override protected def unboundVals(d: Def): Set[Val] = ??? // to make sure not used, until we make 'dfn' opaque again
   
-  private val colors = List(/*Console.BLACK,*/Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B)
+  private val colors = List(/*Console.BLACK,*/Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
+    /*Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B*/)
   private def colorOf(cid: CallId) = colors(cid.uid%colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)

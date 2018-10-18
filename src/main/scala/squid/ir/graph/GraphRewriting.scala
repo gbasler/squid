@@ -41,8 +41,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   //def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r),MutVar(Nil))
   def newXCtx: XCtx = ??? // we don't use the inherited matching mechanism anymore
   
-  protected val transformed = mutable.Set.empty[(Rep,List[Rep])] // TODO also store the traversed cids?
-  // ^ TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set?
+  /** TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set? */
+  protected val transformed = mutable.Set.empty[(Rep,List[Rep])]
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.traversedReps))
+  def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.traversedReps))
+  // -- Alternative: also storing the traversed cids:
+  //protected val transformed = mutable.Set.empty[(Rep,Set[CallId],Set[CallId],List[Rep])]
+  //def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
+  //def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
@@ -53,13 +59,19 @@ trait GraphRewriting extends AST { graph: Graph =>
     val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx mk true) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
-    matches.filterNot(transformed contains xtor -> _.traversedReps).flatMap { ge =>
-      //println(s"...considering $xtor << ${ge.traversedReps.map(_.bound)} --> ${ge.extr}")
+    //println(matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "✗ " else "√ ")+ge).mkString)
+    
+    matches.filterNot(alreadyTransformedBy(xtor,_)).flatMap { ge =>
+      //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
+      //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
           println(s"...transforming ${xtor.simpleString} << ${ge.traversedReps.map(_.simpleString)}")
+          println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
+          assert(!(ge.argsToRebuild intersects ge.callsToAvoid), s"${ge.argsToRebuild }>< ${ge.callsToAvoid}")
           val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
-          transformed += (xtor -> ge.traversedReps)
+          //val x = rebuild(x0, (ge.argsToRebuild--ge.callsToAvoid).toList, xtee)
+          rememberTransformedBy(xtor,ge)
           x
       }
     }.headOption
@@ -70,27 +82,69 @@ trait GraphRewriting extends AST { graph: Graph =>
     case Nil => rep
   }
   
-  protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], argsToRebuild: Set[CallId]) {
+  protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], argsToRebuild: Set[CallId], callsToAvoid: Set[CallId]) {
+    //assert(!(argsToRebuild intersects callsToAvoid), s"$argsToRebuild >< $callsToAvoid")  // apparently not always true
     def merge(that: GraphExtract): Stream[GraphExtract] =
-      graph.merge(extr,that.extr).map(e =>
-        GraphExtract(e, traversedReps ++ that.traversedReps, argsToRebuild ++ that.argsToRebuild)).toStream
+      if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
+      else graph.merge(extr,that.extr).map(e =>
+        GraphExtract(e, traversedReps ++ that.traversedReps, argsToRebuild ++ that.argsToRebuild, callsToAvoid ++ that.callsToAvoid)).toStream
     def matching (r: Rep) = r.dfn match {
       case sv: SyntheticVal => this
       case _ => copy(traversedReps = r :: traversedReps)
     }
+    override def toString = s"{${argsToRebuild.mkString(",")}}\\{${callsToAvoid.mkString(",")}} \t${extr._1(SCRUTINEE_KEY)} ${
+      (extr._1-SCRUTINEE_KEY).map(r => "\n\t "+r._1+" -> "+r._2).mkString}"
   }
   protected object GraphExtract {
-    val Empty: GraphExtract = GraphExtract(EmptyExtract, Nil, Set.empty)
+    val Empty: GraphExtract = GraphExtract(EmptyExtract, Nil, Set.empty, Set.empty)
     def fromExtract(e: Extract): GraphExtract = Empty copy (extr = e)
   } 
   protected def streamSingle[A](a: A): Stream[A] = a #:: Stream.Empty
   
-  protected case class GXCtx(curArgs: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
-  protected object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Map.empty,traverseArgs) }
+  protected case class GXCtx(assumedCalled: Set[CallId], assumedNotCalled: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
+  protected object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Set.empty,Map.empty,traverseArgs) }
   
-  // FIXME should not succesfully extract and merge two incompatible sibling args;
+  /*
+  // needs to prevent loops!
+  protected def removeArgs(avoidedCalls: Set[CallId])(rep: Rep): Rep = {
+    val rec = removeArgs(avoidedCalls) _
+    // don't rebuild if didn't change! try to conserve reference/binder equality
+    rep.dfn match {
+      case Arg(cid,cbr,els) if avoidedCalls contains cid => removeArgs(avoidedCalls-cid)(els) // Q: correct to remove cid?
+      case Arg(cid,cbr,els) => Arg(cid,cbr|>rec,els|>rec).toRep
+      //case Call(cid,res) => Call(cid,res|>rec).toRep // Q: correct?
+      case Call(cid,res) => Call(cid,res|>removeArgs(avoidedCalls-cid)).toRep // Q: correct?
+      case Abs(p,b) => abs(p,b|>rec)
+      case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep
+    }
+  } //also (res => println(s"rem  $rep  -->  "+res))
+  // new version, still needs prevent loops!
+  protected def removeArgs(avoidedCalls: Set[CallId])(rep: Rep): Rep = {
+    val transformed = mutable.Map.empty[(Rep,Set[CallId]),Rep]
+    def rec(rep: Rep)(implicit avoidedCalls: Set[CallId]): Rep =
+    // TODO don't rebuild if didn't change! try to conserve reference/binder equality
+    transformed.getOrElseUpdate(rep->avoidedCalls, rep.dfn match {
+      case Arg(cid,cbr,els) if avoidedCalls contains cid => rec(els)(avoidedCalls-cid) // Q: correct to remove cid?
+      case Arg(cid,cbr,els) => Arg(cid,cbr|>rec,els|>rec).toRep
+      //case Call(cid,res) => Call(cid,res|>rec).toRep // Q: correct?
+      case Call(cid,res) => Call(cid,rec(res)(avoidedCalls-cid)).toRep // Q: correct?
+      case Abs(p,b) => abs(p,b|>rec)
+      case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep
+    })
+    rec(rep)(avoidedCalls)
+  } //also (res => println(s"rem  $rep  -->  "+res))
+  */
+  
+  /* This naive algorithm currently potentially creates too many matching paths, and explores too many dead-ends;
+   *  - One way to prune dead-ends early woudl be to thread the returned `callsToAvoid` into the next sibling arg;
+   *  - I'm not sure how to avoid creating too many matching paths, beside having the user do as much GC and call/arg
+   *    simplification as possible beforehand...
+   *    Maybe when we split on what is actually a PassArg, we don't actually need to explore the two branches (but how
+   *    to know? – we would return a token saying whether we ended up pruning paths because of the extra assumption...) */
+  // Note: should not succesfully extract and merge two incompatible sibling args;
   //   for example (C0->10|20)+(C0->30|40) should not be able to successfully extract (C0->10+40)!!
   //   also, relatedly, forbid extracting (C0->10|C0->20|30) as (C0->20) since it's following an impossible branch!
+  //   also, relatedly, extracted subtrees should be changed so that their semantics ignores calls we have ignored to reach them 
   /** This is an adaptation of AST#Def#extractImpl; relevant comments are still there but have been stripped here */
   protected def extractGraph(xtor: Rep, xtee: Rep,
                              extractTopLevelHole: Bool = true,
@@ -113,26 +167,30 @@ trait GraphRewriting extends AST { graph: Graph =>
         val directly = for {
           typE <- xtor.typ.extract(xtee.typ, Covariant).toStream
           r1 = xtee
-          r2 = ctx.curArgs.foldRight(r1)(Call(_,_).toRep)
+          // Q: does ctx.assumedNotCalled ever intersect ctx.curCalls here?
+          
+          r2 = ctx.assumedNotCalled.foldRight(r1)(PassArg(_,_).toRep)
+          //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
+          //r2 = r1 |> removeArgs(ctx.assumedNotCalled)  // more brutal version; not sure if correctly implemented
           r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
+          
           e <- merge(typE, repExtract(name -> r3))
         } yield GraphExtract fromExtract e
         val inspecting = extractGraph(xtor,xtee,extractTopLevelHole=false)
         directly ++ inspecting
         
-      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) =>
+      case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
+        
+      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) /*&& !(ctx.avoidedCalls contains cid)*/ =>
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
-      case _ -> PassArg(cid, res) if extractTopLevelCallArg => extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> Arg(cid, cbr, _) if extractTopLevelCallArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
-        val cbrE = extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
-          ge.copy(argsToRebuild = ge.argsToRebuild + cid)
-        }
-        val elsE = extractGraph(xtor, els)
+      case _ -> PassArg(cid, res) if extractTopLevelCallArg && (ctx.curCalls contains cid) => ??? // TODO rm traverseArgs?
+      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs =>
+        val cbrE = if (ctx.assumedCalled contains cid) Stream.Empty else // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
+          extractGraph(xtor, cbr)(ctx.copy(assumedCalled = ctx.assumedCalled + cid))
+        val elsE = extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid)) // should we not do this if cid already in avoidedCalls? is it also a risk of infinite loop?
         cbrE ++ elsE
-        
-      case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
       case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
         // Q: check same type?
@@ -185,7 +243,9 @@ trait GraphRewriting extends AST { graph: Graph =>
         Stream.Empty
     }
     
-  }.map(_ matching xtee)
+  }.map(_ matching xtee).map { ge =>
+    ge.copy(argsToRebuild = ge.argsToRebuild ++ ctx.assumedCalled, callsToAvoid = ge.callsToAvoid ++ ctx.assumedNotCalled)
+  }
   
   protected def mergeGraph(lhs: GraphExtract, rhs: GraphExtract)(implicit ctx: GXCtx): Stream[GraphExtract] = lhs merge rhs
   protected def extractGraphArgList(self: ArgList, other: ArgList)(implicit ctx: GXCtx): Stream[GraphExtract] = {
@@ -235,11 +295,31 @@ trait GraphRewriting extends AST { graph: Graph =>
     res
   }
   
-  override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = rep.dfn match {
-    case Call(_,r) => unapplyConst(r,typ)
-    // there is no case for Arg on purpose...
-    // it would be unsound, because it's partial (discards info) and biased: will look at 'cbr' first...
+  override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] =
+    unapplyConstImpl(rep,typ)(GXCtx.mk(false)) //also (r => println(s"UNAPP ${rep} -> $r"))
+  
+  protected def unapplyConstImpl(rep: Rep, typ: TypeRep)(implicit ctx: GXCtx): Option[Any] =
+    //println(s"? $rep ${ctx.assumedCalled} ${ctx.assumedNotCalled}") thenReturn 
+  rep.dfn match {
+      
+    case Call(c,r) 
+      if !(ctx.assumedCalled contains c) // not strictly necessary, but would need multiplicities to make it sound without it... 
+    => unapplyConstImpl(r,typ)(ctx.copy(assumedCalled = ctx.assumedCalled + c, assumedNotCalled = ctx.assumedNotCalled - c))
+      
+    case Arg(c,t,e) if ctx.assumedCalled.contains(c) => unapplyConstImpl(t,typ)(ctx.copy(assumedCalled = ctx.assumedCalled - c))
+    case Arg(c,t,e) if ctx.assumedNotCalled.contains(c) => unapplyConstImpl(e,typ) // Note: c still assumed not called!
+      
+    case Arg(c,t,e) 
+      if !(ctx.assumedNotCalled contains c) && !(ctx.assumedCalled contains c) // not strictly necessary again
+    => for {
+        c0 <- unapplyConstImpl(t,typ)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + c))
+        c1 <- unapplyConstImpl(e,typ)(ctx.copy(assumedCalled = ctx.assumedCalled + c))
+        if c0 === c1
+      } yield c0
+      
+    // Note: it would be unsound to follow Arg branches, because it's partial (discards info)
     //case Arg(_,cbr,els) => unapplyConst(cbr,typ) orElse unapplyConst(els,typ)
+      
     case _ => super.unapplyConst(rep,typ)
   }
   
