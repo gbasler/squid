@@ -41,14 +41,27 @@ trait GraphRewriting extends AST { graph: Graph =>
   //def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r),MutVar(Nil))
   def newXCtx: XCtx = ??? // we don't use the inherited matching mechanism anymore
   
-  /** TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set? */
+  
+  /* TODOlater make transformed a weak hashmap with the Rep xtor as the key... or even just a weak hash set? */
   protected val transformed = mutable.Set.empty[(Rep,List[Rep])]
-  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.traversedReps))
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.traversedReps)) //alsoDo println(transformed.size)
   def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.traversedReps))
-  // -- Alternative: also storing the traversed cids:
-  //protected val transformed = mutable.Set.empty[(Rep,Set[CallId],Set[CallId],List[Rep])]
-  //def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
-  //def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
+  /* // weak map with first traversed Rep as key – doesn't make a huge difference...
+  protected val transformed = new java.util.WeakHashMap[Rep,mutable.Set[(Rep,List[Rep])]]()
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool =
+    //println(transformed.size()) thenReturn 
+    transformed.containsKey(ge.traversedReps.head) && transformed.get(ge.traversedReps.head)(xtor, ge.traversedReps)
+  def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = {
+    val hd = ge.traversedReps.head
+    val set = if (!transformed.containsKey(hd)) mutable.Set.empty[(Rep,List[Rep])] also (transformed.put(hd,_)) else transformed.get(hd)
+    set += ((xtor, ge.traversedReps))
+  }
+  */
+  /* // -- Alternative: also storing the traversed cids:
+  protected val transformed = mutable.Set.empty[(Rep,Set[CallId],Set[CallId],List[Rep])]
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
+  def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
+  */
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
@@ -60,6 +73,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
     //println(matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "✗ " else "√ ")+ge).mkString)
+    //if (matches.nonEmpty) println(s"Matches at ${xtor.bound} : ${matches.count(alreadyTransformedBy(xtor,_))} / ${matches.size}")
     
     matches.filterNot(alreadyTransformedBy(xtor,_)).flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
