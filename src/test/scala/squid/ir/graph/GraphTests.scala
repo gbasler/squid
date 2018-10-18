@@ -245,9 +245,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //rw(code"val f = $f; f(f(33)(40))")
     
     // TODO:
-    //rw(code"val f = $f; f(f(11)(22))(40)") // FIXME SOF
-    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)") // FIXME SOF
-    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))") // FIXME not opt: x_2.apply(77).apply(11)
+    //rw(code"val f = $f; f(f(11)(22))(40)")
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)") // now takes forever (did not finish)
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))") // FIXME not opt: x_2.apply(77).apply(11); also, takes a long time
     
   }
   
