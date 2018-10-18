@@ -26,7 +26,8 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Note: currently creates garbage Reps – could save edges and restore them later... */
   def eval(rep: Rep) = {
-    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.dfn match {
+    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = //println(s"~ Eval $rep") thenReturn
+    rep.dfn match {
       case Call(cid,res) => rec(res)(withCall(cid), vctx)
       case Arg(cid,cbr,els) if hasCall(cid) => rec(cbr)(withoutCall(cid), vctx)
       case Arg(cid,cbr,els) => assert(cctx(cid) == 0); rec(els)
@@ -77,7 +78,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     
     val liveVals = mutable.Set.empty[Val]
     val pointers = mutable.Map.empty[Rep,mutable.Set[Rep]]
-    //val alwaysBoundAt = mutable.Map.empty[Rep,Set[Val]]
+    val alwaysBoundAt = mutable.Map.empty[Rep,Set[Val]]
     
     def applyTopLevel(r: Rep) = {
       
@@ -108,7 +109,6 @@ trait GraphScheduling extends AST { graph: Graph =>
       assert(pointers.isEmpty)
       analyse(r)
       
-      /*
       val analysed2 = mutable.HashSet.empty[(Rep,Set[Val])]
       def analyse2(r: Rep)(implicit vctx: Set[Val]): Unit = analysed2.setAndIfUnset(r -> vctx, r.dfn match {
         case MethodApp(self, mtd, targs, argss, tp) =>
@@ -125,7 +125,6 @@ trait GraphScheduling extends AST { graph: Graph =>
       assert(alwaysBoundAt.isEmpty)
       alwaysBoundAt ++= analysed2.groupBy(_._1).mapValues(_.unzip._2.reduce(_ & _))
       //println(s"alwaysBoundAt: ${alwaysBoundAt.map({case(k,v)=>s"\n [${pointers(k).size}] \t${v} \t${k.bound}"}).mkString}")
-      */
       
       val res = apply(r)
       val rtyp = rect(r.typ)
@@ -139,16 +138,19 @@ trait GraphScheduling extends AST { graph: Graph =>
       val oldvctx = vctx
       vctx = Set.empty
       params ::= mutable.Buffer.empty
+      curCall ::= r
       val res = params.head -> apply(r.dfn)
       vctx = oldvctx
       cctx = cctx.tail
       params = params.tail
+      curCall = curCall.tail
       res
     }
     
     var cctx: List[mutable.Set[CallId]] = mutable.Set.empty[CallId]::Nil
     var vctx: Set[Val] = Set.empty
     var params: List[mutable.Buffer[(Set[CallId],Rep)]] = Nil
+    var curCall: List[Rep] = Nil
     var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
     
     def apply(r: Rep): newBase.Rep = {
@@ -179,7 +181,9 @@ trait GraphScheduling extends AST { graph: Graph =>
         //println(s"Arg $r ${r.dfn.unboundVals} scoped in ${params.head._1}")
         //if (r.dfn.unboundVals subsetOf params.head._1) recv(r.bound) |> newBase.readVal alsoDo {params.head._2 += r}
         val rfv = r.freeVals filter liveVals
-        if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {
+        val boundInCall = curCall.headOption map alwaysBoundAt getOrElse Set.empty
+        //if (vctx.isEmpty || (rfv subsetOf vctx)) recv(r.bound) |> newBase.readVal alsoDo {
+        if (vctx.isEmpty || (rfv subsetOf boundInCall)) recv(r.bound) |> newBase.readVal alsoDo {
           //println(s"> New param: $r  ${rfv} ${vctx}")
           
           //params.head._2 += r}
@@ -189,7 +193,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
           //println(s"Oops: $r ${rfv} ill-scoped in ${params.head._1} ${rfv -- params.head._1 toList}")
-          println(s"> Oops: ${rfv} not in ${vctx} for:  ${r.showGraphRev}")
+          println(s"> Oops: ${rfv} not in ${boundInCall} for:  ${r.showGraphRev}")
           
           // Generate boolean params to know which subexpression to compute;
           // Problem: expressions under an Arg may contain variables only bound in some of the _callers_, so using them
@@ -256,8 +260,8 @@ trait GraphScheduling extends AST { graph: Graph =>
           //params.foldRight(res) {
           val rv = r.bound |> recv
           val call = () =>
-          params.foldRight(rv |> newBase.readVal) {
-            case ((cids,param), acc) =>
+          params.foldLeft(rv |> newBase.readVal) {
+            case (acc,(cids,param)) =>
               //newBase.app(acc, recv(p) |> newBase.readVal)(rtyp)
               assert(cids & cctx.head isEmpty, s"$cids & ${cctx.head}") // Q: really? won't it i general be a superset?
               cctx.head ++= cids

@@ -230,7 +230,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     //rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(22) + f(30)(40)")
     
-    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(f(33)(44))") // FIXME
+    rw(code"val f = (x: Int) => (y: Int) => x+y; f(11)(f(33)(40))") // FIXME
     
     // TODO:
     //rw(code"val f = (x: Int) => (y: Int) => x+y; f(f(11)(22),33)")
