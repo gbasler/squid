@@ -132,7 +132,8 @@ trait GraphRewriting extends AST { graph: Graph =>
       case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep
     }
   } //also (res => println(s"rem  $rep  -->  "+res))
-  // new version, still needs prevent loops!
+  */
+  // new version, still needs to prevent loops! – FIXME
   protected def removeArgs(avoidedCalls: Set[CallId])(rep: Rep): Rep = {
     val transformed = mutable.Map.empty[(Rep,Set[CallId]),Rep]
     def rec(rep: Rep)(implicit avoidedCalls: Set[CallId]): Rep =
@@ -147,7 +148,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     })
     rec(rep)(avoidedCalls)
   } //also (res => println(s"rem  $rep  -->  "+res))
-  */
+  //*/
   
   /* This naive algorithm currently potentially creates too many matching paths, and explores too many dead-ends;
    *  - One way to prune dead-ends early woudl be to thread the returned `callsToAvoid` into the next sibling arg;
@@ -183,15 +184,20 @@ trait GraphRewriting extends AST { graph: Graph =>
           r1 = xtee
           // Q: does ctx.assumedNotCalled ever intersect ctx.curCalls here?
           
-          r2 = ctx.assumedNotCalled.foldRight(r1)(PassArg(_,_).toRep)
+          //r2 = ctx.assumedNotCalled.foldRight(r1)(PassArg(_,_).toRep)
           //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
-          //r2 = r1 |> removeArgs(ctx.assumedNotCalled)  // more brutal version; not sure if correctly implemented
+          r2 = r1 |> removeArgs(ctx.assumedNotCalled)  // more brutal version; not sure if correctly implemented
+          // ^ gives much better perf in tests; but:
+          //   Q: how much does `removeArgs` copy, and is that the sole reason for the speedup?
           r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
           
           e <- merge(typE, repExtract(name -> r3))
         } yield GraphExtract fromExtract e
         val inspecting = extractGraph(xtor,xtee,extractTopLevelHole=false)
         directly ++ inspecting
+        // ^ Note: `inspecting` adds way more paths to inspect, so maybe it's not worth it;
+        // the motivation for it was for making xtor-based constant folding exhaustive, but maybe it'd be sufficient to
+        // just use a proper constant pattern to avoid xtor blindness from the IR!
         
       case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
