@@ -41,22 +41,23 @@ trait GraphRewriting extends AST { graph: Graph =>
   //def newXCtx: XCtx = (Set.empty,Set.empty,MutVar((r,_)=>r),MutVar(Nil))
   def newXCtx: XCtx = ??? // we don't use the inherited matching mechanism anymore
   
-  protected val transformed = mutable.Set.empty[(Rep,List[Rep])]
+  protected val transformed = mutable.Set.empty[(Rep,List[Rep])] // TODO also store the traversed cids?
   // ^ TODO make it a weak hashmap with the Rep xtor as the key... or even just a weak hash set?
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
     extractGraph(xtor,xtee)(GXCtx mk false).headOption map (_.extr)
+  
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     
-    val matches = extractGraph(xtor, xtee)(GXCtx mk true) flatMap
+    val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx mk true) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
     matches.filterNot(transformed contains xtor -> _.traversedReps).flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.bound)} --> ${ge.extr}")
       code(ge.extr) |>? {
         case Some(x0) =>
-          println(s"...transforming ${xtor.bound} << ${ge.traversedReps.map(_.bound)}")
+          println(s"...transforming ${xtor.simpleString} << ${ge.traversedReps.map(_.simpleString)}")
           val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
           transformed += (xtor -> ge.traversedReps)
           x
@@ -87,8 +88,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected case class GXCtx(curArgs: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
   protected object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Map.empty,traverseArgs) }
   
+  // FIXME should not succesfully extract and merge two incompatible sibling args;
+  //   for example (C0->10|20)+(C0->30|40) should not be able to successfully extract (C0->10+40)!!
+  //   also, relatedly, forbid extracting (C0->10|C0->20|30) as (C0->20) since it's following an impossible branch!
   /** This is an adaptation of AST#Def#extractImpl; relevant comments are still there but have been stripped here */
-  protected def extractGraph(xtor: Rep, xtee: Rep, extractHole: Bool = true)(implicit ctx: GXCtx): Stream[GraphExtract] = {
+  protected def extractGraph(xtor: Rep, xtee: Rep,
+                             extractTopLevelHole: Bool = true,
+                             extractTopLevelCallArg: Bool = true
+                            )(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
     
     xtor.dfn -> xtee.dfn match {
@@ -97,12 +104,12 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case (Ascribe(v,tp), _) =>
         for { a <- tp.extract(xtee.typ, Covariant).toStream
-              b <- extractGraph(v,xtee)
+              b <- extractGraph(v,xtee,extractTopLevelCallArg=extractTopLevelCallArg)
               m <- fromExtract(a) merge b } yield m
         
       case (h:HOPHole, _) => ??? // TODO
         
-      case (Hole(name), _) if extractHole =>
+      case (Hole(name), _) if extractTopLevelHole =>
         val directly = for {
           typE <- xtor.typ.extract(xtee.typ, Covariant).toStream
           r1 = xtee
@@ -110,22 +117,22 @@ trait GraphRewriting extends AST { graph: Graph =>
           r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
           e <- merge(typE, repExtract(name -> r3))
         } yield GraphExtract fromExtract e
-        val inspecting = extractGraph(xtor,xtee,extractHole=false)
+        val inspecting = extractGraph(xtor,xtee,extractTopLevelHole=false)
         directly ++ inspecting
         
-      case _ -> Call(cid, res) if !(ctx.curCalls contains cid) =>
+      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) =>
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
-      case _ -> PassArg(cid, res) => extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> Arg(cid, cbr, _) if ctx.traverseArgs && (ctx.curCalls contains cid) =>
+      case _ -> PassArg(cid, res) if extractTopLevelCallArg => extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls - cid))
+      case _ -> Arg(cid, cbr, _) if extractTopLevelCallArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> Arg(cid, cbr, els) if ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
+      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
         val cbrE = extractGraph(xtor, cbr)(ctx.copy(curArgs = ctx.curArgs + cid)).map { ge =>
           ge.copy(argsToRebuild = ge.argsToRebuild + cid)
         }
         val elsE = extractGraph(xtor, els)
         cbrE ++ elsE
         
-      case (_, Hole(_)) => Stream.Empty // Q: case needed?
+      case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
       case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
         // Q: check same type?
