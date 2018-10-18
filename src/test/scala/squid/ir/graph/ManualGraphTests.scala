@@ -48,7 +48,7 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
     println(c0::c1::Nil)
     val r = rebuild(const(42),c0::c1::Nil,const(666))
     println(r)
-    r.dfn match {
+    r.dfn |>? {
       case ArgSet(cs,t,e) => println(cs,t,e)
     }
     

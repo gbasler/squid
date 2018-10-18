@@ -115,6 +115,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case _ -> Call(cid, res) if !(ctx.curCalls contains cid) =>
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
+      case _ -> PassArg(cid, res) => extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> Arg(cid, cbr, _) if ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> Arg(cid, cbr, els) if ctx.traverseArgs && !(ctx.curArgs contains cid) => // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)

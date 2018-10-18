@@ -98,10 +98,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case Arg(cid0,cbr0,e@Rep(Call(`cid`,`els`))) => unbuild(cid0,cbr0,e) ||> (_.::(cid) -> _)
       case _ => (cid :: Nil) -> cbr
     }
-    def unapply(c: Arg): Some[(List[CallId],Rep,Rep)] = {
-      val cs -> e = unbuild(c.cid, c.cbr, c.els)
-      Some(cs.distinct, e, c.els)
+    def unapply(a: Arg): Some[(List[CallId],Rep,Rep)] = {
+      val cs -> e = unbuild(a.cid, a.cbr, a.els)
+      Some(cs.distinct, e, a.els)
     }
+  }
+  object PassArg {
+    def unapply(a: Arg): Option[CallId -> Rep] = a.cid -> a.cbr optionIf (a.cbr === a.els)
   }
   // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
@@ -144,10 +147,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       //  "|"+apply(els)
       //case Arg(cid, cbr, els) => s"$cid?${cbr |> apply}!${apply(els)}"
       //case Arg(cid, cbr, els) => s"$cid${Console.BOLD}?${Console.RESET}${cbr |> apply}${Console.BOLD}|${Console.RESET}${apply(els)}"
+      case PassArg(cid, res) =>
+        val col = colorOf(cid)
+        s"$col$cid⟨⟩$curCol$res"
       case ArgSet(cids, cbr, els) =>
         val oldCol = curCol
         curCol = colorOf(cids.last)
         s"${cids.map(c=>colorOf(c)+c).mkString("&")}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+        //s"${cids.map(c=>colorOf(c)+c).mkString("&")}→${cbr |> apply}|$oldCol${curCol = oldCol; apply(els)}"
         /*
       case Arg(cid, cbr, els) =>
         val oldCol = curCol
