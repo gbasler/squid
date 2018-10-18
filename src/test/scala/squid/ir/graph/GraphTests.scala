@@ -234,7 +234,8 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     
-    val f = code"(x: Int) => (y: Int) => x+y"
+    // FIXME: making this `f` a `val` makes running all tests unbearably slow as the body is shared and gets cluttered with control-flow...
+    def f = code"(x: Int) => (y: Int) => x+y"
     
     //rw(code"val f = $f; f(11)(22) + 1")
     

@@ -15,16 +15,19 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   object GraphDebug extends PublicTraceDebug
   
-  val edges = mutable.Map.empty[Val,Def]
+  //val edges = mutable.Map.empty[Val,Def]
+  val edges = new java.util.WeakHashMap[Val,Def]
   
   def bind(v: Val, d: Def): Unit = {
-    require(!edges.isDefinedAt(v))
+    //require(!edges.isDefinedAt(v))
+    require(!edges.containsKey(v))
     rebind(v, d)
   }
   def rebind(v: Val, d: Def): Unit = {
     require(!v.isInstanceOf[SyntheticVal])
     //require(!d.isInstanceOf[BoundVal] || d.isInstanceOf[SyntheticVal], s"$d")  // TODO enforce?
-    edges += v -> d
+    //edges += v -> d
+    edges.put(v, d)
   }
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   
@@ -35,7 +38,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   class Rep(val bound: Val) {
     require(!bound.isInstanceOf[SyntheticVal])
-    def dfn: Def = edges.getOrElse(bound, bound)
+    //def dfn: Def = edges.getOrElse(bound, bound)
+    def dfn: Def = Option(edges.get(bound)) getOrElse bound
     
     def isBottom = dfn === Bottom
     
