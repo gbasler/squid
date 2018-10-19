@@ -52,19 +52,30 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       //println(d_?)
       d_? match {
         case null => bound
+          
         case Arg(cid0, thn0, SafeRep(Arg(cid1, thn1, els))) if cid0 === cid1 =>
           //val d = Arg(cid0, thn0, els)
           val d = Arg(cid0, thn0, els, d_?.typ) // specify the type here to avoid SOF
           rebind(bound, d)
           d
+          
+        // does not seem useful (it seems to make terms bigger, if anything):
+        //case Arg(cid, SafeRep(Arg(cid0, thn0, els0)), SafeRep(Arg(cid1, thn1, els1))) if (cid0 === cid1) && (thn0 === thn1) =>
+        //case Arg(cid, SafeRep(Arg(cid0, thn0, els0)), SafeRep(Arg(cid1, thn1, els1))) if (cid0 === cid1) && (thn0.safe_dfn === thn1.safe_dfn) =>
+        //  val d = Arg(cid0, PassArg(cid,thn0).toRep, Arg(cid, els0, els1).toRep)
+        //  rebind(bound, d)
+        //  d
+          
         case Call(cid0, SafeRep(Arg(cid1,thn,els))) =>
           val d = if (cid0 === cid1) thn.safe_dfn
             else Arg(cid1,call(cid0,thn),call(cid0,els), d_?.typ)
           rebind(bound, d)
           d
+          
         case Call(cid,SafeRep(d:LeafDef)) if !d.isInstanceOf[Val] =>
           rebind(bound, d)
           d
+          
         case d => d
       }
     }
@@ -88,6 +99,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         rebind(bound, res.dfn)
       this
     }
+    def simplifiedTopLevel =
+      simplifyCallArgs(this)(GXCtx.empty.copy(assumedNotCalled = freeArgs),mutable.Map.empty)
+    
+    def freeArgs = graph.freeArgs(dfn)(emptyCCtx)
     
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
@@ -163,7 +178,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   object PassArg {
     def apply(cid: CallId, res: Rep): Arg = Arg(cid, res, res)
-    def unapply(a: Arg): Option[CallId -> Rep] = a.cid -> a.cbr optionIf (a.cbr === a.els)
+    def unapply(a: Arg): Option[CallId -> Rep] = a.cid -> a.cbr optionIf
+      //(a.cbr === a.els)
+      (a.cbr.dfn === a.els.dfn)
   }
   // TODO Q: should this one be encoded with a normal MethodApp? -> probably not..
   case class Split(scrut: Rep, branches: Map[CtorSymbol, Rep]) extends SyntheticVal("S", branches.head._2.typ) {
@@ -400,6 +417,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       call(cid, subsd)
     } else r
     
+  }
+  
+  // TODO it should actually return a CCtx
+  def freeArgs(d: Def)(implicit ctx: CCtx): Set[CallId] = d match {
+    case Call(cid,res) => freeArgs(res.dfn)(withCall(cid))
+    case Arg(cid,thn,els) if hasCall(cid) => freeArgs(thn.dfn)(withoutCall(cid))
+    case Arg(cid,thn,els) => freeArgs(thn.dfn) ++ freeArgs(els.dfn) + cid
+    case Abs(p,b) => freeArgs(b.dfn)
+    case bd: BasicDef => bd.reps.iterator.flatMap(_.dfn |> freeArgs).toSet
   }
   
   

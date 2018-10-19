@@ -186,7 +186,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
       }
     }
     //assert(cur.rep.size <= expectedSize, s"for ${cur.rep.showGraphRev}")
-    assert(cur.rep.simplified.size <= expectedSize, s"for ${cur}")
+    assert(cur.rep.simplifiedTopLevel.size <= expectedSize, s"for ${cur}")
     println(" --- END ---\n")
   }
   
@@ -248,15 +248,15 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //val f = code"(x: Int) => (y: Int) => x+y"
     def f = code"(x: Int) => (y: Int) => x+y"
     
-    rw(code"val f = $f; f(11)(22) + 1"/*, expectedSize=1*/)(34)
+    rw(code"val f = $f; f(11)(22) + 1", 1)(34)
     
-    rw(code"val f = $f; f(11)(22) + f(30)(40)"/*, expectedSize=1*/)(103)
+    rw(code"val f = $f; f(11)(22) + f(30)(40)", 1)(103)
     
-    rw(code"val f = $f; f(11)(f(33)(40))")(84) // FIXME not opt: (11).+(73)
+    rw(code"val f = $f; f(11)(f(33)(40))"/*, 1*/)(84) // FIXME not opt: (11).+(73)
     
     rw(code"val f = $f; f(f(33)(40))")(174, _(101))
     
-    rw(code"val f = $f; f(f(11)(22))(40)"/*, expectedSize=1*/)(73)
+    rw(code"val f = $f; f(f(11)(22))(40)", 1)(73)
     
     //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME SOF in mapDef
     
