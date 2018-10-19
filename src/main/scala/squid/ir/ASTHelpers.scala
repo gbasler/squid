@@ -118,6 +118,13 @@ trait ASTHelpers extends Base { self: AST =>
     }
   }
   
+  object VirtConst {
+    val Symbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "const", None)
+    def unapply(d: Def): Option[Rep] = d |>? {
+      case MethodApp(_, Symbol, ta::Nil, Args(a)::Nil, _) => a
+    }
+  }
+  
   
   // TODO move these into a Builtin object
   lazy val UnitType = staticTypeApp(loadTypSymbol("scala.Unit"),Nil)

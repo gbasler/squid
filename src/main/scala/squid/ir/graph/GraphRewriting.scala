@@ -180,6 +180,9 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case (h:HOPHole, _) => ??? // TODO
         
+      case VirtConst(xtor) -> Constant(_) =>  // Note: if this does not match, we may still match an explicit usage of the const function...
+        extractGraph(xtor, xtee)
+        
       case (Hole(name), _) if extractTopLevelHole =>
         val directly = for {
           typE <- xtor.typ.extract(xtee.typ, Covariant).toStream
@@ -197,11 +200,12 @@ trait GraphRewriting extends AST { graph: Graph =>
           
           e <- merge(typE, repExtract(name -> r3))
         } yield GraphExtract fromExtract e
-        val inspecting = extractGraph(xtor,xtee,extractTopLevelHole=false)
-        directly ++ inspecting
+        //val inspecting = extractGraph(xtor,xtee,extractTopLevelHole=false)
+        //directly ++ inspecting
         // ^ Note: `inspecting` adds way more paths to inspect, so maybe it's not worth it;
         // the motivation for it was for making xtor-based constant folding exhaustive, but maybe it'd be sufficient to
         // just use a proper constant pattern to avoid xtor blindness from the IR!
+        directly
         
       case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
