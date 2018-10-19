@@ -118,16 +118,18 @@ class GraphTests extends MyFunSuite(MyGraph) {
     println(" --- END ---\n")
   }
   */
-  def rw(c: ClosedCode[Any]) = {
+  def rw[A](c: ClosedCode[A], expectedSize: Int = Int.MaxValue)(expectedResult: Any = null, preprocess: A => Any = (a:A) => a) = {
     var mod = true
     var cur = c
     println("\n-> "+cur.rep.showGraphRev)
     println(cur.show)
-    def printEval = {
-      println(s"== ${cur.run}\n== ${DSL.scheduleAndRun(cur.rep)}")
+    def printCheckEval() = {
+      val value = cur.run
+      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cur.rep.showGraphRev}")
+      println(s"== ${value}\n== ${DSL.scheduleAndRun(cur.rep)}")
       //println(s"== ${cur.run}\n== ${DSL.scheduleAndCompile(cur.rep)}")
     }
-    printEval
+    printCheckEval()
     trait Mixin extends DSL.SelfTransformer {
       abstract override def transform(rep: DSL.Rep) = {
         //val res = super.transform(rep)
@@ -144,7 +146,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
         case r @ code"(${n0@Const(n)}:Int)+(${m0@Const(m)}:Int)" =>
           //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
           println(s"!Constant folding ${r.rep.bound}; i.e., ${n0.rep.simpleString}=$n + ${m0.rep.simpleString}=$m"); mod = true; Const(n+m)
-        case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
+        //case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
         case r @ code"($n:Int).toDouble.toInt" => //mod = true; n
           mod = true
           //println(s"Rwr ${r.rep.bound} with ${n.rep.showGraphRev}")
@@ -177,9 +179,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
       if (mod) {
         //println(r.rep.iterator.toList.map(r=>s"\n\t\t ${r.bound} :: "+(r.dfn)).mkString)
         println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cur.rep.showGraphRev+"\n~> "+cur.show)
-        printEval
+        printCheckEval()
       }
     }
+    //assert(cur.rep.size <= expectedSize, s"for ${cur.rep.showGraphRev}")
+    assert(cur.rep.simplify.size <= expectedSize, s"for ${cur}")
     println(" --- END ---\n")
   }
   
@@ -191,33 +195,33 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //  case code"($a:Int)-($b:Int)" => code"$a * $b"
     //} also println
     
-    rw(code"readInt.toDouble+1-1")
+    rw(code"nextInt(42).toDouble+1-1")()
     
     //base debugFor
     
-    rw(code"val ri = (_:Unit) => readInt; ri(()).toDouble+ri(()).toDouble")
+    rw(code"val ri = (_:Unit) => nextInt(42); ri(()).toDouble+ri(()).toDouble")()
     
-    rw(code"val ri = (n:Int) => n+1+readInt; ri(42).toDouble")
+    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(42).toDouble")()
     
     
   }
   
   test("Rw 2") {
     
-    //rw(code"val ri = (n:Int) => readInt+n; ri(nextInt*2).toDouble+ri(42).toDouble")
-    rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(readInt)")
+    //rw(code"val ri = (n:Int) => nextInt(42)+n; ri(nextInt*2).toDouble+ri(42).toDouble")()
+    rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(nextInt(42))")()
     
-    rw(code"val ri = (n:Int) => n+1; ri(nextInt)+ri(42)")
+    rw(code"val ri = (n:Int) => n+1; ri(nextInt)+ri(42)")()
     
-    rw(code"val ri = (n:Int) => n+1+readInt; ri(0).toDouble+ri(1).toDouble")
+    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(0).toDouble+ri(1).toDouble")()
     
   }
   
   test("Simple Cross-Boundary Rewriting (Linear)") {
     
-    rw(code"val ri = (n:Int) => n.toDouble; ri(nextInt).toInt")
+    rw(code"val ri = (n:Int) => n.toDouble; ri(nextInt).toInt")()
     
-    rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)")
+    rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)")()
     
     // TODO also with non-trivial leaves
     
@@ -227,30 +231,32 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Basic Cross-Boundary Rewriting") {
     
-    //rw(code"val f = (x: Int) => x+x; f(11) + f(22)")
+    val f = code"(x: Int) => x + x"
     
-    rw(code"val f = (x: Int) => x+x; f(f(22))")
+    rw(code"val f = $f; f(11) + f(22)")(66) // FIXME not opt: val x_0 = 44; x_0.+(x_0)
+    
+    rw(code"val f = $f; f(f(22))"/*, expectedSize=1*/)(88) // TODO test size of simplified term
     
   }
   test("Complex Cross-Boundary Rewriting") {
     
     // FIXME: making this `f` a `val` makes running all tests unbearably slow as the body is shared and gets cluttered with control-flow...
-    val f = code"(x: Int) => (y: Int) => x+y"
-    //def f = code"(x: Int) => (y: Int) => x+y"
+    //val f = code"(x: Int) => (y: Int) => x+y"
+    def f = code"(x: Int) => (y: Int) => x+y"
     
-    rw(code"val f = $f; f(11)(22) + 1")
+    rw(code"val f = $f; f(11)(22) + 1",1)(34)
     
-    rw(code"val f = $f; f(11)(22) + f(30)(40)")
+    rw(code"val f = $f; f(11)(22) + f(30)(40)")(103/*, expectedSize=1*/)
     
-    rw(code"val f = $f; f(11)(f(33)(40))") // FIXME not opt: x_2.apply(11).apply(73)
+    rw(code"val f = $f; f(11)(f(33)(40))")(84) // FIXME not opt: x_2.apply(11).apply(73)
     
-    rw(code"val f = $f; f(f(33)(40))")
+    rw(code"val f = $f; f(f(33)(40))")(174, _(101))
     
-    rw(code"val f = $f; f(f(11)(22))(40)")
+    rw(code"val f = $f; f(f(11)(22))(40)"/*, expectedSize=1*/)(73)
     
-    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)") // now takes forever (did not finish)
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME now takes forever (did not finish)
     
-    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))") // FIXME not opt: x_2.apply(77).apply(11); also, takes a long time
+    rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME not opt: x_2.apply(11).apply(73)
     
   }
   
@@ -272,7 +278,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
       val foo = $(fooDef)
       (bb: String) =>
         foo(bb)(if (bb == "") None else Some(s => bb + ": " + s))
-    })
+    })()
     
   }
   
