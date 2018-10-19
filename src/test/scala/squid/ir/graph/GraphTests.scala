@@ -18,6 +18,7 @@ package graph
 
 import utils._
 import squid.lib.matching._
+import squid.lib.const
 
 object MyGraph extends Graph
 
@@ -143,7 +144,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     object Tr extends SimpleRuleBasedTransformer with Mixin with BottomUpTransformer with DSL.SelfTransformer { // FIXME ugly crash if we forget 'with DSL.SelfTransformer'
       rewrite {
         //case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding $n + $m"); mod = true; Const(n+m)
-        case r @ code"(${n0@Const(n)}:Int)+(${m0@Const(m)}:Int)" =>
+        case r @ code"const[Int](${n0@Const(n)})+const[Int](${m0@Const(m)})" =>
           //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
           println(s"!Constant folding ${r.rep.bound}; i.e., ${n0.rep.simpleString}=$n + ${m0.rep.simpleString}=$m"); mod = true; Const(n+m)
         //case code"readInt.toDouble" => mod = true; code"readDouble" // stupid, just for testing...
@@ -244,7 +245,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //val f = code"(x: Int) => (y: Int) => x+y"
     def f = code"(x: Int) => (y: Int) => x+y"
     
-    rw(code"val f = $f; f(11)(22) + 1",1)(34)
+    rw(code"val f = $f; f(11)(22) + 1"/*, expectedSize=1*/)(34)
     
     rw(code"val f = $f; f(11)(22) + f(30)(40)")(103/*, expectedSize=1*/)
     
@@ -254,7 +255,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     rw(code"val f = $f; f(f(11)(22))(40)"/*, expectedSize=1*/)(73)
     
-    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME now takes forever (did not finish)
+    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // currently creates a huge expression: $16 = ~4500 characters!...
     
     rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME not opt: x_2.apply(11).apply(73)
     

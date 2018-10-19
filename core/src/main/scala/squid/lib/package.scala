@@ -63,6 +63,9 @@ package object lib {
   //implicit def readVar[A](v: Var[A]): A = v!
   
   
+  def const[A](a: A): A = a
+  
+  
   @transparencyPropagating
   def uncurried0[b](f: => b): () => b =
     () => f
