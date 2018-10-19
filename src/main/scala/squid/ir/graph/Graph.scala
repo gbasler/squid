@@ -8,7 +8,13 @@ import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import scala.collection.immutable.ListSet
 import scala.collection.mutable
 
-/* In the future, we may want to remove `with CurryEncoding` and implement proper multi-param lambdas... */
+/* The Grah IR
+ * TODO: cache calls to `dfn` based on a token that is invalidated when the graoh is actually changed? or a hashset that is emptied?
+ *    or something more fine-grained?
+ *    there are currently many 'online' traversals (notably, on every .dfn access, and every time .simplify_! is called)
+ *    and these mini-traversals need not be repeated while doing things like graph matching which do not change the
+ *    graph but perform a lot of traversals!
+ * In the future, we may want to remove `with CurryEncoding` and implement proper multi-param lambdas... */
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
   val onlineOptimizeCalls = true
@@ -39,7 +45,29 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   class Rep(val bound: Val) {
     require(!bound.isInstanceOf[SyntheticVal])
     //def dfn: Def = edges.getOrElse(bound, bound)
-    def dfn: Def = Option(edges.get(bound)) getOrElse bound
+    //def dfn: Def = Option(edges.get(bound)) getOrElse bound
+    def dfn: Def = safe_dfn(Set.empty)
+    def safe_dfn(implicit traversed: Set[Rep]): Def = {
+      val d_? = edges.get(bound)
+      //println(d_?)
+      d_? match {
+        case null => bound
+        case Arg(cid0, thn0, SafeRep(Arg(cid1, thn1, els))) if cid0 === cid1 =>
+          //val d = Arg(cid0, thn0, els)
+          val d = Arg(cid0, thn0, els, d_?.typ) // specify the type here to avoid SOF
+          rebind(bound, d)
+          d
+        case Call(cid0, SafeRep(Arg(cid1,thn,els))) =>
+          val d = if (cid0 === cid1) thn.safe_dfn
+            else Arg(cid1,call(cid0,thn),call(cid0,els), d_?.typ)
+          rebind(bound, d)
+          d
+        case Call(cid,SafeRep(d:LeafDef)) if !d.isInstanceOf[Val] =>
+          rebind(bound, d)
+          d
+        case d => d
+      }
+    }
     
     def isBottom = dfn === Bottom
     
@@ -83,6 +111,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
     def unapply(e: Rep) = Some(e.dfn)
   }
+  object SafeRep {
+    def unapply(e: Rep)(implicit traversed: Set[Rep]): Option[Def] =
+      if (traversed(e)) None else Some(e.safe_dfn(traversed + e))
+  }
   
   override protected def freshNameImpl(n: Int) = "$"+n
   //override protected def freshNameImpl(n: Int) = "@"+n
@@ -105,8 +137,19 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case _ => new Call(cid,result)
     }
   }
-  case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, ruh.uni.lub(cbr.typ.tpe::els.typ.tpe::Nil)) {
+  def call(cid: CallId, result: Rep): Rep = result.dfn match {
+    //case Arg(`cid`, thn, _) => thn
+    //case Arg(cid1, thn, els) => Arg(cid1, call(cid, thn), call(cid, els)).toRep
+    // ^ caused SOF
+    case _ => Call(cid,result).toRep
+  }
+  
+  abstract case class Arg(cid: CallId, cbr: Rep, els: Rep)(typ: TypeRep) extends SyntheticVal("A"+cid, typ) {
     override def children: Iterator[Rep] = Iterator(cbr,els)
+  }
+  object Arg {
+    def apply(cid: CallId, cbr: Rep, els: Rep) = new Arg(cid: CallId, cbr: Rep, els: Rep)(ruh.uni.lub(cbr.typ.tpe::els.typ.tpe::Nil)){}
+    def apply(cid: CallId, cbr: Rep, els: Rep, typ: TypeRep) = new Arg(cid: CallId, cbr: Rep, els: Rep)(typ){}
   }
   object ArgSet {
     def unbuild(cid: CallId, cbr: Rep, els: Rep): List[CallId] -> Rep = cbr.dfn match {
@@ -235,7 +278,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   object RedundantlyWrapped {
     def rec(cid: CallId, rep: Rep): Option[() => Rep] = rep.dfn match {
       case Call(`cid`, res) => None
-      case Call(cid0, res) => rec(cid,res).map(f => () => Call(cid0,f()).toRep)
+      case Call(cid0, res) => rec(cid,res).map(f => () => call(cid0,f()))
       case Arg(`cid`, cbr, els) => Some(() => cbr)
       case Arg(cid0, cbr, els) => for {
         cbrR <- rec(cid,cbr)
@@ -253,7 +296,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def dfn(r: Rep): Def = r.dfn  // TODO make it opaque so it's not seen by other infra?
   //def dfn(r: Rep): Def = r.bound
   
-  def repType(r: Rep) = r|>dfn typ
+  def repType(r: Rep) = r.dfn.typ
   
   def showGraph(r: Rep) = {
     reverseIterator(r).collect { case nde @ Rep(d) if !d.isSimple =>
@@ -354,7 +397,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       }, r))
       val subsd = rec(r)(emptyCCtx)
       
-      Call(cid, subsd) |> rep
+      call(cid, subsd)
     } else r
     
   }
