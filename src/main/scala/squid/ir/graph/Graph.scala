@@ -155,7 +155,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       //case Arg(cid, cbr, els) => s"$cid${Console.BOLD}?${Console.RESET}${cbr |> apply}${Console.BOLD}|${Console.RESET}${apply(els)}"
       case PassArg(cid, res) =>
         val col = colorOf(cid)
-        s"$col$cid⟨⟩$curCol$res"
+        s"$col$cid⟨⟩$curCol${res|>apply}"
       case ArgSet(cids, cbr, els) =>
         val oldCol = curCol
         curCol = colorOf(cids.last)
