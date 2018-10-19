@@ -134,7 +134,9 @@ trait GraphScheduling extends AST { graph: Graph =>
       }
     }
     def scheduleFunction(r: Rep): Seq[(Set[CallId],Rep)] -> newBase.Rep = {
-      println(s"> Schfun $r")
+      
+      //println(s"> Schfun $r")
+      
       cctx ::= mutable.Set.empty
       val oldvctx = vctx
       vctx = Set.empty
@@ -204,7 +206,8 @@ trait GraphScheduling extends AST { graph: Graph =>
           // FIXME should use flow analysis to know 'variables not bound at all calls' --- and also other things?
           // TODO also do this if the expression is effectful or costly and we're in a path that may not always be taken! -- unless ofc we're targetting a pure lazy language like Haskell
           //println(s"Oops: $r ${rfv} ill-scoped in ${params.head._1} ${rfv -- params.head._1 toList}")
-          println(s"> Oops: ${rfv} not in ${boundInCall} for:  ${r.showGraphRev}")
+          
+          //println(s"> Oops: ${rfv} not in ${boundInCall} for:  ${r.showGraphRev}")
           
           // Generate boolean params to know which subexpression to compute;
           // Problem: expressions under an Arg may contain variables only bound in some of the _callers_, so using them
@@ -262,7 +265,9 @@ trait GraphScheduling extends AST { graph: Graph =>
         //  println(s"> Making function for ${r.bound}...")
           val rtyp = rect(r.typ)
           val params -> res = scheduleFunction(r)
-          println(s"> Function: $params -> $res")
+          
+          //println(s"> Function: $params -> $res")
+          
           val fdef =
           params.foldRight(res) {
             case ((cids,p), acc) => newBase.lambda(recv(p.bound)::Nil, acc)//(rtyp)
