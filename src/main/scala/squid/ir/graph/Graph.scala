@@ -50,6 +50,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       * variables bound by the Rep's immediately used by the Def (which are immutable and can be cached) */
     def freeVals: Set[Val] = iterator.collect{case Rep(v:Val) if !v.isInstanceOf[SyntheticVal] => v}.toSet
     
+    def size = iterator.size
+    
+    def simplify = this // TODO
+    
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
       case _ => false
