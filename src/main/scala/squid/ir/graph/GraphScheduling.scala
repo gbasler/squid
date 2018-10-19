@@ -73,6 +73,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     //   or if the path isn't 'pure', in the case of effects (if the path's effects interact with the arg's effects)
     // TODO allow passing in args only closed in some of the calls... the other calls passing null...
     //   again, should only be done if the path is sure to be taken... assuming we're coming from that call!
+    // TODO handle mutually-recursive functions
     
     override val recoverLetIns = false
     
@@ -151,7 +152,8 @@ trait GraphScheduling extends AST { graph: Graph =>
     var vctx: Set[Val] = Set.empty
     var params: List[mutable.Buffer[(Set[CallId],Rep)]] = Nil
     var curCall: List[Rep] = Nil
-    var functions = mutable.Map.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
+    /** Use a ListMap to retain order, otherwise we might refer to functions not yet defined. */
+    var functions = mutable.ListMap.empty[Rep,newBase.Rep->(()=>newBase.Rep)]
     
     def apply(r: Rep): newBase.Rep = {
       //println(s"Schedule ${r.bound} [${cctx.head.mkString(",")}] {${vctx.mkString(",")}} $r")
