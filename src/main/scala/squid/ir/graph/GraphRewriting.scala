@@ -65,11 +65,11 @@ trait GraphRewriting extends AST { graph: Graph =>
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
-    extractGraph(xtor,xtee)(GXCtx mk false).headOption map (_.extr)
+    extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseArgs = false)).headOption map (_.extr)
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     
-    val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx mk true) flatMap
+    val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
     //println(matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "✗ " else "√ ")+ge).mkString)
@@ -82,7 +82,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         case Some(x0) =>
           println(s"...transforming ${xtor.simpleString} << ${ge.traversedReps.map(_.simpleString)}")
           println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
-          assert(!(ge.argsToRebuild intersects ge.callsToAvoid), s"${ge.argsToRebuild }>< ${ge.callsToAvoid}")
+          assert(!(ge.argsToRebuild intersects ge.callsToAvoid), s"${ge.argsToRebuild} >< ${ge.callsToAvoid}")
           val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
           //val x = rebuild(x0, (ge.argsToRebuild--ge.callsToAvoid).toList, xtee)
           rememberTransformedBy(xtor,ge)
@@ -116,7 +116,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected def streamSingle[A](a: A): Stream[A] = a #:: Stream.Empty
   
   protected case class GXCtx(assumedCalled: Set[CallId], assumedNotCalled: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
-  protected object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Set.empty,Map.empty,traverseArgs) }
+  protected object GXCtx { def empty = GXCtx(Set.empty,Set.empty,Set.empty,Map.empty,true) }
   
   // FIXME this function may still go into infinite loops...
   //   because 'transformed' is only extended when a transfo completes; so with cycles it will still crash
@@ -206,13 +206,16 @@ trait GraphRewriting extends AST { graph: Graph =>
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
       case _ -> Arg(cid, cbr, _) if extractTopLevelCallArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> PassArg(cid, res) if extractTopLevelCallArg && (ctx.curCalls contains cid) => ??? // TODO rm traverseArgs?
-      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs => // note: here we have !(ctx.curCalls contains cid)
+      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && (ctx.traverseArgs || cbr === els) =>
+        // Note: here we have !(ctx.curCalls contains cid)
         val cbrE = if (ctx.assumedNotCalled contains cid) Stream.Empty else
           extractGraph(xtor, cbr)(ctx.copy(assumedCalled = ctx.assumedCalled + cid))
         val elsE = if (ctx.assumedCalled contains cid) Stream.Empty else
           extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid))
-        cbrE ++ elsE
+        val res = cbrE ++ elsE
+        if (ctx.traverseArgs) res
+        // if we are not matching 'any' path but 'all' paths (as in, when calling from `extractRep`), we must check they yield the same resut:
+        else if (res.map(_.extr).distinct.size === res.size) res.headOption.toStream else Stream.Empty
         
       case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
         // Q: check same type?
@@ -318,7 +321,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] =
-    unapplyConstImpl(rep,typ)(GXCtx.mk(false)) //also (r => println(s"UNAPP ${rep} -> $r"))
+    unapplyConstImpl(rep,typ)(GXCtx.empty) //also (r => println(s"UNAPP ${rep} -> $r"))
   
   protected def unapplyConstImpl(rep: Rep, typ: TypeRep)(implicit ctx: GXCtx): Option[Any] =
     //println(s"? $rep ${ctx.assumedCalled} ${ctx.assumedNotCalled}") thenReturn 
