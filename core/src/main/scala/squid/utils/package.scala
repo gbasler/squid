@@ -90,6 +90,9 @@ package object utils {
     
     def withTypeOf[T >: A](x: T): T = __self: T
     
+    @inline def in (that: Set[A]) = that contains __self
+    @inline def notIn (that: Set[A]) = !(that contains __self)
+    
   }
   implicit final class PairHelper[A0,A1](private val __self: (A0,A1)) extends AnyVal {
     @inline def ||> [B] (rhs: (A0,A1) => B): B = rhs(__self._1, __self._2)

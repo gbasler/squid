@@ -84,7 +84,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def simplify_! : this.type = {
       val res = simplified
       if (res.bound =/= bound) // && !(res.dfn eq dfn) or !(res.dfn === dfn) ?
-        //println(s"-- $this\n++ $res") thenReturn
+        println(s"-- $this\n++ $res") thenReturn
         rebind(bound, res.dfn)
       this
     }

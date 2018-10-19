@@ -179,6 +179,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
       mod = false
       cur = cur transformWith Tr
       if (mod) {
+        //cur.rep.simplify_!
         //println(r.rep.iterator.toList.map(r=>s"\n\t\t ${r.bound} :: "+(r.dfn)).mkString)
         println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cur.rep.showGraphRev+"\n~> "+cur.show)
         printCheckEval()
@@ -242,23 +243,24 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     
-    // FIXME: making this `f` a `val` makes running all tests unbearably slow as the body is shared and gets cluttered with control-flow...
+    // FIXME: making this `f` a `val` made running all tests unbearably slow as the body is shared and gets cluttered with control-flow...
+    // FIXME: making this `f` a `val` makes stack overflow in mapDef
     //val f = code"(x: Int) => (y: Int) => x+y"
     def f = code"(x: Int) => (y: Int) => x+y"
     
     rw(code"val f = $f; f(11)(22) + 1"/*, expectedSize=1*/)(34)
     
-    rw(code"val f = $f; f(11)(22) + f(30)(40)")(103/*, expectedSize=1*/)
+    rw(code"val f = $f; f(11)(22) + f(30)(40)"/*, expectedSize=1*/)(103)
     
-    rw(code"val f = $f; f(11)(f(33)(40))")(84) // FIXME not opt: x_2.apply(11).apply(73)
+    rw(code"val f = $f; f(11)(f(33)(40))")(84) // FIXME not opt: (11).+(73)
     
     rw(code"val f = $f; f(f(33)(40))")(174, _(101))
     
     rw(code"val f = $f; f(f(11)(22))(40)"/*, expectedSize=1*/)(73)
     
-    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // currently creates a huge expression: $16 = ~4500 characters!...
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME SOF in mapDef
     
-    rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME not opt: x_2.apply(11).apply(73)
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME SOF in mapDef // FIXME probably not opt
     
   }
   
@@ -266,6 +268,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     val f = code"(x: Int) => (y: Int) => x+y"
     
     rw(code"val f = $f; f(11)(f(33)(40))")(84)
+    
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME SOF in mapDef
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME SOF in mapDef
     
   }
   
