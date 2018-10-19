@@ -295,7 +295,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     
     override def apply(d: Def) = d match {
       case d @ Abs(bv, _) =>
-        assert(!vctx(bv), s"$bv in $vctx") // TODO if so, refresh
+        //assert(!vctx(bv), s"$bv in $vctx") // TODO if so, refresh  // FIXME hygiene?!
         vctx += bv
         super.apply(d) alsoDo {vctx -= bv}
       case _ => super.apply(d)

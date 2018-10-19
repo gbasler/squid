@@ -67,6 +67,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         //  rebind(bound, d)
         //  d
           
+        // Note: it would probably rotate every single time accesse when there is a cycle with no concrete node in it...
         case Call(cid0, SafeRep(Arg(cid1,thn,els))) =>
           val d = if (cid0 === cid1) thn.safe_dfn
             else Arg(cid1,call(cid0,thn),call(cid0,els), d_?.typ)
@@ -420,7 +421,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         case v: Val if v.isSimple => PassArg(cid,r).toRep
         case bd: BasicDef =>
           rebind(r, mapRep(rec)(bd))
-      }, r))
+      }, 
+        //println(s"!!! $r") thenReturn 
+        //r
+        PassArg(cid,r).toRep
+      ))
       val subsd = rec(r)(emptyCCtx)
       */
       

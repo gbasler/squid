@@ -142,7 +142,10 @@ class GraphTests extends MyFunSuite(MyGraph) {
         } else rep
       }
     }
-    object Tr extends SimpleRuleBasedTransformer with Mixin with BottomUpTransformer with DSL.SelfTransformer { // FIXME ugly crash if we forget 'with DSL.SelfTransformer'
+    object Tr extends SimpleRuleBasedTransformer with DSL.SelfTransformer with Mixin // FIXME ugly crash if we forget 'with DSL.SelfTransformer' 
+      //with BottomUpTransformer 
+      with TopDownTransformer
+    {
       rewrite {
         //case code"(${Const(n)}:Int)+(${Const(m)}:Int)" => println(s"!Constant folding $n + $m"); mod = true; Const(n+m)
         case r @ code"const[Int](${n0@Const(n)})+const[Int](${m0@Const(m)})" =>
@@ -243,8 +246,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
   }
   test("Complex Cross-Boundary Rewriting") {
     
-    // FIXME: making this `f` a `val` made running all tests unbearably slow as the body is shared and gets cluttered with control-flow...
-    // FIXME: making this `f` a `val` makes stack overflow in mapDef
+    // FIXME: making this `f` a `val` makes stack overflow in mapDef when bottomUp order, and seems to never stop rewriting when topDown
     //val f = code"(x: Int) => (y: Int) => x+y"
     def f = code"(x: Int) => (y: Int) => x+y"
     
@@ -252,25 +254,28 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     rw(code"val f = $f; f(11)(22) + f(30)(40)", 1)(103)
     
-    rw(code"val f = $f; f(11)(f(33)(40))"/*, 1*/)(84) // FIXME not opt: (11).+(73)
+    rw(code"val f = $f; f(11)(f(33)(40))", 1)(84) // FIXME not opt: (11).+(73)
     
     rw(code"val f = $f; f(f(33)(40))")(174, _(101))
     
     rw(code"val f = $f; f(f(11)(22))(40)", 1)(73)
     
-    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME SOF in mapDef
+    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)() // FIXME Variable was never initialized // FIXME SOF in mapDef when bottomUp order
     
-    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME SOF in mapDef // FIXME probably not opt
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME Variable was never initialized // FIXME probably not opt // FIXME SOF in mapDef when bottomUp order
     
   }
   
   test("My Tests") {
     val f = code"(x: Int) => (y: Int) => x+y"
     
-    rw(code"val f = $f; f(11)(f(33)(40))")(84)
+    //rw(code"val f = $f; f(11)(f(33)(40))")(84)
     
-    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME SOF in mapDef
-    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME SOF in mapDef
+    //rw(code"val f = $f; f(f(33)(40))")(174, _(101)) // FIXME hygiene
+    //rw(code"val f = $f; f(f(11)(22))(40)")(73) // FIXME hygiene
+    
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")()
+    rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
     
   }
   
