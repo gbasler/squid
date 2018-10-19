@@ -11,8 +11,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   
   override def mapDef(f: Def => Def)(r: Rep): r.type = {
     val d = r.dfn
+    //println(s"..mapD ${r.showGraphRev}")
     val newD = f(d)
-    //println(s"..mapD $d>$newD")
+    //println(s"  ---> ${newD.toRep.showGraphRev}  (${r.simpleString})")
+    
+    if (r.dfn =/= d) // it may happen that someone changes the rep under our feet,
+                     // in which case it's probably incorrect to do the rebinding below... but equally incorrect to not do it!
+    println(s"..mapD[${r.bound}] ${newD eq d} ${r.dfn === d} $d > $newD | ${r.dfn}")
+    
     if (!(newD eq d)) rebind(r, newD) else r
   }
   override protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
@@ -70,7 +76,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     
-    val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx.empty) flatMap
+    val matches = extractGraph(xtor, xtee, extractTopLevelArg = false)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
     //if (matches.nonEmpty) println(s"Matches for ${xtor.bound}:"+
@@ -88,7 +94,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           assert(!(ge.argsToRebuild intersects ge.callsToAvoid), s"${ge.argsToRebuild} >< ${ge.callsToAvoid}")
           val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
             .simplify_!
-          //val x = rebuild(x0, (ge.argsToRebuild--ge.callsToAvoid).toList, xtee)
+          //println(s"...  ${x.showGraphRev}")
           rememberTransformedBy(xtor,ge)
           x
       }
@@ -107,7 +113,8 @@ trait GraphRewriting extends AST { graph: Graph =>
       else graph.merge(extr,that.extr).map(e =>
         GraphExtract(e, traversedReps ++ that.traversedReps, argsToRebuild ++ that.argsToRebuild, callsToAvoid ++ that.callsToAvoid)).toStream
     def matching (r: Rep) = r.dfn match {
-      case sv: SyntheticVal => this
+      //case sv: SyntheticVal => this
+      case _: Arg => this
       case _ => copy(traversedReps = r :: traversedReps)
     }
     override def toString = s"{${argsToRebuild.mkString(",")}}\\{${callsToAvoid.mkString(",")}} \t${extr._1(SCRUTINEE_KEY)} ${
@@ -173,7 +180,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   /** This is an adaptation of AST#Def#extractImpl; relevant comments are still there but have been stripped here */
   protected def extractGraph(xtor: Rep, xtee: Rep,
                              extractTopLevelHole: Bool = true,
-                             extractTopLevelCallArg: Bool = true
+                             extractTopLevelArg: Bool = true
                             )(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
     
@@ -184,7 +191,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case (Ascribe(v,tp), _) =>
         for { a <- tp.extract(xtee.typ, Covariant).toStream
-              b <- extractGraph(v,xtee,extractTopLevelCallArg=extractTopLevelCallArg)
+              b <- extractGraph(v, xtee, extractTopLevelArg = extractTopLevelArg)
               m <- fromExtract(a) merge b } yield m
         
       case (h:HOPHole, _) => ??? // TODO
@@ -219,11 +226,11 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
-      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) => // TODO give multiplicities to curCalls? (while making sure not to recurse infinitely...)
+      case _ -> Call(cid, res) if /*extractTopLevelCallArg &&*/ !(ctx.curCalls contains cid) => // TODO give multiplicities to curCalls? (while making sure not to recurse infinitely...)
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
-      case _ -> Arg(cid, cbr, _) if extractTopLevelCallArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
+      case _ -> Arg(cid, cbr, _) if extractTopLevelArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
-      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && (ctx.traverseArgs || cbr === els) =>
+      case _ -> Arg(cid, cbr, els) if extractTopLevelArg && (ctx.traverseArgs || cbr === els) =>
         // Note: here we have !(ctx.curCalls contains cid)
         //val cbrE = if (ctx.assumedNotCalled contains cid) Stream.Empty else
         val cbrE = if ((ctx.assumedNotCalled | ctx.assumedCalled) contains cid) Stream.Empty else
