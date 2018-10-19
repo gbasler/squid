@@ -9,11 +9,11 @@ import scala.collection.mutable
 
 trait GraphRewriting extends AST { graph: Graph =>
   
-  override def mapDef(f: Def => Def)(r: Rep) = {
+  override def mapDef(f: Def => Def)(r: Rep): r.type = {
     val d = r.dfn
     val newD = f(d)
     //println(s"..mapD $d>$newD")
-    rebind(r, newD)
+    if (!(newD eq d)) rebind(r, newD) else r
   }
   override protected def mapRep(rec: Rep => Rep)(d: Def) = d match {
     case Arg(cid,cbr,els) =>
@@ -118,37 +118,30 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected case class GXCtx(assumedCalled: Set[CallId], assumedNotCalled: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
   protected object GXCtx { def mk(traverseArgs: Bool) = GXCtx(Set.empty,Set.empty,Set.empty,Map.empty,traverseArgs) }
   
-  /*
-  // needs to prevent loops!
-  protected def removeArgs(avoidedCalls: Set[CallId])(rep: Rep): Rep = {
-    val rec = removeArgs(avoidedCalls) _
-    // don't rebuild if didn't change! try to conserve reference/binder equality
-    rep.dfn match {
-      case Arg(cid,cbr,els) if avoidedCalls contains cid => removeArgs(avoidedCalls-cid)(els) // Q: correct to remove cid?
-      case Arg(cid,cbr,els) => Arg(cid,cbr|>rec,els|>rec).toRep
-      //case Call(cid,res) => Call(cid,res|>rec).toRep // Q: correct?
-      case Call(cid,res) => Call(cid,res|>removeArgs(avoidedCalls-cid)).toRep // Q: correct?
-      case Abs(p,b) => abs(p,b|>rec)
-      case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep
-    }
-  } //also (res => println(s"rem  $rep  -->  "+res))
-  */
-  // new version, still needs to prevent loops! – FIXME
+  // FIXME this function may still go into infinite loops...
+  //   because 'transformed' is only extended when a transfo completes; so with cycles it will still crash
   protected def removeArgs(avoidedCalls: Set[CallId])(rep: Rep): Rep = {
     val transformed = mutable.Map.empty[(Rep,Set[CallId]),Rep]
-    def rec(rep: Rep)(implicit avoidedCalls: Set[CallId]): Rep =
-    // TODO don't rebuild if didn't change! try to conserve reference/binder equality
-    transformed.getOrElseUpdate(rep->avoidedCalls, rep.dfn match {
-      case Arg(cid,cbr,els) if avoidedCalls contains cid => rec(els)(avoidedCalls-cid) // Q: correct to remove cid?
-      case Arg(cid,cbr,els) => Arg(cid,cbr|>rec,els|>rec).toRep
-      //case Call(cid,res) => Call(cid,res|>rec).toRep // Q: correct?
-      case Call(cid,res) => Call(cid,rec(res)(avoidedCalls-cid)).toRep // Q: correct?
-      case Abs(p,b) => abs(p,b|>rec)
-      case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep
-    })
+    def rec(rep: Rep)(implicit avoidedCalls: Set[CallId]): Rep = if (avoidedCalls.isEmpty) rep else {
+      def m(d:Def)(implicit avoidedCalls: Set[CallId]) = {
+        val md = mapRep(rec)(d)
+        if (md eq d) rep else md.toRep // try to conserve reference/binder equality
+      }
+      transformed.getOrElseUpdate(rep->avoidedCalls, rep.dfn match {
+        case Arg(cid,cbr,els) if avoidedCalls contains cid => rec(els)(avoidedCalls-cid)
+        case dfn @ Arg(cid,cbr,els) => m(dfn)
+        //case dfn @ Call(cid,res) => m(dfn)(avoidedCalls-cid)
+        // ^ probably not correct... next time we see an Arg, we'd have to recover the initial avoidedCalls!!
+        case dfn @ Call(cid,res) if !(avoidedCalls contains cid) => m(dfn)
+        case dfn @ (_:Abs|_:Ascribe|_:LeafDef) if !dfn.isInstanceOf[Call] => m(dfn)
+        //case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep  // don't duplicate code!
+        case bd: BasicDef => // else, just wrap things up unchanged
+          avoidedCalls.foldRight(rep)(PassArg(_,_).toRep)
+          // TODO only wrap if necessary! – i.e., look at the args in rep
+      })
+    }
     rec(rep)(avoidedCalls)
   } //also (res => println(s"rem  $rep  -->  "+res))
-  //*/
   
   /* This naive algorithm currently potentially creates too many matching paths, and explores too many dead-ends;
    *  - One way to prune dead-ends early woudl be to thread the returned `callsToAvoid` into the next sibling arg;
@@ -167,6 +160,12 @@ trait GraphRewriting extends AST { graph: Graph =>
                             )(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
     
+    assert(!(ctx.assumedCalled intersects ctx.assumedNotCalled), s"${ctx.assumedCalled} >< ${ctx.assumedNotCalled}")
+    // Note that curCalls may intersect with both assumedCalled and assumedNotCalled
+    // Indeed, while it doesn't make sense to extend assumedNotCalled with something already in curCalls,
+    // the reverse is not true: we may well consider a call even while assuming that outside of this call, the same cid is not called...
+    // and similary for assumedCalled
+    
     xtor.dfn -> xtee.dfn match {
         
       case (_, Ascribe(v,tp)) => extractGraph(xtor,v)
@@ -182,14 +181,16 @@ trait GraphRewriting extends AST { graph: Graph =>
         val directly = for {
           typE <- xtor.typ.extract(xtee.typ, Covariant).toStream
           r1 = xtee
-          // Q: does ctx.assumedNotCalled ever intersect ctx.curCalls here?
           
-          //r2 = ctx.assumedNotCalled.foldRight(r1)(PassArg(_,_).toRep)
           //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
-          r2 = r1 |> removeArgs(ctx.assumedNotCalled)  // more brutal version; not sure if correctly implemented
-          // ^ gives much better perf in tests; but:
-          //   Q: how much does `removeArgs` copy, and is that the sole reason for the speedup?
-          r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
+          
+          // note that curCalls can intersect with assumedNotCalled – but if a cid is in both, it means we did the call
+          // while assuming it was not made yet, and not the other way around; so we should rebuild calls first, and
+          // only then wrap the result into removeArgs
+          r2 = ctx.curCalls.foldRight(r1)(Call(_,_).toRep)
+          
+          //r3 = ctx.curCalls.foldRight(r2)(Call(_,_).toRep)
+          r3 = r2 |> removeArgs(ctx.assumedNotCalled) // same as the commented above but tries not to wrap args in a dumb way 
           
           e <- merge(typE, repExtract(name -> r3))
         } yield GraphExtract fromExtract e
@@ -201,15 +202,16 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case (_, Hole(_)) => Stream.Empty // Q: is this case really needed?
         
-      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) /*&& !(ctx.avoidedCalls contains cid)*/ =>
+      case _ -> Call(cid, res) if extractTopLevelCallArg && !(ctx.curCalls contains cid) => // TODO give multiplicities to curCalls? (while making sure not to recurse infinitely...)
         extractGraph(xtor, res)(ctx.copy(curCalls = ctx.curCalls + cid))
       case _ -> Arg(cid, cbr, _) if extractTopLevelCallArg && ctx.traverseArgs && (ctx.curCalls contains cid) =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> PassArg(cid, res) if extractTopLevelCallArg && (ctx.curCalls contains cid) => ??? // TODO rm traverseArgs?
-      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs =>
-        val cbrE = if (ctx.assumedCalled contains cid) Stream.Empty else // TODO give multiplicities to curCalls/curArgs? (while making sure not to recurse infinitely...)
+      case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && ctx.traverseArgs => // note: here we have !(ctx.curCalls contains cid)
+        val cbrE = if (ctx.assumedNotCalled contains cid) Stream.Empty else
           extractGraph(xtor, cbr)(ctx.copy(assumedCalled = ctx.assumedCalled + cid))
-        val elsE = extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid)) // should we not do this if cid already in avoidedCalls? is it also a risk of infinite loop?
+        val elsE = if (ctx.assumedCalled contains cid) Stream.Empty else
+          extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid))
         cbrE ++ elsE
         
       case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
