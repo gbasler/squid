@@ -84,6 +84,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
           assert(!(ge.argsToRebuild intersects ge.callsToAvoid), s"${ge.argsToRebuild} >< ${ge.callsToAvoid}")
           val x = rebuild(x0, ge.argsToRebuild.toList, xtee)
+            .simplify_!
           //val x = rebuild(x0, (ge.argsToRebuild--ge.callsToAvoid).toList, xtee)
           rememberTransformedBy(xtor,ge)
           x
@@ -115,7 +116,13 @@ trait GraphRewriting extends AST { graph: Graph =>
   } 
   protected def streamSingle[A](a: A): Stream[A] = a #:: Stream.Empty
   
-  protected case class GXCtx(assumedCalled: Set[CallId], assumedNotCalled: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool)
+  protected case class GXCtx(assumedCalled: Set[CallId], assumedNotCalled: Set[CallId], curCalls: Set[CallId], valMap: Map[Val,Val], traverseArgs: Bool) {
+    assert(!(assumedCalled intersects assumedNotCalled), s"${assumedCalled} >< ${assumedNotCalled}")
+    // Note that curCalls may intersect with both assumedCalled and assumedNotCalled
+    // Indeed, while it doesn't make sense to extend assumedNotCalled with something already in curCalls,
+    // the reverse is not true: we may well consider a call even while assuming that outside of this call, the same cid is not called...
+    // and similary for assumedCalled
+  }
   protected object GXCtx { def empty = GXCtx(Set.empty,Set.empty,Set.empty,Map.empty,true) }
   
   // FIXME this function may still go into infinite loops...
@@ -137,6 +144,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         //case bd: BasicDef => bd.rebuild(bd.reps map rec).toRep  // don't duplicate code!
         case bd: BasicDef => // else, just wrap things up unchanged
           avoidedCalls.foldRight(rep)(PassArg(_,_).toRep)
+          .simplify_!
           // TODO only wrap if necessary! – i.e., look at the args in rep
       })
     }
@@ -160,13 +168,8 @@ trait GraphRewriting extends AST { graph: Graph =>
                             )(implicit ctx: GXCtx): Stream[GraphExtract] = {
     import GraphExtract.fromExtract
     
-    assert(!(ctx.assumedCalled intersects ctx.assumedNotCalled), s"${ctx.assumedCalled} >< ${ctx.assumedNotCalled}")
-    // Note that curCalls may intersect with both assumedCalled and assumedNotCalled
-    // Indeed, while it doesn't make sense to extend assumedNotCalled with something already in curCalls,
-    // the reverse is not true: we may well consider a call even while assuming that outside of this call, the same cid is not called...
-    // and similary for assumedCalled
-    
-    xtor.dfn -> xtee.dfn match {
+    //xtor.dfn -> xtee.dfn match {
+    xtor.dfn -> xtee.simplify_!.dfn match {
         
       case (_, Ascribe(v,tp)) => extractGraph(xtor,v)
         
@@ -347,5 +350,37 @@ trait GraphRewriting extends AST { graph: Graph =>
       
     case _ => super.unapplyConst(rep,typ)
   }
+  
+  // TODO protect against infinite loops on cycles...
+  protected def simplifyCallArgs(rep: Rep)(implicit ctx: GXCtx, transformed: mutable.Map[Rep,Rep]): Rep = transformed.getOrElseUpdate(rep, {
+    //println(s"? $rep ${ctx.assumedCalled} ${ctx.assumedNotCalled}") //thenReturn
+    rep.dfn match {
+        
+      case Call(c, r)
+        if !(ctx.assumedCalled contains c) // not strictly necessary, but would need multiplicities to make it sound without it... 
+      =>
+        val r1 = simplifyCallArgs(r)(ctx.copy(assumedCalled = ctx.assumedCalled + c, assumedNotCalled = ctx.assumedNotCalled - c),transformed)
+        if (r1 === r) rep else Call(c, r1).toRep
+        
+      case Arg(c, t, e) if ctx.assumedNotCalled.contains(c) => simplifyCallArgs(e) // Note: c still assumed not called!
+      case Arg(c, t, e) if ctx.assumedCalled.contains(c) =>
+        val t1 = simplifyCallArgs(t)(ctx.copy(assumedCalled = ctx.assumedCalled - c),transformed)
+        if ((t1 === t) && (t === t)) rep
+        else Arg(c, t1, t1).toRep // Ntoe: we can't just get rid of the arg – its popping semantics should be preserved!
+        
+      case Arg(c, t, e) =>
+        assert(!(ctx.assumedNotCalled contains c) && !(ctx.assumedCalled contains c))
+        val t1 = simplifyCallArgs(t)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + c),transformed)
+        val e1 = simplifyCallArgs(e)(ctx.copy(assumedCalled = ctx.assumedCalled + c),transformed)
+        
+        //if (t0 === e1) t0 else // WRONG: can't just discard even a PassArg – they are important to neuteur current calls...
+        
+        //if ((t0 eq t) && (e1 eq e)) rep
+        if ((t1 === t) && (e1 === e)) rep
+        else Arg(c, t1, e1).toRep
+        
+      case _ => rep
+    }
+  })
   
 }

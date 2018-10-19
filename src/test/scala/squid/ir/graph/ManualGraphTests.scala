@@ -54,5 +54,12 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
     
   }
   
+  test("Simplify") {
+    
+    val r = Call(c0, Arg(c0, v, w))
+    println(r)
+    println(r.simplify_!)
+    
+  }
   
 }
