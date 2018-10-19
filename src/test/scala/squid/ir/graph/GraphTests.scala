@@ -123,10 +123,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
     var mod = true
     var cur = c
     println("\n-> "+cur.rep.showGraphRev)
-    println(cur.show)
+    val curs = cur.show
+    println(curs)
     def printCheckEval(): Unit = {
       val value = cur.run
-      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cur}")
+      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${curs}")
       println(s"== ${value}\n== ${DSL.scheduleAndRun(cur.rep)}")
       //println(s"== ${cur.run}\n== ${DSL.scheduleAndCompile(cur.rep)}")
     }
