@@ -42,10 +42,11 @@ trait GraphRewriting extends AST { graph: Graph =>
   def newXCtx: XCtx = ??? // we don't use the inherited matching mechanism anymore
   
   
-  /* TODOlater make transformed a weak hashmap with the Rep xtor as the key... or even just a weak hash set? */
+  /* -- TODOlater make transformed a weak hashmap with the Rep xtor as the key... or even just a weak hash set?
   protected val transformed = mutable.Set.empty[(Rep,List[Rep])]
   def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.traversedReps)) //alsoDo println(transformed.size)
   def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.traversedReps))
+  */
   /* // weak map with first traversed Rep as key – doesn't make a huge difference...
   protected val transformed = new java.util.WeakHashMap[Rep,mutable.Set[(Rep,List[Rep])]]()
   def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool =
@@ -57,11 +58,11 @@ trait GraphRewriting extends AST { graph: Graph =>
     set += ((xtor, ge.traversedReps))
   }
   */
-  /* // -- Alternative: also storing the traversed cids:
+  ///* -- Alternative: also storing the traversed cids:
   protected val transformed = mutable.Set.empty[(Rep,Set[CallId],Set[CallId],List[Rep])]
   def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
   def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.argsToRebuild, ge.callsToAvoid, ge.traversedReps))
-  */
+  //*/
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
@@ -72,8 +73,10 @@ trait GraphRewriting extends AST { graph: Graph =>
     val matches = extractGraph(xtor, xtee, extractTopLevelCallArg = false)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
-    //println(matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "✗ " else "√ ")+ge).mkString)
-    //if (matches.nonEmpty) println(s"Matches at ${xtor.bound} : ${matches.count(alreadyTransformedBy(xtor,_))} / ${matches.size}")
+    //if (matches.nonEmpty) println(s"Matches for ${xtor.bound}:"+
+    //  matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "√ " else "✗ ")+ge+s"\n\t${ge.traversedReps.map(_.simpleString)}").mkString)
+    
+    //if (matches.nonEmpty) println(s"Matches for ${xtor.bound}: ${matches.count(alreadyTransformedBy(xtor,_))} / ${matches.size}")
     
     matches.filterNot(alreadyTransformedBy(xtor,_)).flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
@@ -156,7 +159,13 @@ trait GraphRewriting extends AST { graph: Graph =>
    *  - I'm not sure how to avoid creating too many matching paths, beside having the user do as much GC and call/arg
    *    simplification as possible beforehand...
    *    Maybe when we split on what is actually a PassArg, we don't actually need to explore the two branches (but how
-   *    to know? – we would return a token saying whether we ended up pruning paths because of the extra assumption...) */
+   *    to know? – we would return a token saying whether we ended up pruning paths because of the extra assumption...) 
+   * Also, consider something like:
+   *     $0 = α0⟨11⟩α1⟨33⟩α2⟨⟩x.+(α0⟨⟩α1⟨⟩α2⟨40⟩y);
+   *   and what it takes to match constants additions on it...
+   *   on the RHS, we'll create an exponential number of branches on every ⟨⟩ 'pass-arg'
+   *   and even if we thread through the assumptions from the LHS, we're still doing the same number of branches on the LHS
+   */
   // Note: should not succesfully extract and merge two incompatible sibling args;
   //   for example (C0->10|20)+(C0->30|40) should not be able to successfully extract (C0->10+40)!!
   //   also, relatedly, forbid extracting (C0->10|C0->20|30) as (C0->20) since it's following an impossible branch!
@@ -215,9 +224,13 @@ trait GraphRewriting extends AST { graph: Graph =>
         extractGraph(xtor, cbr)(ctx.copy(curCalls = ctx.curCalls - cid))
       case _ -> Arg(cid, cbr, els) if extractTopLevelCallArg && (ctx.traverseArgs || cbr === els) =>
         // Note: here we have !(ctx.curCalls contains cid)
-        val cbrE = if (ctx.assumedNotCalled contains cid) Stream.Empty else
+        //val cbrE = if (ctx.assumedNotCalled contains cid) Stream.Empty else
+        val cbrE = if ((ctx.assumedNotCalled | ctx.assumedCalled) contains cid) Stream.Empty else
+          // ^ if cid is in ctx.assumedCalled, we shouldn't assume it again, unless we have multiplicities to retain the double-call assumption
           extractGraph(xtor, cbr)(ctx.copy(assumedCalled = ctx.assumedCalled + cid))
         val elsE = if (ctx.assumedCalled contains cid) Stream.Empty else
+          // ^ have to bail here, because cannot express assumption that something is called exactly once...
+          //   otherwise we could try `extractGraph(xtor, els)(???)`
           extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid))
         val res = cbrE ++ elsE
         if (ctx.traverseArgs) res
@@ -335,14 +348,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   rep.dfn match {
       
     case Call(c,r) 
-      if !(ctx.assumedCalled contains c) // not strictly necessary, but would need multiplicities to make it sound without it... 
+      if c notIn ctx.assumedCalled // not strictly necessary, but would need multiplicities to make it sound without it... 
     => unapplyConstImpl(r,typ)(ctx.copy(assumedCalled = ctx.assumedCalled + c, assumedNotCalled = ctx.assumedNotCalled - c))
       
     case Arg(c,t,e) if ctx.assumedCalled.contains(c) => unapplyConstImpl(t,typ)(ctx.copy(assumedCalled = ctx.assumedCalled - c))
     case Arg(c,t,e) if ctx.assumedNotCalled.contains(c) => unapplyConstImpl(e,typ) // Note: c still assumed not called!
       
     case Arg(c,t,e) 
-      if !(ctx.assumedNotCalled contains c) && !(ctx.assumedCalled contains c) // not strictly necessary again
+      if (c notIn ctx.assumedNotCalled) && (c notIn ctx.assumedCalled) // not strictly necessary again
     => for {
         c0 <- unapplyConstImpl(t,typ)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + c))
         c1 <- unapplyConstImpl(e,typ)(ctx.copy(assumedCalled = ctx.assumedCalled + c))
@@ -361,21 +374,24 @@ trait GraphRewriting extends AST { graph: Graph =>
     rep.dfn match {
         
       case Call(c, r)
-        if !(ctx.assumedCalled contains c) // not strictly necessary, but would need multiplicities to make it sound without it... 
+        if c notIn ctx.curCalls // not strictly necessary, but would need multiplicities to make it sound without it... 
       =>
-        val r1 = simplifyCallArgs(r)(ctx.copy(assumedCalled = ctx.assumedCalled + c, assumedNotCalled = ctx.assumedNotCalled - c),transformed)
+        val r1 = simplifyCallArgs(r)(ctx.copy(curCalls = ctx.curCalls + c),transformed)
+        // ^ no need to touch assumedNotCalled here even if cid is in it, because it represents assumptions before the call
         if (r1 === r) rep else Call(c, r1).toRep
         
-      case Arg(c, t, e) if ctx.assumedNotCalled.contains(c) => simplifyCallArgs(e) // Note: c still assumed not called!
-      case Arg(c, t, e) if ctx.assumedCalled.contains(c) =>
-        val t1 = simplifyCallArgs(t)(ctx.copy(assumedCalled = ctx.assumedCalled - c),transformed)
+      case Arg(c, t, e) if ctx.curCalls.contains(c) =>
+        val t1 = simplifyCallArgs(t)(
+          ctx.copy(curCalls = ctx.curCalls - c),transformed)
         if ((t1 === t) && (t === t)) rep
-        else Arg(c, t1, t1).toRep // Ntoe: we can't just get rid of the arg – its popping semantics should be preserved!
+        else Arg(c, t1, t1).toRep // Note: we can't just get rid of the arg – its popping semantics should be preserved!
+        
+      case Arg(c, t, e) if ctx.assumedNotCalled.contains(c) => simplifyCallArgs(e) // Note: c still assumed not called!
         
       case Arg(c, t, e) =>
-        assert(!(ctx.assumedNotCalled contains c) && !(ctx.assumedCalled contains c))
-        val t1 = simplifyCallArgs(t)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + c),transformed)
-        val e1 = simplifyCallArgs(e)(ctx.copy(assumedCalled = ctx.assumedCalled + c),transformed)
+        assert((c notIn ctx.assumedNotCalled) && (c notIn ctx.curCalls))
+        val t1 = simplifyCallArgs(t) // nothing to change in ctx here... we know c is not in ctx.curCalls
+        val e1 = simplifyCallArgs(e)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + c),transformed)
         
         //if (t0 === e1) t0 else // WRONG: can't just discard even a PassArg – they are important to neuteur current calls...
         
