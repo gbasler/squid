@@ -52,7 +52,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def size = iterator.size
     
-    def simplify = this // TODO
+    def simplified = simplifyCallArgs(this)(GXCtx.empty,mutable.Map.empty)
+    def simplify_! : this.type = {
+      val res = simplified
+      if (res.bound =/= bound) // && !(res.dfn eq dfn) or !(res.dfn === dfn) ?
+        //println(s"-- $this\n++ $res") thenReturn
+        rebind(bound, res.dfn)
+      this
+    }
     
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
@@ -93,10 +100,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override def children: Iterator[Rep] = Iterator.single(result)
   }
   object Call {
-    //def apply(cid: CallId, result: Rep) = result.dfn match {
-    //  case Arg(`cid`, cbr, _) if onlineOptimizeCalls => cbr.dfn
-    //  case _ => new Call(cid,result)
-    //}
+    def apply(cid: CallId, result: Rep) = result.dfn match {
+      case Arg(`cid`, cbr, _) if onlineOptimizeCalls => cbr.dfn
+      case _ => new Call(cid,result)
+    }
   }
   case class Arg(cid: CallId, cbr: Rep, els: Rep) extends SyntheticVal("A"+cid, ruh.uni.lub(cbr.typ.tpe::els.typ.tpe::Nil)) {
     override def children: Iterator[Rep] = Iterator(cbr,els)

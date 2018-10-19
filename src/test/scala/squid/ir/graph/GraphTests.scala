@@ -123,9 +123,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     var cur = c
     println("\n-> "+cur.rep.showGraphRev)
     println(cur.show)
-    def printCheckEval() = {
+    def printCheckEval(): Unit = {
       val value = cur.run
-      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cur.rep.showGraphRev}")
+      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cur}")
       println(s"== ${value}\n== ${DSL.scheduleAndRun(cur.rep)}")
       //println(s"== ${cur.run}\n== ${DSL.scheduleAndCompile(cur.rep)}")
     }
@@ -183,7 +183,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
       }
     }
     //assert(cur.rep.size <= expectedSize, s"for ${cur.rep.showGraphRev}")
-    assert(cur.rep.simplify.size <= expectedSize, s"for ${cur}")
+    assert(cur.rep.simplified.size <= expectedSize, s"for ${cur}")
     println(" --- END ---\n")
   }
   
@@ -235,7 +235,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     rw(code"val f = $f; f(11) + f(22)")(66) // FIXME not opt: val x_0 = 44; x_0.+(x_0)
     
-    rw(code"val f = $f; f(f(22))"/*, expectedSize=1*/)(88) // TODO test size of simplified term
+    rw(code"val f = $f; f(f(22))"/*, expectedSize=1*/)(88) // TODO test size of top-level-simplified term
     
   }
   test("Complex Cross-Boundary Rewriting") {
@@ -257,6 +257,13 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")() // FIXME now takes forever (did not finish)
     
     rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME not opt: x_2.apply(11).apply(73)
+    
+  }
+  
+  test("My Tests") {
+    val f = code"(x: Int) => (y: Int) => x+y"
+    
+    rw(code"val f = $f; f(11)(f(33)(40))")(84)
     
   }
   
