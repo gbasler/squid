@@ -158,9 +158,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
         case code"(($x: $xt) => $body:$bt)($arg)" =>
           //mod = true; body.subs(x) ~> arg
           mod = true
-          println(s"!>> SUBS ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
+          println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraphRev}")
           val res = body.subs(x) ~> arg
-          println(s"!<< SUBS'd ${res.rep.showGraphRev}")
+          println(s"!<< SUBSTITUTE'd ${res.rep.showGraphRev}")
           res
         //case code"Match[Option[$t0],$tr]($opt)($cases*)" =>
         //  println(s"!!! MATCH ${opt.rep.showGraphRev}")
