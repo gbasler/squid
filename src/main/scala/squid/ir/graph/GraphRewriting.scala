@@ -191,6 +191,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         
       case VirtConst(xtor) -> Constant(_) =>  // Note: if this does not match, we may still match an explicit usage of the const function...
         extractGraph(xtor, xtee)
+          .map(ge => ge.copy(traversedReps = ge.traversedReps.tail)) // just to avoid duplicating the traversed rep in traversedReps
         
       case (Hole(name), _) if extractTopLevelHole =>
         val directly = for {

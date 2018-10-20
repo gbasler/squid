@@ -236,9 +236,9 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     val f = code"(x: Int) => x + x"
     
-    rw(code"val f = $f; f(11) + f(22)")(66) // FIXME not opt: val x_0 = 44; x_0.+(x_0)
+    rw(code"val f = $f; f(11) + f(22)", 1)(66)
     
-    rw(code"val f = $f; f(f(22))"/*, expectedSize=1*/)(88) // TODO test size of top-level-simplified term
+    rw(code"val f = $f; f(f(22))", 1)(88)
     
   }
   test("Complex Cross-Boundary Rewriting") {
