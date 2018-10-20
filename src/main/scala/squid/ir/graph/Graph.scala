@@ -102,7 +102,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def simplifiedTopLevel =
       simplifyCallArgs(this)(GXCtx.empty.copy(assumedNotCalled = freeArgs),mutable.Map.empty)
     
-    def freeArgs = graph.freeArgs(dfn)(emptyCCtx)
+    def freeArgs = graph.freeArgs(this)(emptyCCtx,Set.empty)
     
     override def equals(that: Any) = that match {
       case r: Rep => r.bound === bound
@@ -420,13 +420,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   // TODO it should actually return a CCtx
-  def freeArgs(d: Def)(implicit ctx: CCtx): Set[CallId] = d match {
-    case Call(cid,res) => freeArgs(res.dfn)(withCall(cid))
-    case Arg(cid,thn,els) if hasCall(cid) => freeArgs(thn.dfn)(withoutCall(cid))
-    case Arg(cid,thn,els) => freeArgs(thn.dfn) ++ freeArgs(els.dfn) + cid
-    case Abs(p,b) => freeArgs(b.dfn)
-    case bd: BasicDef => bd.reps.iterator.flatMap(_.dfn |> freeArgs).toSet
-  }
+  def freeArgs(r: Rep)(implicit ctx: CCtx, traversed: Set[Rep]): Set[CallId] = if (r in traversed) Set.empty
+  else traversed+r |> { implicit traversed => r.dfn match {
+    case Call(cid,res) => freeArgs(res)(withCall(cid),traversed)
+    case Arg(cid,thn,els) if hasCall(cid) => freeArgs(thn)(withoutCall(cid),traversed)
+    case Arg(cid,thn,els) => freeArgs(thn) ++ freeArgs(els) + cid
+    case Abs(p,b) => freeArgs(b)
+    case bd: BasicDef => bd.reps.iterator.flatMap(_ |> freeArgs).toSet
+  }}
   
   
   implicit class GraphRepOps(private val self: Rep) {
