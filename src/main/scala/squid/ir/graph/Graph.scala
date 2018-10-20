@@ -36,6 +36,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     edges.put(v, d)
   }
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
+  def isBound(v: Val) = edges.containsKey(v)
   
   val Bottom = bindVal("⊥", Predef.implicitType[Nothing].rep, Nil)
   bind(Bottom,Bottom) // prevents rebinding of Bottom, just in case
@@ -209,7 +210,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case Rep(d) if d.isSimple => apply(d)
       //case _ => super.apply(r)
       case _ => super.apply(r.bound)
-    }) alsoDo {printed -= r}, "[RECURSIVE]"+super.apply(r.bound))
+    }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     override def apply(d: Def): String = d match {
       //case Call(cid, res) => s"C[$cid](${res |> apply})"
       //case Call(cid, res) => s"$cid⌊${res |> apply}⌋"
@@ -259,7 +260,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //new Rep(freshBoundVal(dfn.typ), dfn)
     dfn match {
       //case bv: Val =>
-      case bv: Val if isNormalVal(bv) =>
+      case bv: Val if isNormalVal(bv) && isBound(bv) =>
         new Rep(bv)
         
       //case RedundantlyWrapped(r) => r  // FIXME seems to make things diverge
@@ -360,6 +361,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //     `if (isBound(v)) rebind else bind ...`
   //   It should also allow us to do substitution without rebuilding the whole body! (currently needed because we can't
   //     really replace a variable Rep with a Rep arg'ing that variable, or it would become cyclic)
+  // BUT: Potential problems with this trick due to its global nature – changes _all_ occurrences of a variable, which I
+  // am not convinced is always correct or easily made correct; in particular, I don't know if it would behave well when
+  // wrapping _other_ variables into PassArg nodes, as it turned out to be necessary (to isolate a function's call scope) 
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     /*
     //println(s"Subs $v in ${r.bound}")
@@ -388,17 +392,22 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     */
     // ^ this version is kinda dumb: it creates a cycle that makes the Reinterpreter SOF
     
-    val occurs = r.freeVals contains v
+    val occurs = r.freeVals contains v // TOOD use context-sensitive freeVals definition? (using a CCtx)
     if (occurs) {
       val cid = new CallId("α")
       val arg = Arg(cid, mkArg, v |> readVal)
-      val argr = arg |> rep
       
       //val subsd = substituteValFastUnhygienic(r, v, argr)
       
-      val traversing = mutable.Set.empty[Rep] // FIME probably not right
-      val traversed = mutable.Map.empty[Rep,Rep] // FIME probably not right; what about different call contexts?
+      val traversing = mutable.Set.empty[Rep]
       
+      // older approach: rebuilds everything from the variable leaves
+      // in addition to being inelegant, it ends up causing problems when transforming cyclic graphs with Squid
+      // transformer, as this may make us transform a bound definition that the transformer will later reassign (to an
+      // old wrong value!) as part of completing its traversal using mapRep/mapDef
+      /*
+      val traversed = mutable.Map.empty[Rep,Rep] // FIME probably not right; what about different call contexts?
+      val argr = arg |> rep
       def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.getOrElseUpdate(r, traversing.setAndIfUnset(r, r.dfn match {
         case Call(cid,res) => rebind(r, Call(cid,rec(res)(withCall(cid))))
         case Arg(cid,cbr,els) =>
@@ -407,12 +416,28 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
           //else 
             rebind(r, Arg(cid,rec(cbr),rec(els)))
         case Abs(p,b) => rebind(r, Abs(p,rec(b))(r.typ))
-        case `v` => argr // FIXME wrap in calls?
+        case `v` => argr // FIXMEnotreally wrap in calls?
         case v: Val if v.isSimple => PassArg(cid,r).toRep
         case bd: BasicDef =>
           rebind(r, mapRep(rec)(bd))
       }, r))
       val subsd = rec(r)(emptyCCtx)
+      */
+      
+      // FIXME wrap recursive accesses in pass-args?
+      def rec(r: Rep): Unit = traversing.setAndIfUnset(r, r.dfn match {
+        case Call(c,res) => rec(res)
+        case Arg(c,cbr,els) =>
+          rec(cbr)
+          rec(els)
+        case Abs(p,b) => rec(b)
+        case `v` => rebind(r, arg)
+        case v: Val if v.isSimple => rebind(r, PassArg(cid,v.toRep))
+        case bd: BasicDef =>
+          bd.reps.foreach(rec)
+      })
+      rec(r)
+      val subsd = r
       
       call(cid, subsd)
     } else r
