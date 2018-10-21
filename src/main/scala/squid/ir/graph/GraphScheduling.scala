@@ -168,7 +168,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     //  vctx += bv
     //  super.apply(d) alsoDo {vctx -= bv}
     case Call(cid, res) =>
-      assert(!cctx.head(cid))
+      assert(!cctx.head(cid)) // FIXME use a real CCtx with multiplicities
       cctx.head += cid
       apply(res) alsoDo {cctx.head -= cid}
     // The reason the following is wrong is that a PassArg may ACTUALLY influence control-flow by neutering Arg nodes

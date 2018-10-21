@@ -364,7 +364,23 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //     really replace a variable Rep with a Rep arg'ing that variable, or it would become cyclic)
   // BUT: Potential problems with this trick due to its global nature – changes _all_ occurrences of a variable, which I
   // am not convinced is always correct or easily made correct; in particular, I don't know if it would behave well when
-  // wrapping _other_ variables into PassArg nodes, as it turned out to be necessary (to isolate a function's call scope) 
+  // wrapping _other_ variables into PassArg nodes, as it turned out to be necessary (to isolate a function's call scope)
+  // Not sure these are really problems anymore...
+  // As an example, consider: f=(\x.x+1);f(f 42)
+  //   which after wiring the outer application would normally look like:  C0[$0] where $0=(C0->(\x.$0)42|x)+1
+  //   and if we did it that way we'd get:  $0 where $0=x+1; x=(\x.$0)42,  and then:  $0 where $0=x+1; x=C0->42|C0[$0]
+  //   but if we wired the inner one first instead:  (\x.$0)$0 where $0=x+1; x=42,  and then:  C0[$0] where $0=x+1; x=C0->$0|42
+  //   Both cases are fine if we always interpret 'x' as lambda-bound only when we find it while having traversed its lambda binding
+  //   But I'm not sure it would always work, and it seems it wouldn't work with a recursive def, where 'x' might be
+  //     bound but we might be looking at an inner application of f, where the Arg-wired node should be preferred!
+  //   Q: what if we disallow explicit recursion? Would a recursive function defined with the Y combinator suffer from the same problem?
+  //       ...I guess not, because Y is just a way to nest applications indefinitely: Y g = g (Y g) = g (g (Y g)) = ...
+  //   So what about more than one nesting?
+  //     f=(\x.x+1); f(f(f 42))
+  //     f=(\x.$0); $0=x+1; x=(f 42); f($0)  -- if we wire the middle one
+  //     f=(\x.$0); $0=x+1; x=C0->42|C0[$0]; f($0)  -- if we wire the inner one
+  //     f=(\x.$0); $0=x+1; x=C0->$0|(f 42); C0[$0]  -- if we wire the outer one
+  //   It seems to work with two nesting levels too!
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     /*
     //println(s"Subs $v in ${r.bound}")
@@ -400,13 +416,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       
       //val subsd = substituteValFastUnhygienic(r, v, argr)
       
-      val traversing = mutable.Set.empty[Rep]
-      
       // older approach: rebuilds everything from the variable leaves
       // in addition to being inelegant, it ends up causing problems when transforming cyclic graphs with Squid
       // transformer, as this may make us transform a bound definition that the transformer will later reassign (to an
       // old wrong value!) as part of completing its traversal using mapRep/mapDef
       /*
+      val traversing = mutable.Set.empty[Rep]
       val traversed = mutable.Map.empty[Rep,Rep] // FIME probably not right; what about different call contexts?
       val argr = arg |> rep
       def rec(r: Rep)(implicit cctx: CCtx): Rep = traversed.getOrElseUpdate(r, traversing.setAndIfUnset(r, r.dfn match {
@@ -479,20 +494,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       val traversed = mutable.Set.empty[Val]
       val arg = Arg(cid, mkArg, v also (traversed += _) into readVal)
       
-      val top = r.bound
-      var subsd = r
+      //val top = r.bound
+      //val subsd = r
+      //println(s"top ${r.bound} = ${r.dfn}")
       
-      println(s"top ${r.bound} = ${r.dfn}")
-      
-      def rec(r: Rep)(implicit traversing: Set[Val]): Unit = { println(s"rec ${r.bound} = ${r.dfn}")
-      //if ((r.bound in traversing) && (r.bound === top)) {
-      //  rebind(r, PassArg(cid,r.dfn.toRep also (traversed += _.bound)))
-      //  subsd = call(cid, subsd)
-      //}
-      //else if (r.bound in traversing) ()
-      if (r.bound in traversing)
+      def rec(r: Rep)(implicit traversing: Set[Val]): Unit = { //println(s"rec ${r.bound} = ${r.dfn}")
+      if (r.bound in traversing) // old approach that doesn't actually work (cycles might not actually pass through r); it was misled anyways
       //if (r.bound === top) {
-      //  println("??????????????")
+      //  println("!!!")
       //  rebind(r, PassArg(cid,r.dfn.toRep also (traversed += _.bound)))
       //  subsd = call(cid, subsd)
       //} else 
@@ -506,25 +515,27 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         case Abs(`v`,b) =>
           rebind(r, PassArg(cid,abs(`v`,b) also (traversed += _.bound)))
           // ^ Q: wrap only the body instead? does it make a difference?
-          rec(b)
+          //rebind(r, Abs(`v`, PassArg(cid,b).toRep also (traversed += _.bound))(r.typ))
+          rec(b) // Q: do that or not?
         case Abs(p,b) => rec(b)
         case `v` =>
           //println(s"Y ${traversed(r)} ${traversing(r)} $r ${traversed}")
           rebind(r, arg) //alsoDo (traversed += r)
-        case v: Val if v.isSimple => rebind(r, PassArg(cid,v.toRep))
+        // This case is certainly wrong (a poor fix to a deeper issue):
+        case v: Val if v.isSimple => rebind(r, PassArg(cid,v.toRep)) // Q: should it only be done if v is unbound here? -- what if it's reachable from contexts where it is and contexts where it's not?
         case bd: BasicDef =>
           bd.reps.foreach(rec)
       }}
       })
       }
       //val rdfn = r.dfn
+      val subsd = r
       //println(s"D0 $rdfn")
       rec(r)(Set.empty)
       //println(s"D1 $rdfn")
-      //val subsd = r
       //val subsd = if (r.dfn === rdfn) r else call(cid, r) // very hacky
       
-      println(s"S $subsd")
+      //println(s"S $subsd")
       
       call(cid, subsd) //also (println)
     } else r
