@@ -24,10 +24,13 @@ trait GraphScheduling extends AST { graph: Graph =>
   }
   def emptyCCtx: CCtx = Map.empty.withDefaultValue(0)
   
+  object EvalDebug extends PublicTraceDebug
+  
   /** Note: currently creates garbage Reps – could save edges and restore them later... */
   def eval(rep: Rep) = {
-    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = //println(s"~ Eval $rep") thenReturn
-    rep.dfn match {
+    import EvalDebug.{debug=>edebug}
+    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike =
+    edebug(s"Eval $rep [${cctx.mkString(",")}] {${vctx.mkString(",")}}") thenReturn EvalDebug.nestDbg(rep.dfn match {
       case Call(cid,res) => rec(res)(withCall(cid), vctx)
       case Arg(cid,cbr,els) if hasCall(cid) => rec(cbr)(withoutCall(cid), vctx)
       case Arg(cid,cbr,els) => assert(cctx(cid) == 0); rec(els)
@@ -41,7 +44,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         val curried = bound.foldRight(bd.rebuild(bound.map(readVal)).toRep)(abs(_,_))
         val fun = scheduleAndRun(curried)
         reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
-    }
+    }) also (r => edebug(s"~> "+r))
     rec(rep)(emptyCCtx,Map.empty).value
   }
   
@@ -177,7 +180,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       cctx.head -= cid
       apply(res) alsoDo {if (putBack) cctx.head += cid}
     */
-    case Arg(cid, cbr, els) =>
+    case Arg(cid, cbr, els) => // FIXME handle cycles in els and cbr
       //println(s"Arg $r")
       //if (cctx.head.nonEmpty) { // FIXedME
         //assert(ctx.head.last === cid)

@@ -126,9 +126,11 @@ class GraphTests extends MyFunSuite(MyGraph) {
     val curs = cur.show
     println(curs)
     def printCheckEval(): Unit = {
-      val value = cur.run
+      //val value = cur.run
+      val value = //DSL.EvalDebug.debugFor
+        { cur.run }
       if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${curs}")
-      println(s"== ${value}\n== ${DSL.scheduleAndRun(cur.rep)}")
+      println(s"== ${value}\n== ${Console.RED}${try DSL.scheduleAndRun(cur.rep) catch{case e:Throwable=>e}}${Console.RESET}")
       //println(s"== ${cur.run}\n== ${DSL.scheduleAndCompile(cur.rep)}")
     }
     printCheckEval()
@@ -260,7 +262,7 @@ class GraphTests extends MyFunSuite(MyGraph) {
     
     rw(code"val f = $f; f(f(11)(22))(40)", 1)(73)
     
-    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)() // FIXME Variable was never initialized // FIXME SOF in mapDef when bottomUp order
+    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)() // FIXME Variable was never initialized // FIXME SOF in mapDef when bottomUp order
     
     //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88) // FIXME Variable was never initialized // FIXME probably not opt // FIXME SOF in mapDef when bottomUp order
     
@@ -272,10 +274,10 @@ class GraphTests extends MyFunSuite(MyGraph) {
     //rw(code"val f = $f; f(11)(f(33)(40))")(84)
     
     //rw(code"val f = $f; f(f(33)(40))")(174, _(101)) // FIXME hygiene
-    //rw(code"val f = $f; f(f(11)(22))(40)")(73) // FIXME hygiene
+    //rw(code"val f = $f; f(f(11)(22))(40)", 1)(73) // FIXME hygiene
     
-    //rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")()
-    rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
+    rw(code"val f = $f; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")()
+    //rw(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
     
   }
   

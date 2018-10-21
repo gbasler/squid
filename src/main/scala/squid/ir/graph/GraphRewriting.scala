@@ -17,7 +17,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     if (r.dfn =/= d) // it may happen that someone changes the rep under our feet,
                      // in which case it's probably incorrect to do the rebinding below... but equally incorrect to not do it!
-    println(s"..mapD[${r.bound}] ${newD eq d} ${r.dfn === d} $d > $newD | ${r.dfn}")
+      System.err.println(s"Possibly wrong! mapDef[${r.bound}] ${newD eq d} ${r.dfn === d} $d > $newD | ${r.dfn}")
     
     if (!(newD eq d)) rebind(r, newD) else r
   }
