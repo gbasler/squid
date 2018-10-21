@@ -8,7 +8,7 @@ import utils._
 
 object ManualGraphTests extends Graph with ScalaCore
 
-class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
+class ManualGraphTests extends MyFunSuite(ManualGraphTests) with GraphTestRewriter {
   import DSL.Predef._
   import DSL.{typeRepOf => _,_}
   
@@ -16,10 +16,22 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
   val IntPlus = `scala.Int`.`method +:3`.value
   val IntToDouble = `scala.Int`.`method toDouble`.value
   val Int = typeRepOf[Int]
+  val Bool = typeRepOf[Int]
+  val Any = typeRepOf[Any]
+  
+  val ITESymbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "IfThenElse", None)
+  def ITE(c:Rep,t:Rep,e:Rep) = methodApp(staticModule("squid.lib.package"), ITESymbol, t.typ::Nil,
+    Args(c,byName(t),byName(e))::Nil, t.typ)
+  val IntLT = `scala.Int`.`method <:3`.value
+  def lt(lhs:Rep,rhs:Rep) = methodApp(lhs, IntLT, Nil, Args(rhs)::Nil,Bool)
   
   val c0,c1 = new CallId
   val v = bindVal("v",Int,Nil)
   val w = bindVal("w",Int,Nil)
+  val IntToInt = lambdaType(Int::Nil,Int)
+  val f = bindVal("f",IntToInt,Nil)
+  val IntToInt_to_IntToInt = lambdaType(IntToInt::Nil,IntToInt)
+  val Yf = bindVal("Yf",IntToInt_to_IntToInt,Nil)
   
   test("A") {
     
@@ -59,6 +71,47 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) {
     val r = Call(c0, Arg(c0, v, w))
     println(r)
     println(r.simplify_!)
+    
+  }
+  
+  val Yx = bindVal("Yx",Any,Nil)
+  val Yinner = abs(Yx, app(Yf, app(Yx, Yx)(Any))(Any))
+  val Y = abs(Yf, app(Yinner, Yinner)(IntToInt))
+  
+  test("Recursion") {
+    
+    println(Y.showGraphRev)
+    println(showRep(Y)) // looks like it 'unrolls' it once as part of schedulign (it applies f to the body of Y)
+    
+    val `v+1` = methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int)
+    
+    val recf = app(Y, abs(f, abs(v, app(f, `v+1`)(Int) )))(IntToInt)
+    
+    println(recf.showGraphRev)
+    println(showRep(recf))
+    //rw(Code[Any,Any](recf))() // assertion failed: nested call
+    
+    //println(EvalDebug debugFor eval(app(recf,const(0))(Int))) // SOF as expected
+    
+    val recg = app(Y, abs(f, abs(v, ITE(lt(v,const(42)),app(f, `v+1`)(Int),v) )))(IntToInt)
+    
+    println(recg.showGraphRev)
+    println(showRep(recg))
+    //rw(Code[Any,Any](recg))() // assertion failed: nested call
+    
+    //println(EvalDebug debugFor eval(app(recg,const(0))(Int))) // doesn't work... but IfTenElse's by-names are not correctly eval'd anyways
+    
+  }
+  
+  test("Unfounded Recursion") {
+    
+    val v = bindVal("v",Any,Nil)
+    val poisonInner = abs(v, app(v, v)(Any))
+    val poison = app(poisonInner,poisonInner)(Any)
+    
+    println(poison.showGraphRev)
+    println(showRep(poison))
+    rw(Code[Any,Any](poison))(doEval=false, maxCount = 8) // oopsie
     
   }
   

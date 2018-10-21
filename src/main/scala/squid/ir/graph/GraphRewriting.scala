@@ -17,7 +17,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     if (r.dfn =/= d) // it may happen that someone changes the rep under our feet,
                      // in which case it's probably incorrect to do the rebinding below... but equally incorrect to not do it!
-      System.err.println(s"Possibly wrong! mapDef[${r.bound}] ${newD eq d} ${r.dfn === d} $d > $newD | ${r.dfn}")
+      println(s"<<< !!! >>> Possibly wrong! mapDef[${r.bound}] ${newD eq d} ${r.dfn === d} $d > $newD | ${r.dfn}")
     
     if (!(newD eq d)) rebind(r, newD) else r
   }
@@ -117,7 +117,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       case _: Arg => this
       case _ => copy(traversedReps = r :: traversedReps)
     }
-    override def toString = s"{${argsToRebuild.mkString(",")}}\\{${callsToAvoid.mkString(",")}} \t${extr._1(SCRUTINEE_KEY)} ${
+    override def toString = s"{${argsToRebuild.mkString(",")}}\\{${callsToAvoid.mkString(",")}} \t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
       (extr._1-SCRUTINEE_KEY).map(r => "\n\t "+r._1+" -> "+r._2).mkString}"
   }
   protected object GraphExtract {
@@ -181,7 +181,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected def extractGraph(xtor: Rep, xtee: Rep,
                              extractTopLevelHole: Bool = true,
                              extractTopLevelArg: Bool = true
-                            )(implicit ctx: GXCtx): Stream[GraphExtract] = {
+                            )(implicit ctx: GXCtx): Stream[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg{
     import GraphExtract.fromExtract
     
     //xtor.dfn -> xtee.dfn match {
@@ -298,7 +298,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     
   }.map(_ matching xtee).map { ge =>
     ge.copy(argsToRebuild = ge.argsToRebuild ++ ctx.assumedCalled, callsToAvoid = ge.callsToAvoid ++ ctx.assumedNotCalled)
-  }
+  } also (res => debug(s"=> ${res}"))
   
   protected def mergeGraph(lhs: GraphExtract, rhs: GraphExtract)(implicit ctx: GXCtx): Stream[GraphExtract] = lhs merge rhs
   protected def extractGraphArgList(self: ArgList, other: ArgList)(implicit ctx: GXCtx): Stream[GraphExtract] = {
