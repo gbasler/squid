@@ -396,7 +396,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     val occurs = r.freeVals contains v // TOOD use context-sensitive freeVals definition? (using a CCtx)
     if (occurs) {
       val cid = new CallId("α")
-      val arg = Arg(cid, mkArg, v |> readVal)
+      //val arg = Arg(cid, mkArg, v |> readVal)
       
       //val subsd = substituteValFastUnhygienic(r, v, argr)
       
@@ -428,7 +428,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       ))
       val subsd = rec(r)(emptyCCtx)
       */
-      
+      /*
       // FIXME wrap recursive accesses in pass-args?
       def rec(r: Rep): Unit = traversing.setAndIfUnset(r, r.dfn match {
         case Call(c,res) => rec(res)
@@ -443,8 +443,90 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       })
       rec(r)
       val subsd = r
+      */
       
-      call(cid, subsd)
+      /*
+      val traversed = mutable.Set.empty[Rep]
+      
+      val arg = Arg(cid, mkArg, v |> readVal also (traversed += _))
+      
+      // FIXedME wrap recursive accesses in pass-args?
+      def rec(r: Rep)(implicit traversing: Set[Rep]): Unit =
+      if (r in traversing) traversed.setAndIfUnset(r, rebind(r, PassArg(cid,r.dfn.toRep also (traversed += _))))
+      else traversing+r |> { implicit traversing => r.dfn match {
+        case Call(c,res) => rec(res)
+        case Arg(c,cbr,els) =>
+          rec(cbr)
+          println(s"ELS $els ${traversing}")
+          rec(els)
+        case Abs(p,b) => rec(b)
+        case `v` =>
+          //println(s"Y ${traversed(r)} ${traversing(r)} $r ${traversed}")
+          traversed.setAndIfUnset(r, rebind(r, arg)) alsoDo (traversed += r)
+        case v: Val if v.isSimple => traversed.setAndIfUnset(r, rebind(r, PassArg(cid,v.toRep)))
+        case bd: BasicDef =>
+          bd.reps.foreach(rec)
+      }}
+      val rdfn = r.dfn
+      //println(s"D0 $rdfn")
+      rec(r)(Set.empty)
+      //println(s"D1 $rdfn")
+      //val subsd = r
+      val subsd = if (r.dfn === rdfn) r else call(cid, r) // very hacky
+      //val subsd = rdfn.toRep
+      */
+      
+      val traversed = mutable.Set.empty[Val]
+      val arg = Arg(cid, mkArg, v also (traversed += _) into readVal)
+      
+      val top = r.bound
+      var subsd = r
+      
+      println(s"top ${r.bound} = ${r.dfn}")
+      
+      def rec(r: Rep)(implicit traversing: Set[Val]): Unit = { println(s"rec ${r.bound} = ${r.dfn}")
+      //if ((r.bound in traversing) && (r.bound === top)) {
+      //  rebind(r, PassArg(cid,r.dfn.toRep also (traversed += _.bound)))
+      //  subsd = call(cid, subsd)
+      //}
+      //else if (r.bound in traversing) ()
+      if (r.bound in traversing)
+      //if (r.bound === top) {
+      //  println("??????????????")
+      //  rebind(r, PassArg(cid,r.dfn.toRep also (traversed += _.bound)))
+      //  subsd = call(cid, subsd)
+      //} else 
+      ()
+      else traversed.setAndIfUnset(r.bound, { traversing+r.bound |> { implicit traversing => r.dfn match {
+        case Call(c,res) => rec(res)
+        case Arg(c,cbr,els) =>
+          rec(cbr)
+          //println(s"ELS $els ${traversing}")
+          rec(els)
+        case Abs(`v`,b) =>
+          rebind(r, PassArg(cid,abs(`v`,b) also (traversed += _.bound)))
+          // ^ Q: wrap only the body instead? does it make a difference?
+          rec(b)
+        case Abs(p,b) => rec(b)
+        case `v` =>
+          //println(s"Y ${traversed(r)} ${traversing(r)} $r ${traversed}")
+          rebind(r, arg) //alsoDo (traversed += r)
+        case v: Val if v.isSimple => rebind(r, PassArg(cid,v.toRep))
+        case bd: BasicDef =>
+          bd.reps.foreach(rec)
+      }}
+      })
+      }
+      //val rdfn = r.dfn
+      //println(s"D0 $rdfn")
+      rec(r)(Set.empty)
+      //println(s"D1 $rdfn")
+      //val subsd = r
+      //val subsd = if (r.dfn === rdfn) r else call(cid, r) // very hacky
+      
+      println(s"S $subsd")
+      
+      call(cid, subsd) //also (println)
     } else r
     
   }
