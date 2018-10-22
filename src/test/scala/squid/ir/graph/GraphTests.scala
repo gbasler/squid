@@ -22,11 +22,11 @@ import squid.lib.const
 
 object MyGraph extends Graph
 
-//object GraphTests {
-//  def nextInt = scala.util.Random.nextInt
-//}
-//import GraphTests._
-import scala.util.Random.nextInt
+object GraphTests {
+  def nextInt = 123
+  def nextInt(n: Int) = n*2
+}
+import GraphTests._
 
 class GraphTests extends MyFunSuite(MyGraph) with GraphTestRewriter {
   import DSL.Predef._
@@ -87,13 +87,13 @@ class GraphTests extends MyFunSuite(MyGraph) with GraphTestRewriter {
     //  case code"($a:Int)-($b:Int)" => code"$a * $b"
     //} also println
     
-    rw(code"nextInt(42).toDouble+1-1")()
+    rw(code"nextInt(42).toDouble+1-1")(84.0)
     
     //base debugFor
     
-    rw(code"val ri = (_:Unit) => nextInt(42); ri(()).toDouble+ri(()).toDouble")()
+    rw(code"val ri = (_:Unit) => nextInt(42); ri(()).toDouble+ri(()).toDouble")(168.0)
     
-    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(42).toDouble")()
+    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(42).toDouble")(127.0)
     
     
   }
@@ -101,19 +101,19 @@ class GraphTests extends MyFunSuite(MyGraph) with GraphTestRewriter {
   test("Rw 2") {
     
     //rw(code"val ri = (n:Int) => nextInt(42)+n; ri(nextInt*2).toDouble+ri(42).toDouble")()
-    rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(nextInt(42))")()
+    rw(code"val ri = (n:Int) => 0.5+n.toDouble; ri(nextInt)+ri(nextInt(42))")(208.0)
     
-    rw(code"val ri = (n:Int) => n+1; ri(nextInt)+ri(42)")()
+    rw(code"val ri = (n:Int) => n+1; ri(nextInt)+ri(42)")(167)
     
-    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(0).toDouble+ri(1).toDouble")()
+    rw(code"val ri = (n:Int) => n+1+nextInt(42); ri(0).toDouble+ri(1).toDouble")(171.0)
     
   }
   
   test("Simple Cross-Boundary Rewriting (Linear)") {
     
-    rw(code"val ri = (n:Int) => n.toDouble; ri(nextInt).toInt")()
+    rw(code"val ri = (n:Int) => n.toDouble; ri(nextInt).toInt",2)(123)
     
-    rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)")()
+    rw(code"val ri = (n:Double) => n.toInt; ri(nextInt.toDouble)",2)(123)
     
     // TODO also with non-trivial leaves
     
@@ -177,7 +177,7 @@ class GraphTests extends MyFunSuite(MyGraph) with GraphTestRewriter {
       ($(show))(big.E0(aa))(fmt1) + ($(show))(big.E1(aa))(fmt1)
   }.unsafe_asClosedCode // Q: why needed?
   
-  test("Bigger Example (g7)") {
+  test("Bigger Example (g7)") { // FIXME 'Found a free variable'
     
     rw(code{
       val $show = $(showDef)
