@@ -65,6 +65,8 @@ package object lib {
   
   def const[A](a: A): A = a
   
+  def ⊥ = throw new RuntimeException("Program reached bottom.")
+  
   
   @transparencyPropagating
   def uncurried0[b](f: => b): () => b =
