@@ -37,9 +37,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   def isBound(v: Val) = edges.containsKey(v)
+  def boundTo(v: Val) = edges.get(v)
   
-  val Bottom = bindVal("⊥", Predef.implicitType[Nothing].rep, Nil)
-  bind(Bottom,Bottom) // prevents rebinding of Bottom, just in case
+  //val Bottom = bindVal("⊥", Predef.implicitType[Nothing].rep, Nil)
+  //bind(Bottom,Bottom) // prevents rebinding of Bottom, just in case
+  val Bottom = MethodApp(staticModule("squid.lib.package"),
+    loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "$u22A5", None), Nil, Nil, Predef.implicitType[Nothing].rep)
   
   type CtorSymbol = Class[_]
   
@@ -213,6 +216,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case _ => super.apply(r.bound)
     }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     override def apply(d: Def): String = d match {
+      case Bottom => "⊥"
       //case Call(cid, res) => s"C[$cid](${res |> apply})"
       //case Call(cid, res) => s"$cid⌊${res |> apply}⌋"
       //case Call(cid, res) => s"〚$cid ${res |> apply}〛"
@@ -565,6 +569,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def isSimple = self match {
       //case _: SyntheticVal => false  // actually considered trivial?
       case _: LeafDef => true
+      case Bottom => true
       case _ => false
     }
   }
