@@ -60,9 +60,7 @@ trait ASTReinterpreter { ast: AST =>
       case MethodApp(_, BooleanAndSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.and(lhs|>apply,rhs|>apply)
       case MethodApp(_, BooleanOrSymbol, Nil, Args(lhs,rhs)::Nil, _) => newBase.or(lhs|>apply,rhs|>apply)
       case MethodApp(self, mtd, targs, argss, tp) =>
-        val typ = newBase.loadTypSymbol(ruh.encodedTypeSymbol(mtd.owner.asType))
-        val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
-        val newMtd = newBase.loadMtdSymbol(typ, mtd.name.toString, if (alts.isEmpty) None else Some(alts.indexOf(mtd)), mtd.isStatic)
+        val newMtd = recm(mtd)
         newBase.methodApp(
           apply(self),
           newMtd,
@@ -95,6 +93,12 @@ trait ASTReinterpreter { ast: AST =>
     ) alsoApply (bound += bv -> _)
     
     def rect(r: TypeRep): newBase.TypeRep = reinterpretType(r, newBase)
+    
+    protected def recm(mtd: MtdSymbol) = {
+      val typ = newBase.loadTypSymbol(ruh.encodedTypeSymbol(mtd.owner.asType))
+      val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
+      newBase.loadMtdSymbol(typ, mtd.name.toString, if (alts.isEmpty) None else Some(alts.indexOf(mtd)), mtd.isStatic)
+    }
     
   }
   private object Reinterpreter {

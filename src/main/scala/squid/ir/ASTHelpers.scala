@@ -158,9 +158,9 @@ trait ASTHelpers extends Base { self: AST =>
       case Module(pre, nam, tp) => s"${apply(pre)}.$nam"
       case StaticModule(fnam) => fnam
       case Ascribe(r,t) => s"${apply(r)}: ${t |> apply}"
-      case Typed(h @ Hole(name), typ) => s"$$$name<:${typ |> apply}" + (if (showHoleInfo) 
+      case Typed(h @ Hole(name), typ) => s"?$name<:${typ |> apply}" + (if (showHoleInfo) 
         (h.originalSymbol map (os => s"(o=$os)") getOrElse "") + (h.matchedSymbol map (m => s"(m=$m)") getOrElse "") else "")
-      case Typed(SplicedHole(name), typ) => s"$$$name<:${typ |> apply}*"
+      case Typed(SplicedHole(name), typ) => s"?$name<:${typ |> apply}*"
       case CrossStageValue(value,typ) if showReturnTypes => s"<<$value:${typ |> apply}>>"
       case CrossStageValue(value,typ)                    => s"<<$value>>"
     }

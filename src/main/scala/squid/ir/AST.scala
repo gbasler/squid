@@ -523,7 +523,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     def isClosed = unboundVals.isEmpty
     
     def children: Iterator[Rep] = this match {
-      case a @ Abs(p, b) => dfn(b).children
+      case a @ Abs(p, b) => Iterator(b)
       case Ascribe(r,t) => Iterator(r)
       case Hole(_) | SplicedHole(_) | NewObject(_) | _:ConstantLike | (_:BoundVal) | StaticModule(_) => Iterator.empty
       case Module(pref, name, typ) => Iterator(pref) //dfn(pref).children
