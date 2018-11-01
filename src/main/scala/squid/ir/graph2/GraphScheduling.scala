@@ -30,15 +30,17 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  type CCtx = Map[CallId, Int]
-  def hasCall(cid: CallId)(implicit cctx: CCtx) = cctx(cid) > 0
-  def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + (cid -> (cctx(cid)+1))
-  def withoutCall(cid: CallId)(implicit cctx: CCtx) = {
-    val old = cctx(cid)
-    require(old > 0)
-    cctx + (cid -> (old-1))
+  case class CCtx(map: Map[CallId, CCtx]) {
+    def isDefinedAt(cid: CallId) = map.isDefinedAt(cid)
+    def + (cid: CallId) = CCtx(map + (cid -> this))
+    def - (cid: CallId) =
+      //map.getOrElse(cid, this)
+      map(cid) // TODO B/E?
   }
-  def emptyCCtx: CCtx = Map.empty.withDefaultValue(0)
+  object CCtx { val empty: CCtx = CCtx(Map.empty) }
+  def hasCall(cid: CallId)(implicit cctx: CCtx) = cctx.map.isDefinedAt(cid)
+  def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + cid
+  def withoutCall(cid: CallId)(implicit cctx: CCtx) = cctx - cid
   
   object EvalDebug extends PublicTraceDebug
   import EvalDebug.{debug=>Edebug}
@@ -49,7 +51,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       case Call(cid,res) => rec(res)(withCall(cid), vctx)
       case Arg(cid,res) => rec(res)(withoutCall(cid), vctx)
       case Branch(cid,thn,els) if hasCall(cid) => rec(thn)
-      case Branch(cid,thn,els) => assert(cctx(cid) == 0); rec(els)
+      case Branch(cid,thn,els) => assert(!cctx.isDefinedAt(cid)); rec(els)
       case Node(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
@@ -64,7 +66,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
       }
     }
-    rec(rep)(emptyCCtx,Map.empty).value
+    rec(rep)(CCtx.empty,Map.empty).value
   }
   
   def scheduleAndRun(rep: Rep): Any = SimpleASTBackend runRep rep |> treeInSimpleASTBackend
@@ -111,8 +113,8 @@ trait GraphScheduling extends AST { graph: Graph =>
         //println(s"Analyse $rep")
         //nPaths(rep) += 1
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
-        someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.keySet
-        allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.keySet
+        someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
+        allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
         rep match {
           case Call(cid, res) => analyse(res)(withCall(cid))
           case Arg(cid, res) => analyse(res)(withoutCall(cid))
@@ -121,7 +123,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           case Node(d) => d.children.foreach(analyse)
         }
       }
-      analyse(rep)(emptyCCtx)
+      analyse(rep)(CCtx.empty)
       
       //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.simpleString}"}.mkString)
       
