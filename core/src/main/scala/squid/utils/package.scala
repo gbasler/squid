@@ -44,6 +44,8 @@ package object utils {
     * which is thus assumed to be stored in the Rep mapping under the name `SCRUTINEE_KEY`. */
   final val SCRUTINEE_KEY = "__scrutinee__"
   
+  private val _id = identity[Any] _
+  def id[A]: A => A = _id.asInstanceOf[A => A]
   
   /** Allows functions taking one by-name parameter to be used on the rhs of |> and such operators. */
   implicit def byNameFun2fun[A,B](f: (=> A) => B): A => B = f(_)
@@ -96,6 +98,9 @@ package object utils {
   }
   implicit final class PairHelper[A0,A1](private val __self: (A0,A1)) extends AnyVal {
     @inline def ||> [B] (rhs: (A0,A1) => B): B = rhs(__self._1, __self._2)
+    @inline def ||> [B0,B1](_1: A0 => B0 = id[A0], _2: A1 => B1 = id[A1]) = (_1(__self._1), _2(__self._2))
+    @inline def update[B0,B1](_1: A0 => B0 = id[A0], _2: A1 => B1 = id[A1]) = (_1(__self._1), _2(__self._2))
+    @inline def copyWith[B0,B1](_1: ((A0,A1)) => B0 = (a:(A0,A1))=>a._1, _2: ((A0,A1)) => B1 = (a:(A0,A1))=>a._2) = (_1(__self), _2(__self))
   }
   
   implicit final class LazyGenHelper[A](__self: => A) {

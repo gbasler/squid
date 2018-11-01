@@ -177,11 +177,9 @@ trait GraphScheduling extends AST { graph: Graph =>
               })
               ass->nb.methodApp(sr, recm(mtd), targs.map(rect), newArgss, rect(tp))
             case Ascribe(r, typ) =>
-              val as->nr = rec(rep,r,m)
-              as->nb.ascribe(nr,rect(typ))
+              rec(rep,r,m) ||> (_2 = nb.ascribe(_,rect(typ)))
             case Module(r, name, typ) =>
-              val as->nr = rec(rep,r,m)
-              as->nb.module(nr,name,rect(typ))
+              rec(rep,r,m) ||> (_2 = nb.module(_,name,rect(typ)))
             case ld: LeafDef => Nil->apply(ld)
           }
         }
