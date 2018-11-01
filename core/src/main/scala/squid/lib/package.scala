@@ -67,6 +67,11 @@ package object lib {
   
   def ⊥ = throw new RuntimeException("Program reached bottom.")
   
+  def dead[A](code: => A): A = {
+    System.err.println(s"Thought this was dead code... apparently not.")
+    code
+  }
+  
   
   @transparencyPropagating
   def uncurried0[b](f: => b): () => b =
