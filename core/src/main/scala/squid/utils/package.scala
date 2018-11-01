@@ -56,6 +56,7 @@ package object utils {
     @inline def alsoApply_?(effect_f: PartialFunction[T,Unit]) = { effect_f.runWith(_=>())(self); self }
     // TODO move old usages of the above to `also`
     @inline def also(effect_f: T => Unit) = { effect_f(self); self }
+    @inline def also_?(effect_f: PartialFunction[T,Unit]) = { effect_f.runWith(_=>())(self); self }
     
     @inline def alsoDo(effect: Unit) = self
     

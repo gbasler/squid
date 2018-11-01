@@ -114,7 +114,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   object Call {
   }
-  case class Arg(cid: CallId, result: Rep)(typ: TypeRep) extends ControlFlow(result.typ) {
+  case class Arg(cid: CallId, result: Rep) extends ControlFlow(result.typ) {
   }
   
   //abstract case class Branch(cid: CallId, thn: Rep, els: Rep)(typ: TypeRep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
