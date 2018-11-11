@@ -122,7 +122,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //def unapply(n: Node) = Option(n.boundTo)
     def unapply(n: ConcreteNode) = Some(n.boundTo)
   }
-  abstract class ControlFlow(override val typ: TypeRep) extends Node {
+  sealed abstract class ControlFlow extends Node {
     override def toString = simpleString
     def simpleString = (new DefPrettyPrinter)(this)
     def isSimple = true // FIXME?
@@ -133,16 +133,41 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   /** placeholder Val that should never be in the graph. */
   //class SyntheticVal(name: String, typ: TypeRep, annots: List[Annot]=Nil) extends BoundVal("@"+name)(typ, annots)
   
+  sealed abstract class Box extends ControlFlow {
+    def typ: TypeRep = result.typ
+    val cid: CallId
+    val result: Rep
+    def kind: BoxKind
+  }
+  object Box {
+    def apply(cid: CallId, result: Rep, kind: BoxKind) = kind match {
+      case Call => Call(cid, result)
+      case Arg => Arg(cid, result)
+      case Pass => Pass(cid, result)
+    }
+    def unapply(box: Box) = Some(box.cid, box.result, box.kind)
+  }
+  sealed abstract class BoxKind
+  
   //case class Call(cid: CallId, result: Rep) extends ControlFlow(new SyntheticVal("C"+cid, result.typ)) {
-  case class Call(cid: CallId, result: Rep) extends ControlFlow(result.typ) {
+  case class Call(cid: CallId, result: Rep) extends Box {
+    def kind: Call.type = Call
   }
-  object Call {
+  object Call extends BoxKind {
   }
-  case class Arg(cid: CallId, result: Rep) extends ControlFlow(result.typ) {
+  case class Arg(cid: CallId, result: Rep) extends Box {
+    def kind: Arg.type = Arg
   }
+  object Arg extends BoxKind
+  case class Pass(cid: CallId, result: Rep) extends Box {
+    def kind: Pass.type = Pass
+  }
+  object Pass extends BoxKind
   
   //abstract case class Branch(cid: CallId, thn: Rep, els: Rep)(typ: TypeRep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
-  case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
+  //case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
+  case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow {
+    lazy val typ = ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)
   }
   
   def isNormalVal(d: Def): Bool = d.isInstanceOf[BoundVal] && !d.isInstanceOf[MirrorVal]
@@ -161,8 +186,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def dfn(n: Node): Def = n match {
     case ConcreteNode(d) => d
     //case _: ControlFlow => ControlFlowVal
-    case Call(_,r) => dfn(r)
-    case Arg(_,r) => dfn(r)
+    case Box(_,r,_) => dfn(r)
     case Branch(_,_,_) => BranchVal
   }
   
@@ -197,8 +221,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = done.setAndIfUnset(r.bound, {
     val ite = r.boundTo match {
       case r: ConcreteNode => mkDefIterator(r.boundTo)
-      case Call(cid,res) => Iterator.single(r) ++ mkIterator(res) 
-      case Arg(cid,res) => Iterator.single(r) ++ mkIterator(res) 
+      case Box(_,res,_) => Iterator.single(r) ++ mkIterator(res) 
       case Branch(cid,thn,els) => Iterator.single(r) ++ mkIterator(thn) ++ mkIterator(els)
     }
     val site = Iterator.single(r)
@@ -226,6 +249,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override val desugarLetBindings = false
     var curCol = Console.BLACK
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
+      case Pass(cid, res) =>
+        val col = colorOf(cid)
+        s"$col⟦$cid⟧$curCol ${res |> apply}"
       case Call(cid, res) =>
         val col = colorOf(cid)
         s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
