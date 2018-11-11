@@ -30,23 +30,35 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  case class CCtx(map: Map[CallId, CCtx]) {
-    def isDefinedAt(cid: CallId) = map.isDefinedAt(cid)
-    def + (cid: CallId) = CCtx(map + (cid -> this))
+  case class CCtx(map: Map[CallId, Opt[CCtx]]) {
+    def isDefinedAt(cid: CallId) = map(cid).isDefined
+    def + (cid: CallId) = CCtx(map + (cid -> Some(this)))
     def - (cid: CallId) =
       //map.getOrElse(cid, this)
       //map(cid) // TODO B/E?
-      CCtx(map - cid)
+      //CCtx(map - cid)
+      CCtx(map + (cid -> None))
+    private implicit def self: this.type = this
+    def withOp_?(op: Op) = op._1 match {
+      case Call => Some(withCall(op._2))
+      case Pass => Some(withPass(op._2))
+      case Arg => withArg_?(op._2)
+    }
   }
   object CCtx { val empty: CCtx = CCtx(Map.empty) }
-  def hasCond(cond: Condition)(implicit cctx: CCtx) = cond.ops.foldLeft(cctx){
+  def hasCond(cond: Condition)(implicit cctx: CCtx) = hasCond_?(cond).get
+  def hasCond_?(cond: Condition)(implicit cctx: CCtx): Opt[Bool] = cond.ops.foldLeft(cctx){
     case (ccur,(Call,cid)) => withCall(cid)(ccur)
-    case (ccur,(Arg,cid)) => withArg(cid)(ccur)
     case (ccur,(Pass,cid)) => withPass(cid)(ccur)
-  }.isDefinedAt(cond.cid)
+    case (ccur,(Arg,cid)) => withArg_?(cid)(ccur).getOrElse(return None)
+  }.map.get(cond.cid).map(_.isDefined)
   def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + cid
   def withPass(cid: CallId)(implicit cctx: CCtx) = cctx - cid
-  def withArg(cid: CallId)(implicit cctx: CCtx) = CCtx(cctx.map ++ cctx.map(cid).map) // TODO B/E?
+  def withArg(cid: CallId)(implicit cctx: CCtx) = CCtx(cctx.map ++ cctx.map(cid).get.map) // TODO B/E?
+  def withArg_?(cid: CallId)(implicit cctx: CCtx): Opt[CCtx] = for {
+    m <- cctx.map get cid
+    c <- m
+  } yield CCtx(cctx.map ++ c.map)
   
   object EvalDebug extends PublicTraceDebug
   import EvalDebug.{debug=>Edebug}
