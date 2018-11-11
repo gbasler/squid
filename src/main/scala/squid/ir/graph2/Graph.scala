@@ -175,7 +175,23 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   case class Branch(cond: Condition, thn: Rep, els: Rep) extends ControlFlow {
     lazy val typ = ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)
   }
-  case class Condition(ops: List[(BoxKind,CallId)], cid: CallId)
+  abstract case class Condition(ops: List[Op], cid: CallId) {
+    def isAlwaysTrue: Bool = ops === ((Call,cid)::Nil)
+    def isAlwaysFalse: Bool = ops === ((Pass,cid)::Nil)
+  }
+  object Condition {
+    def apply(ops: List[Op], cid: CallId) = {
+      // Try to simplify the ops if the condition is always true or false:
+      ops.foldLeft(CCtx.empty) {
+        case (cctx, op) => cctx.withOp_?(op).getOrElse(CCtx.empty)
+      }.map.get(cid) match {
+        case Some(Some(_)) => new Condition(Call->cid :: Nil, cid){}
+        case Some(None) => new Condition(Pass->cid :: Nil, cid){}
+        case _ => new Condition(ops, cid){}
+      }
+    }
+  }
+  type Op = (BoxKind,CallId)
   
   def isNormalVal(d: Def): Bool = d.isInstanceOf[BoundVal] && !d.isInstanceOf[MirrorVal]
   

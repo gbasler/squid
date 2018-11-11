@@ -28,6 +28,8 @@ package object utils {
   @showAsInfix
   type & [+A,+B] = A with B
   
+  type Opt[+A] = Option[A]
+  
   import scala.language.existentials
   type ? = t forSome{type t}
   type ! = Nothing
@@ -190,7 +192,7 @@ package object utils {
   @showAsInfix
   type -> [+A,+B] = (A,B)
   object -> {
-    def unapply[A,B](ab: (A,B)) = Some(ab)
+    def unapply[A,B](ab: A -> B): Some[A -> B] = Some(ab)
   }
   implicit class Tuple2Helper[A,B](private val self: (A,B)) extends AnyVal {
     @inline def mapFirst[C](f: A => C): (C,B) = (self._1 |> f, self._2)
