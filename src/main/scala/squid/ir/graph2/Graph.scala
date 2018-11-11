@@ -147,7 +147,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
     def unapply(box: Box) = Some(box.cid, box.result, box.kind)
   }
-  sealed abstract class BoxKind
+  sealed abstract class BoxKind {
+    override def toString = this match {
+      case Call => "↑"
+      case Arg => "↓"
+      case Pass => "|"
+    }
+  }
   
   //case class Call(cid: CallId, result: Rep) extends ControlFlow(new SyntheticVal("C"+cid, result.typ)) {
   case class Call(cid: CallId, result: Rep) extends Box {
@@ -166,9 +172,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   //abstract case class Branch(cid: CallId, thn: Rep, els: Rep)(typ: TypeRep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
   //case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
-  case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow {
+  case class Branch(cond: Condition, thn: Rep, els: Rep) extends ControlFlow {
     lazy val typ = ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)
   }
+  case class Condition(ops: List[(BoxKind,CallId)], cid: CallId)
   
   def isNormalVal(d: Def): Bool = d.isInstanceOf[BoundVal] && !d.isInstanceOf[MirrorVal]
   
@@ -259,11 +266,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         val col = colorOf(cid)
         //s"$col$cid⟨⟩$curCol${res|>apply}"
         s"⟦$col$cid⟧$curCol${res|>apply}"
-      case Branch(cid, cbr, els) =>
+      case Branch(Condition(ops,cid), cbr, els) =>
         val oldCol = curCol
         curCol = colorOf(cid)
         //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
-        s"${cid} ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)}"
+        s"${ops.map{case(k,c)=>s"$k$c;"}.mkString}$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)}"
       case r: ConcreteNode =>
         r match {
           case ConcreteNode(d) if d.isSimple => apply(d)
