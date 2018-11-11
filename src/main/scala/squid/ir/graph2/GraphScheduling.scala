@@ -116,6 +116,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
         allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
         rep.boundTo match {
+          case Pass(cid, res) => analyse(res)(withoutCall(cid)) // FIXME probably
           case Call(cid, res) => analyse(res)(withCall(cid))
           case Arg(cid, res) => analyse(res)(withoutCall(cid))
           case Branch(cid, thn, els) => if (hasCall(cid)) analyse(thn) else analyse(els)
