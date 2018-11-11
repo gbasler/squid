@@ -25,14 +25,14 @@ import scala.collection.mutable
 
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
-  val edges = new java.util.WeakHashMap[Val,Def]
+  val edges = new java.util.WeakHashMap[Val,Node]
   
-  def bind(v: Val, d: Def): Unit = {
+  def bind(v: Val, d: Node): Unit = {
     //require(!edges.isDefinedAt(v))
     require(!edges.containsKey(v))
     rebind(v, d)
   }
-  def rebind(v: Val, d: Def): Unit = {
+  def rebind(v: Val, d: Node): Unit = {
     //require(!v.isInstanceOf[MirrorVal])
     require(v =/= BranchVal)
     //require(!d.isInstanceOf[BoundVal] || d.isInstanceOf[SyntheticVal], s"$d")  // TODO enforce?
@@ -67,41 +67,65 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   type CtorSymbol = Class[_]
   
-  abstract class Rep {
+  sealed trait RepOrNode
+  
+  sealed abstract class Node extends RepOrNode {
     def typ: TypeRep
-    def iterator = graph.iterator(this)
-    def showGraph = graph.showGraph(this)
-    def showRep = graph.showRep(this)
-    def simpleString: String
+    def isSimple: Bool
+    def mkRep = this match {
+      case ConcreteNode(v:Val) => new Rep(v)
+      case _ =>
+        val v = freshBoundVal(typ)
+        bind(v, this)
+        new Rep(v)
+    }
   }
-  object Rep {
+  object Node {
     
   }
   
-  class Node(val bound: Val) extends Rep {
+  class Rep(val bound: Val) extends RepOrNode {
     def boundTo = graph.boundTo_!(bound)
     def typ = bound.typ
+    
+    def iterator = graph.iterator(this)
+    def showGraph = graph.showGraph(this)
+    def showRep = graph.showRep(this)
+    def isSimple: Bool = boundTo.isSimple // FIXME?
+    
+    def asNode: Node = new ConcreteNode(bound) // could also return the bound variable it may point to
     
     def simpleString = {
       val d = boundTo
       if (d.isSimple) d.toString
       else bound.toString
     }
+    def fullString = s"$bound = $boundTo"
     
     override def hashCode() = bound.hashCode
     override def equals(obj: Any) = obj match {
-      case n: Node => n.bound === bound
+      case n: Rep => n.bound === bound
       case _ => false
     }
     override def toString = s"$bound=$boundTo"
   }
-  object Node {
-    //def unapply(n: Node) = Option(n.boundTo)
-    def unapply(n: Node) = Some(n.boundTo)
+  object Rep {
+    def unapply(n: Rep) = Some(n.boundTo)
   }
-  abstract class ControlFlow(val typ: TypeRep) extends Rep {
+  
+  class ConcreteNode(val boundTo: Def) extends Node { // TODO rename boundTo
+    def typ = boundTo.typ
+    def isSimple = boundTo.isSimple
+    override def toString = boundTo.toString
+  }
+  object ConcreteNode {
+    //def unapply(n: Node) = Option(n.boundTo)
+    def unapply(n: ConcreteNode) = Some(n.boundTo)
+  }
+  abstract class ControlFlow(override val typ: TypeRep) extends Node {
     override def toString = simpleString
     def simpleString = (new DefPrettyPrinter)(this)
+    def isSimple = true // FIXME?
   }
   
   override protected def freshNameImpl(n: Int) = "$"+n
@@ -126,15 +150,16 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def rep(dfn: Def) = dfn match {
     //case v: Val => reificationContext.getOrElse(v, new Node(v)) // mirror val?
     case v: Val if isNormalVal(v) && reificationContext.contains(v) => reificationContext(v)
-    case v: Val if isNormalVal(v) && edges.containsKey(v) => new Node(v)
+    case v: Val if isNormalVal(v) && edges.containsKey(v) => new Rep(v)
     case _ =>
       val v = freshBoundVal(dfn.typ)
-      bind(v, dfn)
-      new Node(v)
+      bind(v, new ConcreteNode(dfn))
+      new Rep(v)
   }
   
-  def dfn(r: Rep): Def = r match {
-    case Node(d) => d
+  def dfn(r: Rep): Def = dfn(r.boundTo)
+  def dfn(n: Node): Def = n match {
+    case ConcreteNode(d) => d
     //case _: ControlFlow => ControlFlowVal
     case Call(_,r) => dfn(r)
     case Arg(_,r) => dfn(r)
@@ -164,20 +189,21 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   
-  def showGraph(rep: Rep) = rep.simpleString + {
-    val defsStr = iterator(rep).collect { case nde @ Node(d) if !d.isSimple => s"\n\t${nde.bound} = ${d};" }.mkString
+  def showGraph(rep: Rep): String = rep.simpleString + {
+    val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
-  def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = r match {
-    case r: Node =>
-      done.setAndIfUnset(r.bound,
-        if (rev) mkDefIterator(r.boundTo) ++ Iterator.single(r)
-        else Iterator.single(r) ++ mkDefIterator(r.boundTo), Iterator.empty)
-    case Call(cid,res) => Iterator.single(r) ++ mkIterator(res) 
-    case Arg(cid,res) => Iterator.single(r) ++ mkIterator(res) 
-    case Branch(cid,thn,els) => Iterator.single(r) ++ mkIterator(thn) ++ mkIterator(els) 
-  }
+  def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = done.setAndIfUnset(r.bound, {
+    val ite = r.boundTo match {
+      case r: ConcreteNode => mkDefIterator(r.boundTo)
+      case Call(cid,res) => Iterator.single(r) ++ mkIterator(res) 
+      case Arg(cid,res) => Iterator.single(r) ++ mkIterator(res) 
+      case Branch(cid,thn,els) => Iterator.single(r) ++ mkIterator(thn) ++ mkIterator(els)
+    }
+    val site = Iterator.single(r)
+    if (rev) ite ++ site else site ++ ite
+  }, Iterator.empty)
   def mkDefIterator(dfn: Def)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = dfn.children.flatMap(mkIterator)
   
   implicit class GraphDefOps(private val self: Def) {
@@ -199,7 +225,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override val showValTypes = false
     override val desugarLetBindings = false
     var curCol = Console.BLACK
-    override def apply(r: Rep): String = r match {
+    override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
       case Call(cid, res) =>
         val col = colorOf(cid)
         s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
@@ -212,18 +238,18 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         curCol = colorOf(cid)
         //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
         s"${cid} ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)}"
-      case r: Node =>
-        printed.setAndIfUnset(r, (r match {
-          case Node(d) if d.isSimple => apply(d)
-          //case _ => super.apply(r)
-          case _ => super.apply(r.bound)
-        }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
-    } 
+      case r: ConcreteNode =>
+        r match {
+          case ConcreteNode(d) if d.isSimple => apply(d)
+          case _ => super.apply(r.boundTo)
+        }
+    }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     override def apply(d: Def): String = d match {
       case Bottom => "⊥"
       case MirrorVal(v) => s"<$v>"
       case _ => super.apply(d)
     }
+    def apply(n: Node): String = ???
   }
   
   
