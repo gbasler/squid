@@ -47,12 +47,12 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Note: currently creates garbage Reps – could save edges and restore them later... */
   def eval(rep: Rep) = {
-    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep match {
+    def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.boundTo match {
       case Call(cid,res) => rec(res)(withCall(cid), vctx)
       case Arg(cid,res) => rec(res)(withoutCall(cid), vctx)
       case Branch(cid,thn,els) if hasCall(cid) => rec(thn)
       case Branch(cid,thn,els) => assert(!cctx.isDefinedAt(cid)); rec(els)
-      case Node(d) => d match {
+      case ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
         case v: Val => vctx(v) // hapens?
@@ -115,24 +115,25 @@ trait GraphScheduling extends AST { graph: Graph =>
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
         someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
         allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
-        rep match {
+        rep.boundTo match {
           case Call(cid, res) => analyse(res)(withCall(cid))
           case Arg(cid, res) => analyse(res)(withoutCall(cid))
           case Branch(cid, thn, els) => if (hasCall(cid)) analyse(thn) else analyse(els)
           //case Node(MirrorVal(v)) => 
-          case Node(d) => d.children.foreach(analyse)
+          case ConcreteNode(d) => d.children.foreach(analyse)
         }
       }
       analyse(rep)(CCtx.empty)
       
-      //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.simpleString}"}.mkString)
+      //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
       
       //val scheduled = mutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)] // scala bug: wrong order!!
-      var scheduled = immutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)]
+      //var scheduled = immutable.ListMap.empty[ConcreteNode,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
+      var scheduled = immutable.ListMap.empty[Rep,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
+      // ^ FIXME keys type?
       
-      // TODO prevent infinite recursion? 
-      
-      def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal]): List[nb.BoundVal->Branch]->nb.Rep = {
+      // TODO prevent infinite recursion?
+      def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal]): List[nb.BoundVal->Rep]->nb.Rep = {
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
         
         //val m = nPaths.getOrElse(rep, if (n > 0) return rec(pred, bottom, 0) else 0)
@@ -142,7 +143,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           as->dead(r,rect(rep.typ))
         }
         
-        rep match {
+        rep.boundTo match { // Note: never scheduling control-flow nodes, on purpose
           case Call(cid,res) => rec(pred,res,n)
           case Arg(cid,res) => rec(pred,res,n)
           case Branch(cid,thn,els) if allCtx(pred)(cid) => rec(pred,thn,n)
@@ -150,20 +151,22 @@ trait GraphScheduling extends AST { graph: Graph =>
           case b @ Branch(cid,thn,els) =>
             val v = freshBoundVal(rep.typ)
             val w = recv(v)
-            ((w,b)::Nil) -> nb.readVal(w)
-          case nde @ Node(d) if m > n =>
+            //((w,b)::Nil) -> nb.readVal(w)
+            ((w,rep)::Nil) -> nb.readVal(w)
+          case nde @ ConcreteNode(d) if m > n =>
             println(s"$m > $n")
-            val (fsym,_,args,_) = scheduled.getOrElse(nde, {
-              val as->nr = rec(nde,nde,nPaths(nde))(Map.empty)
+            val (fsym,_,args,_) = scheduled.getOrElse(rep, {
+              //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
+              val as->nr = rec(rep,rep,nPaths(rep))(Map.empty)
               val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
               val w = recv(v)
               (w,nb.lambda(as.unzip._1,nr),as.unzip._2,rect(v.typ))
-            } also (scheduled += nde -> _))
+            } also (scheduled += rep -> _))
             val s = args.map(b => rec(rep,b,m))
             val a = s.flatMap(_._1)
             val e = appN(fsym|>nb.readVal,s.map(_._2),rect(nde.typ))
             a -> e
-          case Node(d) => d match {
+          case ConcreteNode(d) => d match {
             case Abs(p,b) =>
               val v = recv(p)
               val as->r = rec(rep,b,m)(vctx + (p->v))

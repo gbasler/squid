@@ -65,8 +65,11 @@ trait GraphRewriting extends AST { graph: Graph =>
         case Some(x0) =>
           println(s"...transforming ${xtor.simpleString}")
           println(s"...  ${ge.branchesToRebuild}")
-          ge.branchesToRebuild.foldRight(x0) {
-            case cid -> x => Branch(cid,x,xtee)
+          if (ge.branchesToRebuild.isEmpty) x0
+          else {
+            ge.branchesToRebuild.foldRight(x0) {
+              case cid -> x => Branch(cid,x,xtee).mkRep
+            }
           }
       }
     }.headOption
@@ -74,7 +77,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   // Q: do we need something like the old 'callsToAvoid'?
-  protected case class GraphExtract(extr: Extract, branchesToRebuild: Set[CallId]) {
+  protected case class GraphExtract(extr: Extract, branchesToRebuild: Set[CallId]) { // FIXME branchesToRebuild should include negatives
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
@@ -91,17 +94,18 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
     import GraphExtract.fromExtract
     
-    xtor -> xtee match {
-      case _ -> Call(cid, res) =>
+    xtor -> xtee match { // FIXME not matching Rep(Call...) ?!
+      case _ -> Rep(Call(cid, res)) =>
         extractGraph(xtor, res)(ctx.copy(curCallArgs = Left(cid) :: ctx.curCallArgs))
-      case _ -> Arg(cid, res) =>
+      case _ -> Rep(Arg(cid, res)) =>
         extractGraph(xtor, res)(ctx.copy(curCallArgs = Right(cid) :: ctx.curCallArgs))
-      case _ -> Branch(cid, thn, els) =>
+      case _ -> Rep(Branch(cid, thn, els)) =>
         if (cid in ctx.assumedCalled) extractGraph(xtor, thn)
         else if (cid in ctx.assumedNotCalled) extractGraph(xtor, els)
+        // FIXME: extend branchesToRebuild below!
         else extractGraph(xtor, thn)(ctx.copy(assumedCalled = ctx.assumedCalled + cid)) ++
              extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid))
-      case Node(dxtor) -> Node(dxtee) => dxtor -> dxtee match {
+      case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
         case (_, Ascribe(v,tp)) => extractGraph(xtor,v)
           
@@ -132,8 +136,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
           
           r2 = ctx.curCallArgs.foldLeft(r1) {
-            case r -> Left(cid) => Call(cid,r)
-            case r -> Right(cid) => Arg(cid,r)
+            case r -> Left(cid) => Call(cid,r).mkRep
+            case r -> Right(cid) => Arg(cid,r).mkRep
           }
           
           e <- merge(typE, repExtract(name -> r2))
@@ -183,7 +187,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         case _ => Nil
       }
-      case (Call(_,_)|Arg(_,_)|Branch(_,_,_)) -> _ => die
+      case Rep(Call(_,_)|Arg(_,_)|Branch(_,_,_)) -> _ => die
       case _ => Nil
     }
     
@@ -235,12 +239,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   }) :: Nil
   
   def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(rep: Rep): Iterator[Rep] = {
+    //println(edges)
     
-    rep.iterator.collect{case n:Node=>n}.flatMap(r => {
+    rep.iterator.flatMap(r => {
       tr.rules.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
         case Some(res) =>
-          println(s" ${r}  =>  $res")
-          rebind(r.bound, res.asInstanceOf[Node].boundTo) // FIXME
+          //println(s" ${r}  =>  $res")
+          rebind(r.bound, res.boundTo)
+          //println(edges)
       })
     })
     

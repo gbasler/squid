@@ -49,8 +49,8 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
   
   test("A") {
     
-    val shd = abs(v, Branch(c0, v, Branch(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v)))
-    val g = methodApp(Call(c0, shd), IntPlus, Nil, Args(Call(c1, shd))::Nil, Int)
+    val shd = abs(v, Branch(c0, v, Branch(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v).mkRep).mkRep)
+    val g = methodApp(Call(c0, shd).mkRep, IntPlus, Nil, Args(Call(c1, shd).mkRep)::Nil, Int)
     println(g)
     //println(g.iterator.toList)
     println(g.showGraph)
@@ -61,8 +61,8 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
   
   test("B") {
     
-    val shd = abs(v, Branch(c0, w, Branch(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v))) |> (mapp(_,IntToDouble,Int)()())
-    val g = methodApp(abs(w, Call(c0, shd)), IntPlus, Nil, Args(Call(c1, shd))::Nil, Int)
+    val shd = abs(v, Branch(c0, w, Branch(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v).mkRep).mkRep) |> (mapp(_,IntToDouble,Int)()())
+    val g = methodApp(abs(w, Call(c0, shd).mkRep), IntPlus, Nil, Args(Call(c1, shd).mkRep)::Nil, Int)
     //println(g)
     println(g.showGraph)
     println(g.showRep)

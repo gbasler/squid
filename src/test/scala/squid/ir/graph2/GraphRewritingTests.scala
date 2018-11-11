@@ -38,8 +38,9 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   import DSL.Quasicodes._
   
   def doTest(cde: Code[Any,Nothing]) = {
-    println("\n-> "+cde.rep.showGraph)
-    val ite = DSL.rewriteSteps(DSL.Tr)(code"0.toDouble".rep)
+    println("\n-> "+cde.rep.showGraph+"\n-> "+cde.show)
+    //println(DSL.edges)
+    val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
     while(ite.hasNext) {
       println("Rw "+ite.next)
       println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+cde.show)
