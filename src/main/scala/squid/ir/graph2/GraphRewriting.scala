@@ -68,7 +68,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           if (ge.branchesToRebuild.isEmpty) x0
           else {
             ge.branchesToRebuild.foldRight(x0) {
-              case cid -> x => Branch(cid,x,xtee).mkRep
+              case cid -> x => Branch(Condition(Nil,cid),x,xtee).mkRep
             }
           }
       }
@@ -100,11 +100,14 @@ trait GraphRewriting extends AST { graph: Graph =>
       case _ -> Rep(Arg(cid, res)) =>
         extractGraph(xtor, res)(ctx.copy(curCallArgs = Right(cid) :: ctx.curCallArgs))
       case _ -> Rep(Branch(cid, thn, els)) =>
+        ??? // TODO
+        /*
         if (cid in ctx.assumedCalled) extractGraph(xtor, thn)
         else if (cid in ctx.assumedNotCalled) extractGraph(xtor, els)
         // FIXME: extend branchesToRebuild below!
         else extractGraph(xtor, thn)(ctx.copy(assumedCalled = ctx.assumedCalled + cid)) ++
              extractGraph(xtor, els)(ctx.copy(assumedNotCalled = ctx.assumedNotCalled + cid))
+        */
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
         case (_, Ascribe(v,tp)) => extractGraph(xtor,v)

@@ -35,12 +35,18 @@ trait GraphScheduling extends AST { graph: Graph =>
     def + (cid: CallId) = CCtx(map + (cid -> this))
     def - (cid: CallId) =
       //map.getOrElse(cid, this)
-      map(cid) // TODO B/E?
+      //map(cid) // TODO B/E?
+      CCtx(map - cid)
   }
   object CCtx { val empty: CCtx = CCtx(Map.empty) }
-  def hasCall(cid: CallId)(implicit cctx: CCtx) = cctx.map.isDefinedAt(cid)
+  def hasCond(cond: Condition)(implicit cctx: CCtx) = cond.ops.foldLeft(cctx){
+    case (ccur,(Call,cid)) => withCall(cid)(ccur)
+    case (ccur,(Arg,cid)) => withArg(cid)(ccur)
+    case (ccur,(Pass,cid)) => withPass(cid)(ccur)
+  }.isDefinedAt(cond.cid)
   def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + cid
-  def withoutCall(cid: CallId)(implicit cctx: CCtx) = cctx - cid
+  def withPass(cid: CallId)(implicit cctx: CCtx) = cctx - cid
+  def withArg(cid: CallId)(implicit cctx: CCtx) = CCtx(cctx.map ++ cctx.map(cid).map) // TODO B/E?
   
   object EvalDebug extends PublicTraceDebug
   import EvalDebug.{debug=>Edebug}
@@ -49,9 +55,10 @@ trait GraphScheduling extends AST { graph: Graph =>
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.boundTo match {
       case Call(cid,res) => rec(res)(withCall(cid), vctx)
-      case Arg(cid,res) => rec(res)(withoutCall(cid), vctx)
-      case Branch(cid,thn,els) if hasCall(cid) => rec(thn)
-      case Branch(cid,thn,els) => assert(!cctx.isDefinedAt(cid)); rec(els)
+      case Arg(cid,res) => rec(res)(withArg(cid), vctx)
+      case Pass(cid,res) => rec(res)(withPass(cid), vctx)
+      case Branch(cond,thn,els) if hasCond(cond) => rec(thn)
+      case Branch(cid,thn,els) => /*assert(!cctx.isDefinedAt(cid));*/ rec(els)
       case ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
@@ -102,8 +109,9 @@ trait GraphScheduling extends AST { graph: Graph =>
     
     def schedule(rep: Rep): nb.Rep = {
       
-      val allCtx = mutable.Map.empty[Rep,Set[CallId]]
-      val someCtx = mutable.Map.empty[Rep,Set[CallId]]
+      //val allCtx = mutable.Map.empty[Rep,Set[CallId]]
+      //val someCtx = mutable.Map.empty[Rep,Set[CallId]]
+      val reachingCtxs = mutable.Map.empty[Rep,Set[CCtx]]
       val nPaths = mutable.Map.empty[Rep,Int]//.withDefaultValue(0)
       
       //val bottom = Bottom.toRep
@@ -113,13 +121,14 @@ trait GraphScheduling extends AST { graph: Graph =>
         //println(s"Analyse $rep")
         //nPaths(rep) += 1
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
-        someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
-        allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
+        //someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
+        //allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
+        reachingCtxs(rep) = reachingCtxs.getOrElse(rep,Set.empty) + cctx
         rep.boundTo match {
-          case Pass(cid, res) => analyse(res)(withoutCall(cid)) // FIXME probably
+          case Pass(cid, res) => analyse(res)(withPass(cid)) // FIXME probably
           case Call(cid, res) => analyse(res)(withCall(cid))
-          case Arg(cid, res) => analyse(res)(withoutCall(cid))
-          case Branch(cid, thn, els) => if (hasCall(cid)) analyse(thn) else analyse(els)
+          case Arg(cid, res) => analyse(res)(withArg(cid))
+          case Branch(cond, thn, els) => if (hasCond(cond)) analyse(thn) else analyse(els)
           //case Node(MirrorVal(v)) => 
           case ConcreteNode(d) => d.children.foreach(analyse)
         }
@@ -147,13 +156,18 @@ trait GraphScheduling extends AST { graph: Graph =>
         rep.boundTo match { // Note: never scheduling control-flow nodes, on purpose
           case Call(cid,res) => rec(pred,res,n)
           case Arg(cid,res) => rec(pred,res,n)
-          case Branch(cid,thn,els) if allCtx(pred)(cid) => rec(pred,thn,n)
-          case Branch(cid,thn,els) if !someCtx(pred)(cid) => rec(pred,els,n)
-          case b @ Branch(cid,thn,els) =>
-            val v = freshBoundVal(rep.typ)
-            val w = recv(v)
-            //((w,b)::Nil) -> nb.readVal(w)
-            ((w,rep)::Nil) -> nb.readVal(w)
+          //case Branch(cond,thn,els) if allCtx(pred)(cond) => rec(pred,thn,n)
+          //case Branch(cond,thn,els) if !someCtx(pred)(cond) => rec(pred,els,n)
+          case b @ Branch(cond,thn,els) =>
+            val reaching = reachingCtxs(pred)
+            if (reaching.forall(hasCond(cond)(_))) rec(pred,thn,n)
+            else if (!reaching.exists(hasCond(cond)(_))) rec(pred,els,n)
+            else {
+              val v = freshBoundVal(rep.typ)
+              val w = recv(v)
+              //((w,b)::Nil) -> nb.readVal(w)
+              ((w,rep)::Nil) -> nb.readVal(w)
+            }
           case nde @ ConcreteNode(d) if m > n =>
             println(s"$m > $n")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {

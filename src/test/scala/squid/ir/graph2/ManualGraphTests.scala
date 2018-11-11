@@ -27,6 +27,7 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
   import DSL.{typeRepOf => _,_}
   
   implicit def toRep(d: Def): Rep = d.toRep
+  implicit def toCond(cid: CallId): Condition = Condition(Nil,cid)
   val IntPlus = `scala.Int`.`method +:3`.value
   val IntToDouble = `scala.Int`.`method toDouble`.value
   val Int = typeRepOf[Int]
