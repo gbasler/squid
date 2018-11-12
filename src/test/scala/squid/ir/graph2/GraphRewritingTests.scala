@@ -71,7 +71,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(11) + f(22)", 1)(66)
     
-    // FIXME: rewrite assumptions are not handled properly
+    // FIXME: currently creates a cycle
     //DSL.ScheduleDebug debugFor
     //doTest(code"val f = $f; f(f(22))", 1)(88)
     

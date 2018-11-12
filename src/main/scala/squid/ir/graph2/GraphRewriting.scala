@@ -66,13 +66,12 @@ trait GraphRewriting extends AST { graph: Graph =>
         case Some(x0) =>
           //println(s"...transforming ${xtor.simpleString} -> $x0")
           println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
-          println(s"...  ${ge.assumptions}")
+          println(s"...  ${ge.assumed} ! ${ge.assumedNot}")
           //println(s"Nota: ${showEdges}")
-          if (ge.assumptions.isEmpty) x0
-          else {
-            ge.assumptions.foldRight(x0) {
-              case cond -> x => Branch(cond,x,xtee).mkRep
-            }
+          ge.assumed.foldRight(ge.assumedNot.foldRight(x0) {
+            case cond -> x => Branch(cond,xtee,x).mkRep
+          }) {
+            case cond -> x => Branch(cond,x,xtee).mkRep
           }
       }
     }.headOption
@@ -80,17 +79,19 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   // Q: do we need something like the old 'callsToAvoid'?
-  protected case class GraphExtract(extr: Extract, assumptions: Set[Condition]) { // FIXME assumptions are currently not actually aggregated!
+  protected case class GraphExtract(extr: Extract, assumed: Set[Condition], assumedNot: Set[Condition]) {
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
       graph.merge(extr,that.extr).map(e =>
-        GraphExtract(e, assumptions ++ that.assumptions))
-    override def toString = s"{${assumptions.mkString(",")}}\\\t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
+        GraphExtract(e, assumed ++ that.assumed, assumedNot ++ that.assumedNot))
+    def assuming(a: Condition) = copy(assumed = assumed + a)
+    def assumingNot(a: Condition) = copy(assumedNot = assumedNot + a)
+    override def toString = s"{${assumed.mkString(",")}}!{${assumedNot.mkString(",")}}\\\t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
       (extr._1-SCRUTINEE_KEY).map(r => "\n\t "+r._1+" -> "+r._2).mkString}"
   }
   protected object GraphExtract {
-    val empty: GraphExtract = GraphExtract(EmptyExtract, Set.empty)
+    val empty: GraphExtract = GraphExtract(EmptyExtract, Set.empty, Set.empty)
     def fromExtract(e: Extract): GraphExtract = empty copy (extr = e)
   }
   
@@ -108,8 +109,8 @@ trait GraphRewriting extends AST { graph: Graph =>
         val newCond = Condition(ctx.curOps ++ cond.ops, cond.cid)
         if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
         else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
-        else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond)) ++
-             extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond))
+        else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond)).map(_ assuming newCond) ++
+             extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond)).map(_ assumingNot newCond)
         
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
