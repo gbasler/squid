@@ -141,7 +141,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       
       def analyse(rep: Rep)(implicit cctx: CCtx): Unit = {
       //if (analysed.contains(cctx->rep)) println(s"??? graph seems cyclic! $rep $cctx") else { analysed += cctx -> rep
-        Sdebug(s"Analyse $rep $cctx")
+      //  Sdebug(s"Analyse $rep $cctx")
         //Thread.sleep(50)
         //nPaths(rep) += 1
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
@@ -159,8 +159,8 @@ trait GraphScheduling extends AST { graph: Graph =>
       }
       analyse(rep)(CCtx.empty)
       
-      //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
-      Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
+      ////println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
+      //Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
       
       //val scheduled = mutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)] // scala bug: wrong order!!
       //var scheduled = immutable.ListMap.empty[ConcreteNode,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]

@@ -54,7 +54,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false)).headOption map (_.extr)
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
-    //println(s"rewriteRep $xtor << $xtee")
+    println(s"rewriteRep $xtee  >>  $xtor")
     
     val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
@@ -67,11 +67,14 @@ trait GraphRewriting extends AST { graph: Graph =>
           //println(s"...transforming ${xtor.simpleString} -> $x0")
           println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...  ${ge.assumed} ! ${ge.assumedNot}")
-          //println(s"Nota: ${showEdges}")
-          ge.assumed.foldRight(ge.assumedNot.foldRight(x0) {
-            case cond -> x => Branch(cond,xtee,x).mkRep
-          }) {
-            case cond -> x => Branch(cond,x,xtee).mkRep
+          //println(f: ${showEdges}")
+          if (ge.assumed.isEmpty && ge.assumedNot.isEmpty) x0 else {
+            val oldXtee = xtee.boundTo.mkRep // alternatively, could do the rebind here?
+            ge.assumed.foldRight(ge.assumedNot.foldRight(x0) {
+              case cond -> x => Branch(cond,oldXtee,x).mkRep
+            }) {
+              case cond -> x => Branch(cond,x,oldXtee).mkRep
+            }
           }
       }
     }.headOption
@@ -109,8 +112,8 @@ trait GraphRewriting extends AST { graph: Graph =>
         val newCond = Condition(ctx.curOps ++ cond.ops, cond.cid)
         if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
         else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
-        else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond)).map(_ assuming newCond) ++
-             extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond)).map(_ assumingNot newCond)
+        else (if (newCond in ctx.assumedNot) Nil else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond)).map(_ assuming newCond)) ++
+          (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond)).map(_ assumingNot newCond))
         
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
