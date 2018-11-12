@@ -96,6 +96,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def iterator = graph.iterator(this)
     def showGraph = graph.showGraph(this)
+    def showFullGraph = graph.showGraph(this,true)
     def showRep = graph.showRep(this)
     def isSimple: Bool = boundTo.isSimple // FIXME?
     
@@ -272,8 +273,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   //def showGraph(rep: Rep): String = rep.simpleString + {
-  def showGraph(rep: Rep): String = rep.fullString + {
-    val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
+  def showGraph(rep: Rep, full: Bool = false): String = rep.fullString + {
+    //val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
+    val defsStr = iterator(rep).toList.distinct.filterNot(_ === rep).collect {
+      case r if full =>
+        s"\n\t${r.bound} = ${(new DefPrettyPrinter(false,false))(r.boundTo)};"
+      case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};"
+    }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
@@ -302,14 +308,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   private def colorOf(cid: CallId) = colors(cid.uid%colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
-  class DefPrettyPrinter extends super.DefPrettyPrinter {
+  class DefPrettyPrinter(showInlineNames: Bool = true, showInlineCF:Bool = true) extends super.DefPrettyPrinter {
     val printed = mutable.Set.empty[Rep]
     override val showValTypes = false
     override val desugarLetBindings = false
     var curCol = Console.BLACK
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
+      case _ if !showInlineCF => super.apply(r.bound)
       case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
-      case n => apply(n)
+      case n => (if (showInlineNames) Debug.GREY +r.bound+":" + curCol else "")+apply(n)
     }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     override def apply(d: Def): String = d match {
       case Bottom => "⊥"
@@ -329,10 +336,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         s"⟦$col$cid⟧$curCol${res|>apply}"
       case Branch(Condition(ops,cid), cbr, els) =>
         val oldCol = curCol
-        //curCol = colorOf(cid)
-        val col = colorOf(cid)
+        curCol = colorOf(cid)
         //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
-        s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$col$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+        s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
       case ConcreteNode(d) => apply(d)
     }
   }

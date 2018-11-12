@@ -52,7 +52,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
       println(s"Rw ${cde.rep.bound} -> $n")
       //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
       //println(s"Nota: ${showEdges}")
-      println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+cde.show)
+      println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showFullGraph+"\n~> "+cde.show)
     }
     println("---")
   }
