@@ -157,6 +157,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       // TODO prevent infinite recursion?
       def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal]): List[nb.BoundVal->Rep]->nb.Rep = {
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
+        //println(rep,vctx)
         
         //val m = nPaths.getOrElse(rep, if (n > 0) return rec(pred, bottom, 0) else 0)
         val m = nPaths.getOrElse(rep, println(s"No path count for ${rep}") thenReturn 0)
@@ -180,23 +181,29 @@ trait GraphScheduling extends AST { graph: Graph =>
               //((w,b)::Nil) -> nb.readVal(w)
               ((w,rep)::Nil) -> nb.readVal(w)
             }
-          case nde @ ConcreteNode(d) if m > n =>
-            println(s"$m > $n")
+          // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
+          // obviously fail as they will be extruded from their scope...
+          // But if that condition enough to prevent scope extrusion in general?!
+          case nde @ ConcreteNode(d) if !d.isSimple && m > n =>
+            //println(s"Sch $m > $n")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
               val as->nr = rec(rep,rep,nPaths(rep))(Map.empty)
               val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
               val w = recv(v)
-              (w,nb.lambda(as.unzip._1,nr),as.unzip._2,rect(v.typ))
+              (w,if (as.isEmpty) nr else nb.lambda(as.unzip._1,nr),as.unzip._2,rect(v.typ))
             } also (scheduled += rep -> _))
             val s = args.map(b => rec(rep,b,m))
             val a = s.flatMap(_._1)
-            val e = appN(fsym|>nb.readVal,s.map(_._2),rect(nde.typ))
+            val f = fsym|>nb.readVal
+            val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
             a -> e
           case ConcreteNode(d) => d match {
             case Abs(p,b) =>
+              //println(s"Abs($p,$b)")
               val v = recv(p)
               val as->r = rec(rep,b,m)(vctx + (p->v))
+              //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
             case MirrorVal(v) => Nil -> (vctx(v) |> nb.readVal)
             case MethodApp(self, mtd, targs, argss, tp) =>

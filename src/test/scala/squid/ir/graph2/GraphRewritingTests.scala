@@ -25,7 +25,12 @@ object GraphRewritingTests extends Graph {
     import Predef._
     
     rewrite {
-      case c"0" => c"1"
+      case c"666" => c"42"
+      case code"(($x: $xt) => $body:$bt)($arg)" =>
+        println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraph}")
+        val res = body.subs(x) ~> arg
+        println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
+        res
     }
     
   }
@@ -37,7 +42,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   import DSL.Predef._
   import DSL.Quasicodes._
   
-  def doTest(cde: Code[Any,Nothing]) = {
+  def doTest(cde: Code[Any,Nothing], expectedSize: Int = Int.MaxValue)(expectedResult: Any = null) = {
     println("\n-> "+cde.rep.showGraph+"\n-> "+cde.show)
     //println(DSL.edges)
     val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
@@ -49,7 +54,17 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   
   test("A") {
     
-    doTest(code"0.toDouble")
+    doTest(code"666.toDouble")()
+    
+  }
+  
+  test("Basic Cross-Boundary Rewriting") {
+    
+    val f = code"(x: Int) => x + x"
+    
+    doTest(code"val f = $f; f(11) + f(22)", 1)(66)
+    
+    doTest(code"val f = $f; f(f(22))", 1)(88)
     
   }
   

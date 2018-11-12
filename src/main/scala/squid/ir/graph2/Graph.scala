@@ -233,6 +233,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
   
   
+  override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
+    ???
+  }
+  
   
   
   
