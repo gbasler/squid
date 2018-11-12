@@ -26,6 +26,10 @@ import scala.collection.mutable
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
   val edges = new java.util.WeakHashMap[Val,Node]
+  val lambdaBound = new java.util.WeakHashMap[Val,Val]
+  
+  def showEdges =
+    collection.JavaConverters.mapAsScalaMap(edges).map(_ ||> ("\t" + _ + " -> " + _)).mkString("\n")
   
   def bind(v: Val, d: Node): Unit = {
     //require(!edges.isDefinedAt(v))
@@ -33,6 +37,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     rebind(v, d)
   }
   def rebind(v: Val, d: Node): Unit = {
+    //println(s"$v !> $d")
     //require(!v.isInstanceOf[MirrorVal])
     require(v =/= BranchVal)
     //require(!d.isInstanceOf[BoundVal] || d.isInstanceOf[SyntheticVal], s"$d")  // TODO enforce?
@@ -50,6 +55,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "$u22A5", None), Nil, Nil, NothingType)
   
   object BranchVal extends BoundVal("<branch>")(NothingType, Nil)
+  //lazy val BranchRep = BranchVal.toRep
   
   //class MirrorVal(v: Val) extends BoundVal("@"+v.name)(v.typ,Nil) {
   //  require(!v.isInstanceOf[MirrorVal])
@@ -116,7 +122,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   class ConcreteNode(val boundTo: Def) extends Node { // TODO rename boundTo
     def typ = boundTo.typ
     def isSimple = boundTo.isSimple
-    override def toString = boundTo.toString
+    override def toString = boundTo.toString // calls prettyPrint(boundTo)
   }
   object ConcreteNode {
     //def unapply(n: Node) = Option(n.boundTo)
@@ -178,8 +184,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   abstract case class Condition(ops: List[Op], cid: CallId) {
     def isAlwaysTrue: Bool = ops === ((Call,cid)::Nil)
     def isAlwaysFalse: Bool = ops === ((Pass,cid)::Nil)
+  
+    override def toString = s"${ops.map{case(k,c)=>s"$k$c;"}.mkString}$cid?"
+    //override def toString = Branch(this,BranchRep,BranchRep).toString
   }
   object Condition {
+    def simple(cid: CallId) = Condition(Nil,cid)
     def apply(ops: List[Op], cid: CallId) = {
       // Try to simplify the ops if the condition is always true or false:
       ops.foldLeft(CCtx.empty) {
@@ -229,18 +239,40 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     letinImpl(bound,value,body)
   
-  override def abs(param: BoundVal, body: => Rep): Rep =
-    letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
+  override def abs(param: BoundVal, body: => Rep): Rep = {
+    //letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
+    
+    val occ = rep(new MirrorVal(param))
+    lambdaBound.put(param, occ.bound)
+    letinImpl(param, occ, super.abs(param, body))
+  }
   
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
-    ???
+    val cid = new CallId("α")
+    
+    val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
+    val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].boundTo.asInstanceOf[MirrorVal]
+    assert(mir.v === v)
+    
+    val newOcc = mir.toRep
+    val arg = mkArg
+    val bran = Branch(Condition.simple(cid), arg, newOcc)
+    
+    rebind(occ, bran)
+    lambdaBound.put(v,newOcc.bound)
+    
+    val body = r.boundTo.mkRep
+    rebind(r.bound, Pass(cid, body))
+    
+    Call(cid, body).mkRep
   }
   
   
   
   
-  def showGraph(rep: Rep): String = rep.simpleString + {
+  //def showGraph(rep: Rep): String = rep.simpleString + {
+  def showGraph(rep: Rep): String = rep.fullString + {
     val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
@@ -276,6 +308,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override val desugarLetBindings = false
     var curCol = Console.BLACK
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
+      case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
+      case n => apply(n)
+    }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
+    override def apply(d: Def): String = d match {
+      case Bottom => "⊥"
+      case MirrorVal(v) => s"<$v>"
+      case _ => super.apply(d)
+    }
+    def apply(n: Node): String = n match {
       case Pass(cid, res) =>
         val col = colorOf(cid)
         s"$col⟦$cid⟧$curCol ${res |> apply}"
@@ -288,21 +329,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         s"⟦$col$cid⟧$curCol${res|>apply}"
       case Branch(Condition(ops,cid), cbr, els) =>
         val oldCol = curCol
-        curCol = colorOf(cid)
+        //curCol = colorOf(cid)
+        val col = colorOf(cid)
         //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
-        s"${ops.map{case(k,c)=>s"$k$c;"}.mkString}$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)}"
-      case r: ConcreteNode =>
-        r match {
-          case ConcreteNode(d) if d.isSimple => apply(d)
-          case _ => super.apply(r.boundTo)
-        }
-    }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
-    override def apply(d: Def): String = d match {
-      case Bottom => "⊥"
-      case MirrorVal(v) => s"<$v>"
-      case _ => super.apply(d)
+        s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$col$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+      case ConcreteNode(d) => apply(d)
     }
-    def apply(n: Node): String = ???
   }
   
   

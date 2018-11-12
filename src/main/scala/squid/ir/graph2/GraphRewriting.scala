@@ -54,6 +54,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false)).headOption map (_.extr)
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+    //println(s"rewriteRep $xtor << $xtee")
     
     val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
@@ -63,8 +64,10 @@ trait GraphRewriting extends AST { graph: Graph =>
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
-          println(s"...transforming ${xtor.simpleString}")
+          //println(s"...transforming ${xtor.simpleString} -> $x0")
+          println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...  ${ge.assumptions}")
+          //println(s"Nota: ${showEdges}")
           if (ge.assumptions.isEmpty) x0
           else {
             ge.assumptions.foldRight(x0) {
@@ -77,7 +80,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   // Q: do we need something like the old 'callsToAvoid'?
-  protected case class GraphExtract(extr: Extract, assumptions: Set[Condition]) { // FIXME branchesToRebuild should include negatives
+  protected case class GraphExtract(extr: Extract, assumptions: Set[Condition]) { // FIXME assumptions are currently not actually aggregated!
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
@@ -119,7 +122,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         case (h:HOPHole, _) => ??? // TODO
           
-        case (_, MirrorVal(_)) => die // TODO?
+        //case (_, MirrorVal(_)) => die // TODO?
+        case (_, MirrorVal(v)) => GraphExtract.empty optionIf (dxtor === v) toList
           
         case (_, Hole(_)) => die
           
@@ -244,10 +248,14 @@ trait GraphRewriting extends AST { graph: Graph =>
     //println(edges)
     
     rep.iterator.flatMap(r => {
+      val oldBound = r.bound
       tr.rules.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
         case Some(res) =>
+          if (r.bound =/= oldBound) println(s"!!! ${r.bound} =/= ${oldBound}")
           //println(s" ${r}  =>  $res")
+          
           rebind(r.bound, res.boundTo)
+          
           //println(edges)
       })
     })

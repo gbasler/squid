@@ -44,9 +44,12 @@ trait GraphScheduling extends AST { graph: Graph =>
       case Pass => Some(withPass(op._2))
       case Arg => withArg_?(op._2)
     }
+  
+    override def toString = s"E{${map.map(_ ||> (_ + "->" + _.getOrElse("∅"))).mkString(",")}}"
   }
   object CCtx { val empty: CCtx = CCtx(Map.empty) }
-  def hasCond(cond: Condition)(implicit cctx: CCtx) = hasCond_?(cond).get
+  def hasCond(cond: Condition)(implicit cctx: CCtx) = hasCond_?(cond).getOrElse(
+    lastWords(s"Cannot resolve $cond in $cctx"))
   def hasCond_?(cond: Condition)(implicit cctx: CCtx): Opt[Bool] = cond.ops.foldLeft(cctx){
     case (ccur,(Call,cid)) => withCall(cid)(ccur)
     case (ccur,(Pass,cid)) => withPass(cid)(ccur)
@@ -88,6 +91,9 @@ trait GraphScheduling extends AST { graph: Graph =>
     rec(rep)(CCtx.empty,Map.empty).value
   }
   
+  object ScheduleDebug extends PublicTraceDebug
+  import ScheduleDebug.{debug=>Sdebug}
+  
   def scheduleAndRun(rep: Rep): Any = SimpleASTBackend runRep rep |> treeInSimpleASTBackend
   def scheduleAndCompile(rep: Rep): Any = SimpleASTBackend compileRep rep |> treeInSimpleASTBackend
   
@@ -119,18 +125,24 @@ trait GraphScheduling extends AST { graph: Graph =>
         nb.loadMtdSymbol(nb.loadTypSymbol("squid.lib.package$"), "dead", None), typ::Nil, nb.Args(rep)::Nil, typ)
     }
     
+    // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
+      Sdebug(s"Scheduling: ${rep.showGraph}")
       
       //val allCtx = mutable.Map.empty[Rep,Set[CallId]]
       //val someCtx = mutable.Map.empty[Rep,Set[CallId]]
-      val reachingCtxs = mutable.Map.empty[Rep,Set[CCtx]]
+      val reachingCtxs = mutable.Map.empty[Rep,Set[CCtx]] // TODO rm...
       val nPaths = mutable.Map.empty[Rep,Int]//.withDefaultValue(0)
       
       //val bottom = Bottom.toRep
       //nPaths(bottom) = Int.MaxValue
       
+      //val analysed = mutable.Set.empty[CCtx->Rep]
+      
       def analyse(rep: Rep)(implicit cctx: CCtx): Unit = {
-        //println(s"Analyse $rep")
+      //if (analysed.contains(cctx->rep)) println(s"??? graph seems cyclic! $rep $cctx") else { analysed += cctx -> rep
+        Sdebug(s"Analyse $rep $cctx")
+        //Thread.sleep(50)
         //nPaths(rep) += 1
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
         //someCtx(rep) = someCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
@@ -148,6 +160,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       analyse(rep)(CCtx.empty)
       
       //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
+      Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
       
       //val scheduled = mutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)] // scala bug: wrong order!!
       //var scheduled = immutable.ListMap.empty[ConcreteNode,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
@@ -155,9 +168,11 @@ trait GraphScheduling extends AST { graph: Graph =>
       // ^ FIXME keys type?
       
       // TODO prevent infinite recursion?
-      def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal]): List[nb.BoundVal->Rep]->nb.Rep = {
+      type recRet = List[nb.BoundVal->Rep]->nb.Rep
+      def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
-        //println(rep,vctx)
+        Sdebug(s"> Sch ${pred.bound} -> $rep  (${vctx.mkString(",")})  ${reachingCtxs(pred).mkString(" ")}")
+        assert(reachingCtxs(pred).nonEmpty)
         
         //val m = nPaths.getOrElse(rep, if (n > 0) return rec(pred, bottom, 0) else 0)
         val m = nPaths.getOrElse(rep, println(s"No path count for ${rep}") thenReturn 0)
@@ -166,18 +181,22 @@ trait GraphScheduling extends AST { graph: Graph =>
           as->dead(r,rect(rep.typ))
         }
         
-        rep.boundTo match { // Note: never scheduling control-flow nodes, on purpose
-          case Call(cid,res) => rec(pred,res,n)
-          case Arg(cid,res) => rec(pred,res,n)
+        val res = ScheduleDebug.nestDbg { rep.boundTo |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
+          //case Box(cid,res,_) => rec(pred,res,n)
+          case Box(cid,res,k) => rec(pred,res,n)(vctx,cctx.withOp_?(k->cid).getOrElse(???))
           //case Branch(cond,thn,els) if allCtx(pred)(cond) => rec(pred,thn,n)
           //case Branch(cond,thn,els) if !someCtx(pred)(cond) => rec(pred,els,n)
           case b @ Branch(cond,thn,els) =>
             val reaching = reachingCtxs(pred)
-            if (reaching.forall(hasCond(cond)(_))) rec(pred,thn,n)
-            else if (!reaching.exists(hasCond(cond)(_))) rec(pred,els,n)
+            //if (reaching.forall(hasCond(cond)(_))) rec(pred,thn,n)
+            //else if (!reaching.exists(hasCond(cond)(_))) rec(pred,els,n)
+            val hc = hasCond_?(cond)
+            if (hc===Some(true)) rec(pred,thn,n)
+            else if (hc===Some(false)) rec(pred,els,n)
             else {
               val v = freshBoundVal(rep.typ)
               val w = recv(v)
+              Sdebug(s"$v ~> $w")
               //((w,b)::Nil) -> nb.readVal(w)
               ((w,rep)::Nil) -> nb.readVal(w)
             }
@@ -185,10 +204,10 @@ trait GraphScheduling extends AST { graph: Graph =>
           // obviously fail as they will be extruded from their scope...
           // But if that condition enough to prevent scope extrusion in general?!
           case nde @ ConcreteNode(d) if !d.isSimple && m > n =>
-            //println(s"Sch $m > $n")
+            Sdebug(s"! $m > $n")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
-              val as->nr = rec(rep,rep,nPaths(rep))(Map.empty)
+              val as->nr = rec(rep,rep,nPaths(rep))(Map.empty,CCtx.empty)
               val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
               val w = recv(v)
               (w,if (as.isEmpty) nr else nb.lambda(as.unzip._1,nr),as.unzip._2,rect(v.typ))
@@ -202,7 +221,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             case Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
-              val as->r = rec(rep,b,m)(vctx + (p->v))
+              val as->r = rec(rep,b,m)(vctx + (p->v), cctx)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
             case MirrorVal(v) => Nil -> (vctx(v) |> nb.readVal)
@@ -221,9 +240,12 @@ trait GraphScheduling extends AST { graph: Graph =>
               rec(rep,r,m) ||> (_2 = nb.module(_,name,rect(typ)))
             case ld: LeafDef => Nil->apply(ld)
           }
-        }
+        //}} ||> (_.groupBy(_._2).mapValues(_.head._1).toList.map(_.swap))
+        }} // ^ unsound; can't just forget about things we promised to bind...
+        Sdebug(s"<"+res._1.map("\t"+_).mkString("\n"))
+        res
       }
-      val Nil->r = rec(rep,rep,1)(Map.empty) // TODO B/E
+      val Nil->r = rec(rep,rep,1)(Map.empty,CCtx.empty) // TODO B/E
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
     }
     
