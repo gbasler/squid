@@ -29,7 +29,7 @@ object GraphRewritingTests extends Graph {
       case code"(($x: $xt) => $body:$bt)($arg)" =>
         println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraph}")
         val res = body.subs(x) ~> arg
-        println(s"!<< SUBSTITUTE'd ${res.rep.bound} = ${res.rep.showGraph}")
+        println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
         //println(s"Nota: ${showEdges}")
         res
     }
@@ -66,14 +66,15 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   // TODO also test when f is new each time
   test("Basic Cross-Boundary Rewriting") {
     
-    val f = code"(x: Int) => x + x"
+    def f = code"(x: Int) => x + x"
+    //val f = code"(x: Int) => x + x" // FIXME: makes second test crash: Cannot resolve α1? in E{α0->∅}
     
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(11) + f(22)", 1)(66)
     
-    // FIXME: currently creates a cycle
-    //DSL.ScheduleDebug debugFor
-    //doTest(code"val f = $f; f(f(22))", 1)(88)
+    // FIXME: does 3 redexes instead of 2, and does not factor the addition!
+    DSL.ScheduleDebug debugFor
+    doTest(code"val f = $f; f(f(22))", 1)(88)
     
   }
   
