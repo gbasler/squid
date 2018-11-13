@@ -39,6 +39,13 @@ object GraphRewritingTests extends Graph {
 
 import GraphRewritingTests._
 
+/*
+
+TODO try to trigger the unsoundness with matching things inside lambda bodies and doing substitution
+
+
+
+*/
 class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   import DSL.Predef._
   import DSL.Quasicodes._
@@ -67,17 +74,18 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   test("Basic Cross-Boundary Rewriting") {
     
     def f = code"(x: Int) => x + x"
-    //val f = code"(x: Int) => x + x" // FIXME: makes second test crash: Cannot resolve α1? in E{α0->∅}
+    //val f = code"(x: Int) => x + x" // TODO try again FIXME: makes second test crash: Cannot resolve α1? in E{α0->∅}
     
     //DSL.ScheduleDebug debugFor
-    //doTest(code"val f = $f; f(11) + f(22)", 1)(66)
+    doTest(code"val f = $f; f(11) + f(22)", 1)(66)
     
-    // FIXME: does 3 redexes instead of 2, and does not factor the addition!
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(f(22))", 1)(88)
     
-    //doTest(code"val f = $f; f(11) + f(f(22))", 1)(66) // FIXME SOF
-    //doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(66) // TODO try
+    //DSL.ScheduleDebug debugFor
+    doTest(code"val f = $f; f(11) + f(f(22))", 1)(66)
+    
+    doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(66) // TODO see why we schedule 'sch$9_2' which is used only once...
     
   }
   
