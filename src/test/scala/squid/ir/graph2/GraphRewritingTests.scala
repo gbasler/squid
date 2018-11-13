@@ -85,7 +85,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(11) + f(f(22))", 1)(66)
     
-    doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(66) // TODO see why we schedule 'sch$9_2' which is used only once...
+    //DSL.ScheduleDebug debugFor
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(66)
+    // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
+    //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     
   }
   

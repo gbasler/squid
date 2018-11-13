@@ -108,4 +108,9 @@ object CollectionUtils {
     }
   }
   
+  implicit class PairTraversableOnceHelper[A,B](private val self: TraversableOnce[A->B]) extends AnyVal {
+    def mapLHS[C](f: A => C) = self.map(_ ||> (_1 = f))
+    def mapRHS[C](f: B => C) = self.map(_ ||> (_2 = f))
+  }
+  
 }

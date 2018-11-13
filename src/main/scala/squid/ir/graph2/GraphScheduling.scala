@@ -18,7 +18,7 @@ package graph2
 import squid.ir.graph.CallId
 import squid.ir.graph.SimpleASTBackend
 import squid.utils._
-import squid.utils.CollectionUtils.MutSetHelper
+import squid.utils.CollectionUtils._
 
 import scala.collection.{mutable, immutable}
 import scala.collection.immutable.ListMap
@@ -221,7 +221,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           // obviously fail as they will be extruded from their scope...
           // But if that condition enough to prevent scope extrusion in general?!
           case nde @ ConcreteNode(d) if !d.isSimple && pointers(rep).size > 1 && !topLevel => // FIXME condition '!d.isSimple'
-            Sdebug(s"! 1 < |${pointers(rep).iterator.map(_._2.bound).mkSetString}|")
+            Sdebug(s"! 1 < |${pointers(rep).iterator.mapLHS(_.mkString(":")).mapRHS(_.bound).mkSetString}|")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
               val as->nr = rec(rep,rep,nPaths(rep),topLevel=true)(Map.empty,CCtx.empty) ||> (_.toList)
