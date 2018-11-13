@@ -18,11 +18,12 @@ package graph2
 
 import utils._
 import squid.lib.matching._
-import squid.lib.const
+import squid.lib
+import squid.ir.graph.{SimpleASTBackend => AST}
 
 object GraphRewritingTests extends Graph {
   object Tr extends SimpleRuleBasedTransformer with SelfTransformer {
-    import Predef._
+    import Predef.{Const=>_,_}
     
     rewrite {
       case c"666" => c"42"
@@ -32,6 +33,9 @@ object GraphRewritingTests extends Graph {
         println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
         //println(s"Nota: ${showEdges}")
         res
+      case r @ code"lib.const[Int](${n0@Const(n)})+lib.const[Int](${m0@Const(m)})" =>
+        //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
+        println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
     }
     
   }
@@ -55,22 +59,28 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     val cdes = cde.show
     println("\n-> "+cde.rep.showGraph+"\n-> "+cdes)
     //println(DSL.edges)
-    def printCheckEval(): Unit = if (doEval) {
+    def printCheckEval(rep: AST.Rep): Unit = if (doEval) {
       val value = //DSL.EvalDebug.debugFor
         cde.run
       if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cdes}")
-      println(s"== ${value}\n== ${Console.RED}${try DSL.scheduleAndRun(cde.rep) catch{case e:Throwable=>e}}${Console.RESET}")
+      //println(s"== ${value}\n== ${Console.RED}${try DSL.scheduleAndRun(cde.rep) catch{case e:Throwable=>e}}${Console.RESET}")
+      println(s"== ${value}\n== ${Console.RED}${try AST.runRep(rep) catch{case e:Throwable=>e}}${Console.RESET}")
     }
-    printCheckEval()
-    val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
-    while(ite.hasNext) {
-      val n = ite.next
-      println(s"Rw ${cde.rep.bound} -> $n")
-      //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
-      //println(s"Nota: ${showEdges}")
-      println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+cde.show)
-      printCheckEval()
-    }
+    printCheckEval(DSL.treeInSimpleASTBackend(cde.rep))
+    var mod = false
+    do {
+      val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
+      mod = ite.hasNext
+      while (ite.hasNext) {
+        val n = ite.next
+        val sch = DSL.treeInSimpleASTBackend(cde.rep)
+        println(s"Rw ${cde.rep.bound} -> $n")
+        //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
+        //println(s"Nota: ${showEdges}")
+        println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+AST.showRep(sch))
+        printCheckEval(sch)
+      }
+    } while (mod)
     println("---")
   }
   
@@ -80,10 +90,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     
   }
   
+  def f = code"(x: Int) => x + x"
+  
   // TODO also test when f is new each time
   test("Basic Cross-Boundary Rewriting") {
     
-    def f = code"(x: Int) => x + x"
     //val f = code"(x: Int) => x + x" // TODO try again FIXME: makes second test crash: Cannot resolve α1? in E{α0->∅}
     
     //DSL.ScheduleDebug debugFor
@@ -102,4 +113,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     
   }
   
+  test("My Tests") {
+    
+    DSL.ScheduleDebug debugFor
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872) // FIXME reinserted conditions should be in the same order!
+    
+  }
 }
