@@ -50,9 +50,18 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   import DSL.Predef._
   import DSL.Quasicodes._
   
-  def doTest(cde: Code[Any,Nothing], expectedSize: Int = Int.MaxValue)(expectedResult: Any = null) = {
-    println("\n-> "+cde.rep.showGraph+"\n-> "+cde.show)
+  def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
+      (expectedResult: Any = null, preprocess: A => Any = (a:A) => a, doEval: Bool = true) = {
+    val cdes = cde.show
+    println("\n-> "+cde.rep.showGraph+"\n-> "+cdes)
     //println(DSL.edges)
+    def printCheckEval(): Unit = if (doEval) {
+      val value = //DSL.EvalDebug.debugFor
+        cde.run
+      if (expectedResult =/= null) assert(preprocess(value) == expectedResult, s"for ${cdes}")
+      println(s"== ${value}\n== ${Console.RED}${try DSL.scheduleAndRun(cde.rep) catch{case e:Throwable=>e}}${Console.RESET}")
+    }
+    printCheckEval()
     val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
     while(ite.hasNext) {
       val n = ite.next
@@ -60,6 +69,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
       //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
       //println(s"Nota: ${showEdges}")
       println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+cde.show)
+      printCheckEval()
     }
     println("---")
   }
@@ -83,10 +93,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     doTest(code"val f = $f; f(f(22))", 1)(88)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(11) + f(f(22))", 1)(66)
+    doTest(code"val f = $f; f(11) + f(f(22))", 1)(110)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(66)
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     
