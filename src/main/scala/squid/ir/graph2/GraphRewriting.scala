@@ -17,10 +17,11 @@ package graph2
 
 import squid.ir.graph.CallId
 import squid.utils._
-import squid.utils.CollectionUtils.MutSetHelper
+import squid.utils.CollectionUtils.IteratorHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
 import scala.collection.mutable
+import scala.collection.immutable.ListSet
 
 /*
 
@@ -45,6 +46,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   type XCtx = GXCtx
   def newXCtx: XCtx = GXCtx.empty
   
+  // TODO make assumed/assumedNot as single assumptions ListSet?
   protected case class GXCtx(assumed: Set[Condition], assumedNot: Set[Condition], curOps: List[Op], valMap: Map[Val,Val], traverseBranches: Bool = true) {
     assert(!(assumed intersects assumedNot), s"${assumed} >< ${assumedNot}")
   }
@@ -63,21 +65,21 @@ trait GraphRewriting extends AST { graph: Graph =>
     val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
-    matches.flatMap { ge =>
+    matches.iterator.flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
           //println(s"...transforming ${xtor.simpleString} -> $x0")
-          println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
-          println(s"...  ${ge.assumed} ! ${ge.assumedNot}")
+          //println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
+          println(s"...transforming ${xtee.simpleString} -> ${x0.showGraph}")
+          println(s"...  ${ge.assumptions}")
           //println(f: ${showEdges}")
-          if (ge.assumed.isEmpty && ge.assumedNot.isEmpty) x0 else {
+          if (ge.assumptions.isEmpty) x0 else {
             val oldXtee = xtee.boundTo.mkRep // alternatively, could do the rebind here?
-            ge.assumed.foldRight(ge.assumedNot.foldRight(x0) {
-              case cond -> x => Branch(cond,oldXtee,x).mkRep
-            }) {
-              case cond -> x => Branch(cond,x,oldXtee).mkRep
+            ge.assumptions.toList.reverse.foldRight(x0) {
+              case cond->true -> x => Branch(cond,x,oldXtee).mkRep
+              case cond->false -> x => Branch(cond,oldXtee,x).mkRep
             }
           }
       }
@@ -86,19 +88,19 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   // Q: do we need something like the old 'callsToAvoid'?
-  protected case class GraphExtract(extr: Extract, assumed: Set[Condition], assumedNot: Set[Condition]) {
+  protected case class GraphExtract(extr: Extract, assumptions: ListSet[Condition->Bool]) {
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
       graph.merge(extr,that.extr).map(e =>
-        GraphExtract(e, assumed ++ that.assumed, assumedNot ++ that.assumedNot))
-    def assuming(a: Condition) = copy(assumed = assumed + a)
-    def assumingNot(a: Condition) = copy(assumedNot = assumedNot + a)
-    override def toString = s"{${assumed.mkString(",")}}!{${assumedNot.mkString(",")}}\\\t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
+        GraphExtract(e, assumptions ++ that.assumptions))
+    def assuming(a: Condition) = copy(assumptions = assumptions + (a->true))
+    def assumingNot(a: Condition) = copy(assumptions = assumptions + (a->false))
+    override def toString = s"{${assumptions.mkString(",")}}\\\t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
       (extr._1-SCRUTINEE_KEY).map(r => "\n\t "+r._1+" -> "+r._2).mkString}"
   }
   protected object GraphExtract {
-    val empty: GraphExtract = GraphExtract(EmptyExtract, Set.empty, Set.empty)
+    val empty: GraphExtract = GraphExtract(EmptyExtract, ListSet.empty)
     def fromExtract(e: Extract): GraphExtract = empty copy (extr = e)
   }
   

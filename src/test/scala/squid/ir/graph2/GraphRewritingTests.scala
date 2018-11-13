@@ -79,6 +79,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
         //println(s"Nota: ${showEdges}")
         println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+AST.showRep(sch))
         printCheckEval(sch)
+        //Thread.sleep(100)
       }
     } while (mod)
     println("---")
@@ -107,7 +108,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     doTest(code"val f = $f; f(11) + f(f(22))", 1)(110)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    //doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     
@@ -116,7 +117,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   test("My Tests") {
     
     DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872) // FIXME reinserted conditions should be in the same order!
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872) // FIXME diverges: keeps rewriting a dead-code else clause...
     
   }
 }

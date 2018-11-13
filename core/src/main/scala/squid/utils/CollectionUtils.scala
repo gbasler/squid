@@ -113,4 +113,8 @@ object CollectionUtils {
     def mapRHS[C](f: B => C) = self.map(_ ||> (_2 = f))
   }
   
+  implicit class IteratorHelper[A](private val self: Iterator[A]) extends AnyVal {
+    def headOption = if (self.hasNext) Some(self.next) else None
+  }
+  
 }
