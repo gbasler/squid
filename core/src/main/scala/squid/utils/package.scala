@@ -140,6 +140,11 @@ package object utils {
   @inline def some[A](x: A): Option[A] = Some(x)
   @inline def none = None
   
+  implicit class BasicTraversableOnceHelper[A](private val self: TraversableOnce[A]) extends AnyVal {
+    def mkSetString(sep: String): String = self.mkString("{",sep,"}")
+    def mkSetString: String = mkSetString(",")
+  }
+  
   implicit class SetModuleHelper(private val self: Set.type) extends AnyVal {
     def single[A](a: A) = Set.empty + a
   }

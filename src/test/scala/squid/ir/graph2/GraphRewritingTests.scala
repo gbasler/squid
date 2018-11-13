@@ -52,7 +52,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
       println(s"Rw ${cde.rep.bound} -> $n")
       //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
       //println(s"Nota: ${showEdges}")
-      println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showFullGraph+"\n~> "+cde.show)
+      println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+cde.show)
     }
     println("---")
   }
@@ -73,8 +73,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //doTest(code"val f = $f; f(11) + f(22)", 1)(66)
     
     // FIXME: does 3 redexes instead of 2, and does not factor the addition!
-    DSL.ScheduleDebug debugFor
+    //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(f(22))", 1)(88)
+    
+    //doTest(code"val f = $f; f(11) + f(f(22))", 1)(66) // FIXME SOF
+    //doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(66) // TODO try
     
   }
   
