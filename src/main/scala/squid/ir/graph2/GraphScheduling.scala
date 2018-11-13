@@ -20,7 +20,8 @@ import squid.ir.graph.SimpleASTBackend
 import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
 
-import scala.collection.{mutable,immutable}
+import scala.collection.{mutable, immutable}
+import scala.collection.immutable.ListMap
 
 trait GraphScheduling extends AST { graph: Graph =>
   
@@ -129,7 +130,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     
     // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
-      Sdebug(s"Scheduling: ${rep.showGraph}")
+      Sdebug(s"Scheduling: ${rep.showFullGraph}")
       
       //val allCtx = mutable.Map.empty[Rep,Set[CallId]]
       //val someCtx = mutable.Map.empty[Rep,Set[CallId]]
@@ -139,10 +140,14 @@ trait GraphScheduling extends AST { graph: Graph =>
       //val bottom = Bottom.toRep
       //nPaths(bottom) = Int.MaxValue
       
+      /** We need to distinguish each 'slot' in a predecessor node, and on top of that each side of a branch (currently
+        * we assign 0 for left, 1 for right) */
+      val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
+      
       //val analysed = mutable.Set.empty[CCtx->Rep]
       
       // TODO use `analysed` to avoid useless traversals?
-      def analyse(rep: Rep)(implicit cctx: CCtx): Unit = {
+      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
       //if (analysed.contains(cctx->rep)) println(s"??? graph seems cyclic! $rep $cctx") else { analysed += cctx -> rep
       //  Sdebug(s"Analyse $rep $cctx")
         //Thread.sleep(50)
@@ -152,27 +157,34 @@ trait GraphScheduling extends AST { graph: Graph =>
         //allCtx(rep) = allCtx.getOrElse(rep,Set.empty) intersect cctx.map.keySet
         reachingCtxs(rep) = reachingCtxs.getOrElse(rep,Set.empty) + cctx
         rep.boundTo match {
-          case Pass(cid, res) => analyse(res)(withPass(cid)) // FIXME probably
-          case Call(cid, res) => analyse(res)(withCall(cid))
-          case Arg(cid, res) => analyse(res)(withArg(cid))
-          case Branch(cond, thn, els) => if (hasCond(cond)) analyse(thn) else analyse(els)
+          case Pass(cid, res) => analyse(pred,res)(withPass(cid)) // FIXME probably
+          case Call(cid, res) => analyse(pred,res)(withCall(cid))
+          case Arg(cid, res) => analyse(pred,res)(withArg(cid))
+          case Branch(cond, thn, els) =>
+            if (hasCond(cond)) analyse(pred ||> (0 :: _), thn) 
+            else               analyse(pred ||> (1 :: _), els)
           //case Node(MirrorVal(v)) => 
-          case ConcreteNode(d) => d.children.foreach(analyse)
+          case ConcreteNode(d) =>
+            val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
+            ptrs += pred
+            d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
         }
       }
-      analyse(rep)(CCtx.empty)
+      analyse((Nil,rep),rep)(CCtx.empty)
       
       //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
-      Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
+      //Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
+      Sdebug(s"Pointers:"+pointers.map{case r->s => s"\n\t[${s.size}]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
       
       //val scheduled = mutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)] // scala bug: wrong order!!
       //var scheduled = immutable.ListMap.empty[ConcreteNode,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
-      var scheduled = immutable.ListMap.empty[Rep,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
+      var scheduled = ListMap.empty[Rep,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
       // ^ FIXME keys type?
       
       // TODO prevent infinite recursion?
-      type recRet = List[nb.BoundVal->Rep]->nb.Rep
-      def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
+      // TODO remove `pred` and `n` and associated analyses
+      type recRet = ListMap[Rep,nb.BoundVal]->nb.Rep
+      def rec(pred: Rep, rep: Rep, n: Int, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
         //Sdebug(s"> Sch ${pred.bound} -> $rep  (${vctx.mkString(",")})  ${reachingCtxs(pred).mkString(" ")}")
         Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}  <- ${pred.bound}")
@@ -191,33 +203,35 @@ trait GraphScheduling extends AST { graph: Graph =>
           //case Branch(cond,thn,els) if allCtx(pred)(cond) => rec(pred,thn,n)
           //case Branch(cond,thn,els) if !someCtx(pred)(cond) => rec(pred,els,n)
           case b @ Branch(cond,thn,els) =>
-            val reaching = reachingCtxs(pred)
+            //val reaching = reachingCtxs(pred)
             //if (reaching.forall(hasCond(cond)(_))) rec(pred,thn,n)
             //else if (!reaching.exists(hasCond(cond)(_))) rec(pred,els,n)
             val hc = hasCond_?(cond)
             if (hc===Some(true)) rec(pred,thn,n)
             else if (hc===Some(false)) rec(pred,els,n)
             else {
-              val v = freshBoundVal(rep.typ)
+              //val v = freshBoundVal(rep.typ)
+              //val w = recv(v)
+              val v = rep.bound
               val w = recv(v)
               Sdebug(s"$v ~> $w")
-              //((w,b)::Nil) -> nb.readVal(w)
-              ((w,rep)::Nil) -> nb.readVal(w)
+              ListMap(rep->w) -> nb.readVal(w)
             }
           // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
           // obviously fail as they will be extruded from their scope...
           // But if that condition enough to prevent scope extrusion in general?!
-          case nde @ ConcreteNode(d) if !d.isSimple && m > n =>
-            Sdebug(s"! $m > $n")
+          case nde @ ConcreteNode(d) if !d.isSimple && pointers(rep).size > 1 && !topLevel => // FIXME condition '!d.isSimple'
+            Sdebug(s"! 1 < |${pointers(rep).iterator.map(_._2.bound).mkSetString}|")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
-              val as->nr = rec(rep,rep,nPaths(rep))(Map.empty,CCtx.empty)
-              val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
+              val as->nr = rec(rep,rep,nPaths(rep),topLevel=true)(Map.empty,CCtx.empty) ||> (_.toList)
+              //val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
+              val v = bindVal("sch"+rep.bound.name, lambdaType(as.unzip._1.map(_.typ),nde.typ), Nil)
               val w = recv(v)
-              (w,if (as.isEmpty) nr else nb.lambda(as.unzip._1,nr),as.unzip._2,rect(v.typ))
+              (w,if (as.isEmpty) nr else nb.lambda(as.unzip._2,nr),as.toList.unzip._1,rect(v.typ)) : (nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)
             } also (scheduled += rep -> _))
             val s = args.map(b => rec(rep,b,m))
-            val a = s.flatMap(_._1)
+            val a: ListMap[Rep,nb.BoundVal] = s.flatMap(_._1)(scala.collection.breakOut)
             val f = fsym|>nb.readVal
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
             a -> e
@@ -228,7 +242,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val as->r = rec(rep,b,m)(vctx + (p->v), cctx)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
-            case MirrorVal(v) => Nil -> (vctx(v) |> nb.readVal)
+            case MirrorVal(v) => ListMap.empty -> (vctx(v) |> nb.readVal)
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(rep,self,m)
               var ass = sas
@@ -242,17 +256,20 @@ trait GraphScheduling extends AST { graph: Graph =>
               rec(rep,r,m) ||> (_2 = nb.ascribe(_,rect(typ)))
             case Module(r, name, typ) =>
               rec(rep,r,m) ||> (_2 = nb.module(_,name,rect(typ)))
-            case ld: LeafDef => Nil->apply(ld)
+            case ld: LeafDef => ListMap.empty->apply(ld)
           }
-        //}} ||> (_.groupBy(_._2).mapValues(_.head._1).toList.map(_.swap))
-        }} // ^ unsound; can't just forget about things we promised to bind...
+        }}
         //Sdebug(s"<"+res._1.map("\t"+_).mkString("\n"))
         Sdebug(s"< "+res._1.mkString("\n  "))
         res
       }
-      val Nil->r = rec(rep,rep,1)(Map.empty,CCtx.empty) // TODO B/E
+      val lsm->r = rec(rep,rep,1)(Map.empty,CCtx.empty)
+      assert(lsm.isEmpty) // TODO B/E
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
     }
+    
+    override protected def recv(v: Val): newBase.BoundVal =
+      bound.getOrElse(v, super.recv(v)) // FIXME calling super.recv in the wrong order messes with some interpreters, such as BaseInterpreter
     
   }
   override def reinterpret(r: Rep, NewBase: squid.lang.Base)(ExtrudedHandle: BoundVal => NewBase.Rep = DefaultExtrudedHandler): NewBase.Rep =
