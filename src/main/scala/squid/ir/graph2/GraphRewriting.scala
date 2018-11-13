@@ -260,7 +260,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     //rep.iterator.flatMap(r => {
     rep.iterator.filterNot(_.boundTo.isInstanceOf[Branch]).flatMap(r => { // don't rewrite branches at the top-level; it just introduces unnecessary hypotheses
       val oldBound = r.bound
-      tr.rules.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
+      tr.rules.iterator.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
         case Some(res) =>
           if (r.bound =/= oldBound) println(s"!!! ${r.bound} =/= ${oldBound}")
           //println(s" ${r}  =>  $res")

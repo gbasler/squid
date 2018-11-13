@@ -87,7 +87,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         case bd: BasicDef =>
           val (reps,bound) = bd.reps.map(r => r -> freshBoundVal(r.typ)).unzip
           val curried = bound.foldRight(bd.rebuild(bound.map(readVal)).toRep)(abs(_,_))
-          val fun = scheduleAndRun(curried)
+          val fun = ScheduleDebug.muteFor { scheduleAndRun(curried) }
           reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
       }
     }
@@ -100,7 +100,7 @@ trait GraphScheduling extends AST { graph: Graph =>
   def scheduleAndRun(rep: Rep): Any = SimpleASTBackend runRep rep |> treeInSimpleASTBackend
   def scheduleAndCompile(rep: Rep): Any = SimpleASTBackend compileRep rep |> treeInSimpleASTBackend
   
-  protected def treeInSimpleASTBackend(rep: Rep) = reinterpret(rep, SimpleASTBackend) { bv =>
+  /*protected*/ def treeInSimpleASTBackend(rep: Rep) = reinterpret(rep, SimpleASTBackend) { bv =>
     System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
     SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
   }
