@@ -149,11 +149,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def kind: BoxKind
   }
   object Box {
-    def apply(cid: CallId, result: Rep, kind: BoxKind) = kind match {
-      case Call => Call(cid, result)
-      case Arg => Arg(cid, result)
-      case Pass => Pass(cid, result)
+    def apply(cid: CallId, result: Rep, kind: BoxKind): ControlFlow = kind match {
+      case Call => new Call(cid, result){}
+      case Arg => new Arg(cid, result){}
+      case Pass => new Pass(cid, result){}
     }
+    //def apply(cid: CallId, result: Rep, kind: BoxKind): Node = result.boundTo match {
+    //  case Branch(Condition(ops,c), thn, els) =>
+    //    Branch(Condition((kind,cid)::ops,c), apply(cid,thn,kind).mkRep, apply(cid,els,kind).mkRep)
+    //  case _ =>
     def unapply(box: Box) = Some(box.cid, box.result, box.kind)
   }
   sealed abstract class BoxKind {
@@ -165,24 +169,36 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   //case class Call(cid: CallId, result: Rep) extends ControlFlow(new SyntheticVal("C"+cid, result.typ)) {
-  case class Call(cid: CallId, result: Rep) extends Box {
+  abstract case class Call(cid: CallId, result: Rep) extends Box {
     def kind: Call.type = Call
   }
   object Call extends BoxKind {
+    def apply(cid: CallId, result: Rep) = Box(cid, result, Call)
   }
-  case class Arg(cid: CallId, result: Rep) extends Box {
+  abstract case class Arg(cid: CallId, result: Rep) extends Box {
     def kind: Arg.type = Arg
   }
-  object Arg extends BoxKind
-  case class Pass(cid: CallId, result: Rep) extends Box {
+  object Arg extends BoxKind {
+    def apply(cid: CallId, result: Rep) = Box(cid, result, Arg)
+  }
+  abstract case class Pass(cid: CallId, result: Rep) extends Box {
     def kind: Pass.type = Pass
   }
-  object Pass extends BoxKind
+  object Pass extends BoxKind {
+    def apply(cid: CallId, result: Rep) = Box(cid, result, Pass)
+  }
   
   //abstract case class Branch(cid: CallId, thn: Rep, els: Rep)(typ: TypeRep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
   //case class Branch(cid: CallId, thn: Rep, els: Rep) extends ControlFlow(ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)) {
+  //abstract 
   case class Branch(cond: Condition, thn: Rep, els: Rep) extends ControlFlow {
     lazy val typ = ruh.uni.lub(thn.typ.tpe::els.typ.tpe::Nil)
+  }
+  object Branch {
+    /*
+    def apply(cond: Condition, thn: Rep, els: Rep) =
+      if (cond.isAlwaysTrue) thn.boundTo else if (cond.isAlwaysFalse) els.boundTo else new Branch(cond,thn,els){} // FIXME duplication?!
+    */
   }
   abstract case class Condition(ops: List[Op], cid: CallId) {
     def isAlwaysTrue: Bool = ops === ((Call,cid)::Nil)

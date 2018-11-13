@@ -17,6 +17,7 @@ package graph2
 
 import squid.ir.graph.CallId
 import squid.utils._
+import squid.utils.CollectionUtils.MutSetHelper
 import squid.utils.CollectionUtils.IteratorHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
@@ -256,8 +257,33 @@ trait GraphRewriting extends AST { graph: Graph =>
     case _ => throw IRException(s"Trying to splice-extract with invalid extractor $xtor")
   }) :: Nil
   
+  def simplifyGraph(rep: Rep): Unit = {
+    val traversed = mutable.Set.empty[Rep]
+    def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
+      def again = { traversed -= rep; rec(rep) }
+      traversed.setAndIfUnset(rep, rep.boundTo match {
+        case Branch(cond,thn,els) =>
+          // FIXME code dup?
+          if (cond.isAlwaysTrue) rebind(rep.bound, thn.boundTo) thenReturn again
+          else if (cond.isAlwaysFalse) rebind(rep.bound, els.boundTo) thenReturn again
+          else { rec(thn); rec(els) }
+        case Box(cid,b @ Rep(Branch(Condition(ops,c),thn,els)),kind) =>
+          //rebind(rep.bound, Box(cid,b,kind))
+          rebind(rep.bound, Branch(Condition((kind,cid)::ops,c), Box(cid,thn,kind).mkRep, Box(cid,els,kind).mkRep))
+          again
+        case Box(cid,res,kind) => rec(res)
+        case ConcreteNode(d) => d.children.foreach(rec)
+      })
+    }
+    rec(rep)(CCtx.empty)
+  }
+  
   def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(rep: Rep): Iterator[Rep] = {
     //println(edges)
+    
+    //println(s"Before simpl: ${rep.showFullGraph}")
+    simplifyGraph(rep)
+    //println(s"After simpl: ${rep.showFullGraph}")
     
     //rep.iterator.flatMap(r => {
     rep.iterator.filterNot(_.boundTo.isInstanceOf[Branch]).flatMap(r => { // don't rewrite branches at the top-level; it just introduces unnecessary hypotheses
