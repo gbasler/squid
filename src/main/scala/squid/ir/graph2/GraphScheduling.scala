@@ -57,6 +57,8 @@ trait GraphScheduling extends AST { graph: Graph =>
   }.map.get(cond.cid).map(_.isDefined)
   def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + cid
   def withPass(cid: CallId)(implicit cctx: CCtx) = cctx - cid
+  
+  // FIXME Q: remove cid from map below?
   def withArg(cid: CallId)(implicit cctx: CCtx) = CCtx(cctx.map ++ cctx.map(cid).get.map) // TODO B/E?
   def withArg_?(cid: CallId)(implicit cctx: CCtx): Opt[CCtx] = for {
     m <- cctx.map get cid
@@ -139,6 +141,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       
       //val analysed = mutable.Set.empty[CCtx->Rep]
       
+      // TODO use `analysed` to avoid useless traversals?
       def analyse(rep: Rep)(implicit cctx: CCtx): Unit = {
       //if (analysed.contains(cctx->rep)) println(s"??? graph seems cyclic! $rep $cctx") else { analysed += cctx -> rep
       //  Sdebug(s"Analyse $rep $cctx")
@@ -159,8 +162,8 @@ trait GraphScheduling extends AST { graph: Graph =>
       }
       analyse(rep)(CCtx.empty)
       
-      ////println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
-      //Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
+      //println(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}"}.mkString)
+      Sdebug(s"Paths:"+nPaths.map{case r->n => s"\n\t[$n]\t${r.fullString}\n\t\t${reachingCtxs(r).mkString(" ")}"}.mkString)
       
       //val scheduled = mutable.ListMap.empty[Node,(nb.BoundVal,nb.Rep,List[Branch],nb.TypeRep)] // scala bug: wrong order!!
       //var scheduled = immutable.ListMap.empty[ConcreteNode,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
@@ -171,7 +174,8 @@ trait GraphScheduling extends AST { graph: Graph =>
       type recRet = List[nb.BoundVal->Rep]->nb.Rep
       def rec(pred: Rep, rep: Rep, n: Int)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
-        Sdebug(s"> Sch ${pred.bound} -> $rep  (${vctx.mkString(",")})  ${reachingCtxs(pred).mkString(" ")}")
+        //Sdebug(s"> Sch ${pred.bound} -> $rep  (${vctx.mkString(",")})  ${reachingCtxs(pred).mkString(" ")}")
+        Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}  <- ${pred.bound}")
         assert(reachingCtxs(pred).nonEmpty)
         
         //val m = nPaths.getOrElse(rep, if (n > 0) return rec(pred, bottom, 0) else 0)
@@ -242,7 +246,8 @@ trait GraphScheduling extends AST { graph: Graph =>
           }
         //}} ||> (_.groupBy(_._2).mapValues(_.head._1).toList.map(_.swap))
         }} // ^ unsound; can't just forget about things we promised to bind...
-        Sdebug(s"<"+res._1.map("\t"+_).mkString("\n"))
+        //Sdebug(s"<"+res._1.map("\t"+_).mkString("\n"))
+        Sdebug(s"< "+res._1.mkString("\n  "))
         res
       }
       val Nil->r = rec(rep,rep,1)(Map.empty,CCtx.empty) // TODO B/E
