@@ -117,7 +117,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   test("My Tests") {
     
     DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872) // FIXME diverges: keeps rewriting a dead-code else clause...
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    // ^ FIXME diverges: keeps rewriting a dead-code else clause...
+    //  it doesn't seem essential that it be dead though
+    //  it's just an occurrence of the usual problem of re-application of already applied rewrites
     
   }
 }
