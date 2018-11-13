@@ -24,16 +24,20 @@ import scala.collection.mutable
 
 /*
 
-FIXME:
+Note:
   Under an Arg, we really can't make any assumptions, because arbitrary context may have been restored!
       ...that is, unless we actually saw the corresponding Call on the way...
-  The best we can do is push the arg down... but we can't push it past a branch!
-  Maybe we could make more elaborate assumptions on what's in nested contexts... but then we don't really have a way to
-  reconstruct the branching for it: branches only inspect the top-level
-    We could probably extend branching to be able to look at _paths_, but that seems much more complex
+  The best we can do is push the arg down...
 
 TODO:
   Use analysis before doing the rewrites, to prune possible paths to explore
+
+FIXME:
+  It is currently unsound to match something in the body of a lambda, if that entails wrapping it in control-flow,
+  because then the body that will be modified on variable substitution will NOT be the original body, and we may create
+  cycles in the graph because the pass node will be inserted on the reconstructed body, not the real body!
+  This used to even be the case when we didn't match anything in the body and just extracted it as a hole, because we
+  used to inspect control-flow under holes (which is unnecessary); we don't anymore, but the unsoundness is still there.
 
 */
 trait GraphRewriting extends AST { graph: Graph =>
@@ -103,6 +107,19 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     xtor -> xtee match { // FIXME not matching Rep(Call...) ?!
         
+      case Rep(ConcreteNode(Hole(name))) -> _ => for {
+        typE <- xtor.typ.extract(xtee.typ, Covariant).toList
+        r1 = xtee
+        
+        //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
+        
+        r2 = ctx.curOps.foldLeft(r1) {
+          case r -> (k -> cid) => Box(cid,r,k).mkRep
+        }
+        
+        e <- merge(typE, repExtract(name -> r2))
+      } yield GraphExtract fromExtract e
+        
       //case _ -> Rep(Call(cid, res)) =>
       //case _ -> Rep(Arg(cid, res)) =>
       case _ -> Rep(Box(cid, res, k)) =>
@@ -140,18 +157,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         case (a:ConstantLike) -> (b:ConstantLike) if a.value === b.value => GraphExtract.empty :: Nil
           
-        case (Hole(name), _) => for {
-          typE <- xtor.typ.extract(xtee.typ, Covariant).toList
-          r1 = xtee
-          
-          //() = println(s">>>  $r2  =/=  ${try removeArgs(ctx.assumedNotCalled)(r1) catch { case e => e}}")
-          
-          r2 = ctx.curOps.foldLeft(r1) {
-            case r -> (k -> cid) => Box(cid,r,k).mkRep
-          }
-          
-          e <- merge(typE, repExtract(name -> r2))
-        } yield GraphExtract fromExtract e
+        //case (Hole(name), _) => // moved
           
         case (v1: BoundVal, v2: BoundVal) =>  // TODO implement other schemes for matching variables... cf. extractImpl
           // Q: check same type?

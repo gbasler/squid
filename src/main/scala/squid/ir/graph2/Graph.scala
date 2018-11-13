@@ -85,6 +85,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         bind(v, this)
         new Rep(v)
     }
+    def mkString(showInlineNames: Bool = true, showInlineCF:Bool = true) =
+      new DefPrettyPrinter(showInlineNames, showInlineCF) apply this
   }
   object Node {
     
@@ -249,6 +251,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   
+  // TODO support non-evaluation of mkArg in case no occurrences reachable?
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     val cid = new CallId("α")
     
@@ -273,11 +276,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   //def showGraph(rep: Rep): String = rep.simpleString + {
-  def showGraph(rep: Rep, full: Bool = false): String = rep.fullString + {
+  def showGraph(rep: Rep, full: Bool = false): String = s"${rep.bound} = ${rep.boundTo.mkString(false,false)}" + {
     //val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
     val defsStr = iterator(rep).toList.distinct.filterNot(_ === rep).collect {
       case r if full =>
-        s"\n\t${r.bound} = ${(new DefPrettyPrinter(false,false))(r.boundTo)};"
+        s"\n\t${r.bound} = ${r.boundTo.mkString(false,false)};"
       case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};"
     }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
