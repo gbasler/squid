@@ -54,7 +54,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   def bindVal(name: String, typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
   def freshBoundVal(typ: TypeRep) = BoundVal(freshName)(typ, Nil) // alsoDo (varCount += 1)
   protected def freshNameImpl(n: Int) = "val$"+n
-  protected final def freshName: String = freshNameImpl(varCount) alsoDo (varCount += 1)
+  protected final def freshName: String = freshNameImpl(freshVarCount)
+  protected final def freshVarCount: Int = varCount alsoDo (varCount += 1)
   private var varCount = 0
   
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
