@@ -91,12 +91,12 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     
   }
   
+  // TODO also test when f is new each time
   def f = code"(x: Int) => x + x"
   
-  // TODO also test when f is new each time
   test("Basic Cross-Boundary Rewriting") {
     
-    val f = code"(x: Int) => x + x" // TODO also try as val again
+    val f = code"(x: Int) => x + x" // TODO also try as def or val again
     
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(11) + f(22)", 1)(66)
@@ -111,6 +111,9 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
+    // ^ FIXME now diverges (in constant folding): keeps rewriting a dead-code else clause...
+    //  it doesn't seem essential that it be dead though
+    //  it's just an occurrence of the usual problem of re-application of already applied rewrites
     
   }
   
@@ -118,9 +121,6 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     
     DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
-    // ^ FIXME diverges: keeps rewriting a dead-code else clause...
-    //  it doesn't seem essential that it be dead though
-    //  it's just an occurrence of the usual problem of re-application of already applied rewrites
     
   }
   
@@ -128,31 +128,29 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   
   test("Complex Cross-Boundary Rewriting") {
     
-    // TODO: make this `f` a `val`
-    //val f = code"(x: Int) => (y: Int) => x+y"
+    // TODO: try making `g` a `val` here
+    //val g = code"(x: Int) => (y: Int) => x+y"
     
     doTest(code"val f = $g; f(11)(22) + 1", 1)(34)
     
-    //doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(103)
-    // ^ FIXME: extracts a lambda under a box, which triggers the known bug
+    doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(103)
     
-    //DSL.ScheduleDebug debugFor
-    //doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84)
-    // ^ FIXME SOF in scheduling's analysis
+    doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84)
+    // ^ Note: used to SOF in scheduling's analysis
     //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
-    //   Note: likely another manifestation of the lambda bug, since the reason for the cycle is there are no pass nodes
+    //   Note: was another manifestation of the lambda bug, since the reason for the cycle was there were no pass nodes
     
     //doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
-    // ^ FIXME: lambda body bug
+    // ^ FIXME: never finishes; loops on: "Constant folding $9 = 73 + $8 = 40"
     
-    //doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
-    // ^ FIXME: wrong value!
+    doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
     
     //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
-    // ^ FIXME SOF in scheduling's analysis
+    // ^ FIXME never finishes; accumulates tons of control-flow, such as:
+    // !Constant folding $9190 = ⟦α1⟧ $9189:⟦α8 $9188:⟦α7⟧ $9187:⟦α5⟧ $7:11⟧ + $9202 = ⟦α1⟧ $9201:⟦α8 $9200:⟦α7⟧ $9199:⟦α5⟧ $16:30⟧ from: $3882 = ⟦α1⟧ $2165:(↑α8;|α5;|α7;α9 ? $3888:(↑α8;|α5;|α7;α0 ? $3890:(↑α8;|α5;|α7;α1 ? $3892:(↑α8;|α5;|α7;|α5;|α7;↑α8;|α1;↑α2;↑α9;α0 ? $3894:⟦α8 $2281:71⟧ ¿ [...]
     
     //doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
-    // ^ FIXME SOF in scheduling's analysis
+    // ^ FIXME also accumulates tons of nodes
     
   }
   

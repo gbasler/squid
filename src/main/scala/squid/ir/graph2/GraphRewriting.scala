@@ -40,6 +40,7 @@ FIXME:
   cycles in the graph because the pass node will be inserted on the reconstructed body, not the real body!
   This used to even be the case when we didn't match anything in the body and just extracted it as a hole, because we
   used to inspect control-flow under holes (which is unnecessary); we don't anymore, but the unsoundness is still there.
+  Note: in [this commit], I added a hacky semi-fix that duplicates a lambda-bound variable on extraction of a lambda body.
 
 */
 trait GraphRewriting extends AST { graph: Graph =>
@@ -190,10 +191,30 @@ trait GraphRewriting extends AST { graph: Graph =>
           require(a1.param.isExtractedBinder, s"alternative not implemented yet")
           for {
             pt <- a1.ptyp.extract(a2.ptyp, Contravariant).toList //map fromExtract
+            /*
             (hExtr,h) = a2.param.toHole(a1.param)
             //m <- mergeGraph(pt, hExtr |> fromExtract)
             m <- merge(pt, hExtr).toList
             b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
+            m <- m |> fromExtract merge b
+            */
+            a2p -> a2b = if (ctx.curOps.isEmpty) a2.param -> a2.body else {
+              /* This is to temporarily sove the unsoundness with extracting lambda bodies while wrapping them in
+                 control-flow nodes; it only solves the case where the lambda's body is matched as is (with no further
+                 inner patterns) – otherwise we'd need to _always_ do this, even when `ctx.curOps.isEmpty`.
+                 This is kind of wasteful and will quickly pollute the graph; ideally
+                 we should only do it if necessary, and revert it otherwise (but how?) */
+              val v = a2.param.copy(name = a2.param.name+"'"+freshVarCount)()
+              //println(s"NEW ${a2.param} -> $v IN ${a2.body.showFullGraph}")
+              val occ = rep(new MirrorVal(v)) // we have to introduce a new lambda-bound-like variable
+              lambdaBound.put(v, occ.bound)
+              val bod = substituteVal(a2.body,a2.param,occ)
+              //println(s"BOD ${bod.showFullGraph}")
+              v -> bod
+            }
+            (hExtr,h) = a2p.toHole(a1.param)
+            m <- merge(pt, hExtr).toList
+            b <- extractGraph(a1.body, a2b)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2p)))
             m <- m |> fromExtract merge b
           } yield m
           
