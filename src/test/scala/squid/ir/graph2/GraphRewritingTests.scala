@@ -136,9 +136,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(103)
     // ^ FIXME: extracts a lambda under a box, which triggers the known bug
     
-    //doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84) // FIXME not opt: (11).+(73)
+    //DSL.ScheduleDebug debugFor
+    //doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84)
     // ^ FIXME SOF in scheduling's analysis
     //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
+    //   Note: likely another manifestation of the lambda bug, since the reason for the cycle is there are no pass nodes
     
     //doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
     // ^ FIXME: lambda body bug
