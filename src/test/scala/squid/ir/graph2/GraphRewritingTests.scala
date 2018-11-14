@@ -82,7 +82,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
         //Thread.sleep(100)
       }
     } while (mod)
-    println("---")
+    println("\n--- --- ---\n")
   }
   
   test("A") {
@@ -96,7 +96,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   // TODO also test when f is new each time
   test("Basic Cross-Boundary Rewriting") {
     
-    //val f = code"(x: Int) => x + x" // TODO try again FIXME: makes second test crash: Cannot resolve α1? in E{α0->∅}
+    val f = code"(x: Int) => x + x" // TODO also try as val again
     
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $f; f(11) + f(22)", 1)(66)
