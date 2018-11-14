@@ -94,6 +94,20 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   // TODO also test when f is new each time
   def f = code"(x: Int) => x + x"
   
+  test("Nested calls") {
+    
+    val f = code"(x: Int) => x * x" // TODO also try as def or val again
+    
+    doTest(code"val f = $f; f(11) + f(22)", 1)(605)
+    
+    doTest(code"val f = $f; f(f(22))", 1)(234256)
+    
+    doTest(code"val f = $f; f(11) + f(f(22))", 1)(234377)
+    
+    doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(-901996719)
+    
+  }
+  
   test("Basic Cross-Boundary Rewriting") {
     
     val f = code"(x: Int) => x + x" // TODO also try as def or val again
@@ -125,6 +139,29 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   }
   
   def g = code"(x: Int) => (y: Int) => x+y"
+  
+  test("Nested Curried Calls") {
+    
+    // TODO: try making `g` a `val` here
+    def g = code"(x: Int) => (y: Int) => x - y"
+    
+    doTest(code"val f = $g; f(11)(22) + 1", 1)(-10)
+    
+    doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(-21)
+    
+    doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(18)
+    
+    doTest(code"val f = $g; f(f(33)(40))")(-108, _(101))
+    
+    doTest(code"val f = $g; f(f(11)(22))(40)", 1)(-51)
+    
+    //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
+    // ^ FIXME never finishes; accumulates tons of control-flow
+    
+    //doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
+    // ^ FIXME never finishes
+    
+  }
   
   test("Complex Cross-Boundary Rewriting") {
     
