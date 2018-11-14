@@ -101,8 +101,13 @@ trait GraphRewriting extends AST { graph: Graph =>
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
-      graph.merge(extr,that.extr).map(e =>
-        GraphExtract(e, traversedReps ++ that.traversedReps, assumptions ++ that.assumptions))
+      
+      //graph.merge(extr,that.extr).map(e =>
+      //  GraphExtract(e, traversedReps ++ that.traversedReps, assumptions ++ that.assumptions))
+      graph.merge(extr,that.extr).flatMap(e =>
+        GraphExtract(e, traversedReps ++ that.traversedReps, assumptions ++ that.assumptions) optionUnless
+          assumptions.exists{case(c,b) => that.assumptions.contains((c,!b))}
+      )
     def assuming(a: Condition) = copy(assumptions = assumptions + (a->true))
     def assumingNot(a: Condition) = copy(assumptions = assumptions + (a->false))
     def matching (r: Rep) = r.boundTo match {
