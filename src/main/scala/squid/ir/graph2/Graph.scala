@@ -122,14 +122,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def unapply(n: Rep) = Some(n.boundTo)
   }
   
-  class ConcreteNode(val boundTo: Def) extends Node { // TODO rename boundTo
-    def typ = boundTo.typ
-    def isSimple = boundTo.isSimple
-    override def toString = boundTo.toString // calls prettyPrint(boundTo)
+  class ConcreteNode(val dfn: Def) extends Node { // TODO rename boundTo
+    def typ = dfn.typ
+    def isSimple = dfn.isSimple
+    override def toString = dfn.toString // calls prettyPrint(boundTo)
   }
   object ConcreteNode {
     //def unapply(n: Node) = Option(n.boundTo)
-    def unapply(n: ConcreteNode) = Some(n.boundTo)
+    def unapply(n: ConcreteNode) = Some(n.dfn)
   }
   sealed abstract class ControlFlow extends Node {
     override def toString = simpleString
@@ -272,7 +272,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     val cid = new CallId("α")
     
     val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
-    val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].boundTo.asInstanceOf[MirrorVal]
+    val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
     assert(mir.v === v)
     
     val newOcc = mir.toRep
@@ -304,7 +304,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = done.setAndIfUnset(r.bound, {
     val ite = r.boundTo match {
-      case r: ConcreteNode => mkDefIterator(r.boundTo)
+      case r: ConcreteNode => mkDefIterator(r.dfn)
       case Box(_,res,_) => Iterator.single(r) ++ mkIterator(res) 
       case Branch(cid,thn,els) => Iterator.single(r) ++ mkIterator(thn) ++ mkIterator(els)
     }
