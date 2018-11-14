@@ -292,7 +292,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   //def showGraph(rep: Rep): String = rep.simpleString + {
-  def showGraph(rep: Rep, full: Bool = false): String = s"${rep.bound} = ${rep.boundTo.mkString(false,false)}" + {
+  def showGraph(rep: Rep, full: Bool = false): String = s"${rep.bound} = ${rep.boundTo.mkString(!full,!full)}" + {
     //val defsStr = iterator(rep).collect { case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};" }.mkString
     val defsStr = iterator(rep).toList.distinct.filterNot(_ === rep).collect {
       case r if full =>
