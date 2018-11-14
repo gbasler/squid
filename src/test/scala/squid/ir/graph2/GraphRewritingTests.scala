@@ -123,4 +123,36 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     //  it's just an occurrence of the usual problem of re-application of already applied rewrites
     
   }
+  
+  def g = code"(x: Int) => (y: Int) => x+y"
+  
+  test("Complex Cross-Boundary Rewriting") {
+    
+    // TODO: make this `f` a `val`
+    //val f = code"(x: Int) => (y: Int) => x+y"
+    
+    doTest(code"val f = $g; f(11)(22) + 1", 1)(34)
+    
+    //doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(103)
+    // ^ FIXME: extracts a lambda under a box, which triggers the known bug
+    
+    //doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84) // FIXME not opt: (11).+(73)
+    // ^ FIXME SOF in scheduling's analysis
+    //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
+    
+    //doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
+    // ^ FIXME: lambda body bug
+    
+    //doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
+    // ^ FIXME: wrong value!
+    
+    //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
+    // ^ FIXME SOF in scheduling's analysis
+    
+    //doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
+    // ^ FIXME SOF in scheduling's analysis
+    
+  }
+  
+  
 }

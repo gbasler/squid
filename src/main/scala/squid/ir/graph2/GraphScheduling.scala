@@ -32,6 +32,8 @@ trait GraphScheduling extends AST { graph: Graph =>
   override def runRep(rep: Rep): Any = eval(rep)
   
   case class CCtx(map: Map[CallId, Opt[CCtx]]) {
+    override lazy val hashCode = super.hashCode
+    
     def isDefinedAt(cid: CallId) = map(cid).isDefined
     def + (cid: CallId) = CCtx(map + (cid -> Some(this)))
     def - (cid: CallId) =
