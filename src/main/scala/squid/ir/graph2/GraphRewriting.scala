@@ -56,17 +56,23 @@ trait GraphRewriting extends AST { graph: Graph =>
   //override def mapDef(f: Def => Def)(r: Rep): r.type = ???
   //override protected def mapRep(rec: Rep => Rep)(d: Def) = ???
   
+  protected val transformed = mutable.Set.empty[(Rep,ListSet[Condition->Bool],List[Rep])]
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.assumptions, ge.traversedReps))
+  def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.assumptions, ge.traversedReps))
+  
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
     extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false)).headOption map (_.extr)
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
     println(s"rewriteRep $xtee  >>  $xtor")
+    //println(s"already: ${transformed.map(r => s"\n\t${r._1.bound}, ${r._2}, ${r._3.map(_.bound)}")}")
     
     val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
-    matches.iterator.flatMap { ge =>
+    //matches.iterator.flatMap { ge =>
+    matches.filterNot(alreadyTransformedBy(xtor,_)).iterator.flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
@@ -75,6 +81,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           //println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...transforming ${xtee.simpleString} -> ${x0.showGraph}")
           println(s"...  ${ge.assumptions}")
+          println(s"...  ${xtor.simpleString} :: ${ge.traversedReps.map(_.bound)}")
+          rememberTransformedBy(xtor,ge)
           //println(f: ${showEdges}")
           if (ge.assumptions.isEmpty) x0 else {
             val oldXtee = xtee.boundTo.mkRep // alternatively, could do the rebind here?
@@ -89,26 +97,30 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   // Q: do we need something like the old 'callsToAvoid'?
-  protected case class GraphExtract(extr: Extract, assumptions: ListSet[Condition->Bool]) {
+  protected case class GraphExtract(extr: Extract, traversedReps: List[Rep], assumptions: ListSet[Condition->Bool]) {
     def merge(that: GraphExtract): Option[GraphExtract] =
       //if ((argsToRebuild intersects that.callsToAvoid) || (that.argsToRebuild intersects callsToAvoid)) Stream.Empty
       //else 
       graph.merge(extr,that.extr).map(e =>
-        GraphExtract(e, assumptions ++ that.assumptions))
+        GraphExtract(e, traversedReps ++ that.traversedReps, assumptions ++ that.assumptions))
     def assuming(a: Condition) = copy(assumptions = assumptions + (a->true))
     def assumingNot(a: Condition) = copy(assumptions = assumptions + (a->false))
+    def matching (r: Rep) = r.boundTo match {
+      case _: Box | _: Branch => this
+      case _ => copy(traversedReps = r :: traversedReps)
+    }
     override def toString = s"{${assumptions.mkString(",")}}\\\t${extr._1.getOrElse(SCRUTINEE_KEY,"")} ${
       (extr._1-SCRUTINEE_KEY).map(r => "\n\t "+r._1+" -> "+r._2).mkString}"
   }
   protected object GraphExtract {
-    val empty: GraphExtract = GraphExtract(EmptyExtract, ListSet.empty)
+    val empty: GraphExtract = GraphExtract(EmptyExtract, Nil, ListSet.empty)
     def fromExtract(e: Extract): GraphExtract = empty copy (extr = e)
   }
   
   protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
     import GraphExtract.fromExtract
     
-    xtor -> xtee match { // FIXME not matching Rep(Call...) ?!
+    xtor -> xtee |> { // FIXME not matching Rep(Call...) ?!
         
       case Rep(ConcreteNode(Hole(name))) -> _ => for {
         typE <- xtor.typ.extract(xtee.typ, Covariant).toList
@@ -208,7 +220,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       }
       case Rep(Call(_,_)|Arg(_,_)|Branch(_,_,_)) -> _ => die
       case _ => Nil
-    }
+    } map (_ matching xtee)
     
   }
   
