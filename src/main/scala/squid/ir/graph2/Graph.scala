@@ -23,6 +23,12 @@ import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import scala.collection.immutable.ListSet
 import scala.collection.mutable
 
+/*
+
+Important invariant: lambdas don't get rebound to different symbols; indeed we currently rely on MirrorVal#abs to durably
+point to the associated lambda.
+
+*/
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
   val edges = new java.util.WeakHashMap[Val,Node]
@@ -62,6 +68,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //}
   //class MirrorVal(v: Val) extends CrossStageValue(v,v.typ) {
   class MirrorVal(val v: Val) extends HoleClass(v.name,v.typ)(None,None) {
+    private var abs: Rep = null
+    def getAbs = abs.boundTo.asInstanceOf[ConcreteNode].dfn.asInstanceOf[Abs] // assumes doesn't change... (big assumption)
+    def setAbs(a: Rep) = { require(abs === null); require(a.boundTo.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs], a.boundTo); abs = a }
+    def rebindAbs(newAbs:Abs) = rebind(abs.bound,new ConcreteNode(newAbs))
     override def equals(obj: Any) = obj match {
       case MirrorVal(w) => v === w
       case _ => false
@@ -261,9 +271,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   override def abs(param: BoundVal, body: => Rep): Rep = {
     //letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
     
-    val occ = rep(new MirrorVal(param))
+    val mirr = new MirrorVal(param)
+    val occ = rep(mirr)
     lambdaBound.put(param, occ.bound)
-    letinImpl(param, occ, super.abs(param, body))
+    letinImpl(param, occ, super.abs(param, body) also mirr.setAbs)
   }
   
   
@@ -282,10 +293,23 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     rebind(occ, bran)
     lambdaBound.put(v,newOcc.bound)
     
+    // Q: does this create code dup?
+    /*
     val body = r.boundTo.mkRep
     rebind(r.bound, Pass(cid, body))
+    */
+    /*
+    val origBody = mir.getAbs.body
+    val body = origBody.boundTo.mkRep
+    rebind(origBody.bound, Pass(cid, body))
+    */
     
-    Call(cid, body).mkRep
+    val abs = mir.getAbs
+    assert(mir.getAbs =/= null)
+    val body = abs.body
+    mir.rebindAbs(Abs(abs.param, Pass(cid, body).mkRep)(abs.typ))
+    
+    Call(cid, r).mkRep
   }
   
   

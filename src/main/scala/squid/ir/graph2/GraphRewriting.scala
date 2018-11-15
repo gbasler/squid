@@ -34,13 +34,9 @@ Note:
 TODO:
   Use analysis before doing the rewrites, to prune possible paths to explore
 
-FIXME:
-  It is currently unsound to match something in the body of a lambda, if that entails wrapping it in control-flow,
-  because then the body that will be modified on variable substitution will NOT be the original body, and we may create
-  cycles in the graph because the pass node will be inserted on the reconstructed body, not the real body!
-  This used to even be the case when we didn't match anything in the body and just extracted it as a hole, because we
-  used to inspect control-flow under holes (which is unnecessary); we don't anymore, but the unsoundness is still there.
-  Note: in [this commit], I added a hacky semi-fix that duplicates a lambda-bound variable on extraction of a lambda body.
+Note:
+  It used to be unsound to match something in the body of a lambda, if that entailed wrapping it in control-flow
+  As of [this commit], the problem should be fixed, by making substituteVal smarter and storing 'abs' in MirrorVal
 
 */
 trait GraphRewriting extends AST { graph: Graph =>
@@ -191,13 +187,14 @@ trait GraphRewriting extends AST { graph: Graph =>
           require(a1.param.isExtractedBinder, s"alternative not implemented yet")
           for {
             pt <- a1.ptyp.extract(a2.ptyp, Contravariant).toList //map fromExtract
-            /*
+            ///*
             (hExtr,h) = a2.param.toHole(a1.param)
             //m <- mergeGraph(pt, hExtr |> fromExtract)
             m <- merge(pt, hExtr).toList
             b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
             m <- m |> fromExtract merge b
-            */
+            //*/
+            /* // Old way of making sure a pass node is inserted; we now do it with smarter substituteVal and storing 'abs' in MirrorVal
             a2p -> a2b = if (ctx.curOps.isEmpty) a2.param -> a2.body else {
               /* This is to temporarily sove the unsoundness with extracting lambda bodies while wrapping them in
                  control-flow nodes; it only solves the case where the lambda's body is matched as is (with no further
@@ -216,6 +213,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             m <- merge(pt, hExtr).toList
             b <- extractGraph(a1.body, a2b)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2p)))
             m <- m |> fromExtract merge b
+            */
           } yield m
           
         case (StaticModule(fullName1), StaticModule(fullName2)) if fullName1 == fullName2 =>
