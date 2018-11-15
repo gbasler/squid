@@ -132,9 +132,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
   }
   
   test("My Tests") {
+    //def g = code"(x: Int) => (y: Int) => x - y"
     
-    DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    //DSL.ScheduleDebug debugFor
+    //doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    //doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(-21)
     
   }
   
@@ -145,6 +147,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     // TODO: try making `g` a `val` here
     def g = code"(x: Int) => (y: Int) => x - y"
     
+    //DSL.ScheduleDebug debugFor
     doTest(code"val f = $g; f(11)(22) + 1", 1)(-10)
     
     doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(-21)
@@ -153,6 +156,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     
     doTest(code"val f = $g; f(f(33)(40))")(-108, _(101))
     
+    //DSL.ScheduleDebug debugFor
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(-51)
     
     //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
