@@ -70,16 +70,23 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
         val g0 = g.asInstanceOf[Code[(ta.Typ => tb.Typ => tb.Typ) => tb.Typ => tb.Typ,g.Ctx]]
         c"$g0($k)($z)"
       
+      case c"compose[$ta,$tb,$tc]($f)($g)" => c"(x:$ta) => $f($g(x))"
+        
     }
     
   }
   
   override def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
       (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true) = {
+    
+    val tree0 = DSL.treeInSimpleASTBackend(cde.rep)
+    println("Haskell:\n"+ToHaskell(AST)(tree0))
+    
     val rep = super.doTest(cde,expectedSize)(expectedResult, preprocess, doEval)
     
     val tree = DSL.treeInSimpleASTBackend(rep)
     println("Haskell:\n"+ToHaskell(AST)(tree))
+    printSep()
     
     rep
   }

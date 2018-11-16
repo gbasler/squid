@@ -60,9 +60,10 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
         //Thread.sleep(100)
       }
     } while (mod)
-    println("\n--- --- ---\n")
+    printSep()
     cde.rep
   }
+  def printSep() = println("\n--- --- ---\n")
 }
 
 /*

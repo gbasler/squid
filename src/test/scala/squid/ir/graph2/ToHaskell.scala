@@ -20,33 +20,47 @@ object ToHaskell {
       val id = valIds.getOrElseUpdate(v, curId alsoDo (curId += 1))
       v.name+"_"+id
     }
+    val Prelude = code"haskell.Prelude"
     //implicitly[CodeType[Any]]
     def rec(cde: OpenCode[Any], parens: Bool = true): String = {
     //def rec[A:CodeType](cde: OpenCode[A]): String = cde match {
+      var really_parens_? : Opt[Bool] = None
+      def par = really_parens_? = Some(true)
+      def nopar = really_parens_? = Some(false)
       val cdeStr = cde match {
         //case Const(v) => v.toString // why doesn't work??! "could not find implicit evidence for type Any"
         //case Const(v:String) => v.toString // doesn't work either...
         //case c"${Const(v)}:String" => '"'+v+'"' // doesn't work either...
-        case AST.Code(AST.RepDef(AST.Constant(v))) => v match {
+        case AST.Code(AST.RepDef(AST.Constant(v))) => nopar; v match {
           case str: String => '"'+str+'"'
           case _ => v.toString
         }
         case c"downAux($n)" => s"down' ${rec(n)}"
         case c"downBuild($n)" => s"down' ${rec(n)}"
         case c"($b:Builder[$ta]).apply[$tb]($c)($n)" => s"${b|>(rec(_))} ${c|>(rec(_))} ${n|>(rec(_))}"
-        case c"+" => s"+"
-        case c"::" => s":"
+        case c"(+)($n:Int)($m:Int)" => s"${rec(n)}+${rec(m)}"
+        case c"(+)($n:Int)" => par; s"${rec(n)}+"
+        case c"+" => par; s"+"
+        case c"::" => par; s":"
         case c"val $x:$xt = $v; $body:$bt" =>
           s"let ${name(x)} = ${rec(v,false)} in ${rec(body,false)}"
         //case c"($f:$ta=>$tb)($a)" => rec(f) + " " + rec(a)
-        case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => rec(f) + " " + rec(a) // seems necessary because we mess with types!
-        case c"($x:$xt)=>($b:$bt)" => s"\\${name(x)} -> " + rec(b)
+        case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => // seems necessary because we mess with types!
+          //rec(f) + " " + rec(a)
+          rec(f,false) + " $ " + rec(a)
+        case c"($x:$xt)=>($b:$bt)" => s"\\${name(x)} -> " + rec(b,false)
         case c"compose[$ta,$tb,$tc]($f)($g)" => s"${rec(f)} . ${rec(g)}"
-        case AST.Code(AST.RepDef(v:AST.Val)) => nameV(v)
+        case AST.Code(AST.RepDef(v:AST.Val)) => nopar; nameV(v)
+        case AST.Code(AST.RepDef(AST.MethodApp(s,sym,targs,argss,rett))) if s === Prelude.rep =>
+          val args = argss.flatMap(_.reps)
+          val nameStr = sym.name.toString
+          val name = if (nameStr.head.isLetter) nameStr else s"($nameStr)"
+          if (args.isEmpty) { nopar; name }
+          else s"${name}${args.map(r => " $ "+rec(AST.Code(r),false)).mkString}"
         case _ =>
           lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.show}")
       }
-      if (parens) s"($cdeStr)" else cdeStr
+      if (parens && really_parens_?.forall(id) || really_parens_?.exists(id)) s"($cdeStr)" else cdeStr
     }
     rec(AST.Code(rep),false)
   }
