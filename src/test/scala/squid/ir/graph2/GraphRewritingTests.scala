@@ -21,38 +21,16 @@ import squid.lib.matching._
 import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
-object GraphRewritingTests extends Graph {
-  object Tr extends SimpleRuleBasedTransformer with SelfTransformer {
-    import Predef.{Const=>_,_}
-    
-    rewrite {
-      case c"666" => c"42"
-      case code"(($x: $xt) => $body:$bt)($arg)" =>
-        println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraph}")
-        val res = body.subs(x) ~> arg
-        println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
-        //println(s"Nota: ${showEdges}")
-        res
-      case r @ code"lib.const[Int](${n0@Const(n)})+lib.const[Int](${m0@Const(m)})" =>
-        //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
-        println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
-    }
-    
-  }
-}
+object GraphRewritingTests extends Graph
 
 import GraphRewritingTests._
 
-/*
-
-TODO try to trigger the unsoundness with matching things inside lambda bodies and doing substitution
-
-
-
-*/
-class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
+trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
   import DSL.Predef._
   import DSL.Quasicodes._
+  import DSL.IntermediateCodeOps
+  
+  val Tr: SimpleRuleBasedTransformer with DSL.SelfTransformer
   
   def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
       (expectedResult: Any = null, preprocess: A => Any = (a:A) => a, doEval: Bool = true) = {
@@ -69,7 +47,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
     printCheckEval(DSL.treeInSimpleASTBackend(cde.rep))
     var mod = false
     do {
-      val ite = DSL.rewriteSteps(DSL.Tr)(cde.rep)
+      val ite = DSL.rewriteSteps(Tr)(cde.rep)
       mod = ite.hasNext
       while (ite.hasNext) {
         val n = ite.next
@@ -83,6 +61,33 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) {
       }
     } while (mod)
     println("\n--- --- ---\n")
+  }
+}
+
+/*
+
+TODO try to trigger the unsoundness with matching things inside lambda bodies and doing substitution
+
+*/
+class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewritingTester[GraphRewritingTests.type] {
+  import DSL.Predef._
+  import DSL.Quasicodes._
+  
+  object Tr extends SimpleRuleBasedTransformer with SelfTransformer {
+    
+    rewrite {
+      case c"666" => c"42"
+      case code"(($x: $xt) => $body:$bt)($arg)" =>
+        println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraph}")
+        val res = body.subs(x) ~> arg
+        println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
+        //println(s"Nota: ${showEdges}")
+        res
+      case r @ code"lib.const[Int](${n0@Const(n)})+lib.const[Int](${m0@Const(m)})" =>
+        //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
+        println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
+    }
+    
   }
   
   test("A") {
