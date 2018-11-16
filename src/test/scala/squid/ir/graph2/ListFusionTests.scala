@@ -39,6 +39,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       case c"down($n)" => c"build(downBuild($n))"
         
       case c"foldr[$ta,$tb]($k)($z)(build[ta]($g))" =>
+      // TODO add condition that the build node not be shared...
         println(s">>> FUSION of $k $z $g")
         c"$g($k)($z)"
       
@@ -47,6 +48,17 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   }
   
   test("A") {
+  override def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
+      (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true) = {
+    val rep = super.doTest(cde,expectedSize)(expectedResult, preprocess, doEval)
+    
+    val tree = DSL.treeInSimpleASTBackend(rep)
+    println("Haskell:\n"+ToHaskell(AST)(tree))
+    
+    rep
+  }
+  
+  
     
     doTest(c"666.toDouble")()
     doTest(c"sum(Nil)")()

@@ -33,7 +33,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
   val Tr: SimpleRuleBasedTransformer with DSL.SelfTransformer
   
   def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
-      (expectedResult: Any = null, preprocess: A => Any = (a:A) => a, doEval: Bool = true) = {
+      (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true): DSL.Rep = {
     val cdes = cde.show
     println("\n-> "+cde.rep.showGraph+"\n-> "+cdes)
     //println(DSL.edges)
@@ -61,6 +61,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
       }
     } while (mod)
     println("\n--- --- ---\n")
+    cde.rep
   }
 }
 
