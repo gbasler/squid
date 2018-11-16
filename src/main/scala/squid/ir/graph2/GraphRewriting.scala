@@ -62,7 +62,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false)).headOption map (_.extr)
   
   override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
-    println(s"rewriteRep $xtee  >>  $xtor")
+    //println(s"rewriteRep $xtee  >>  $xtor")
     //println(s"already: ${transformed.map(r => s"\n\t${r._1.bound}, ${r._2}, ${r._3.map(_.bound)}")}")
     
     val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
