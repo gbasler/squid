@@ -135,7 +135,11 @@ package object utils {
       case None => __self
     }
   }
-  def If[A](cond: Boolean)(thn: A) = if (cond) Some(thn) else None
+  def If[A](cond: Bool)(thn: A) = if (cond) Some(thn) else None
+  
+  implicit class BoolHelper[A](private val self: Bool) extends AnyVal {
+    @inline def ==> (rhs: => Bool) = !self || rhs
+  }
   
   @inline def some[A](x: A): Option[A] = Some(x)
   @inline def none = None
