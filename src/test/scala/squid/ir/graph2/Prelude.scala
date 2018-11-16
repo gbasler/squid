@@ -50,4 +50,10 @@ object Prelude {
   
   def :: [A] : A => List[A] => List[A] = a => ls => a :: ls
   def compose[A,B,C](f:B=>C)(g:A=>B) = f compose g
+  
+  
+  def loremipsum = "Lorem ipsum dolor sit amet".toList
+  def ord: Char => Int = _.toInt
+  def max: List[Int] => Int = _.max
+  
 }

@@ -38,17 +38,22 @@ object ToHaskell {
         case c"downAux($n)" => s"down' ${rec(n)}"
         case c"downBuild($n)" => s"down' ${rec(n)}"
         case c"($b:Builder[$ta]).apply[$tb]($c)($n)" => s"${b|>(rec(_))} ${c|>(rec(_))} ${n|>(rec(_))}"
+        case c"($a:$ta,$b:$tb)" => par; s"${rec(a)},${rec(b)}"
+        case c"($n:Int)+($m:Int)" => s"${rec(n)}+${rec(m)}"
         case c"(+)($n:Int)($m:Int)" => s"${rec(n)}+${rec(m)}"
         case c"(+)($n:Int)" => par; s"${rec(n)}+"
         case c"+" => par; s"+"
         case c"::" => par; s":"
         case c"val $x:$xt = $v; $body:$bt" =>
-          s"let ${name(x)} = ${rec(v,false)} in ${rec(body,false)}"
+          s"let ${name(x)} = ${rec(v,false)}\nin ${rec(body,false)}"
         //case c"($f:$ta=>$tb)($a)" => rec(f) + " " + rec(a)
         case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => // seems necessary because we mess with types!
           //rec(f) + " " + rec(a)
           rec(f,false) + " $ " + rec(a)
         case c"($x:$xt)=>($b:$bt)" => s"\\${name(x)} -> " + rec(b,false)
+        case c"($f:($ta,$tb)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb))" =>
+          rec(f,false) + " $ " + rec(a) + " $ " + rec(b)
+        case c"($x:$xt,$y:$yt)=>($b:$bt)" => s"\\${name(x)} ${name(y)} -> " + rec(b,false)
         case c"compose[$ta,$tb,$tc]($f)($g)" => s"${rec(f)} . ${rec(g)}"
         case AST.Code(AST.RepDef(v:AST.Val)) => nopar; nameV(v)
         case AST.Code(AST.RepDef(AST.MethodApp(s,sym,targs,argss,rett))) if s === Prelude.rep =>
@@ -57,8 +62,11 @@ object ToHaskell {
           val name = if (nameStr.head.isLetter) nameStr else s"($nameStr)"
           if (args.isEmpty) { nopar; name }
           else s"${name}${args.map(r => " $ "+rec(AST.Code(r),false)).mkString}"
+        case AST.Code(AST.RepDef(AST.MethodApp(s,sym,targs,argss,rett))) =>
+          lastWords(s"Unsupported method ($s:${s.dfn.typ}).$sym[${sym.owner}] $argss")
         case _ =>
           lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.show}")
+          //lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.rep.dfn}")
       }
       if (parens && really_parens_?.forall(id) || really_parens_?.exists(id)) s"($cdeStr)" else cdeStr
     }

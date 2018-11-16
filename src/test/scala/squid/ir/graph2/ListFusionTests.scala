@@ -80,6 +80,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true) = {
     
     val tree0 = DSL.treeInSimpleASTBackend(cde.rep)
+    println("Scala:\n"+tree0.show)
     println("Haskell:\n"+ToHaskell(AST)(tree0))
     
     val rep = super.doTest(cde,expectedSize)(expectedResult, preprocess, doEval)
@@ -110,6 +111,16 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     
   }
   
+  test("C") {
+    
+    //DSL.ScheduleDebug debugFor
+    doTest(code{
+      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
+      foo(max)(42)
+    })()
+    
+  }
   
   
 }
