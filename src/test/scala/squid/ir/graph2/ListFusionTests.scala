@@ -35,19 +35,45 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     rewrite {
       case c"666" => c"42"
         
-      case c"sum" => c"foldr(+)(0)"
-      case c"down($n)" => c"build(downBuild($n))"
+      case code"(($x: $xt) => $body:$bt)($arg:$argt where (argt<:<xt))" =>
+        println(s"!>> SUBSTITUTE ${x.rep} with ${arg.rep} in ${body.rep.showGraph}")
+        val res = body.subs(x) ~> arg
+        println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
+        //println(s"Nota: ${showEdges}")
+        res
         
-      case c"foldr[$ta,$tb]($k)($z)(build[ta]($g))" =>
+      case c"sum" => c"foldr(+)(0)"
+      //case c"down($n)" => c"build(downBuild($n))"
+      case c"down($n)" =>
+        //c"magicBuild[Int,Any]((cons:(Int => Any => Any)) => (nil:Any) => downAux($n)(cons)(nil))"
+        val cons = Variable[Int => Any => Any]
+        val nil = Variable[Any]
+        c"magicBuild[Int,Any]($cons => $nil => downAux($n)(${cons.toCode.asInstanceOf[ClosedCode[Nothing]]})(${
+          nil.toCode.asInstanceOf[ClosedCode[Nothing]]}))"
+      //case c"down($n)" => c"magicBuild[](downAux($n))"
+        
+      //case c"map[$ta,$tb]($f)($xs)" => c"build(mapBuild($f,$xs))"
+      //case c"map[$ta,$tb]($f)($xs)" => c"magicBuild[$tb]((cons:($tb => Nothing => Any)) => (nil:Nothing) => foldr(cons compose $f)(nil)($xs))"
+      case c"map[$ta,$tb]($f)($xs)" =>
+        //c"magicBuild[$tb,Any]((cons:($tb => Any => Any)) => (nil:Any) => foldr(cons compose $f)(nil)($xs))"
+        c"magicBuild[$tb,Any]((cons:($tb => Any => Any)) => (nil:Any) => foldr(compose(cons)($f))(nil)($xs))"
+        
       // TODO add condition that the build node not be shared...
+      case c"foldr[$ta,$tb]($k)($z)(build[ta]($g))" =>
         println(s">>> FUSION of $k $z $g")
         c"$g($k)($z)"
+        
+      //case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta,ta]($g))" =>
+      //case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta]($g))" =>
+      case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta,$tc]($g))" =>
+        println(s">>> FUSION of $k $z $g")
+        val g0 = g.asInstanceOf[Code[(ta.Typ => tb.Typ => tb.Typ) => tb.Typ => tb.Typ,g.Ctx]]
+        c"$g0($k)($z)"
       
     }
     
   }
   
-  test("A") {
   override def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
       (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true) = {
     val rep = super.doTest(cde,expectedSize)(expectedResult, preprocess, doEval)
@@ -59,6 +85,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   }
   
   
+  test("A") {
     
     doTest(c"666.toDouble")()
     doTest(c"sum(Nil)")()
@@ -68,7 +95,11 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   
   test("B") {
     
-    doTest(c"sum(down(5))")(0 to 5 sum)
+    doTest(c"sum(down(5))")(5 until 0 by -1 sum)
+    
+    //DSL.ScheduleDebug debugFor 
+    //doTest(c"sum(map((_:Int) + 1)(down(5)))")(0 to 5 sum)
+    doTest(c"sum(map((+)(1))(down(5)))")(5 until 0 by -1 map (_ + 1) sum)
     
   }
   

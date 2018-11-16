@@ -4,6 +4,15 @@ import squid.utils._
 
 object SimpleASTBackend extends squid.ir.SimpleAST {
   
+  override def showScala(r: Rep): String = 
+    super.showScala(r) |> trimPrefixes
+  
+  def trimPrefixes(str: String) = str
+    .replaceAll("haskell.Prelude.","")
+    .replaceAll("squid.lib.`package`.","")
+    .replaceAll("squid.lib.","")
+    .replaceAll("scala.","")
+  
 }
 object A extends App {
   import SimpleASTBackend.Predef._
