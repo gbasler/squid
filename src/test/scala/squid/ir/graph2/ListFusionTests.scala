@@ -100,7 +100,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   
   test("A") {
     
-    doTest(c"666.toDouble")()
+    doTest(c"666+${Const(1)}")()
     doTest(c"sum(Nil)")()
     doTest(c"down(666)")()
     

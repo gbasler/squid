@@ -35,6 +35,7 @@ object ToHaskell {
           case str: String => '"'+str+'"'
           case _ => v.toString
         }
+        case c"Nil" => s"[]"
         case c"downAux($n)" => s"down' ${rec(n)}"
         case c"downBuild($n)" => s"down' ${rec(n)}"
         case c"($b:Builder[$ta]).apply[$tb]($c)($n)" => s"${b|>(rec(_))} ${c|>(rec(_))} ${n|>(rec(_))}"
@@ -44,16 +45,24 @@ object ToHaskell {
         case c"(+)($n:Int)" => par; s"${rec(n)}+"
         case c"+" => par; s"+"
         case c"::" => par; s":"
+          
         case c"val $x:$xt = $v; $body:$bt" =>
           s"let ${name(x)} = ${rec(v,false)}\nin ${rec(body,false)}"
         //case c"($f:$ta=>$tb)($a)" => rec(f) + " " + rec(a)
+          
         case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => // seems necessary because we mess with types!
           //rec(f) + " " + rec(a)
           rec(f,false) + " $ " + rec(a)
         case c"($x:$xt)=>($b:$bt)" => s"\\${name(x)} -> " + rec(b,false)
+          
         case c"($f:($ta,$tb)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb))" =>
           rec(f,false) + " $ " + rec(a) + " $ " + rec(b)
         case c"($x:$xt,$y:$yt)=>($b:$bt)" => s"\\${name(x)} ${name(y)} -> " + rec(b,false)
+          
+        case c"($f:($ta,$tb,$tc)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb),$c:$tc0 where (tc0<:<tc))" =>
+          rec(f,false) + " $ " + rec(a) + " $ " + rec(b) + " $ " + rec(c)
+        case c"($x:$xt,$y:$yt,$z:$zt)=>($b:$bt)" => s"\\${name(x)} ${name(y)} ${name(z)} -> " + rec(b,false)
+          
         case c"compose[$ta,$tb,$tc]($f)($g)" => s"${rec(f)} . ${rec(g)}"
         case AST.Code(AST.RepDef(v:AST.Val)) => nopar; nameV(v)
         case AST.Code(AST.RepDef(AST.MethodApp(s,sym,targs,argss,rett))) if s === Prelude.rep =>
