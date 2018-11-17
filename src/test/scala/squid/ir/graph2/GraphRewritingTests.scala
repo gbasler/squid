@@ -56,7 +56,10 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
         println(s"Rw ${cde.rep.bound} -> $n")
         //println(s"Rw ${cde.rep.bound} -> ${n.showGraph}")
         //println(s"Nota: ${showEdges}")
+        
         println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+AST.showRep(sch))
+        //println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep)
+        
         printCheckEval(sch)
         //Thread.sleep(100)
         //Thread.sleep(50)
@@ -159,7 +162,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(18)
     
-    doTest(code"val f = $g; f(f(33)(40))")(-108, _(101))
+    doTest(code"val f = $g; f(f(33)(40))")(-108, _(101)) // FIXME wrong result!
     
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(-51)
@@ -186,7 +189,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
     //   Note: was another manifestation of the lambda bug, since the reason for the cycle was there were no pass nodes
     
-    doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
+    doTest(code"val f = $g; f(f(33)(40))")(174, _(101)) // FIXME wrong result!
     // ^ Note: used to never finish; looping on: "Constant folding $9 = 73 + $8 = 40"
     
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)

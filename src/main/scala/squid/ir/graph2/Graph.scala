@@ -416,4 +416,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   
+  override def freeVariables(r: Rep) = ??? // making sure this is not used...
+  
+  
 }

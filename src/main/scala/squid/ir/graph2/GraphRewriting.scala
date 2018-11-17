@@ -89,12 +89,14 @@ trait GraphRewriting extends AST { graph: Graph =>
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
+          /*
           println(s"rewriteRep $xtee  >>  $xtor")
           //println(s"...transforming ${xtor.simpleString} -> $x0")
           //println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...transforming ${xtee.simpleString} -> ${x0.showGraph}")
           println(s"...  ${ge.assumptions}")
           println(s"...  ${xtor.simpleString} :: ${ge.traversedReps.map(_.bound)}")
+          */
           rememberTransformedBy(xtor,ge)
           //println(f: ${showEdges}")
           if (ge.assumptions.isEmpty) x0 else {

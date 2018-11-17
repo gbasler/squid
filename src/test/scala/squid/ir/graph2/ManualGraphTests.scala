@@ -40,7 +40,7 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
   val IntLT = `scala.Int`.`method <:3`.value
   def lt(lhs:Rep,rhs:Rep) = methodApp(lhs, IntLT, Nil, Args(rhs)::Nil,Bool)
   
-  val c0,c1 = new CallId
+  val c0,c1 = new CallId("α")
   val v = bindVal("v",Int,Nil)
   val w = bindVal("w",Int,Nil)
   val IntToInt = lambdaType(Int::Nil,Int)
@@ -51,11 +51,13 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
   test("A") {
     
     val shd = abs(v, Branch(c0, v, Branch(c1, methodApp(v,IntPlus,Nil,Args(const(1))::Nil,Int), v).mkRep).mkRep)
-    val g = methodApp(Call(c0, shd).mkRep, IntPlus, Nil, Args(Call(c1, shd).mkRep)::Nil, Int)
+    val g = methodApp(Call(c0, Pass(c1, shd).mkRep).mkRep, IntPlus, Nil, Args(Call(c1, Pass(c0,shd).mkRep).mkRep)::Nil, Int)
     println(g)
     //println(g.iterator.toList)
     println(g.showGraph)
     //println(DSL.scalaTree(g))
+    
+    DSL.ScheduleDebug debugFor
     println(g.showRep)
     
   }

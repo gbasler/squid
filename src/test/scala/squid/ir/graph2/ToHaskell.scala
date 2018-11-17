@@ -18,7 +18,7 @@ object ToHaskell {
     def name[A](v:Variable[A]): String = nameV(v.`internal bound`)
     def nameV(v:AST.Val): String = {
       val id = valIds.getOrElseUpdate(v, curId alsoDo (curId += 1))
-      v.name+"_"+id
+      v.name.replaceAll("\\$","'") +"_"+id
     }
     val Prelude = code"haskell.Prelude"
     //implicitly[CodeType[Any]]
@@ -48,21 +48,21 @@ object ToHaskell {
         case c"::" => par; s":"
           
         case c"val $x:$xt = $v; $body:$bt" =>
-          s"let ${name(x)} = ${rec(v,false)}\nin ${rec(body,false)}"
+          s"let ${name(x)} = ${rec(v,false)} in\n${rec(body,false)}"
         //case c"($f:$ta=>$tb)($a)" => rec(f) + " " + rec(a)
           
         case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => // seems necessary because we mess with types!
           //rec(f) + " " + rec(a)
           rec(f,false) + " $ " + rec(a)
-        case c"($x:$xt)=>($b:$bt)" => s"\\${name(x)} -> " + rec(b,false)
+        case c"($x:$xt)=>($b:$bt)" => par; s"\\${name(x)} -> " + rec(b,false)
           
         case c"($f:($ta,$tb)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb))" =>
           rec(f,false) + " $ " + rec(a) + " $ " + rec(b)
-        case c"($x:$xt,$y:$yt)=>($b:$bt)" => s"\\${name(x)} ${name(y)} -> " + rec(b,false)
+        case c"($x:$xt,$y:$yt)=>($b:$bt)" => par; s"\\${name(x)} ${name(y)} -> " + rec(b,false)
           
         case c"($f:($ta,$tb,$tc)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb),$c:$tc0 where (tc0<:<tc))" =>
           rec(f,false) + " $ " + rec(a) + " $ " + rec(b) + " $ " + rec(c)
-        case c"($x:$xt,$y:$yt,$z:$zt)=>($b:$bt)" => s"\\${name(x)} ${name(y)} ${name(z)} -> " + rec(b,false)
+        case c"($x:$xt,$y:$yt,$z:$zt)=>($b:$bt)" => par; s"\\${name(x)} ${name(y)} ${name(z)} -> " + rec(b,false)
           
         case c"compose[$ta,$tb,$tc]($f)($g)" => s"${rec(f)} . ${rec(g)}"
         case AST.Code(AST.RepDef(v:AST.Val)) => nopar; nameV(v)
@@ -79,6 +79,7 @@ object ToHaskell {
           //lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.rep.dfn}")
       }
       if (parens && really_parens_?.forall(id) || really_parens_?.exists(id)) s"($cdeStr)" else cdeStr
+      //s"($cdeStr)"
     }
     rec(AST.Code(rep),false)
   }

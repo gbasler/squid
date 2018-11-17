@@ -60,6 +60,11 @@ trait GraphScheduling extends AST { graph: Graph =>
   }.map.get(cond.cid).map(_.isDefined)
   def withCall(cid: CallId)(implicit cctx: CCtx) = cctx + cid
   def withPass(cid: CallId)(implicit cctx: CCtx) = cctx - cid
+  def withBox(b: Box)(implicit cctx: CCtx) = b match {
+    case Arg(cid,res) => withArg(cid)
+    case Pass(cid,res) => withPass(cid)
+    case Call(cid,res) => withCall(cid)
+  }
   
   // FIXME Q: remove cid from map below?
   def withArg(cid: CallId)(implicit cctx: CCtx) = CCtx(cctx.map ++ cctx.map(cid).get.map) // TODO B/E?
@@ -142,6 +147,10 @@ trait GraphScheduling extends AST { graph: Graph =>
       val reachingCtxs = mutable.Map.empty[Rep,Set[CCtx]] // TODO rm...
       val nPaths = mutable.Map.empty[Rep,Int]//.withDefaultValue(0)
       
+      
+      //val alwaysBoundAt = mutable.Map.empty[Rep,Set[Val]] // TODO use to avoid some continuations...
+      
+      
       //val bottom = Bottom.toRep
       //nPaths(bottom) = Int.MaxValue
       
@@ -195,14 +204,17 @@ trait GraphScheduling extends AST { graph: Graph =>
         //println(pred,nPaths.get(pred),rep,nPaths.get(rep))
         //Sdebug(s"> Sch ${pred.bound} -> $rep  (${vctx.mkString(",")})  ${reachingCtxs(pred).mkString(" ")}")
         Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}  <- ${pred.bound}")
-        assert(reachingCtxs(pred).nonEmpty)
+        //assert(reachingCtxs(pred).nonEmpty)
         
+        /*
         //val m = nPaths.getOrElse(rep, if (n > 0) return rec(pred, bottom, 0) else 0)
         val m = nPaths.getOrElse(rep, println(s"No path count for ${rep}") thenReturn 0)
         if ((m === 0) && n > 0) return {
           val as->r = rec(pred, rep, 0)
           as->dead(r,rect(rep.typ))
         }
+        */
+        val m = n
         
         val res = ScheduleDebug.nestDbg { rep.boundTo |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
           //case Box(cid,res,_) => rec(pred,res,n)
@@ -217,12 +229,25 @@ trait GraphScheduling extends AST { graph: Graph =>
             if (hc===Some(true)) rec(pred,thn,n)
             else if (hc===Some(false)) rec(pred,els,n)
             else {
-              //val v = freshBoundVal(rep.typ)
-              //val w = recv(v)
-              val v = rep.bound
-              val w = recv(v)
-              Sdebug(s"$v ~> $w")
-              ListMap(rep->w) -> nb.readVal(w)
+              val fv = freeVals(rep)
+              val vset = vctx.keySet
+              println(s"FV ${fv} ? $vset")
+              if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
+                //val v = freshBoundVal(rep.typ)
+                //val w = recv(v)
+                val v = rep.bound
+                val w = recv(v)
+                Sdebug(s"$v ~> $w")
+                ListMap(rep->w) -> nb.readVal(w)
+              } else {
+                val extrudedVals = (fv & vset).toList
+                val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
+                val kbody = lambda(extrudedVals, rep)
+                pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
+                val rk = recv(k)
+                println(k,kbody)
+                ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
+              }
             }
           // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
           // obviously fail as they will be extruded from their scope...
@@ -288,5 +313,17 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   
   
+  /** Path-sensitive free-variables computation. */
+  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.boundTo match {
+    case b:Box => freeVals(b.result)(withBox(b))
+    case Branch(cond,thn,els) =>
+      val hc = hasCond_?(cond)
+      if (hc===Some(true)) freeVals(thn)
+      else if (hc===Some(false)) freeVals(els)
+      else freeVals(thn) ++ freeVals(els)
+    case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
+    case ConcreteNode(MirrorVal(v)) => Set single v
+    case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
+  }
   
 }
