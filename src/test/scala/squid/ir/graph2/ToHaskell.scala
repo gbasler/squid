@@ -53,15 +53,18 @@ object ToHaskell {
           
         case c"($f:$ta=>$tb)($a:$tc where (tc<:<ta))" => // seems necessary because we mess with types!
           //rec(f) + " " + rec(a)
-          rec(f,false) + " $ " + rec(a)
+          //rec(f,false) + " $ " + rec(a)
+          rec(f) + " " + rec(a)
         case c"($x:$xt)=>($b:$bt)" => par; s"\\${name(x)} -> " + rec(b,false)
           
         case c"($f:($ta,$tb)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb))" =>
-          rec(f,false) + " $ " + rec(a) + " $ " + rec(b)
+          //rec(f,false) + " $ " + rec(a) + " $ " + rec(b)
+          rec(f) + " " + rec(a) + " " + rec(b)
         case c"($x:$xt,$y:$yt)=>($b:$bt)" => par; s"\\${name(x)} ${name(y)} -> " + rec(b,false)
           
         case c"($f:($ta,$tb,$tc)=>$bt)($a:$ta0 where (ta0<:<ta),$b:$tb0 where (tb0<:<tb),$c:$tc0 where (tc0<:<tc))" =>
-          rec(f,false) + " $ " + rec(a) + " $ " + rec(b) + " $ " + rec(c)
+          //rec(f,false) + " $ " + rec(a) + " $ " + rec(b) + " $ " + rec(c)
+          rec(f) + " " + rec(a) + " " + rec(b) + " " + rec(c)
         case c"($x:$xt,$y:$yt,$z:$zt)=>($b:$bt)" => par; s"\\${name(x)} ${name(y)} ${name(z)} -> " + rec(b,false)
           
         case c"compose[$ta,$tb,$tc]($f)($g)" => s"${rec(f)} . ${rec(g)}"

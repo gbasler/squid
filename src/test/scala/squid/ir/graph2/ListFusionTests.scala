@@ -167,11 +167,11 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat( compose(sf)(map(_*2)) )(arg+1))
       foo(sum)(42)
     })( (3592,7236) )
-    // ^ fully fuses! – though GHCI can't type check it (but it works in Scala):  Couldn't match type ‘Int’ with ‘b -> b’
-    //      let sch'10099_0 = (\κ_1 x10094_2 -> foldr $ (\x_3 -> κ_1 $ x_3) $ x10094_2 $ loremipsum) in
+    // ^ fully fuses!
+    //      let sch'10099_0 = (\κ_1 x10094_2 -> ((foldr (\x_3 -> κ_1 x_3)) x10094_2) loremipsum) in
     //      let sch'8390_4 = (+) in
-    //      let sch'9_5 = (\x6_6 x4_7 -> (ord $ x6_6)+x4_7) in
-    //      ((sch'10099_0 $ (\x_3 -> sch'8390_4 $ (sch'9_5 $ x_3 $ 42)) $ 0),(sch'10099_0 $ (\x_3 -> sch'8390_4 $ ((sch'9_5 $ x_3 $ (42+1))*2)) $ 0))
+    //      let sch'9_5 = (\x6_6 x4_7 -> (ord x6_6)+x4_7) in
+    //      ((sch'10099_0 (\x_3 -> sch'8390_4 (sch'9_5 x_3 42)) 0),(sch'10099_0 (\x_3 -> sch'8390_4 ((sch'9_5 x_3 (42+1))*2)) 0))
    
   }
   // TODO somehow make the IR not share basic applications? (on variables?)
