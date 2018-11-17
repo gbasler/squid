@@ -116,7 +116,20 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     
   }
   
-  test("C") {
+  test("C0") {
+    
+    //DSL.ScheduleDebug debugFor
+    doTest(code{
+      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg))
+      foo(compose(sum)(map(_*2)))(42)
+    })( 7184 )
+    // ^ fuses beautifully:
+    //     foldr[Char, Any](((x_0: Char) => +(ord(x_0).+(42).*(2))))(0)(loremipsum)
+    //     foldr $ (\x_0 -> ((((ord $ x_0)+42)*2)+)) $ 0 $ loremipsum
+    
+  }
+  test("C1") {
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
@@ -124,6 +137,20 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
       foo(sum)(42)
     })( (3592,3618) )
+    // ^ fuses:
+    //      let sch$8518_0 = \x8512_1 x4_2 x8513_3 -> foldr $ (\x_4 -> x8512_1 $ ((ord $ x_4)+x4_2)) $ x8513_3 $ loremipsum
+    //      in let sch$7068_5 = (+)
+    //      in ((sch$8518_0 $ sch$7068_5 $ 42 $ 0),(sch$8518_0 $ sch$7068_5 $ (42+1) $ 0))
+  }
+  test("C2") {
+    
+    //DSL.ScheduleDebug debugFor
+    doTest(code{
+      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
+      foo(compose(sum)(map(_*2)))(42)
+    })( (7184,7236) )
+    // ^ doesn't fully fuse
     
   }
   

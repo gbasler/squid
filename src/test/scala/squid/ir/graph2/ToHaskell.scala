@@ -40,6 +40,7 @@ object ToHaskell {
         case c"downBuild($n)" => s"down' ${rec(n)}"
         case c"($b:Builder[$ta]).apply[$tb]($c)($n)" => s"${b|>(rec(_))} ${c|>(rec(_))} ${n|>(rec(_))}"
         case c"($a:$ta,$b:$tb)" => par; s"${rec(a)},${rec(b)}"
+        case c"($n:Int)*($m:Int)" => s"${rec(n)}*${rec(m)}"
         case c"($n:Int)+($m:Int)" => s"${rec(n)}+${rec(m)}"
         case c"(+)($n:Int)($m:Int)" => s"${rec(n)}+${rec(m)}"
         case c"(+)($n:Int)" => par; s"${rec(n)}+"
