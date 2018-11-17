@@ -58,6 +58,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
         println(s"${Console.BOLD}~> Transformed:${Console.RESET} "+cde.rep.showGraph+"\n~> "+AST.showRep(sch))
         printCheckEval(sch)
         //Thread.sleep(100)
+        //Thread.sleep(50)
       }
     } while (mod)
     printSep()

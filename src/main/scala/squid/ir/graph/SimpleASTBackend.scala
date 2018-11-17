@@ -11,7 +11,9 @@ object SimpleASTBackend extends squid.ir.SimpleAST {
     .replaceAll("haskell.Prelude.","")
     .replaceAll("squid.lib.`package`.","")
     .replaceAll("squid.lib.","")
+    .replaceAll("scala.collection.immutable.","")
     .replaceAll("scala.","")
+    .replaceAll("Tuple2.apply","Tuple2")
   
 }
 object A extends App {

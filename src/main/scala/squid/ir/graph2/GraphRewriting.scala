@@ -41,6 +41,10 @@ Note:
 */
 trait GraphRewriting extends AST { graph: Graph =>
   
+  override def extractVal(r: Rep): Option[Val] = r.boundTo |>? {
+    case ConcreteNode(MirrorVal(v)) => v
+  }
+  
   type XCtx = GXCtx
   def newXCtx: XCtx = GXCtx.empty
   
@@ -74,6 +78,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
+          println(s"rewriteRep $xtee  >>  $xtor")
           //println(s"...transforming ${xtor.simpleString} -> $x0")
           //println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...transforming ${xtee.simpleString} -> ${x0.showGraph}")
@@ -188,7 +193,11 @@ trait GraphRewriting extends AST { graph: Graph =>
           for {
             pt <- a1.ptyp.extract(a2.ptyp, Contravariant).toList //map fromExtract
             ///*
+            
             (hExtr,h) = a2.param.toHole(a1.param)
+            //(hExtr,h) = ((Map(a1.param.name -> new Rep(lambdaBound.get(a2.param))),Map(),Map()):Extract) -> Hole(a2.param.name)(a2.param.typ, None, None)
+            // ^ Essentially the same, but explicitly makes a Rep to the occurrence; this should now be handled by rep which is called by readVal in toHole
+            
             //m <- mergeGraph(pt, hExtr |> fromExtract)
             m <- merge(pt, hExtr).toList
             b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
@@ -327,9 +336,31 @@ trait GraphRewriting extends AST { graph: Graph =>
       tr.rules.iterator.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
         case Some(res) =>
           if (r.bound =/= oldBound) println(s"!!! ${r.bound} =/= ${oldBound}")
-          //println(s" ${r}  =>  $res")
+          println(s" ${r}  =>  $res")
+          //assert(!res.boundTo.isInstanceOf[ConcreteNode] || !res.boundTo.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs])
+          assert(!r.boundTo.isInstanceOf[ConcreteNode] || !r.boundTo.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs]) // not sure this is useful/correct(?)
           
+          //rebind(r.bound, res.boundTo)
+          // ^ Basically duplicates the def; it's often fine as it will be a fresh Rep wrapping a Def created by the rewrite rule;
+          //   but in principle it could really be any existing Rep too!
+          //   Also, it breaks the unique lambda invariant.
+          
+          assert(edges.containsKey(res.bound))
+          //rebind(r.bound, ConcreteNode(res.bound))
+          // ^ kind of works, but then we get things that rewrite forever because definitions change names...
+          //   maybe we could adapt the `alreadyTransformedBy` mechanism and make that work?
+          
+          // In this final alternative, we set to steal the Def (which is nice to avoid renaming) but make 'res' point
+          // back at us so there is no duplication; also we have to take care of the lambda backpointer
+          res.boundTo |>? {
+            case ConcreteNode(abs:Abs) =>
+              val occ = Option(lambdaBound.get(abs.param)).getOrElse(???) // TODO B/E
+              val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
+              assert(mir.abs === res)
+              mir.abs = r
+          }
           rebind(r.bound, res.boundTo)
+          rebind(res.bound, ConcreteNode(r.bound))
           
           //println(edges)
       })

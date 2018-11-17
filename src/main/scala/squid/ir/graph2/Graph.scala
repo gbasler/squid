@@ -53,7 +53,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //def rebind(r: Rep, d: Def): r.type = rebind(r.bound, d) thenReturn r
   def isBound(v: Val) = edges.containsKey(v)
   def boundTo_?(v: Val) = edges.get(v)
-  def boundTo_!(v: Val) = boundTo_?(v) also (r => require(r =/= null))
+  def boundTo_!(v: Val) = boundTo_?(v) also (r => require(r =/= null, v))
   def boundTo(v: Val) = Option(boundTo_?(v))
   
   //val NothingType = Predef.implicitType[Nothing].rep
@@ -68,10 +68,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //}
   //class MirrorVal(v: Val) extends CrossStageValue(v,v.typ) {
   class MirrorVal(val v: Val) extends HoleClass(v.name,v.typ)(None,None) {
-    private var abs: Rep = null
+    private[graph2] var abs: Rep = null
     def getAbs = abs.boundTo.asInstanceOf[ConcreteNode].dfn.asInstanceOf[Abs] // assumes doesn't change... (big assumption)
     def setAbs(a: Rep) = { require(abs === null); require(a.boundTo.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs], a.boundTo); abs = a }
-    def rebindAbs(newAbs:Abs) = rebind(abs.bound,new ConcreteNode(newAbs))
+    def rebindAbs(newAbs:Abs) = rebind(abs.bound,ConcreteNode(newAbs))
     override def equals(obj: Any) = obj match {
       case MirrorVal(w) => v === w
       case _ => false
@@ -89,7 +89,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def typ: TypeRep
     def isSimple: Bool
     def mkRep = this match {
-      case ConcreteNode(v:Val) => new Rep(v)
+      case ConcreteNode(v:Val) =>
+        assert(isBound(v))
+        new Rep(v) //alsoDo {bind(v,this)}
       case _ =>
         val v = freshBoundVal(typ)
         bind(v, this)
@@ -102,8 +104,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
   }
   
+  // TODO rm?
+  def boundToNotVal(v: Val): Node = boundTo_!(v) match {
+    case ConcreteNode(v: Val) => boundToNotVal(v)
+    case n => n
+  }
+  
   class Rep(val bound: Val) extends RepOrNode {
     def boundTo = graph.boundTo_!(bound)
+    def boundToNotVal = graph.boundToNotVal(bound)
     def typ = bound.typ
     
     def iterator = graph.iterator(this)
@@ -112,7 +121,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def showRep = graph.showRep(this)
     def isSimple: Bool = boundTo.isSimple // FIXME?
     
-    def asNode: Node = new ConcreteNode(bound) // could also return the bound variable it may point to
+    def asNode: Node = ConcreteNode(bound) // could also return the bound variable it may point to
     
     def simpleString = {
       val d = boundTo
@@ -132,12 +141,20 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def unapply(n: Rep) = Some(n.boundTo)
   }
   
-  class ConcreteNode(val dfn: Def) extends Node { // TODO rename boundTo
+  case class ValNode(v: Val) extends ConcreteNode(v) {
+    override lazy val mkRep = super.mkRep
+  }
+  abstract class ConcreteNode(val dfn: Def) extends Node { // TODO rename boundTo
+    require(dfn.isInstanceOf[Val] ==> this.isInstanceOf[ValNode])
     def typ = dfn.typ
     def isSimple = dfn.isSimple
     override def toString = dfn.toString // calls prettyPrint(boundTo)
   }
   object ConcreteNode {
+    def apply(dfn: Def) = dfn match {
+      case v: Val => ValNode(v)
+      case _ => new ConcreteNode(dfn){}
+    }
     //def unapply(n: Node) = Option(n.boundTo)
     def unapply(n: ConcreteNode) = Some(n.dfn)
   }
@@ -238,9 +255,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //case v: Val => reificationContext.getOrElse(v, new Node(v)) // mirror val?
     case v: Val if isNormalVal(v) && reificationContext.contains(v) => reificationContext(v)
     case v: Val if isNormalVal(v) && edges.containsKey(v) => new Rep(v)
+    case v: Val =>
+      val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
+      val mir = boundTo_!(occ)//.asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
+      assert(mir.asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal].v === v)
+      new Rep(occ)
     case _ =>
       val v = freshBoundVal(dfn.typ)
-      bind(v, new ConcreteNode(dfn))
+      bind(v, ConcreteNode(dfn))
       new Rep(v)
   }
   
@@ -283,6 +305,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     val cid = new CallId("α")
     
     val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
+    //println(s"OCC $occ")
     val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
     assert(mir.v === v)
     
@@ -305,9 +328,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     */
     
     val abs = mir.getAbs
+    //println(s"ABS ${mir.abs}")
     assert(mir.getAbs =/= null)
     val body = abs.body
+    //println(s"ABSd ${abs}")
     mir.rebindAbs(Abs(abs.param, Pass(cid, body).mkRep)(abs.typ))
+    //println(s"NABS ${mir.abs}")
     
     Call(cid, r).mkRep
   }
@@ -328,9 +354,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Val]): Iterator[Rep] = done.setAndIfUnset(r.bound, {
     val ite = r.boundTo match {
+    //val ite = r.boundToNotVal match { // misses to the iterate the Rep's on the way!
+      case cn@ConcreteNode(v:Val) => mkIterator(cn.mkRep)
       case r: ConcreteNode => mkDefIterator(r.dfn)
-      case Box(_,res,_) => Iterator.single(r) ++ mkIterator(res) 
-      case Branch(cid,thn,els) => Iterator.single(r) ++ mkIterator(thn) ++ mkIterator(els)
+      case Box(_,res,_) => mkIterator(res) 
+      case Branch(cid,thn,els) => mkIterator(thn) ++ mkIterator(els)
     }
     val site = Iterator.single(r)
     if (rev) ite ++ site else site ++ ite
@@ -382,6 +410,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         curCol = colorOf(cid)
         //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
         s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+      case cn@ConcreteNode(v:Val) => apply(cn.mkRep)
       case ConcreteNode(d) => apply(d)
     }
   }

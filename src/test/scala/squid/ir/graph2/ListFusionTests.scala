@@ -66,11 +66,16 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       //case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta,ta]($g))" =>
       //case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta]($g))" =>
       case c"foldr[$ta,$tb]($k)($z)(magicBuild[ta,$tc]($g))" =>
-        println(s">>> FUSION of $k $z $g")
+        //println(s">>> FUSION of $k $z $g")
+        // ^ FIXME show shouldn't crash on "Cannot resolve _?" when the graph is incomplete
+        println(s">>> FUSION of ${k.rep} ${z.rep} ${g.rep}")
         val g0 = g.asInstanceOf[Code[(ta.Typ => tb.Typ => tb.Typ) => tb.Typ => tb.Typ,g.Ctx]]
         c"$g0($k)($z)"
       
       case c"compose[$ta,$tb,$tc]($f)($g)" => c"(x:$ta) => $f($g(x))"
+        
+      // FIXME makes examples rewrite forever
+      //case c"+" => c"(lhs:Int)=>(rhs:Int)=>lhs+rhs"
         
     }
     
@@ -112,13 +117,14 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   }
   
   test("C") {
+    // FIXME rewrites forever impossible branch...
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
       val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
-      foo(max)(42)
-    })()
+      foo(sum)(42)
+    })( (3592,3618) )
     
   }
   

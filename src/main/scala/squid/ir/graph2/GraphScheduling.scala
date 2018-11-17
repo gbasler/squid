@@ -79,16 +79,19 @@ trait GraphScheduling extends AST { graph: Graph =>
       case Pass(cid,res) => rec(res)(withPass(cid), vctx)
       case Branch(cond,thn,els) if hasCond(cond) => rec(thn)
       case Branch(cid,thn,els) => /*assert(!cctx.isDefinedAt(cid));*/ rec(els)
-      case ConcreteNode(d) => d match {
+      case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
-        case v: Val => vctx(v) // hapens?
+        case v: Val => rec(cn.mkRep) // used to be 'rec(new Rep(v))', but now we interpret these as graph edges!
         case MirrorVal(v) => vctx(v)
         case Ascribe(r, tp) => rec(r)
         case c: ConstantLike => c
         case bd: BasicDef =>
           val (reps,bound) = bd.reps.map(r => r -> freshBoundVal(r.typ)).unzip
-          val curried = bound.foldRight(bd.rebuild(bound.map(readVal)).toRep)(abs(_,_))
+          val curried = bound.foldRight(bd.rebuild(
+            //bound.map(readVal)
+            bound.map(new MirrorVal(_).toRep)
+          ).toRep)(abs(_,_))
           val fun = ScheduleDebug.muteFor { scheduleAndRun(curried) }
           reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
       }
@@ -152,6 +155,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
       //if (analysed.contains(cctx->rep)) println(s"??? graph seems cyclic! $rep $cctx") else { analysed += cctx -> rep
       //  Sdebug(s"Analyse $rep $cctx")
+      //  println(s"Analyse $rep $cctx")
         //Thread.sleep(50)
         //nPaths(rep) += 1
         nPaths(rep) = nPaths.getOrElse(rep,0) + 1
@@ -166,6 +170,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             if (hasCond(cond)) analyse(pred ||> (0 :: _), thn) 
             else               analyse(pred ||> (1 :: _), els)
           //case Node(MirrorVal(v)) => 
+          case vn@ConcreteNode(v:Val) => analyse(pred,vn.mkRep)
           case ConcreteNode(d) =>
             val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
             ptrs += pred
@@ -237,7 +242,8 @@ trait GraphScheduling extends AST { graph: Graph =>
             val f = fsym|>nb.readVal
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
             a -> e
-          case ConcreteNode(d) => d match {
+          case cn@ConcreteNode(d) => d match {
+            case v:Val => rec(pred,cn.mkRep,m)
             case Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
