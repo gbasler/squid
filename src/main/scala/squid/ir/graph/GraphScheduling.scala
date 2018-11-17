@@ -55,6 +55,10 @@ trait GraphScheduling extends AST { graph: Graph =>
     System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
     SimpleASTBackend.bindVal(bv.name,bv.typ.asInstanceOf[SimpleASTBackend.TypeRep],Nil).toRep
   }
+  protected def treeInANFBackend(rep: Rep) = reinterpret(rep, ANFBackend) { bv =>
+    System.err.println(s"Found a free variable! ${bv} ${edges get bv}")
+    ANFBackend.bindVal(bv.name,bv.typ.asInstanceOf[ANFBackend.TypeRep],Nil).toRep
+  }
   
   override def scalaTreeIn(MBM: MetaBases)(SRB: MBM.ScalaReflectionBase, rep: Rep, ExtrudedHandle: BoundVal => MBM.u.Tree): MBM.u.Tree =
     SimpleASTBackend.scalaTreeIn(MBM)(SRB, treeInSimpleASTBackend(rep), bv => {

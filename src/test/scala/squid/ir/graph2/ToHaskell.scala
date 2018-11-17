@@ -11,7 +11,8 @@ import scala.collection.mutable
 
 object ToHaskell {
   
-  def apply(AST:SimpleAST)(rep: AST.Rep): String = {
+  //def apply(AST:SimpleAST)(rep: AST.Rep): String = {
+  def apply(AST:AST)(rep: AST.Rep): String = {
     import AST.Predef._
     var curId = 0
     val valIds = mutable.Map.empty[AST.Val,Int]
@@ -39,9 +40,13 @@ object ToHaskell {
         case c"downAux($n)" => s"down' ${rec(n)}"
         case c"downBuild($n)" => s"down' ${rec(n)}"
         case c"($b:Builder[$ta]).apply[$tb]($c)($n)" => s"${b|>(rec(_))} ${c|>(rec(_))} ${n|>(rec(_))}"
+          
         case c"($a:$ta,$b:$tb)" => par; s"${rec(a)},${rec(b)}"
+        case c"($a:$ta,$b:$tb,$c:$tc)" => par; s"${rec(a)},${rec(b)},${rec(c)}"
+          
         case c"($n:Int)*($m:Int)" => s"${rec(n)} * ${rec(m)}"
         case c"($n:Int)+($m:Int)" => s"${rec(n)} + ${rec(m)}"
+        case c"($n:Int)-($m:Int)" => s"${rec(n)} - ${rec(m)}"
         case c"(+)($n:Int)($m:Int)" => s"${rec(n)} + ${rec(m)}"
         case c"(+)($n:Int)" => par; s"${rec(n)}+"
         case c"+" => par; s"+"
@@ -76,9 +81,9 @@ object ToHaskell {
           if (args.isEmpty) { nopar; name }
           else s"${name}${args.map(r => " $ "+rec(AST.Code(r),false)).mkString}"
         case AST.Code(AST.RepDef(AST.MethodApp(s,sym,targs,argss,rett))) =>
-          lastWords(s"Unsupported method ($s:${s.dfn.typ}).$sym[${sym.owner}] $argss")
+          lastWords(s"Unsupported method ($s:${AST.dfn(s).typ}).$sym[${sym.owner}] $argss")
         case _ =>
-          lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.show}")
+          lastWords(s"Unsupported[${AST.dfn(cde.rep).getClass}]: ${cde.show}")
           //lastWords(s"Unsupported[${cde.rep.dfn.getClass}]: ${cde.rep.dfn}")
       }
       if (parens && really_parens_?.forall(id) || really_parens_?.exists(id)) s"($cdeStr)" else cdeStr

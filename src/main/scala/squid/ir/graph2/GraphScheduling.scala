@@ -72,6 +72,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     m <- cctx.map get cid
     c <- m
   } yield CCtx(cctx.map ++ c.map)
+  //} yield CCtx(cctx.map-cid ++ c.map)
   
   object EvalDebug extends PublicTraceDebug
   import EvalDebug.{debug=>Edebug}
@@ -303,7 +304,8 @@ trait GraphScheduling extends AST { graph: Graph =>
         res
       }
       val lsm->r = rec(rep,rep,1)(Map.empty,CCtx.empty)
-      assert(lsm.isEmpty) // TODO B/E
+      //assert(lsm.isEmpty,lsm) // TODO B/E
+      if(lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
     }
     
