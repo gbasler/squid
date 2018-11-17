@@ -82,17 +82,39 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     
   }
   
+  //def genHaskell(name:String,cde:ClosedCode[Any]) = {
+  def genHaskell(name:String,tree:AST.Rep) = {
+    val hs = ToHaskell(AST)(tree)
+    println("Haskell:\n"+hs)
+    import java.nio.file.{Paths, Files}
+    import java.nio.charset.StandardCharsets
+    val lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent pretium leo ac placerat vestibulum. Suspendisse iaculis bibendum imperdiet. Sed felis tellus, placerat eu pretium in, tempus sed est. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Etiam erat urna, fringilla eget nulla eu, facilisis venenatis libero. In hac habitasse platea dictumst. Suspendisse potenti. Donec et nisi et neque luctus dignissim eget sit amet velit. Nulla volutpat eu ex a consectetur. In diam arcu, porta ut dignissim sit amet, fermentum porta mi. Nam dictum dictum eros, mattis ornare turpis. Fusce arcu dolor, cursus eu risus sed, lacinia accumsan augue. Sed purus nulla, volutpat eget aliquam sit amet, gravida at quam. Phasellus malesuada ultrices velit at aliquet. Praesent pulvinar nunc magna, et venenatis turpis efficitur et. Nulla pharetra urna vehicula erat euismod, id aliquet mi eleifend. Donec rhoncus gravida nunc sit amet sagittis. Vestibulum velit orci, viverra sed pharetra ac, tincidunt vitae risus. Nulla quis feugiat arcu, non facilisis tellus. Nulla facilisi. Praesent gravida sem sed sapien scelerisque consequat. Duis tristique enim ac tempor vulputate. Interdum et malesuada fames ac ante ipsum primis in faucibus. In turpis dolor, fermentum in lectus in, sodales ullamcorper elit. Donec vel accumsan sem, eu ullamcorper erat. Maecenas placerat fringilla lorem, nec efficitur quam sodales et. Fusce eu augue eu neque lacinia viverra. Mauris eget fermentum purus. Vestibulum rhoncus id felis ac elementum. Nam maximus ornare faucibus. Nullam quis accumsan lacus. Nam congue tortor urna. Nullam risus ligula, ultricies in arcu ut, luctus rhoncus leo. Sed ullamcorper mauris vel feugiat semper. Nullam faucibus, augue eu luctus ullamcorper, dui felis condimentum diam, id lacinia justo justo vel turpis. Nunc non dolor magna. Fusce ut mauris at dolor dapibus convallis. Duis fringilla ac turpis at finibus. Phasellus mi lacus, gravida et odio vel, vestibulum vehicula purus. Cras sodales auctor lobortis. Ut sagittis nisl aliquam velit mollis hendrerit. Donec posuere, quam efficitur consectetur dignissim, est urna fringilla magna, vel tincidunt sem turpis vel nulla. Mauris nec nisi sit amet leo ultrices sodales ut cursus est. Sed auctor tortor non odio finibus, sed blandit erat eleifend. Interdum et malesuada fames ac ante ipsum primis in faucibus. Praesent in velit fermentum nisi eleifend euismod. In ac pellentesque dolor, at varius diam. Fusce vitae elementum lorem. Vivamus pharetra neque at varius dapibus. Cras ut sapien urna. Vivamus blandit pulvinar rhoncus. Nulla lacus velit, dapibus a pretium vitae, porta non urna. Cras lorem nulla, finibus a efficitur nec, elementum nec orci."
+    val hsCnt =
+      s"""
+        |import Criterion.Main
+        |import Data.Char 
+        |
+        |{-# NOINLINE loremipsum #-}
+        |loremipsum = "${lorem * 10}"
+        |
+        |main = defaultMain [bench "max" $$ nf (${hs.splitSane('\n').map("\n\t"+_).mkString}) 42]
+        |""".stripMargin
+    Files.write(Paths.get(s"example_gen/graph/$name.hs"), hsCnt.getBytes(StandardCharsets.UTF_8))
+  }
+  
   override def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
       (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true) = {
     
     val tree0 = DSL.treeInSimpleASTBackend(cde.rep)
     println("Scala:\n"+tree0.show)
-    println("Haskell:\n"+ToHaskell(AST)(tree0))
+    //println("Haskell:\n"+ToHaskell(AST)(tree0))
+    genHaskell("H0",tree0)
     
     val rep = super.doTest(cde,expectedSize)(expectedResult, preprocess, doEval)
     
     val tree = DSL.treeInSimpleASTBackend(rep)
-    println("Haskell:\n"+ToHaskell(AST)(tree))
+    //println("Haskell:\n"+ToHaskell(AST)(tree))
+    genHaskell("H1",tree)
     printSep()
     
     rep
@@ -163,10 +185,18 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
-      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      //val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val bat = (sf: List[Int] => Int) => (arg: Int) => {
+        val res = sf(map((c:Char) => ord(c)+arg)(loremipsum))
+        //(res * res + 1)
+        (((((res * res + 1) * res + 1) * res + 1) * res + 1) * res + 1) * res + 1
+      }
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat( compose(sf)(map(_*2)) )(arg+1))
-      foo(sum)(42)
-    })( (3592,7236) )
+      //foo(sum)(42)
+      foo(sum)
+    //})( (3592,7236), _(42) )
+    //})( (12902465,52359697), _(42) )
+    })( (-836763575,440721301), _(42) )
     // ^ fully fuses!
     //      let sch'10099_0 = (\κ_1 x10094_2 -> ((foldr (\x_3 -> κ_1 x_3)) x10094_2) loremipsum) in
     //      let sch'8390_4 = (+) in
