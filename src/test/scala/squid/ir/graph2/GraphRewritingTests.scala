@@ -47,7 +47,8 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
     printCheckEval(DSL.treeInSimpleASTBackend(cde.rep))
     var mod = false
     do {
-      val ite = DSL.rewriteSteps(Tr)(cde.rep)
+      //val ite = DSL.rewriteSteps(Tr)(cde.rep)
+      val ite = DSL.rewriteSteps(Tr)(cde.rep).iterator
       mod = ite.hasNext
       while (ite.hasNext) {
         val n = ite.next
@@ -130,12 +131,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     doTest(code"val f = $f; f(11) + f(f(22))", 1)(110)
     
     //DSL.ScheduleDebug debugFor
-    //doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
-    // ^ FIXME now diverges (in constant folding): keeps rewriting a dead-code else clause...
-    //  it doesn't seem essential that it be dead though
-    //  it's just an occurrence of the usual problem of re-application of already applied rewrites
+    // ^ Note: used to diverges (in constant folding): kept rewriting a dead-code else clause...
     
   }
   
@@ -143,8 +142,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //def g = code"(x: Int) => (y: Int) => x - y"
     
     //DSL.ScheduleDebug debugFor
-    //doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
-    //doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(-21)
+    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)() // FIXME doesn't fold completely
     
   }
   
@@ -167,11 +165,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //DSL.ScheduleDebug debugFor
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(-51)
     
-    //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
-    // ^ FIXME never finishes; accumulates tons of control-flow
+    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
+    // ^ Note: used to never finish; accumulates tons of control-flow
     
-    //doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
-    // ^ FIXME never finishes
+    doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
+    // ^ Note: used to never finish
     
   }
   
@@ -189,17 +187,18 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
     //   Note: was another manifestation of the lambda bug, since the reason for the cycle was there were no pass nodes
     
-    //doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
-    // ^ FIXME: never finishes; loops on: "Constant folding $9 = 73 + $8 = 40"
+    doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
+    // ^ Note: used to never finish; looping on: "Constant folding $9 = 73 + $8 = 40"
     
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
     
-    //doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
-    // ^ FIXME never finishes; accumulates tons of control-flow, such as:
+    // FIXME result not fully constant-folded
+    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
+    // ^ Note: used to never finish; accumulates tons of control-flow, such as:
     // !Constant folding $9190 = ⟦α1⟧ $9189:⟦α8 $9188:⟦α7⟧ $9187:⟦α5⟧ $7:11⟧ + $9202 = ⟦α1⟧ $9201:⟦α8 $9200:⟦α7⟧ $9199:⟦α5⟧ $16:30⟧ from: $3882 = ⟦α1⟧ $2165:(↑α8;|α5;|α7;α9 ? $3888:(↑α8;|α5;|α7;α0 ? $3890:(↑α8;|α5;|α7;α1 ? $3892:(↑α8;|α5;|α7;|α5;|α7;↑α8;|α1;↑α2;↑α9;α0 ? $3894:⟦α8 $2281:71⟧ ¿ [...]
     
-    //doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
-    // ^ FIXME also accumulates tons of nodes
+    doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
+    // ^ Note: used to also accumulates tons of nodes
     
   }
   

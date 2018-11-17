@@ -63,14 +63,17 @@ trait GraphRewriting extends AST { graph: Graph =>
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
-    extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false)).headOption map (_.extr)
+    extractGraph(xtor,xtee)(GXCtx.empty.copy(traverseBranches = false), CCtx.empty).headOption map (_.extr)
   
-  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = {
+  override def rewriteRep(xtor: Rep, xtee: Rep, code: Extract => Option[Rep]): Option[Rep] = rewriteRepCtx(xtor, xtee, code)(CCtx.empty)
+  def rewriteRepCtx(xtor: Rep, xtee: Rep, code: Extract => Option[Rep])(implicit cctx: CCtx): Option[Rep] = {
     //println(s"rewriteRep $xtee  >>  $xtor")
     //println(s"already: ${transformed.map(r => s"\n\t${r._1.bound}, ${r._2}, ${r._3.map(_.bound)}")}")
     
-    val matches = extractGraph(xtor, xtee)(GXCtx.empty) flatMap
+    val matches = extractGraph(xtor, xtee)(GXCtx.empty,cctx) flatMap
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
+    
+    //if (matches.nonEmpty) println(matches.size,matches.filterNot(alreadyTransformedBy(xtor,_)).size)
     
     //matches.iterator.flatMap { ge =>
     matches.filterNot(alreadyTransformedBy(xtor,_)).iterator.flatMap { ge =>
@@ -124,7 +127,8 @@ trait GraphRewriting extends AST { graph: Graph =>
     def fromExtract(e: Extract): GraphExtract = empty copy (extr = e)
   }
   
-  protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
+  // FIXME: make this traverse var-to-var bindings??! does it not already?
+  protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx, cctx: CCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
     import GraphExtract.fromExtract
     
     xtor -> xtee |> { // FIXME not matching Rep(Call...) ?!
@@ -145,14 +149,25 @@ trait GraphRewriting extends AST { graph: Graph =>
       //case _ -> Rep(Call(cid, res)) =>
       //case _ -> Rep(Arg(cid, res)) =>
       case _ -> Rep(Box(cid, res, k)) =>
-        extractGraph(xtor, res)(ctx.copy(curOps = (k,cid) :: ctx.curOps))
+        //println("BOX ",cid, res, k)
+        extractGraph(xtor, res)(ctx.copy(curOps = (k,cid) :: ctx.curOps),cctx.withOp_?(k,cid).getOrElse(???)) // TODO upd cctx
         
       case _ -> Rep(Branch(cond, thn, els)) =>
+        //println("BRANCH ",cond, thn, els, cctx)
         val newCond = Condition(ctx.curOps ++ cond.ops, cond.cid)
-        if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
-        else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
-        else (if (newCond in ctx.assumedNot) Nil else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond)).map(_ assuming newCond)) ++
-          (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond)).map(_ assumingNot newCond))
+        hasCond_?(cond) match {
+          case Some(true) => extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond),cctx).map(_ assuming newCond)
+          case Some(false) => extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond)
+          case None =>
+            
+            lastWords("I think this is never used; but could be useful if we want to rewrite incomplete graph fragments?")
+            
+            if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
+            else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
+              // ^ Q: sound?
+            else (if (newCond in ctx.assumedNot) Nil else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond),cctx).map(_ assuming newCond)) ++
+              (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond))
+            }
         
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
@@ -200,7 +215,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             
             //m <- mergeGraph(pt, hExtr |> fromExtract)
             m <- merge(pt, hExtr).toList
-            b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)))
+            b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)),cctx)
             m <- m |> fromExtract merge b
             //*/
             /* // Old way of making sure a pass node is inserted; we now do it with smarter substituteVal and storing 'abs' in MirrorVal
@@ -264,7 +279,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     while(ite.hasNext && res.nonEmpty) res = for { a <- res; b <- ite.next(); m <- a merge b } yield m
     res
   }
-  protected def extractGraphArgList(self: ArgList, other: ArgList)(implicit ctx: GXCtx): List[GraphExtract] = {
+  protected def extractGraphArgList(self: ArgList, other: ArgList)(implicit ctx: GXCtx, cctx: CCtx): List[GraphExtract] = {
     def extractRelaxed(slf: Args, oth: Args): List[GraphExtract] = {
       import slf._
       if (reps.size != oth.reps.size) return Nil
@@ -323,17 +338,15 @@ trait GraphRewriting extends AST { graph: Graph =>
     rec(rep)(CCtx.empty)
   }
   
-  def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(rep: Rep): Iterator[Rep] = {
-    //println(edges)
+  def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(r: Rep): Option[Rep] = {
     
     //println(s"Before simpl: ${rep.showFullGraph}")
-    simplifyGraph(rep)
+    simplifyGraph(r)
     //println(s"After simpl: ${rep.showFullGraph}")
     
-    //rep.iterator.flatMap(r => {
-    rep.iterator.filterNot(_.boundTo.isInstanceOf[Branch]).flatMap(r => { // don't rewrite branches at the top-level; it just introduces unnecessary hypotheses
+    def tryThis(r: Rep)(implicit cctx: CCtx): Option[Rep] = {
       val oldBound = r.bound
-      tr.rules.iterator.flatMap(rule => rewriteRep(rule._1,r,rule._2) also_? {
+      tr.rules.iterator.flatMap(rule => rewriteRepCtx(rule._1,r,rule._2) also_? {
         case Some(res) =>
           if (r.bound =/= oldBound) println(s"!!! ${r.bound} =/= ${oldBound}")
           println(s" ${r}  =>  $res")
@@ -361,10 +374,18 @@ trait GraphRewriting extends AST { graph: Graph =>
           }
           rebind(r.bound, res.boundTo)
           rebind(res.bound, ConcreteNode(r.bound))
-          
-          //println(edges)
-      })
-    })
+      //}).collectFirst{case Some(r)=>r}
+      }).headOption
+    }
+    
+    def rec(r: Rep)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
+    //r.boundTo match {
+    r.boundToNotVal match {
+      case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???))
+      case Branch(cond,thn,els) => if (hasCond(cond)) rec(thn) else rec(els)
+      case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec).headOption
+    }
+    rec(r)(CCtx.empty)
     
   }
   

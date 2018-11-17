@@ -74,7 +74,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       
       case c"compose[$ta,$tb,$tc]($f)($g)" => c"(x:$ta) => $f($g(x))"
         
-      // FIXME makes examples rewrite forever
+      // works but sometimes makes the output less classy
       //case c"+" => c"(lhs:Int)=>(rhs:Int)=>lhs+rhs"
         
     }
@@ -117,7 +117,6 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
   }
   
   test("C") {
-    // FIXME rewrites forever impossible branch...
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
