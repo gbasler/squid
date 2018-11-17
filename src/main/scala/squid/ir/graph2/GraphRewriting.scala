@@ -378,12 +378,13 @@ trait GraphRewriting extends AST { graph: Graph =>
       }).headOption
     }
     
-    def rec(r: Rep)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
+    def rec(r: Rep,tried:Bool=false)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
     //r.boundTo match {
     r.boundToNotVal match {
-      case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???))
+      //case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???)) // FIXME: probably useless (and wasteful)
+      case Box(cid,res,k) => (if (tried) None else tryThis(r)) orElse rec(res,true)(cctx.withOp_?(k->cid).getOrElse(???))
       case Branch(cond,thn,els) => if (hasCond(cond)) rec(thn) else rec(els)
-      case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec).headOption
+      case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec(_)).headOption
     }
     rec(r)(CCtx.empty)
     
