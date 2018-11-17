@@ -142,7 +142,6 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //def g = code"(x: Int) => (y: Int) => x - y"
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)() // FIXME doesn't fold completely
     
   }
   
@@ -192,7 +191,6 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
     
-    // FIXME result not fully constant-folded
     doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
     // ^ Note: used to never finish; accumulates tons of control-flow, such as:
     // !Constant folding $9190 = ⟦α1⟧ $9189:⟦α8 $9188:⟦α7⟧ $9187:⟦α5⟧ $7:11⟧ + $9202 = ⟦α1⟧ $9201:⟦α8 $9200:⟦α7⟧ $9199:⟦α5⟧ $16:30⟧ from: $3882 = ⟦α1⟧ $2165:(↑α8;|α5;|α7;α9 ? $3888:(↑α8;|α5;|α7;α0 ? $3890:(↑α8;|α5;|α7;α1 ? $3892:(↑α8;|α5;|α7;|α5;|α7;↑α8;|α1;↑α2;↑α9;α0 ? $3894:⟦α8 $2281:71⟧ ¿ [...]

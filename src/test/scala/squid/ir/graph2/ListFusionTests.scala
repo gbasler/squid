@@ -150,9 +150,14 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
       foo(compose(sum)(map(_*2)))(42)
     })( (7184,7236) )
-    // ^ doesn't fully fuse
+    // ^ now fuses! though we have two foldr... is that correct, or duplication?!
+    //      let sch$23508_0 = \x15476_1 x23506_2 -> x15476_1 $ (x23506_2*2)
+    //      in let sch$13507_3 = (+)
+    //      in let sch$9_4 = \x6_5 x4_6 -> (ord $ x6_5)+x4_6
+    //      in let sch$12_7 = loremipsum
+    //      in ((foldr $ (\x_8 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_8 $ 42)) $ 0 $ sch$12_7),(foldr $ (\x_9 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_9 $ (42+1))) $ 0 $ sch$12_7))
     
   }
-  
+  // TODO somehow make the IR not share basic applications? (on variables?)
   
 }

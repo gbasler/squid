@@ -56,10 +56,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   
   //override def mapDef(f: Def => Def)(r: Rep): r.type = ???
   //override protected def mapRep(rec: Rep => Rep)(d: Def) = ???
-  
+  /*
   protected val transformed = mutable.Set.empty[(Rep,ListSet[Condition->Bool],List[Rep])]
   def alreadyTransformedBy(xtor: Rep, ge: GraphExtract): Bool = transformed contains ((xtor, ge.assumptions, ge.traversedReps))
   def rememberTransformedBy(xtor: Rep, ge: GraphExtract): Unit = transformed += ((xtor, ge.assumptions, ge.traversedReps))
+  */
+  protected val transformed = mutable.Set.empty[(Rep,/*ListSet[Condition->Bool],*/CCtx,List[Rep])]
+  def alreadyTransformedBy(xtor: Rep, ge: GraphExtract)(implicit cctx: CCtx): Bool = transformed contains ((xtor, /*ge.assumptions,*/cctx, ge.traversedReps))
+  def rememberTransformedBy(xtor: Rep, ge: GraphExtract)(implicit cctx: CCtx): Unit = transformed += ((xtor, /*ge.assumptions,*/cctx, ge.traversedReps))
   
   override def spliceExtract(xtor: Rep, args: Args)(implicit ctx: XCtx) = ??? // TODO
   override def extract(xtor: Rep, xtee: Rep)(implicit ctx: XCtx) =
@@ -74,6 +78,10 @@ trait GraphRewriting extends AST { graph: Graph =>
       (_ merge (GraphExtract fromExtract repExtract(SCRUTINEE_KEY -> xtee)))
     
     //if (matches.nonEmpty) println(matches.size,matches.filterNot(alreadyTransformedBy(xtor,_)).size)
+    
+    //if (matches.nonEmpty) println(s"Matches for ${xtor.bound}:"+
+    //  matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "√ " else "✗ ")+ge+s"\n\t${ge.traversedReps.map(_.simpleString)} ${
+    //    ge.assumptions}").mkString)
     
     //matches.iterator.flatMap { ge =>
     matches.filterNot(alreadyTransformedBy(xtor,_)).iterator.flatMap { ge =>
