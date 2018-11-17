@@ -142,7 +142,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     //      in let sch$7068_5 = (+)
     //      in ((sch$8518_0 $ sch$7068_5 $ 42 $ 0),(sch$8518_0 $ sch$7068_5 $ (42+1) $ 0))
   }
-  test("C2") {
+  test("C2") { // FIXME prevent fusion of shared lists...
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
@@ -150,7 +150,23 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
       foo(compose(sum)(map(_*2)))(42)
     })( (7184,7236) )
-    // ^ now fuses! though we have two foldr... is that correct, or duplication?!
+    // ^ now fuses! though we have two foldr... -> it's the usual list fusion caveat with sharing!! it duplicates runtime work...
+    //      let sch$23508_0 = \x15476_1 x23506_2 -> x15476_1 $ (x23506_2*2)
+    //      in let sch$13507_3 = (+)
+    //      in let sch$9_4 = \x6_5 x4_6 -> (ord $ x6_5)+x4_6
+    //      in let sch$12_7 = loremipsum
+    //      in ((foldr $ (\x_8 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_8 $ 42)) $ 0 $ sch$12_7),(foldr $ (\x_9 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_9 $ (42+1))) $ 0 $ sch$12_7))
+    
+  }
+  test("C3") { // FIXME needs a continuation! not yet implemented in scheduling
+    
+    //DSL.ScheduleDebug debugFor
+    doTest(code{
+      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat( compose(sf)(map(_*2)) )(arg+1))
+      foo(sum)(42)
+    })( (3592,7236) )
+    // ^ now fuses! though we have two foldr... is that correct, or duplication?! -> it's the usual list fusion caveat with sharing!!
     //      let sch$23508_0 = \x15476_1 x23506_2 -> x15476_1 $ (x23506_2*2)
     //      in let sch$13507_3 = (+)
     //      in let sch$9_4 = \x6_5 x4_6 -> (ord $ x6_5)+x4_6
