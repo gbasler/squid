@@ -56,4 +56,6 @@ object Prelude {
   def ord: Char => Int = _.toInt
   def max: List[Int] => Int = _.max
   
+  def myid[A](a:A):A=a
+  
 }

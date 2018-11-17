@@ -102,6 +102,9 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
         |{-# NOINLINE loremipsum #-}
         |loremipsum = "${lorem * 10}"
         |
+        |{-# NOINLINE myid #-}
+        |myid a = a
+        |
         |main = defaultMain [bench "max" $$ nf (${hs.splitSane('\n').map("\n  "+_).mkString}) 42]
         |""".stripMargin
     Files.write(Paths.get(s"example_gen/graph/$name.hs"), hsCnt.getBytes(StandardCharsets.UTF_8))
@@ -171,13 +174,15 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     //      in ((sch$8518_0 $ sch$7068_5 $ 42 $ 0),(sch$8518_0 $ sch$7068_5 $ (42+1) $ 0))
   }
   test("C2") { // FIXME prevent fusion of shared lists...
+    // gets better with -fno-strictness
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
-      val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
+      val bat = (sf: List[Int] => Int) => (arg: Int) => myid(sf(map((c:Char) => ord(c)+arg)(loremipsum)))
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg+1))
-      foo(compose(sum)(map(_*2)))(42)
-    })( (7184,7236) )
+      //foo(compose(sum)(map(_*2)))(42)
+      foo(compose(sum)(map(_*2)))
+    })( (7184,7236), _(42) )
     // ^ now fuses! though we have two foldr... -> it's the usual list fusion caveat with sharing!! it duplicates runtime work...
     //      let sch$23508_0 = \x15476_1 x23506_2 -> x15476_1 $ (x23506_2*2)
     //      in let sch$13507_3 = (+)
@@ -193,18 +198,18 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
       //val bat = (sf: List[Int] => Int) => (arg: Int) => sf(map((c:Char) => ord(c)+arg)(loremipsum))
       val bat = (sf: List[Int] => Int) => (arg: Int) => {
         val res = sf(map((c:Char) => ord(c)+arg)(loremipsum))
-        //(res * res + 1)
+        (res * res + 1)
         //(((res * res + 1) * res + 1) * res + 1)
-        (((((res * res + 1) * res + 1) * res + 1) * res + 1) * res + 1) * res + 1
+        //(((((res * res + 1) * res + 1) * res + 1) * res + 1) * res + 1) * res + 1
       }
       //val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat(sf)(arg-1),bat( compose(sf)(map(_*2)) )(arg+1))
       val foo = (sf: List[Int] => Int) => (arg: Int) => (bat(sf)(arg),bat( compose(sf)(map(_*2)) )(arg+1))
       //foo(sum)(42)
       foo(sum)
     //})( (3592,7236), _(42) )
-    //})( (12902465,52359697), _(42) )
+    })( (12902465,52359697), _(42) )
     //})( (657784393,203944259,63000405), _(42) )  // crashes the IR: NON-EMPTY-LIST!! ListMap($27677=<arg> -> [_arg:Int])
-    })( (-836763575,440721301), _(42) )
+    //})( (-836763575,440721301), _(42) )
     // ^ fully fuses!
     //      let sch'10099_0 = (\κ_1 x10094_2 -> ((foldr (\x_3 -> κ_1 x_3)) x10094_2) loremipsum) in
     //      let sch'8390_4 = (+) in
