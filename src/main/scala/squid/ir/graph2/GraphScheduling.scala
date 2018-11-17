@@ -275,7 +275,13 @@ trait GraphScheduling extends AST { graph: Graph =>
               val as->r = rec(rep,b,m)(vctx + (p->v), cctx)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
-            case MirrorVal(v) => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
+            //case MirrorVal(v) => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
+            case MirrorVal(v0) => vctx get v0 map (w => ListMap.empty -> nb.readVal(w) : recRet) getOrElse {
+              //(ListMap(readVal(v))) ->)
+              val v = bindVal("_"+v0.name, v0.typ, Nil)
+              val w = recv(v)
+              ListMap(rep->w) -> nb.readVal(w)
+            } 
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(rep,self,m)
               var ass = sas
