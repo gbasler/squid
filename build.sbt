@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-val scala211Version = "2.11.11"
-val scala212Version = "2.12.6"
+val scala211Version = "2.11.12"
+val scala212Version = "2.12.8"
 
 val paradiseVersion = "2.1.0"
-val squidVersion = "0.3.1-SNAPSHOT"
+val squidVersion = "0.3.2-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 lazy val commonSettings = Seq(
