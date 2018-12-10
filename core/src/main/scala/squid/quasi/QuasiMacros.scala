@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,9 +52,16 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
     // TODO check that ctor has unique param of 'whitebox.Context'
     
     val cm = srum.reflectClass(Config.typeSymbol.asClass.asInstanceOf[sru.ClassSymbol])
+    
+    //debug("Making context: "+cm.symbol)
+    
     val mm = cm.reflectConstructor(ctor.asMethod.asInstanceOf[sru.MethodSymbol])
     
-    mm(c).asInstanceOf[QuasiConfig]
+    try mm(c).asInstanceOf[QuasiConfig] catch {
+      case cnf: ClassNotFoundException =>
+        c.abort(c.macroApplication.pos, s"Cannot find quasi-config class `${cm.symbol.fullName}`; " +
+          s"perhaps it was defined in the same compilation unit?")
+    }
   }
   
   /** Generates a proper macro abort/error if a quasi or embedding exception is raised,

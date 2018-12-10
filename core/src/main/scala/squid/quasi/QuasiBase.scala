@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -324,7 +324,8 @@ self: Base =>
     
     import scala.language.experimental.macros
     
-    implicit class QuasiContext(private val ctx: StringContext) extends self.Quasiquotes.QuasiContext(ctx)
+    object Quasiquotes extends self.Quasiquotes[QC]
+    implicit class QuasiContext(private val ctx: StringContext) extends Quasiquotes.QuasiContext(ctx)
     
     implicit def implicitType[T]: CodeType[T] = macro QuasiBlackboxMacros.implicitTypeImpl[QC, T]
     

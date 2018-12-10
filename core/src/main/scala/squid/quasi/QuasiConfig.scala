@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,23 @@ abstract class BaseUser[C <: blackbox.Context](val macroContext: C) {
   def apply(b: Base)(insert: (macroContext.Tree, Map[String, b.BoundVal]) => b.Rep): b.Rep
 }
 
-/** This abstraction is probably going to disappear or be simplified because it complicates the implementation with little return. */
+/** QuasiConfig provides a way to configure the static semantics of quoted code in Squid.
+  * In order to use this, import the members of an instance of `MyIR.Predef[MyQuasiConfig]`.
+  * For example: {{{
+  *   object IR extends squid.ir.SimpleAST
+  *   val MyPredef = new TestDSL.Predef[OpenCodeConfig]
+  *   import MyPredef._
+  * }}}
+  * Important: for this to work, your `QuasiConfig` should be defined in a difference compilation unit (project). 
+  */
 abstract class QuasiConfig {
   
+  /** If this is set to `true`, all inferred code types will be of the form `OpenCode[T]` (the context info is ignored).
+    * This can be useful in situations when one doesn't care about context information, and wants type inference to work
+    * well in the presence of invariant types and implicits. */
+  val inferOpenCode: Bool = false
+  
+  /** This abstraction is likely to go away or be simplified because it complicates the Squid implementation, with little return. */
   def embed(c: blackbox.Context)(baseTree: c.Tree, baseType: c.Type, user: BaseUser[c.type]): c.Tree
   
 }
@@ -53,16 +67,9 @@ class DefaultQuasiConfig extends QuasiConfig {
     q"..${base.mkSymbolDefs}; $code"
   }
   
-  
 }
 
-
-
-
-
-
-
-
-
-
-
+/** A QuasiConfig where code types are always inferred to be of the form `OpenCode[T]` */
+class OpenCodeConfig extends DefaultQuasiConfig {
+  override val inferOpenCode = true
+}

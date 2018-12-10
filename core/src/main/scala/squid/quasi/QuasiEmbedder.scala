@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -808,7 +808,9 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
         val tree = q"val $shortBaseName: $baseTree.type = $baseTree; $baseTree.`internal Code`[$retType, $context]($Base.wrapConstruct($res))"
         //                               ^ not using $Base shortcut here or it will show in the type of the generated term
         
-        if (Any <:< cleanedUpGLB && fv.isEmpty) q"$tree:$baseTree.ClosedCode[$retType]" else tree
+        if (config.inferOpenCode) q"$tree:$baseTree.OpenCode[$retType]"
+        else if (Any <:< cleanedUpGLB && fv.isEmpty) q"$tree:$baseTree.ClosedCode[$retType]"
+        else tree
         
         
       case Some(selector) =>

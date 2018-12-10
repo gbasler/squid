@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,11 @@ trait MyFunSuiteTrait extends FunSuite { funs =>
   
   def sameScalaType[A: sru.TypeTag, B: sru.TypeTag] =
     if (!(sru.typeOf[A] =:= sru.typeOf[B])) fail(s"${sru.typeOf[A]} =/= ${sru.typeOf[B]}")
-  def ofExactType[A: sru.TypeTag, B: sru.TypeTag](a: A) = sameScalaType[A,B]
+  
+  class ofExactTypeHelper[B] {
+    def apply[A: sru.TypeTag](a: A)(implicit B: sru.TypeTag[B]): Unit = sameScalaType[A,B]
+  }
+  def ofExactType[B] = new ofExactTypeHelper[B]
   
   implicit class TypeHelper[A: sru.TypeTag](self: A) {
     def ofType[B: sru.TypeTag]() = { sameScalaType[A,B]; self }

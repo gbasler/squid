@@ -66,25 +66,5 @@ class ViaASTQuasiConfig extends QuasiConfig {
     
     q"..${base.mkSymbolDefs}; $code"
   }
+  
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
