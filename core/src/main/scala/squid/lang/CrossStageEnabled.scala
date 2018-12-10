@@ -30,7 +30,7 @@ trait CrossStageEnabled extends Base { base =>
     def unapply[T](c: Code[T,_]): Option[T] = extractCrossStage(c.rep).asInstanceOf[Option[T]]
   }
   
-  trait CrossStageEnabledPredef[QC <: QuasiConfig] extends Predef[QC] {
+  trait CrossStageEnabledPredef[+QC <: QuasiConfig] extends Predef[QC] {
     val CrossStage = base.CrossStage
   }
   override val Predef = new Predef[DefaultQuasiConfig] with CrossStageEnabledPredef[DefaultQuasiConfig]

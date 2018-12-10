@@ -19,6 +19,10 @@ import squid.quasi.{DefaultQuasiConfig, OpenCodeConfig}
 
 class SameCompilationUnitConfig extends DefaultQuasiConfig
 
+object WithQuasiConfigPredef extends squid.ir.SimpleAST {
+  override val Predef = new Predef[OpenCodeConfig]
+}
+
 class QuasiConfigTests extends MyFunSuite {
   
   test("Open Code Inference") {

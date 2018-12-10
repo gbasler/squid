@@ -248,7 +248,7 @@ self: Base =>
   
   val Predef  = new Predef[DefaultQuasiConfig]
   
-  class Predef[QC <: QuasiConfig] {
+  class Predef[+QC <: QuasiConfig] { // Note: QC is only used at compile-time by macros, so its variance is aribtrary!
     val base: self.type = self // macro expansions will make reference to it
     
     type Code[+T,-C] = self.Code[T,C]
@@ -465,7 +465,7 @@ self: Base =>
   
   import scala.language.experimental.macros
   
-  class Quasiquotes[QC <: QuasiConfig] {
+  class Quasiquotes[+QC <: QuasiConfig] {
     val base: QuasiBase.this.type = QuasiBase.this
     
     implicit class QuasiContext(private val ctx: StringContext) {
