@@ -267,11 +267,11 @@ self: IntermediateBase => // for 'repType' TODO rm
   }
   
   
-  def nullValue[T: CodeType]: Code[T,{}] = {
+  def nullValue[T: CodeType]: ClosedCode[T] = {
     val tp = implicitly[CodeType[T]].rep.tpe |>=? {
       case TypeHoleRep(name) => throw new IllegalArgumentException("Type hole has no known nullValue.")
     }
-    Code[T,{}](const(
+    Code(const(
       if (tp <:< sru.typeOf[Unit]) NULL_UNIT
       else if (tp <:< sru.typeOf[Bool]) NULL_BOOL
       else if (tp <:< sru.typeOf[Char]) NULL_CHAR

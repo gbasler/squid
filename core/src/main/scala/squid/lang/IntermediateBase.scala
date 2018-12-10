@@ -34,7 +34,7 @@ trait IntermediateBase extends Base { ibase: IntermediateBase =>
   
   def reinterpret(r: Rep, newBase: Base)(extrudedHandle: (BoundVal => newBase.Rep) = DefaultExtrudedHandler): newBase.Rep
   
-  def nullValue[T: CodeType]: Code[T,{}]
+  def nullValue[T: CodeType]: ClosedCode[T]
   
   
   //override def showRep(r: Rep) = showScala(r)

@@ -227,7 +227,9 @@ self: Base =>
     type Typ = T
     def <:< (that: CodeType[_]) = rep <:< that.rep
     def =:= (that: CodeType[_]) = rep =:= that.rep
-    def nullValue(implicit ev: self.type <:< (self.type with IntermediateBase)) = Predef.nullValue(this,ev)
+    
+    //def nullValue(implicit ev: self.type <:< self.type with IntermediateBase) = Predef.nullValue(this,ev)
+    def nullValue(implicit ev: self.type <:< IntermediateBase) = Predef.nullValue(this,ev) // correct version above; currently broken by scala bug
   }
   def `internal CodeType`[Typ](trep: TypeRep) = CodeType[Typ](trep) // mainly for macros
   
@@ -276,15 +278,18 @@ self: Base =>
     def codeTypeOf[T: CodeType] = self.codeTypeOf[T]
     def typeRepOf[T: CodeType] = self.typeRepOf[T]
     
-    def nullValue[T: CodeType](implicit ev: base.type <:< (base.type with IntermediateBase)): Code[T,{}] = {
-      val b: base.type with IntermediateBase = ev(base)
-      //b.nullValue[T](irTypeOf[T]) // should work, but Scala doesn't like it
-      b.nullValue[T](codeTypeOf[T].asInstanceOf[b.CodeType[T]])
+    // This stopped working in 2.12.7, cf: https://github.com/scala/bug/issues/11302
+    /*
+    def nullValue[T: CodeType](implicit ev: base.type <:< (base.type with IntermediateBase)): ClosedCode[T] = {
+      // Ninja path-dependent typing (relies on squid.utils.typing)
+      val s: self.type with IntermediateBase = self
+    */
+    def nullValue[T: CodeType](implicit ev: base.type <:< IntermediateBase): ClosedCode[T] = {
+      val s: self.type with IntermediateBase = ev(self).asInstanceOf[base.type with IntermediateBase] // ugly workaround
+      val typ = codeTypeOf[T]
+      val styp: s.CodeType[T] = substBounded[Base,self.type,s.type,({type λ[X<:Base] = X#CodeType[T]})#λ](typ)
+      s.nullValue[T](styp)
     }
-    // Unsafe version:
-    //def nullValue[T: CodeType]: IR[T,{}] = {
-    //  val b = base.asInstanceOf[base.type with IntermediateBase]
-    //  b.nullValue[T](irTypeOf[T].asInstanceOf[b.CodeType[T]]) }
     
     @compileTimeOnly("Abort(msg) should only be called from the body of a rewrite rule. " +
       "If you want to abort a rewriting from a function called in the rewrite rule body, " +
