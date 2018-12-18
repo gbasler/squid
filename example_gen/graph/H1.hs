@@ -9,8 +9,8 @@ loremipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent 
 myid a = a
 
 main = defaultMain [bench "max" $ nf (
-  let sch'17_0 = (\x14_1 -> (x14_1 * x14_1) + 1) in
-  let sch'16432_2 = (\κ_3 x16427_4 -> ((foldr (\x_5 -> κ_3 x_5)) x16427_4) loremipsum) in
-  let sch'13105_6 = (+) in
-  let sch'9_7 = (\x6_8 x4_9 -> (ord x6_8) + x4_9) in
-  (\arg_10 -> ((sch'17_0 (sch'16432_2 (\x_5 -> sch'13105_6 (sch'9_7 x_5 arg_10)) 0)),(sch'17_0 (sch'16432_2 (\x_5 -> sch'13105_6 ((sch'9_7 x_5 (arg_10 + 1)) * 2)) 0))))) 42]
+  let sch'135603_0 = (\x135600_1 -> (x135600_1 * x135600_1) + 1) in
+  let sch'151977_2 = (\κ_3 x151972_4 -> ((foldr (\x_5 -> κ_3 x_5)) x151972_4) loremipsum) in
+  let sch'148650_6 = (+) in
+  let sch'135595_7 = (\x135592_8 x135590_9 -> (ord x135592_8) + x135590_9) in
+  (\arg_10 -> ((sch'135603_0 (sch'151977_2 (\x_5 -> sch'148650_6 (sch'135595_7 x_5 arg_10)) 0)),(sch'135603_0 (sch'151977_2 (\x_5 -> sch'148650_6 ((sch'135595_7 x_5 (arg_10 + 1)) * 2)) 0))))) 42]

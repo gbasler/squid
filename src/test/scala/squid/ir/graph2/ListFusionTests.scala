@@ -230,6 +230,27 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     
     //doTest(c"val a = 666+${Const(1)}")()
     
+    /*
+Haskell:
+(let sch'10099_0 = (\κ_1 x10094_2 -> ((((foldr) $ (\x_3 -> ((κ_1) $ (x_3)))) $ (x10094_2)) $ (loremipsum))) in
+(let sch'8390_4 = (+) in
+(let sch'9_5 = (\x6_6 x4_7 -> (((ord) $ (x6_6))+(x4_7))) in
+(((sch'10099_0) (\x_3 -> ((sch'8390_4) $ ((sch'9_5) (x_3) (42)))) (0)),((sch'10099_0) (\x_3 -> ((sch'8390_4) $ (((sch'9_5) (x_3) ((42)+(1)))*(2)))) (0))))))
+
+sch'10099_0
+  :: Foldable t1 =>
+     (t2 -> a -> b -> b) -> ([Char] -> t2) -> b -> t1 a -> b
+
+     */
+    //(((sch'10099_0) (\x_3 -> ((sch'8390_4) $ ((sch'9_5) (x_3) (42)))) (0)),((sch'10099_0) (\x_3 -> ((sch'8390_4) $ (((sch'9_5) (x_3) ((42)+(1)))*(2)))) (0)))
+    
+    //let sch'10099_0 = (\κ_1 x10094_2 -> foldr $ (\x_3 -> κ_1 $ x_3) $ x10094_2 $ loremipsum) in
+    //let sch'10099_0 = (\κ_1 x10094_2 -> ((((foldr) $ (\x_3 -> ((κ_1) $ (x_3)))) $ (x10094_2)) $ (loremipsum))) in
+    //let sch'10099_0 = (\κ_1 x10094_2 -> ((((foldr) $ (\x_3 -> ((κ_1) $ (x_3)))) $ (x10094_2)) $ (loremipsum))) in
+    
+    //(( foldr $ (\x_3 -> (κ_1 $ x_3))  $ x10094_2)
+    //(((foldr $ (\x_3 -> (κ_1 $ x_3))) $ x10094_2)
+    
     
   }
   

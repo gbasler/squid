@@ -513,7 +513,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
   }
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
-  sealed trait Def { // Q: why not make it a class with typ as param?
+  sealed trait Def extends CachedHashCode { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
     

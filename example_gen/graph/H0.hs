@@ -9,7 +9,7 @@ loremipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent 
 myid a = a
 
 main = defaultMain [bench "max" $ nf (
-  let sch'14_0 = (\_sf_1 _arg_2 -> _sf_1 ((map (\c_3 -> (ord c_3) + _arg_2)) loremipsum)) in
-  let sch'19_4 = (\sf_5 -> (\arg_6 -> let a = sch'14_0 sf_5 arg_6 in ((a) * (a)) + 1)) in -- manual
+  let sch'135600_0 = (\_sf_1 _arg_2 -> _sf_1 ((map (\c_3 -> (ord c_3) + _arg_2)) loremipsum)) in
+  let sch'135605_4 = (\sf_5 -> (\arg_6 -> ((sch'135600_0 sf_5 arg_6) * (sch'135600_0 sf_5 arg_6)) + 1)) in
   let sf_7 = sum in
-  (\arg_8 -> (((sch'19_4 sf_7) arg_8),((sch'19_4 (sf_7 . (map (\x'6_9 -> x'6_9 * 2)))) (arg_8 + 1))))) 42]
+  (\arg_8 -> (((sch'135605_4 sf_7) arg_8),((sch'135605_4 (sf_7 . (map (\x'6_9 -> x'6_9 * 2)))) (arg_8 + 1))))) 42]
