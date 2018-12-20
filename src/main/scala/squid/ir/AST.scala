@@ -324,11 +324,11 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     case () | _:Bool | _:Char | _:Short | _:Int  | _:Long  | _:Float  | _:Double | _:String | _:Class[_] => const(value)
     case _ => CrossStageValue(value, trep) |> rep
   }
-  def extractCrossStage(r: Rep): Option[Any] = r |> dfn |>? {
+  def extractCrossStage(r: Rep): Option[Any] = r |> dfn |>?? {
     //case c: ConstantLike => c.value
     // ^ this causes problems because `extractCrossStage` is used to separate cross-stage values from the rest, and we
     //   don't want random constants to be interpreted as cross-stage values in this case 
-    case CrossStageValue(v, _) => v
+    case CrossStageValue(v, _) => Some(v)
     case Ascribe(r, _) => extractCrossStage(r)
   }
   

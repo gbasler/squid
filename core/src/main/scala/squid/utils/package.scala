@@ -68,6 +68,7 @@ package object utils {
     
     @inline def |> [B] (rhs: A => B): B = rhs(__self)
     @inline def |>? [B] (rhs: PartialFunction[A, B]): Option[B] = rhs andThen Some.apply applyOrElse (__self, Function const None)
+    @inline def |>?? [B] (rhs: PartialFunction[A, Option[B]]): Option[B] = rhs applyOrElse (__self, Function const None)
     @inline def |>! [B] (rhs: PartialFunction[A, B]): B = rhs(__self)
     
     /** Like |> but expects the function to return the same type */
