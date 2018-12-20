@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,6 +137,8 @@ trait IdiomsNormalizer extends SimpleRuleBasedTransformer { self =>
     case code"($x:$t).asInstanceOf[t]" => code"$x:$t"
       
     case code"identity[$t]($x)" => x
+      
+    case code"implicitly[$t]($x)" => x
       
   }
   

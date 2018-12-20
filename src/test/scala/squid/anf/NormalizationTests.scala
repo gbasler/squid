@@ -88,6 +88,10 @@ class NormalizationTests extends MyFunSuite(SimpleANFTests.DSLWithEffects) {
     // Q: why ascription not removed? in:
     //println(ir"val envVar = (42:Any).asInstanceOf[Int]; println(envVar)")
     //println(ir"var a: Int = 0; a = (readInt:Any).asInstanceOf[Int]; println(a)")
+    //println(ir"var a: Int = 0; a = (readInt:Any).asInstanceOf[Int]; println(a)".rep.dfn)
+    // NOTE: ^ the ascription actually is there in the Rep; it just does not show up in the Scala tree for some reason
+    
+    code"implicitly[Ordering[Int]]" transformWith INorm eqt code"scala.math.Ordering.Int: scala.math.Ordering[scala.Int]"
     
   }
   
