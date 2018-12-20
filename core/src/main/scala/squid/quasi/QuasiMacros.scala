@@ -548,6 +548,16 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
   
   
   
+  def liftImpl[T: WeakTypeTag](cde: Tree): Tree = {
+    
+    c.macroApplication match {
+      case q"$qc.ImplicitLifting.liftImplicit[$tp]($cde)" =>
+        debug("Found liftImplicit base: "+qc)
+        q"$qc.Quasicodes.code[$tp]($cde)"
+    }
+    
+  }
+  
   def implicitTypeImpl[Config: c.WeakTypeTag, T: c.WeakTypeTag] = wrapError {
     val T = weakTypeOf[T]
     

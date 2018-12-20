@@ -342,6 +342,16 @@ self: Base =>
     
   }
   
+  object ImplicitLifting {
+    import scala.language.experimental.macros
+    implicit def liftImplicit[T](implicit cde: T): ClosedCode[T] = macro QuasiBlackboxMacros.liftImpl[T]
+    
+    // TODO Also possible to do: implicitly convert normal code to lifted code:
+    //import scala.language.implicitConversions
+    //implicit def apply[T](cde: T): Staged[T] = macro liftImplicitImpl[T]
+    //def dbg[T](cde: T): Staged[T] = macro liftImplicitImpl[T]
+  }
+  
   
   /** For easier migration from code bases that used the old `IR`-named interfaces */
   val LegacyPredef = new LegacyPredef{}
