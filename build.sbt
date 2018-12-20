@@ -19,6 +19,8 @@ val paradiseVersion = "2.1.0"
 val squidVersion = "0.3.2-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
+val initialConsoleCommands = """import squid.IR.Predef._"""
+
 lazy val commonSettings = Seq(
   version := squidVersion,
   scalaVersion := scala212Version, // default Scala version
@@ -57,6 +59,7 @@ lazy val main = (project in file(".")).
   settings(commonSettings: _*).
   settings(
     name := "squid",
+    initialCommands in console := initialConsoleCommands,
   )
 
 lazy val core = (project in file("core")).
@@ -83,7 +86,8 @@ lazy val example = (project in file("example")).
   settings(commonSettings: _*).
   settings(
     name := "squid-example",
-    parallelExecution in Test := false
+    parallelExecution in Test := false,
+    initialCommands in console := initialConsoleCommands,
   ).
   dependsOn(main).
   dependsOn(main % "test->test")
