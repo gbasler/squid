@@ -42,6 +42,8 @@ lazy val commonSettings = Seq(
   libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4",
+  libraryDependencies += "eu.timepit" %% "singleton-ops" % "0.3.1",
+  libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.3",
   
   //libraryDependencies += "com.lihaoyi" % "ammonite" % "1.1.2" % "test" cross CrossVersion.full,
   //// For the ammonite REPL:
