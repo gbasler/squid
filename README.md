@@ -26,12 +26,6 @@ Squid uses **advanced static typing** techniques to prevent common metaprogrammi
 
 ## A Short Example
 
-```tut:invisible
-import example.doc._
-import example.doc.IntroExample._
-import example.doc.IntroExample.IR.Predef._
-```
-
 To give a quick taste of Squid's capabilities,
 here is a very basic example of program manipulation.
 The full source code can be [found here, in the example folder](https://github.com/epfldata/squid/tree/master/example/src/main/scala/example/doc/IntroExample.scala).
@@ -52,14 +46,9 @@ What follows is an example REPL session demonstrating some program manipulation
 using Squid quasiquotes, 
 transformers and first-class term rewriting:
 
-```tut
-// Syntax `code"t"` represents term `t` in some specified intermediate representation
-val pgrm0 = code"Test.foo(1 :: 2 :: 3 :: Nil) + 1"
-```
-
 ```scala
 // Syntax `code"t"` represents term `t` in some specified intermediate representation
-> val pgrm0 = code"Test.foo(1 :: 2 :: 3 :: Nil) + 1"
+> val pgrm0 = code"(Test.foo(1 :: 2 :: 3 :: Nil) + 1).toDouble"
 pgrm0: ClosedCode[Double] = code"""
   val x_0 = Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
   x_0.+(1).toDouble
