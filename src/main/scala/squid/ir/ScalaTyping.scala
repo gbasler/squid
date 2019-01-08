@@ -36,6 +36,18 @@ import ScalaTyping._
 trait ScalaTyping extends Base with TraceDebug {
 self: IntermediateBase => // for 'repType' TODO rm
   
+  /** It can be useful being able to retrieve a ClassTag from a CodeType, especially when dealing with Arrays. */
+  implicit class ScalaTypingCodeTypeOps[T](self: CodeType[T]) {
+    import scala.reflect.{classTag, ClassTag}
+    def classTag: ClassTag[T] = ClassTag[T](runtimeClass)
+    def runtimeClass: Class[T] = sru.rootMirror.runtimeClass(self.rep.tpe).asInstanceOf[Class[T]]
+    def classTagCode: ClosedCode[ClassTag[T]] = {
+      implicit val T = self
+      import Predef.{Const => _, _}
+      code"ClassTag[T](${Const(runtimeClass)})"
+    }
+  }
+  
   type TypSymbol = sru.TypeSymbol
   //type TypeRep = ScalaType
   implicit class TypeRep(val tpe: ScalaType) {

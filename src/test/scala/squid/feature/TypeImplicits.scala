@@ -45,5 +45,25 @@ class TypeImplicits extends MyFunSuite {
     
   }
   
+  test("ClassTag") {
+    
+    import scala.reflect.{classTag, ClassTag}
+    
+    assert(codeTypeOf[Int].classTag == classTag[Int])
+    
+    assert(codeTypeOf[List[Int]].classTag == classTag[List[String]])
+    
+    
+    def foo[T:CodeType](e: ClosedCode[T]) = {
+      val a = code"Array.fill(10)($e)(ClassTag(${Const(codeTypeOf[T].runtimeClass)}))"
+      val b = code"Array.fill(10)($e)(${codeTypeOf[T].classTagCode})"
+      a eqt b
+      a
+    }
+    val e = foo(c"42")
+    assert(e.run.getClass == classOf[Array[Int]])
+    assert(e.compile.getClass == classOf[Array[Int]])
+    
+  }
   
 }
