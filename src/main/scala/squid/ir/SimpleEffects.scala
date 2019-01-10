@@ -162,7 +162,7 @@ trait StandardEffects extends SimpleEffects {
   transparentTyps += typeSymbol[String]
   transparentTyps += typeSymbol[Symbol]
   transparentTyps += typeSymbol[Symbol.type]
-  transparentTyps += typeSymbol[ClassTag[_]]
+  //transparentTyps += typeSymbol[ClassTag[_]] // inappropriate, as that makes ClassTag#newArray pure
   
   // TODO should make these @read but not pure:
   //pureTyps += sru.typeOf[Any].typeSymbol.asType // for, eg, `asInstanceOf`, `==` etc.
@@ -244,5 +244,6 @@ trait StandardEffects extends SimpleEffects {
   transparencyPropagatingMtds += methodSymbol[scala.Predef.type]("identity")
   
   transparencyPropagatingMtds += methodSymbol[scala.reflect.ClassTag.type]("apply")
+  // ^ note that the likes of ClassTag.Int are already pure (they're val members)
   
 }
