@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ trait Base extends TypingBase with quasi.QuasiBase {
   
   /** High-level interface whose implementations should specify how to construct (and potentially also deconstruct) constants */
   trait ConstAPI {
-    def apply[T: CodeType](v: T): ClosedCode[T] = `internal Code`(const(v))
+    def apply[T: LiteralType](v: T): ClosedCode[T] = `internal Code`(const(v))
   }
   val Const: ConstAPI
   

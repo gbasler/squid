@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -312,7 +312,6 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   
   object Const extends ConstAPI {
-    import meta.RuntimeUniverseHelpers.sru
     def unapply[T: CodeType](ir: Code[T,_]): Option[T] = dfn(ir.rep) match {
       case cst @ Constant(v) if typLeq(cst.typ, codeTypeOf[T].rep) => Some(v.asInstanceOf[T])
       case _ => None

@@ -1,4 +1,4 @@
-// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ class PatMatTypeCoercion extends MyFunSuite {
       
       //case LeafCode(_) => x
         
-      case Const(n) => Const(n)
+      case c @ Const(n) => c
       case base.Code((base.RepDef(h:base.Hole))) => base.Code((base.rep(h)))
       case base.Code((base.RepDef(bv:base.BoundVal))) => base.Code((base.rep(bv)))
       // ^ Should use LeafCode, but LeafCode is currently only defined for SimpleANF

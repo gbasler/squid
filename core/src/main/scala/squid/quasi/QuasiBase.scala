@@ -1,4 +1,4 @@
-// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,6 +247,26 @@ self: Base =>
   def typeRepOf[T: CodeType] = implicitly[CodeType[T]].rep
   
   
+  @implicitNotFound("Type '${T}' is not known to be a constant literal type (valid types are: Unit, Bool, Char, Byte, Short, Int, Long, Float, Double, String, and Class[T])")
+  sealed class LiteralType[T]//(val Typ: CodeType[T]) // currently no need for CodeType[T] evidence
+  object LiteralType {
+    //private def load[T](name: String): CodeType[T] = CodeType(staticTypeApp(loadTypSymbol(name),Nil))
+    implicit object Unit extends LiteralType[Unit]//(load("scala.Unit"))
+    implicit object Bool extends LiteralType[Bool]//(load("scala.Bool"))
+    implicit object Char extends LiteralType[Char]//(load("scala.Char"))
+    implicit object Byte extends LiteralType[Byte]//(load("scala.Byte"))
+    implicit object Short extends LiteralType[Short]//(load("scala.Short"))
+    implicit object Int extends LiteralType[Int]//(load("scala.Int"))
+    implicit object Long extends LiteralType[Long]//(load("scala.Long"))
+    implicit object Float extends LiteralType[Float]//(load("scala.Float"))
+    implicit object Double extends LiteralType[Double]//(load("scala.Double"))
+    implicit object String extends LiteralType[String]//(load("java.lang.String"))
+    implicit def Class[T:CodeType] = new LiteralType[Class[T]]//(CodeType(staticTypeApp(
+    //  loadTypSymbol("java.lang.Class"),
+    //  codeTypeOf[T].rep :: Nil
+    //)))
+  }
+  
   
   val Predef  = new Predef[DefaultQuasiConfig]
   
@@ -275,6 +295,7 @@ self: Base =>
     type __* = self.__*
     
     val Const: self.Const.type = self.Const
+    val LiteralType: self.LiteralType.type = self.LiteralType
     def codeTypeOf[T: CodeType] = self.codeTypeOf[T]
     def typeRepOf[T: CodeType] = self.typeRepOf[T]
     

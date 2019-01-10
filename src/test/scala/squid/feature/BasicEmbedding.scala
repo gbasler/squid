@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,15 @@ class BasicEmbedding extends MyFunSuite {
     code"42.toDouble + .5" matches {
       case code"42.toDouble + 0.5" =>
     }
+    
+  }
+  
+  test("Constants") {
+    
+    code"42" eqt Const(42)
+    
+    assertDoesNotCompile("Const('oop)")
+    // Error: Type 'Symbol' is not known to be a constant literal type (valid types are: Unit, Bool, Char, Byte, Short, Int, Long, Float, Double, String, and Class[T])
     
   }
   
