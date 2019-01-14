@@ -34,7 +34,7 @@ class CrossStageTests extends MyFunSuite(CrossStageDSL) {
     
     // could actually support this one fairly easily using a squid.lib.MutVarProxy:
     assertDoesNotCompile(""" code"mutfield = 'ko" """) // no cross-stage mutable variable update
-    // ^ Error:(33, 13) Embedding Error: Unsupported feature: update to cross-stage mutable variable 'mutfield'
+    // ^ Error:(33, 13) Embedding Error: Unsupported feature: update to cross-quotation or cross-stage mutable variable 'mutfield'
     
     assertDoesNotCompile(""" code"method(3)" """) // no cross-stage persistence of local methods
     // ^ Error:(30, 9) Embedding Error: Unsupported feature: Reference to local method `method`

@@ -350,7 +350,8 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
     
     def requireCrossStageEnabled = {
       if (!(baseTree.tpe <:< typeOf[CrossStageEnabled]))
-        throw EmbeddingException(s"Cannot use cross-stage reference: base ${baseTree} does not implement squid.lang.CrossStageEnabled.")
+        throw EmbeddingException(s"Cannot use cross-stage reference: base ${baseTree} does not implement squid.lang.CrossStageEnabled. " +
+          s"If you did not intend to use a cross-stage reference, perhaps you forgot an antiquote $${...} somewhere?")
     }
     
     /** Embeds the type checked code with ModularEmbedding, but via the config.embed function, which may make the embedded
