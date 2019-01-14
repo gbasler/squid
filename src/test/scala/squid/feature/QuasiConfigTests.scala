@@ -44,8 +44,11 @@ class QuasiConfigTests extends MyFunSuite {
     val MyPredef = new TestDSL.Predef[SameCompilationUnitConfig]
     import MyPredef._
     
+    // This test is commented because unreliable:
+    /*
     assertDoesNotCompile("""code"42.toString"""")
     // ^ Error: Cannot find quasi-config class `squid.feature.SameCompilationUnitConfig`; perhaps it was defined in the same compilation unit?
+    */
     
   }
   
