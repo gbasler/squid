@@ -191,7 +191,7 @@ class ListFusionTests extends MyFunSuite(ListFusionTests) with GraphRewritingTes
     //      in ((foldr $ (\x_8 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_8 $ 42)) $ 0 $ sch$12_7),(foldr $ (\x_9 -> sch$23508_0 $ sch$13507_3 $ (sch$9_4 $ x_9 $ (42+1))) $ 0 $ sch$12_7))
     
   }
-  test("C3") { // FIXME needs a continuation! not yet implemented in scheduling
+  test("C3") { // FIXedME needs a continuation! not yet implemented in scheduling
     
     //DSL.ScheduleDebug debugFor
     doTest(code{
