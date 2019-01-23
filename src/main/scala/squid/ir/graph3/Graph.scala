@@ -31,6 +31,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   abstract class Node {
     //val bound: Val
     val bound: Val = freshBoundVal(typ)
+    def withBound(bound: Val): Node
     //def typ: TypeRep
     ////def dfn = bound
     def children: Iterator[Rep]
@@ -41,31 +42,40 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //def typ = bound.typ
     def typ: TypeRep
   }
-  class Rep(var node: Node, var tokenHighways: List[Rep]) {
+  class Rep(var node: Node) {
     ////val bound: Val = freshBoundVal(typ)
     //def typ = dfn.typ
     //def children = dfn.children
     def bound: Val = node.bound
     def showGraph = graph.showGraph(this)
     
-    override def toString = s"$node ((${tokenHighways.map(_.bound).mkString(",")}))"
+    override def toString = s"$node"
   }
   //case class ConcreteNode(dfn: Def) extends Node(freshBoundVal(dfn.typ)) {
   case class ConcreteNode(dfn: Def) extends Node {
     def typ: TypeRep = dfn.typ
     def children = dfn.children
+    def withBound(_bound: Val): Node = new ConcreteNode(dfn) {
+      override val bound = _bound
+    }
     override def toString = s"$bound = $dfn"
   }
   //case class Call(cid: CallId, res: Rep) extends Node(freshBoundVal(res.typ)) {
   case class Call(cid: CallId, res: Rep) extends Node {
     def typ = res.typ
     def children: Iterator[Rep] = Iterator.single(res)
+    def withBound(_bound: Val): Node = new Call(cid, res) {
+      override val bound = _bound
+    }
     override def toString = s"$bound = [$cid! ${res.bound}]"
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
   case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
+    def withBound(_bound: Val): Node = new Branch(cid, lhs, rhs) {
+      override val bound = _bound
+    }
     override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   
@@ -74,7 +84,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //def rep(dfn: Def) = new Rep(dfn, dfn.children.toList)
   def rep(dfn: Def) = dfn match {
     case v: Val if reificationContext.contains(v) => reificationContext(v)
-    case _ => new Rep(ConcreteNode(dfn), dfn.children.toList)
+    case _ => new Rep(ConcreteNode(dfn))
   }
   //def simpleRep(dfn: Def): Rep = rep(dfn)
   def repType(r: Rep) = r.typ
@@ -83,43 +93,17 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   val reificationContext = mutable.Map.empty[Val,Rep]
   
-  def letinImpl(_bound: BoundVal, _value: Rep, mkBody: => Rep) = { 
-    require(!reificationContext.contains(_bound))
-    val value = _value.node match {
-      case ConcreteNode(d) => new Rep(new ConcreteNode(d) {
-        override val bound = _bound
-      }, _value.tokenHighways)
-      case _ => _value
-    }
+  def letinImpl(bound: BoundVal, _value: Rep, mkBody: => Rep) = { 
+    require(!reificationContext.contains(bound))
+    val value = new Rep(_value.node.withBound(bound))
     try {
-      reificationContext += _bound -> value
-      //val r = body
-      //new Rep(r.)
-      //r
-      //val body = mkBody
-      //body.node match {
-      //  case ConcreteNode(d) => 
-      //    println(body.bound,_bound)
-      //    new Rep(new ConcreteNode(d) {
-      //    override val bound = _bound
-      //  }, body.tokenHighways)
-      //  case _ => body
-      //}
+      reificationContext += bound -> value
       mkBody
-    } finally reificationContext -= _bound 
+    } finally reificationContext -= bound 
   }
   
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     letinImpl(bound,value,body)
-  
-  //override def abs(param: BoundVal, body: => Rep): Rep = {
-  //  //letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
-  //  
-  //  //val mirr = new MirrorVal(param)
-  //  //val occ = rep(mirr)
-  //  //lambdaBound.put(param, occ.bound)
-  //  letinImpl(param, param |> readVal, super.abs(param, body) /*also mirr.setAbs*/)
-  //}
   
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
