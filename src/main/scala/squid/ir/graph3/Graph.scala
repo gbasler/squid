@@ -23,6 +23,12 @@ import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import scala.collection.immutable.ListSet
 import scala.collection.mutable
 
+/*
+
+TODO:
+  - insert Stop nodes at the right places when reifying lambdas...
+
+*/
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
   override protected def freshNameImpl(n: Int) = "$"+n
@@ -41,6 +47,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //def showRep = graph.showRep(this)
     //def typ = bound.typ
     def typ: TypeRep
+    def mkRep = new Rep(this)
   }
   class Rep(var node: Node) {
     ////val bound: Val = freshBoundVal(typ)
@@ -63,7 +70,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def withBound(_bound: Val): Node = new ConcreteNode(dfn) {
       override val bound = _bound
     }
-    def mkRep = new Rep(this)
+    //def mkRep = new Rep(this)
     override def toString = s"$bound = $dfn"
   }
   //case class Call(cid: CallId, res: Rep) extends Node(freshBoundVal(res.typ)) {
@@ -119,47 +126,27 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     letinImpl(bound,value,body)
   
+  override def abs(param: BoundVal, body: => Rep): Rep = {
+    val occ = param.toRep
+    lambdaBound.put(param, occ)
+    letinImpl(param, occ, super.abs(param, body))
+  }
+  
+  //class MirrorVal(v: Val) extends BoundVal("@"+v.name)(v.typ,Nil)
+  protected val lambdaBound = new java.util.WeakHashMap[Val,Rep]
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     val cid = new CallId("α")
     
-    
-    
-    /*
     val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
-    //println(s"OCC $occ")
-    val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
-    assert(mir.v === v)
+    val newOcc = v.toRep
+    lambdaBound.put(v,newOcc)
     
-    val newOcc = mir.toRep
     val arg = mkArg
-    val bran = Branch(Condition.simple(cid), arg, newOcc)
-    
-    rebind(occ, bran)
-    lambdaBound.put(v,newOcc.bound)
-    
-    // Q: does this create code dup?
-    /*
-    val body = r.boundTo.mkRep
-    rebind(r.bound, Pass(cid, body))
-    */
-    /*
-    val origBody = mir.getAbs.body
-    val body = origBody.boundTo.mkRep
-    rebind(origBody.bound, Pass(cid, body))
-    */
-    
-    val abs = mir.getAbs
-    //println(s"ABS ${mir.abs}")
-    assert(mir.getAbs =/= null)
-    val body = abs.body
-    //println(s"ABSd ${abs}")
-    mir.rebindAbs(Abs(abs.param, Pass(cid, body).mkRep)(abs.typ))
-    //println(s"NABS ${mir.abs}")
+    val bran = Branch(0, cid, Stop(arg).mkRep, newOcc)
+    occ.node = bran
     
     Call(cid, r).mkRep
-    */
-    ???
   }
   
   
