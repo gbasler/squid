@@ -7,6 +7,9 @@ import IR.Predef._
 
 object MyTests extends App {
   
-  code"2.toDouble".rep.showGraph also println
+  def f(c:OC[Any]) = println(c.rep.showGraph) 
+  
+  code"2.toDouble" also f
+  code"val x = readInt; x + x.toDouble" also f
   
 }

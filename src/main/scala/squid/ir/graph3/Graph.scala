@@ -25,26 +25,48 @@ import scala.collection.mutable
 
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
-  abstract class Rep {
+  override protected def freshNameImpl(n: Int) = "$"+n
+  
+  //abstract class Node(val bound: Val) {
+  abstract class Node {
     //val bound: Val
     val bound: Val = freshBoundVal(typ)
-    def typ: TypeRep
-    //def dfn = bound
+    //def typ: TypeRep
+    ////def dfn = bound
     def children: Iterator[Rep]
-    def iterator = graph.iterator(this)
-    def showGraph = graph.showGraph(this)
-    //def showFullGraph = graph.showGraph(this,true)
-    def showRep = graph.showRep(this)
+    //def iterator = graph.iterator(this)
+    //def showGraph = graph.showGraph(this)
+    ////def showFullGraph = graph.showGraph(this,true)
+    //def showRep = graph.showRep(this)
+    //def typ = bound.typ
+    def typ: TypeRep
   }
-  class ConcreteRep(var dfn: Def, var tokenHighways: List[Rep]) extends Rep {
-    //val bound: Val = freshBoundVal(typ)
-    def typ = dfn.typ
+  class Rep(var node: Node, var tokenHighways: List[Rep]) {
+    ////val bound: Val = freshBoundVal(typ)
+    //def typ = dfn.typ
+    //def children = dfn.children
+    def bound: Val = node.bound
+    def showGraph = graph.showGraph(this)
+    
+    override def toString = s"$node ((${tokenHighways.map(_.bound).mkString(",")}))"
+  }
+  //case class ConcreteNode(dfn: Def) extends Node(freshBoundVal(dfn.typ)) {
+  case class ConcreteNode(dfn: Def) extends Node {
+    def typ: TypeRep = dfn.typ
     def children = dfn.children
     override def toString = s"$bound = $dfn"
   }
-  case class Call(cid: CallId, res: Rep, tokenHighways: List[Rep]) extends Rep {
+  //case class Call(cid: CallId, res: Rep) extends Node(freshBoundVal(res.typ)) {
+  case class Call(cid: CallId, res: Rep) extends Node {
     def typ = res.typ
     def children: Iterator[Rep] = Iterator.single(res)
+    override def toString = s"$bound = [$cid! ${res.bound}]"
+  }
+  //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
+  case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node {
+    def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
+    def children: Iterator[Rep] = Iterator(lhs,rhs)
+    override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   
   //def dfn(r: Rep): Def = r.dfn
@@ -52,7 +74,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //def rep(dfn: Def) = new Rep(dfn, dfn.children.toList)
   def rep(dfn: Def) = dfn match {
     case v: Val if reificationContext.contains(v) => reificationContext(v)
-    case _ => new ConcreteRep(dfn, dfn.children.toList)
+    case _ => new Rep(ConcreteNode(dfn), dfn.children.toList)
   }
   //def simpleRep(dfn: Def): Rep = rep(dfn)
   def repType(r: Rep) = r.typ
@@ -61,16 +83,43 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   val reificationContext = mutable.Map.empty[Val,Rep]
   
-  def letinImpl(bound: BoundVal, value: Rep, body: => Rep) = { 
-    require(!reificationContext.contains(bound))
+  def letinImpl(_bound: BoundVal, _value: Rep, mkBody: => Rep) = { 
+    require(!reificationContext.contains(_bound))
+    val value = _value.node match {
+      case ConcreteNode(d) => new Rep(new ConcreteNode(d) {
+        override val bound = _bound
+      }, _value.tokenHighways)
+      case _ => _value
+    }
     try {
-      reificationContext += bound -> value
-      body
-    } finally reificationContext -= bound 
+      reificationContext += _bound -> value
+      //val r = body
+      //new Rep(r.)
+      //r
+      //val body = mkBody
+      //body.node match {
+      //  case ConcreteNode(d) => 
+      //    println(body.bound,_bound)
+      //    new Rep(new ConcreteNode(d) {
+      //    override val bound = _bound
+      //  }, body.tokenHighways)
+      //  case _ => body
+      //}
+      mkBody
+    } finally reificationContext -= _bound 
   }
   
   override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
     letinImpl(bound,value,body)
+  
+  //override def abs(param: BoundVal, body: => Rep): Rep = {
+  //  //letinImpl(param, rep(new MirrorVal(param)), super.abs(param, body))
+  //  
+  //  //val mirr = new MirrorVal(param)
+  //  //val occ = rep(mirr)
+  //  //lambdaBound.put(param, occ.bound)
+  //  letinImpl(param, param |> readVal, super.abs(param, body) /*also mirr.setAbs*/)
+  //}
   
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
@@ -118,7 +167,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   def iterator(r: Rep): Iterator[Rep] = mkIterator(r)(false,mutable.HashSet.empty)
   def mkIterator(r: Rep)(implicit rev: Bool, done: mutable.HashSet[Rep]): Iterator[Rep] = done.setAndIfUnset(r, {
-    Iterator.single(r) ++ r.children.flatMap(mkIterator)
+    Iterator.single(r) ++ r.node.children.flatMap(mkIterator)
   }, Iterator.empty)
   
   def showGraph(rep: Rep, full: Bool = false): String = s"$rep" + {
@@ -131,6 +180,46 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
+  
+  
+  
+  override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
+  class DefPrettyPrinter(showInlineNames: Bool = true, showInlineCF:Bool = true) extends super.DefPrettyPrinter {
+    val printed = mutable.Set.empty[Rep]
+    override val showValTypes = false
+    override val desugarLetBindings = false
+    var curCol = Console.BLACK
+    //override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
+    //  case _ if !showInlineCF => super.apply(r.bound)
+    //  case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
+    //  case n => (if (showInlineNames) Debug.GREY +r.bound+":" + curCol else "")+apply(n)
+    //}) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
+    //override def apply(d: Def): String = d match {
+    //  case Bottom => "⊥"
+    //  case MirrorVal(v) => s"<$v>"
+    //  case _ => super.apply(d)
+    //}
+    //def apply(n: Node): String = n match {
+    //  case Pass(cid, res) =>
+    //    val col = colorOf(cid)
+    //    s"$col⟦$cid⟧$curCol ${res |> apply}"
+    //  case Call(cid, res) =>
+    //    val col = colorOf(cid)
+    //    s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
+    //  case Arg(cid, res) =>
+    //    val col = colorOf(cid)
+    //    //s"$col$cid⟨⟩$curCol${res|>apply}"
+    //    s"⟦$col$cid⟧$curCol${res|>apply}"
+    //  case Branch(Condition(ops,cid), cbr, els) =>
+    //    val oldCol = curCol
+    //    curCol = colorOf(cid)
+    //    //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+    //    s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+    //  case cn@ConcreteNode(v:Val) => apply(cn.mkRep)
+    //  case ConcreteNode(d) => apply(d)
+    //}
+  }
+  
   
   
   // TODO
