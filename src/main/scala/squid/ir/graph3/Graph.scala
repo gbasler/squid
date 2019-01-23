@@ -48,6 +48,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //def children = dfn.children
     def bound: Val = node.bound
     def showGraph = graph.showGraph(this)
+    def showFullGraph = showGraph // TODO
+    def eval = graph.eval(this)
+    def typ: TypeRep = node.typ
     
     override def toString = s"$node"
   }
@@ -58,6 +61,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def withBound(_bound: Val): Node = new ConcreteNode(dfn) {
       override val bound = _bound
     }
+    def mkRep = new Rep(this)
     override def toString = s"$bound = $dfn"
   }
   //case class Call(cid: CallId, res: Rep) extends Node(freshBoundVal(res.typ)) {
@@ -70,13 +74,21 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override def toString = s"$bound = [$cid! ${res.bound}]"
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
-  case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node {
+  case class Branch(stops: Int, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
-    def withBound(_bound: Val): Node = new Branch(cid, lhs, rhs) {
+    def withBound(_bound: Val): Node = new Branch(stops, cid, lhs, rhs) {
       override val bound = _bound
     }
-    override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+    override def toString = s"$bound = [${if (stops > 0) s"($stops)" else ""}$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+  }
+  case class Stop(res: Rep) extends Node {
+    def typ = res.typ
+    def children: Iterator[Rep] = Iterator.single(res)
+    def withBound(_bound: Val): Node = new Stop(res) {
+      override val bound = _bound
+    }
+    override def toString = s"$bound = [Ø ${res.bound}]"
   }
   
   //def dfn(r: Rep): Def = r.dfn
@@ -206,14 +218,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   
+}
+
+
+trait GraphRewriting extends AST { graph: Graph =>
+  
   // TODO
   type XCtx = Unit
   def newXCtx: XCtx = ()
   
-  
-  
 }
-
-trait GraphScheduling
-
-trait GraphRewriting

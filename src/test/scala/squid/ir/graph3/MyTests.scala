@@ -7,7 +7,10 @@ import IR.Predef._
 
 object MyTests extends App {
   
-  def f(c:OC[Any]) = println(c.rep.showGraph) 
+  def f(c:OC[Any]) = {
+    println(c.rep.showGraph)
+    println(c.rep.eval)
+  } 
   
   code"2.toDouble" also f
   code"val x = readInt; x + x.toDouble" also f
