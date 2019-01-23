@@ -20,9 +20,13 @@ import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
-import scala.collection.immutable.ListSet
-import scala.collection.mutable
+//import scala.collection.immutable.ListSet
+//import scala.collection.mutable
 
+import squid.utils.CollectionUtils._
+
+import scala.collection.{mutable, immutable}
+import scala.collection.immutable.ListMap
 
 
 import squid.ir.graph.SimpleASTBackend
@@ -35,8 +39,6 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  //case class CCtx(map: Map[CallId, Opt[CCtx]]) {
-  //}
   type CCtx = List[CallId]
   object CCtx { val empty: CCtx = Nil }
   
@@ -59,7 +61,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             bound.map(readVal)
             //bound.map(new MirrorVal(_).toRep)
           ).toRep)(abs(_,_))
-          println(curried.showGraph)
+          //println("! "+curried.showGraph)
           val fun = ScheduleDebug.muteFor { scheduleAndRun(curried) }
           reps.foldLeft(fun){case(f,a) => f.asInstanceOf[Any=>Any](rec(a).value)} into Constant
       }
@@ -107,7 +109,137 @@ trait GraphScheduling extends AST { graph: Graph =>
     // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
       Sdebug(s"Scheduling: ${rep.showFullGraph}")
-      ???
+      
+      /** We need to distinguish each 'slot' in a predecessor node, and on top of that each side of a branch (currently
+        * we assign 0 for left, 1 for right) */
+      val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
+      
+      // TODO use `analysed` to avoid useless traversals?
+      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
+        //println(pred,rep)
+        rep.node match {
+          case Stop(res) => analyse(pred,res)(cctx.tail) // FIXME probably
+          case Call(cid, res) => analyse(pred,res)(cid::cctx)
+          case Branch(stops, cond, thn, els) =>
+            if (cctx.drop(stops).headOption === Some(cond))
+                 analyse(pred ||> (0 :: _), thn) 
+            else analyse(pred ||> (1 :: _), els)
+          case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
+          case ConcreteNode(d) =>
+            val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
+            ptrs += pred
+            d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
+        }
+      }
+      analyse((Nil,rep),rep)(CCtx.empty)
+      
+      Sdebug(s"Pointers:"+pointers.map{case r->s => s"\n\t[${s.size}]\t${r.fullString}"}.mkString)
+      
+      
+      
+      var scheduled = ListMap.empty[Rep,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
+      // ^ FIXME keys type?
+      
+      // TODO prevent infinite recursion?
+      // TODO remove `pred` and `n` and associated analyses
+      type recRet = ListMap[Rep,nb.BoundVal]->nb.Rep
+      def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
+        Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
+        
+        val res = ScheduleDebug.nestDbg { rep.node |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
+          case Stop(res) => rec(res)(vctx,cctx.tail) // FIXME?
+          case Call(cid,res) => rec(res)(vctx,cid::cctx)
+          case b @ Branch(stops,cond,thn,els) =>
+            //val hc = cctx.drop(stops).headOption.map(_ === cond)
+            //if (hc === Some(true)) rec(pred,thn,n)
+            //else if (hc===Some(false)) rec(pred,els,n)
+            //else {
+            cctx.drop(stops).headOption match {
+            case Some(cid) => if (cid === cond) rec(thn) else rec(els)
+            case _ =>
+              val fv = freeVals(rep)
+              val vset = vctx.keySet
+              println(s"FV ${fv} ? $vset")
+              if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
+                //val v = freshBoundVal(rep.typ)
+                //val w = recv(v)
+                val v = rep.bound
+                val w = recv(v)
+                Sdebug(s"$v ~> $w")
+                ListMap(rep->w) -> nb.readVal(w)
+              } else {
+                val extrudedVals = (fv & vset).toList
+                val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
+                val kbody = lambda(extrudedVals, rep)
+                pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
+                val rk = recv(k)
+                println(k,kbody)
+                ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
+              }
+            }
+          // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
+          // obviously fail as they will be extruded from their scope...
+          // But if that condition enough to prevent scope extrusion in general?!
+          case nde @ ConcreteNode(d) if !d.isSimple && pointers(rep).size > 1 && !topLevel => // FIXME condition '!d.isSimple'
+            Sdebug(s"! 1 < |${pointers(rep).iterator.mapLHS(_.mkString(":")).mapRHS(_.bound).mkSetString}|")
+            val (fsym,_,args,_) = scheduled.getOrElse(rep, {
+              //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
+              val as->nr = rec(rep,topLevel=true)(Map.empty,CCtx.empty) ||> (_.toList)
+              //val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
+              val v = bindVal(
+                //"sch"+rep.bound.name,
+                rep.bound.name,
+                if (as.isEmpty) nde.typ else lambdaType(as.unzip._1.map(_.typ),nde.typ), Nil)
+              val w = recv(v)
+              (w,if (as.isEmpty) nr else nb.lambda(as.unzip._2,nr),as.unzip._1,rect(v.typ)) : (nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)
+            } also (scheduled += rep -> _))
+            val s = args.map(b => rec(b))
+            val a: ListMap[Rep,nb.BoundVal] = s.flatMap(_._1)(scala.collection.breakOut)
+            val f = fsym|>nb.readVal
+            val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
+            a -> e
+          case cn@ConcreteNode(d) => d match {
+            //case v:Val => ??? // rec(pred,cn.mkRep,m)
+            case v:Val => ListMap.empty->newBase.readVal(vctx(v))
+            case Abs(p,b) =>
+              //println(s"Abs($p,$b)")
+              val v = recv(p)
+              val as->r = rec(b)(vctx + (p->v), cctx)
+              //println(s"/Abs")
+              as->newBase.lambda(v::Nil,r)
+            //case MirrorVal(v) => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
+            //case MirrorVal(v0) => vctx get v0 map (w => ListMap.empty -> nb.readVal(w) : recRet) getOrElse {
+            //  //(ListMap(readVal(v))) ->)
+            //  val v = bindVal("_"+v0.name, v0.typ, Nil)
+            //  val w = recv(v)
+            //  ListMap(rep->w) -> nb.readVal(w)
+            //}
+            case MethodApp(self, mtd, targs, argss, tp) =>
+              val sas->sr = rec(self)
+              var ass = sas
+              val newArgss = argss.map(_.map(nb){r =>
+                val as->sr = rec(r)
+                ass ++= as
+                sr
+              })
+              ass->nb.methodApp(sr, recm(mtd), targs.map(rect), newArgss, rect(tp))
+            case Ascribe(r, typ) =>
+              rec(r) ||> (_2 = nb.ascribe(_,rect(typ)))
+            case Module(r, name, typ) =>
+              rec(r) ||> (_2 = nb.module(_,name,rect(typ)))
+            case ld: LeafDef => ListMap.empty->apply(ld)
+          }
+        }}
+        //Sdebug(s"<"+res._1.map("\t"+_).mkString("\n"))
+        Sdebug(s"< "+res._1.mkString("\n  "))
+        res
+      }
+      val lsm->r = rec(rep)(Map.empty,CCtx.empty)
+      //assert(lsm.isEmpty,lsm) // TODO B/E
+      if(lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
+      scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
+      
+      //???
     }
     
     override protected def recv(v: Val): newBase.BoundVal =
@@ -119,6 +251,22 @@ trait GraphScheduling extends AST { graph: Graph =>
       val newBase: NewBase.type = NewBase
       override val extrudedHandle = ExtrudedHandle
     } apply r
+  
+  
+  /** Path-sensitive free-variables computation. */
+  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
+    case Stop(res) => freeVals(res)(cctx.tail) // FIXME?
+    case Call(cid,res) => freeVals(res)(cid::cctx)
+    case Branch(stops,cond,thn,els) =>
+      cctx.drop(stops).headOption match {
+        case Some(cid) => freeVals(if (cid === cond) thn else els)
+        case _ => freeVals(thn) ++ freeVals(els)
+      }
+    //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
+    //case ConcreteNode(MirrorVal(v)) => Set single v
+    case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
+  }
+  
   
 }
 

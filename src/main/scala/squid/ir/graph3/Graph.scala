@@ -52,6 +52,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def eval = graph.eval(this)
     def typ: TypeRep = node.typ
     
+    def fullString = toString // TODO
+    
     override def toString = s"$node"
   }
   //case class ConcreteNode(dfn: Def) extends Node(freshBoundVal(dfn.typ)) {
@@ -177,6 +179,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
   
+  implicit class GraphDefOps(private val self: Def) {
+    def isSimple = self match {
+      //case _: SyntheticVal => false  // actually considered trivial?
+      case _: LeafDef => true
+      //case Bottom => true
+      case _ => false
+    }
+  }
   
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
