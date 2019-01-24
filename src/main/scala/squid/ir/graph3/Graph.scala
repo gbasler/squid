@@ -15,7 +15,6 @@
 package squid.ir
 package graph3
 
-import squid.ir.graph.CallId
 import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
@@ -28,10 +27,24 @@ import scala.collection.mutable
 TODO:
   - insert Stop nodes at the right places when reifying lambdas...
 
+Possible imporvements:
+  - an unrolling factor which needs parametrizing tokens and branches, allowing to push a stop past a branch of the same Val
+
 */
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
   override protected def freshNameImpl(n: Int) = "$"+n
+  
+  
+  object CallId {
+    private var curId = 0; def reset(): Unit = curId = 0
+  }
+  class CallId(val v: Val) {
+    val uid: Int = CallId.curId alsoDo (CallId.curId += 1)
+    //def uidstr: String = s"${v.name}$uid"
+    def uidstr: String = s"$v$uid"
+    override def toString: String = uidstr
+  }
   
   //abstract class Node(val bound: Val) {
   abstract class Node {
@@ -83,18 +96,18 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override def toString = s"$bound = [$cid! ${res.bound}]"
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
-  case class Branch(stops: Int, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
+  case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
-    def withBound(_bound: Val): Node = new Branch(stops, cid, lhs, rhs) {
+    def withBound(_bound: Val): Node = new Branch(cid, lhs, rhs) {
       override val bound = _bound
     }
-    override def toString = s"$bound = [${if (stops > 0) s"($stops)" else ""}$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+    override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
-  case class Stop(res: Rep) extends Node {
+  case class Stop(v: Val, res: Rep) extends Node {
     def typ = res.typ
     def children: Iterator[Rep] = Iterator.single(res)
-    def withBound(_bound: Val): Node = new Stop(res) {
+    def withBound(_bound: Val): Node = new Stop(v,res) {
       override val bound = _bound
     }
     override def toString = s"$bound = [Ø ${res.bound}]"
@@ -136,14 +149,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   protected val lambdaBound = new java.util.WeakHashMap[Val,Rep]
   
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
-    val cid = new CallId("α")
+    val cid = new CallId(v)
     
     val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
     val newOcc = v.toRep
     lambdaBound.put(v,newOcc)
     
     val arg = mkArg
-    val bran = Branch(0, cid, Stop(arg).mkRep, newOcc)
+    val bran = Branch(cid, Stop(v,arg).mkRep, newOcc)
     occ.node = bran
     
     Call(cid, r).mkRep

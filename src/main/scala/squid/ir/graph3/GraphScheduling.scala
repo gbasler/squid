@@ -15,7 +15,6 @@
 package squid.ir
 package graph3
 
-import squid.ir.graph.CallId
 import squid.utils._
 import squid.utils.CollectionUtils.MutSetHelper
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
@@ -39,15 +38,22 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  type CCtx = List[CallId]
-  object CCtx { val empty: CCtx = Nil }
+  type CCtx = Map[CallId,Bool]
+  object CCtx {
+    val unknown: CCtx = Map.empty
+    val empty: CCtx = Map.empty.withDefaultValue(false)
+  }
+  def withStop(v: Val)(implicit cctx: CCtx): CCtx = cctx.filter(_._1.v =/= v)
+  def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = cctx + (cid -> true)
+  def hasCid(cid: CallId)(implicit cctx: CCtx): Bool = cctx(cid)
+  def mayHaveCid(cid: CallId)(implicit cctx: CCtx): Option[Bool] = cctx.get(cid)
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
-      case Stop(res) => rec(res)(cctx.tail, vctx)
-      case Call(cid,res) => rec(res)(cid::cctx, vctx)
-      case Branch(stops,cid,thn,els) =>
-        if (cctx.drop(stops).head === cid) rec(thn) else rec(els)
+      case Stop(v,res) => rec(res)(withStop(v),vctx)
+      case Call(cid,res) => rec(res)(withCall(cid), vctx)
+      case Branch(cid,thn,els) =>
+        if (hasCid(cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
@@ -118,10 +124,10 @@ trait GraphScheduling extends AST { graph: Graph =>
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
         //println(pred,rep)
         rep.node match {
-          case Stop(res) => analyse(pred,res)(cctx.tail) // FIXME probably
-          case Call(cid, res) => analyse(pred,res)(cid::cctx)
-          case Branch(stops, cond, thn, els) =>
-            if (cctx.drop(stops).headOption === Some(cond))
+          case Stop(v,res) => analyse(pred,res)(withStop(v)) // FIXME probably
+          case Call(cid, res) => analyse(pred,res)(withCall(cid))
+          case Branch(cid, thn, els) =>
+            if (hasCid(cid))
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
@@ -147,15 +153,16 @@ trait GraphScheduling extends AST { graph: Graph =>
         Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
         
         val res = ScheduleDebug.nestDbg { rep.node |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
-          case Stop(res) => rec(res)(vctx,cctx.tail) // FIXME?
-          case Call(cid,res) => rec(res)(vctx,cid::cctx)
-          case b @ Branch(stops,cond,thn,els) =>
+          case Stop(v,res) => rec(res)(vctx,withStop(v)) // FIXME?
+          case Call(cid,res) => rec(res)(vctx,withCall(cid))
+          case b @ Branch(cid,thn,els) =>
             //val hc = cctx.drop(stops).headOption.map(_ === cond)
             //if (hc === Some(true)) rec(pred,thn,n)
             //else if (hc===Some(false)) rec(pred,els,n)
             //else {
-            cctx.drop(stops).headOption match {
-            case Some(cid) => if (cid === cond) rec(thn) else rec(els)
+            mayHaveCid(cid) match {
+            case Some(true) => rec(thn)
+            case Some(false) => rec(els)
             case _ =>
               val fv = freeVals(rep)
               val vset = vctx.keySet
@@ -184,7 +191,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             Sdebug(s"! 1 < |${pointers(rep).iterator.mapLHS(_.mkString(":")).mapRHS(_.bound).mkSetString}|")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
-              val as->nr = rec(rep,topLevel=true)(Map.empty,CCtx.empty) ||> (_.toList)
+              val as->nr = rec(rep,topLevel=true)(Map.empty,CCtx.unknown) ||> (_.toList)
               //val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
               val v = bindVal(
                 //"sch"+rep.bound.name,
@@ -255,12 +262,12 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Path-sensitive free-variables computation. */
   def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
-    case Stop(res) => freeVals(res)(cctx.tail) // FIXME?
-    case Call(cid,res) => freeVals(res)(cid::cctx)
-    case Branch(stops,cond,thn,els) =>
-      cctx.drop(stops).headOption match {
-        case Some(cid) => freeVals(if (cid === cond) thn else els)
-        case _ => freeVals(thn) ++ freeVals(els)
+    case Stop(v,res) => freeVals(res)(withStop(v)) // FIXME?
+    case Call(cid,res) => freeVals(res)(withCall(cid))
+    case Branch(cid,thn,els) =>
+      mayHaveCid(cid) match {
+        case Some(b) => freeVals(if (b) thn else els)
+        case None => freeVals(thn) ++ freeVals(els)
       }
     //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
     //case ConcreteNode(MirrorVal(v)) => Set single v
