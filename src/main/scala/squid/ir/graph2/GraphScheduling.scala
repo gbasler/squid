@@ -310,7 +310,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val v = bindVal("_"+v0.name, v0.typ, Nil)
               val w = recv(v)
               ListMap(rep->w) -> nb.readVal(w)
-            } 
+            }
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(rep,self,m)
               var ass = sas

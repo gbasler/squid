@@ -79,7 +79,9 @@ trait Base extends TypingBase with quasi.QuasiBase {
   
   
   /** Specifies how to display an internal representation */
-  def showRep(r: Rep) = r.toString
+  def showRep(r: Rep): String = r.toString
+  /** Specifies how to display a variable */
+  def showVal(v: BoundVal): String = v |> readVal |> showRep
   
   /** Function1 application */
   def app(fun: Rep, arg: Rep)(retTp: TypeRep): Rep =

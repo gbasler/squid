@@ -43,26 +43,30 @@ trait GraphScheduling extends AST { graph: Graph =>
     def unknown: CCtx = empty
     val empty: CCtx = List.empty
   }
-  def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ???
-  def withCtrl(ctrl: Control)(implicit cctx: CCtx): CCtx = ctrl match {
-    case Id => cctx
-    case Begin(cid) => cid :: cctx
-    case Block(cid) => cctx.filterNot(_ === cid)
-    case End(cid, rest) => withCtrl(rest)(cctx.dropWhile(_ =/= cid).tail)
+  def withCtrl_!(ctrl: Control)(implicit cctx: CCtx): CCtx = withCtrl_?(ctrl).get
+  def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ctrl match {
+    case Id => Some(cctx)
+    case Begin(cid) => Some(cid :: cctx)
+    case Block(cid) => Some(cctx.filterNot(_ === cid)) // FIXME correct?
+    //case End(cid, rest) => withCtrl_!(rest)(cctx.dropWhile(_ =/= cid).tail)
+    case End(cid, rest) =>
+      val c = cctx.dropWhile(_ =/= cid)
+      if (c.nonEmpty) withCtrl_?(rest)(c.tail) else None
   }
   //def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = (cid -> Set.empty[Val]) :: cctx
-  def hasCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool = withCtrl(ctrl).exists(_ === cid)
-  def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] = ??? //cctx.get(cid)
+  def hasCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool = withCtrl_!(ctrl).exists(_ === cid)
+  def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] =
+    withCtrl_?(ctrl).map(_.exists(_ === cid)) // FIXME an Id ctrl and empty CCtx give Some(false) instead of None...
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
-      case Box(ctrl,res) => rec(res)(withCtrl(ctrl),vctx)
+      case Box(ctrl,res) => rec(res)(withCtrl_!(ctrl),vctx)
       case Branch(ctrl,cid,thn,els) =>
         if (hasCid(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
-        case v: Val => rec(cn.mkRep) // used to be 'rec(new Rep(v))', but now we interpret these as graph edges!
+        case v: Val => vctx(v)
         //case MirrorVal(v) => vctx(v)
         case Ascribe(r, tp) => rec(r)
         case c: ConstantLike => c
@@ -128,7 +132,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
         //println(pred,rep)
         rep.node match {
-          case Box(ctrl,res) => analyse(pred,res)(withCtrl(ctrl)) // FIXME probably
+          case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
           case Branch(ctrl, cid, thn, els) =>
             if (hasCid(ctrl, cid))
                  analyse(pred ||> (0 :: _), thn) 
@@ -218,21 +222,19 @@ trait GraphScheduling extends AST { graph: Graph =>
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
             a -> e
           case cn@ConcreteNode(d) => d match {
-            //case v:Val => ??? // rec(pred,cn.mkRep,m)
-            case v:Val => ListMap.empty->newBase.readVal(vctx(v))
+            //case v:Val => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
+            case v:Val => vctx get v map (ListMap.empty -> nb.readVal(_) : recRet) getOrElse {
+              //(ListMap(readVal(v))) ->)
+              val v1 = bindVal("_"+v.name, v.typ, Nil)
+              val w = recv(v1)
+              ListMap(rep->w) -> nb.readVal(w)
+            }
             case Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
               val as->r = rec(b)(vctx + (p->v), cctx)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
-            //case MirrorVal(v) => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
-            //case MirrorVal(v0) => vctx get v0 map (w => ListMap.empty -> nb.readVal(w) : recRet) getOrElse {
-            //  //(ListMap(readVal(v))) ->)
-            //  val v = bindVal("_"+v0.name, v0.typ, Nil)
-            //  val w = recv(v)
-            //  ListMap(rep->w) -> nb.readVal(w)
-            //}
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(self)
               var ass = sas
@@ -273,6 +275,7 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Path-sensitive free-variables computation.
     * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides... */
+  // TODO propagate assumptions to reduce false-positives?
   def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
     case Box(ctrl,res) => withCtrl_?(ctrl) match {
       case Some(c) => freeVals(res)(c)

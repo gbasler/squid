@@ -35,6 +35,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   override protected def freshNameImpl(n: Int) = "$"+n
   
+  override def showVal(v: BoundVal): String = v.toString
   
   object CallId {
     private var curId = 0; def reset(): Unit = curId = 0
@@ -48,25 +49,16 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   //abstract class Node(val bound: Val) {
   sealed abstract class Node {
-    //val bound: Val
-    val bound: Val = freshBoundVal(typ)
-    def withBound(bound: Val): Node
-    //def typ: TypeRep
-    ////def dfn = bound
     def children: Iterator[Rep]
-    //def iterator = graph.iterator(this)
-    //def showGraph = graph.showGraph(this)
-    ////def showFullGraph = graph.showGraph(this,true)
-    //def showRep = graph.showRep(this)
-    //def typ = bound.typ
     def typ: TypeRep
     def mkRep = new Rep(this)
   }
   class Rep(var node: Node) {
-    ////val bound: Val = freshBoundVal(typ)
-    //def typ = dfn.typ
-    //def children = dfn.children
-    def bound: Val = node.bound
+    
+    // TODO check all usages; there might be obsolete usages of this, which is now...
+    /** Only used for debuggability, to give a nice name to the Rep. */
+    val bound: Val = freshBoundVal(typ)
+    
     def showGraph = graph.showGraph(this)
     def showFullGraph = showGraph // TODO
     def eval = graph.eval(this)
@@ -74,36 +66,32 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def fullString = toString // TODO
     
-    override def toString = s"$node"
+    override def toString = s"$bound = $node"
+  }
+  object Rep {
+    def unapply(r: Rep): Some[Node] = Some(r.node)
   }
   //case class ConcreteNode(dfn: Def) extends Node(freshBoundVal(dfn.typ)) {
   case class ConcreteNode(dfn: Def) extends Node {
     def typ: TypeRep = dfn.typ
     def children = dfn.children
-    def withBound(_bound: Val): Node = new ConcreteNode(dfn) {
-      override val bound = _bound
-    }
-    //def mkRep = new Rep(this)
-    override def toString = s"$bound = $dfn"
+    override def toString = s"$dfn"
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
   case class Box(ctrl: Control, body: Rep) extends Node {
     def typ: TypeRep = body.typ
     def children: Iterator[Rep] = Iterator(body)
-    def withBound(_bound: Val): Node = new Box(ctrl, body) {
-      override val bound = _bound
-    }
     //override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+  }
+  object Box {
+    def rep(ctrl: Control, body: Rep): Rep = if (ctrl === Id) body else Box(ctrl, body).mkRep
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
   //case class Branch(ctrl: Option[Control], cid: CallId, lhs: Rep, rhs: Rep) extends Node {
   case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
-    def withBound(_bound: Val): Node = new Branch(ctrl, cid, lhs, rhs) {
-      override val bound = _bound
-    }
-    override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+    override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   
   
@@ -137,17 +125,16 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   val reificationContext = mutable.Map.empty[Val,Rep]
   
-  def letinImpl(bound: BoundVal, _value: Rep, mkBody: => Rep) = { 
+  def letinImpl(bound: BoundVal, value: Rep, mkBody: => Rep) = { 
     require(!reificationContext.contains(bound))
-    val value = new Rep(_value.node.withBound(bound))
     try {
       reificationContext += bound -> value
       mkBody
     } finally reificationContext -= bound 
   }
   
-  override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
-    letinImpl(bound,value,body)
+  override def letin(_bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
+    letinImpl(_bound, new Rep(value.node) { override val bound = _bound }, body)
   
   override def abs(param: BoundVal, body: => Rep): Rep = {
     val occ = param.toRep
@@ -170,8 +157,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     //val abs = Option(lambdaVariableBindings.get(v)).getOrElse(???).node.asInstanceOf[ConcreteNode].asInstanceOf[Abs] // TODO B/E
     val lam = Option(lambdaVariableBindings.get(v)).getOrElse(???) // TODO B/E
-    //assert(abs.node.asInstanceOf[ConcreteNode].isInstanceOf[Abs])
-    val abs = lam.node.asInstanceOf[ConcreteNode].asInstanceOf[Abs]
+    //assert(abs.node.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs])
+    val abs = lam.node.asInstanceOf[ConcreteNode].dfn.asInstanceOf[Abs]
+    
+    //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
     // We replace the old Abs node... which should now be garbage-collected.
     // We do this because AST#Abs' body is not mutable
@@ -183,6 +172,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //val bran = Branch(None, cid, Box(End(cid),arg).mkRep, newOcc)
     val bran = Branch(Id, cid, Box(End(cid,Id),arg).mkRep, newOcc)
     occ.node = bran
+    
+    //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
     Box(Begin(cid), r).mkRep
   }
@@ -255,11 +246,3 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
 }
 
-
-trait GraphRewriting extends AST { graph: Graph =>
-  
-  // TODO
-  type XCtx = Unit
-  def newXCtx: XCtx = ()
-  
-}

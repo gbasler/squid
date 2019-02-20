@@ -217,7 +217,7 @@ self: Base =>
       substitute[T,Nothing](cde, return false) thenReturn true
     def tryClose[S,C](body: Code[S,C & Ctx])(implicit ev: self.type <:< InspectableBase): Option[Code[S,C]] =
       substitute(body, return None) |> Some.apply
-    override def toString: String = s"Variable[${typeRepOf[T]}](${showRep(rep)})"
+    override def toString: String = s"Variable[${typeRepOf[T]}](${bound |> showVal})"
   }
   object Variable {
     def apply[T:CodeType](name: String) = new Variable[T](bindVal(name, typeRepOf[T], Nil)) // TODO annot?
