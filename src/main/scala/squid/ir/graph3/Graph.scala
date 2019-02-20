@@ -47,7 +47,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   //abstract class Node(val bound: Val) {
-  abstract class Node {
+  sealed abstract class Node {
     //val bound: Val
     val bound: Val = freshBoundVal(typ)
     def withBound(bound: Val): Node
@@ -86,32 +86,42 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //def mkRep = new Rep(this)
     override def toString = s"$bound = $dfn"
   }
-  //case class Call(cid: CallId, res: Rep) extends Node(freshBoundVal(res.typ)) {
-  case class Call(cid: CallId, res: Rep) extends Node {
-    def typ = res.typ
-    def children: Iterator[Rep] = Iterator.single(res)
-    def withBound(_bound: Val): Node = new Call(cid, res) {
+  //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
+  case class Box(ctrl: Control, body: Rep) extends Node {
+    def typ: TypeRep = body.typ
+    def children: Iterator[Rep] = Iterator(body)
+    def withBound(_bound: Val): Node = new Box(ctrl, body) {
       override val bound = _bound
     }
-    override def toString = s"$bound = [$cid! ${res.bound}]"
+    //override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
-  case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node {
+  //case class Branch(ctrl: Option[Control], cid: CallId, lhs: Rep, rhs: Rep) extends Node {
+  case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
-    def withBound(_bound: Val): Node = new Branch(cid, lhs, rhs) {
+    def withBound(_bound: Val): Node = new Branch(ctrl, cid, lhs, rhs) {
       override val bound = _bound
     }
     override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
-  case class Stop(v: Val, res: Rep) extends Node {
-    def typ = res.typ
-    def children: Iterator[Rep] = Iterator.single(res)
-    def withBound(_bound: Val): Node = new Stop(v,res) {
-      override val bound = _bound
+  
+  
+  sealed abstract class Control {
+    def toList: List[Control] = this match {
+      case End(_, rest) => this :: rest.toList
+      case _ => this :: Nil
     }
-    override def toString = s"$bound = [Ø ${res.bound}]"
   }
+  case class Begin(cid: CallId) extends Control {
+  }
+  case class End(cid: CallId, rest: Control) extends Control {
+  }
+  case class Block(cid: CallId) extends Control {
+  }
+  case object Id extends Control {
+  }
+  
   
   //def dfn(r: Rep): Def = r.dfn
   def dfn(r: Rep): Def = r.bound
@@ -141,25 +151,40 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   override def abs(param: BoundVal, body: => Rep): Rep = {
     val occ = param.toRep
-    lambdaBound.put(param, occ)
-    letinImpl(param, occ, super.abs(param, body))
+    lambdaVariableOccurrences.put(param, occ)
+    letinImpl(param, occ, super.abs(param, body) also {lambdaVariableBindings.put(param,_)})
   }
   
   //class MirrorVal(v: Val) extends BoundVal("@"+v.name)(v.typ,Nil)
-  protected val lambdaBound = new java.util.WeakHashMap[Val,Rep]
+  protected val lambdaVariableOccurrences = new java.util.WeakHashMap[Val,Rep]
+  protected val lambdaVariableBindings = new java.util.WeakHashMap[Val,Rep]
+  // ^ TODO: use a more precise RepOf[NodeSubtype] type
   
+  // TODO only evaluate mkArg if the variable actually occurs (cf. mandated semantics of Squid)
   override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
     val cid = new CallId(v)
     
-    val occ = Option(lambdaBound.get(v)).getOrElse(???) // TODO B/E
+    val occ = Option(lambdaVariableOccurrences.get(v)).getOrElse(???) // TODO B/E
     val newOcc = v.toRep
-    lambdaBound.put(v,newOcc)
+    lambdaVariableOccurrences.put(v,newOcc)
+    
+    //val abs = Option(lambdaVariableBindings.get(v)).getOrElse(???).node.asInstanceOf[ConcreteNode].asInstanceOf[Abs] // TODO B/E
+    val lam = Option(lambdaVariableBindings.get(v)).getOrElse(???) // TODO B/E
+    //assert(abs.node.asInstanceOf[ConcreteNode].isInstanceOf[Abs])
+    val abs = lam.node.asInstanceOf[ConcreteNode].asInstanceOf[Abs]
+    
+    // We replace the old Abs node... which should now be garbage-collected.
+    // We do this because AST#Abs' body is not mutable
+    
+    //abs.body.node = Box(Block(cid), abs.body.node.mkRep)
+    lam.node = ConcreteNode(Abs(v, Box(Block(cid), abs.body).mkRep)(abs.typ))
     
     val arg = mkArg
-    val bran = Branch(cid, Stop(v,arg).mkRep, newOcc)
+    //val bran = Branch(None, cid, Box(End(cid),arg).mkRep, newOcc)
+    val bran = Branch(Id, cid, Box(End(cid,Id),arg).mkRep, newOcc)
     occ.node = bran
     
-    Call(cid, r).mkRep
+    Box(Begin(cid), r).mkRep
   }
   
   

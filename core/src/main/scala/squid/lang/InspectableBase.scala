@@ -32,7 +32,8 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
   /** Used by online rewritings; should be applied to all created IR nodes */
   def postProcess(r: Rep): Rep = r
   
-  /** Capture-avoiding substitution */
+  /** Capture-avoiding substitution
+    * This should only evaluate `arg` if there is at least one occurrence of v in r. */
   def substituteVal(r: Rep, v: BoundVal, arg: => Rep): Rep
   
   def bottomUp(r: Rep)(f: Rep => Rep): Rep

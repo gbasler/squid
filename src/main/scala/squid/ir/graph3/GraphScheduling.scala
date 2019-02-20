@@ -38,22 +38,26 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  type CCtx = List[(CallId,Set[Val])]
+  type CCtx = List[CallId]
   object CCtx {
     def unknown: CCtx = empty
     val empty: CCtx = List.empty
   }
-  def withStop(v: Val)(implicit cctx: CCtx): CCtx = cctx.dropWhile(_._2 contains v)
-  def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = (cid -> Set.empty[Val]) :: cctx
-  def hasCid(cid: CallId)(implicit cctx: CCtx): Bool = cctx.exists(_._1 === cid)
-  def mayHaveCid(cid: CallId)(implicit cctx: CCtx): Option[Bool] = ??? //cctx.get(cid)
+  def withCtrl(ctrl: Control)(implicit cctx: CCtx): CCtx = ctrl match {
+    case Id => cctx
+    case Begin(cid) => cid :: cctx
+    case Block(cid) => cctx.filterNot(_ === cid)
+    case End(cid, rest) => withCtrl(rest)(cctx.dropWhile(_ =/= cid).tail)
+  }
+  //def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = (cid -> Set.empty[Val]) :: cctx
+  def hasCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool = withCtrl(ctrl).exists(_ === cid)
+  def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] = ??? //cctx.get(cid)
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
-      case Stop(v,res) => rec(res)(withStop(v),vctx)
-      case Call(cid,res) => rec(res)(withCall(cid), vctx)
-      case Branch(cid,thn,els) =>
-        if (hasCid(cid)) rec(thn) else rec(els)
+      case Box(ctrl,res) => rec(res)(withCtrl(ctrl),vctx)
+      case Branch(ctrl,cid,thn,els) =>
+        if (hasCid(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
@@ -115,7 +119,6 @@ trait GraphScheduling extends AST { graph: Graph =>
     // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
       Sdebug(s"Scheduling: ${rep.showFullGraph}")
-      
       /** We need to distinguish each 'slot' in a predecessor node, and on top of that each side of a branch (currently
         * we assign 0 for left, 1 for right) */
       val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
@@ -124,10 +127,9 @@ trait GraphScheduling extends AST { graph: Graph =>
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
         //println(pred,rep)
         rep.node match {
-          case Stop(v,res) => analyse(pred,res)(withStop(v)) // FIXME probably
-          case Call(cid, res) => analyse(pred,res)(withCall(cid))
-          case Branch(cid, thn, els) =>
-            if (hasCid(cid))
+          case Box(ctrl,res) => analyse(pred,res)(withCtrl(ctrl)) // FIXME probably
+          case Branch(ctrl, cid, thn, els) =>
+            if (hasCid(ctrl, cid))
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
@@ -153,14 +155,14 @@ trait GraphScheduling extends AST { graph: Graph =>
         Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
         
         val res = ScheduleDebug.nestDbg { rep.node |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
-          case Stop(v,res) => rec(res)(vctx,withStop(v)) // FIXME?
-          case Call(cid,res) => rec(res)(vctx,withCall(cid))
-          case b @ Branch(cid,thn,els) =>
+          case Box(ctrl,res) => rec(res)(vctx,withCtrl(ctrl)) // FIXME?
+          //case Call(cid,res) => rec(res)(vctx,withCall(cid))
+          case b @ Branch(ctrl,cid,thn,els) =>
             //val hc = cctx.drop(stops).headOption.map(_ === cond)
             //if (hc === Some(true)) rec(pred,thn,n)
             //else if (hc===Some(false)) rec(pred,els,n)
             //else {
-            mayHaveCid(cid) match {
+            mayHaveCid(ctrl, cid) match {
             case Some(true) => rec(thn)
             case Some(false) => rec(els)
             case _ =>
@@ -245,7 +247,6 @@ trait GraphScheduling extends AST { graph: Graph =>
       //assert(lsm.isEmpty,lsm) // TODO B/E
       if(lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
-      
       //???
     }
     
@@ -261,7 +262,7 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   
   /** Path-sensitive free-variables computation. */
-  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
+  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = /*rep.node match {
     case Stop(v,res) => freeVals(res)(withStop(v)) // FIXME?
     case Call(cid,res) => freeVals(res)(withCall(cid))
     case Branch(cid,thn,els) =>
@@ -272,7 +273,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
     //case ConcreteNode(MirrorVal(v)) => Set single v
     case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
-  }
+  }*/ ???
   
   
 }
