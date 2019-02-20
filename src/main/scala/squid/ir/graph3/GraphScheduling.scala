@@ -43,6 +43,7 @@ trait GraphScheduling extends AST { graph: Graph =>
     def unknown: CCtx = empty
     val empty: CCtx = List.empty
   }
+  def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ???
   def withCtrl(ctrl: Control)(implicit cctx: CCtx): CCtx = ctrl match {
     case Id => cctx
     case Begin(cid) => cid :: cctx
@@ -154,8 +155,36 @@ trait GraphScheduling extends AST { graph: Graph =>
       def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
         Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
         
+        def postpone() = {
+          val fv = freeVals(rep)
+          val vset = vctx.keySet
+          println(s"FV ${fv} ? $vset")
+          if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
+            //val v = freshBoundVal(rep.typ)
+            //val w = recv(v)
+            val v = rep.bound
+            val w = recv(v)
+            Sdebug(s"$v ~> $w")
+            ListMap(rep->w) -> nb.readVal(w)
+          } else {
+            val extrudedVals = (fv & vset).toList
+            val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
+            val kbody = lambda(extrudedVals, rep)
+            pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
+            val rk = recv(k)
+            println(k,kbody)
+            ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
+          }
+        }
+        
         val res = ScheduleDebug.nestDbg { rep.node |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
-          case Box(ctrl,res) => rec(res)(vctx,withCtrl(ctrl)) // FIXME?
+          
+          //case Box(ctrl,res) => rec(res)(vctx,withCtrl(ctrl)) // FIXedME?
+          case Box(ctrl,res) => withCtrl_?(ctrl) match {
+            case Some(c) => rec(res)(vctx,c)
+            case None => postpone()
+          }
+            
           //case Call(cid,res) => rec(res)(vctx,withCall(cid))
           case b @ Branch(ctrl,cid,thn,els) =>
             //val hc = cctx.drop(stops).headOption.map(_ === cond)
@@ -165,26 +194,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             mayHaveCid(ctrl, cid) match {
             case Some(true) => rec(thn)
             case Some(false) => rec(els)
-            case _ =>
-              val fv = freeVals(rep)
-              val vset = vctx.keySet
-              println(s"FV ${fv} ? $vset")
-              if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
-                //val v = freshBoundVal(rep.typ)
-                //val w = recv(v)
-                val v = rep.bound
-                val w = recv(v)
-                Sdebug(s"$v ~> $w")
-                ListMap(rep->w) -> nb.readVal(w)
-              } else {
-                val extrudedVals = (fv & vset).toList
-                val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
-                val kbody = lambda(extrudedVals, rep)
-                pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
-                val rk = recv(k)
-                println(k,kbody)
-                ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
-              }
+            case _ => postpone()
             }
           // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
           // obviously fail as they will be extruded from their scope...
@@ -261,20 +271,22 @@ trait GraphScheduling extends AST { graph: Graph =>
     } apply r
   
   
-  /** Path-sensitive free-variables computation. */
-  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = /*rep.node match {
-    case Stop(v,res) => freeVals(res)(withStop(v)) // FIXME?
-    case Call(cid,res) => freeVals(res)(withCall(cid))
-    case Branch(cid,thn,els) =>
-      mayHaveCid(cid) match {
+  /** Path-sensitive free-variables computation.
+    * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides... */
+  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
+    case Box(ctrl,res) => withCtrl_?(ctrl) match {
+      case Some(c) => freeVals(res)(c)
+      case None => freeVals(res) // approximation!
+    }
+    case Branch(ctrl,cid,thn,els) =>
+      mayHaveCid(ctrl,cid) match {
         case Some(b) => freeVals(if (b) thn else els)
-        case None => freeVals(thn) ++ freeVals(els)
+        case None => freeVals(thn) ++ freeVals(els) // approximation!
       }
     //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
     //case ConcreteNode(MirrorVal(v)) => Set single v
     case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
-  }*/ ???
-  
+  }
   
 }
 
