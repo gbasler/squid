@@ -139,6 +139,25 @@ trait GraphScheduling extends AST { graph: Graph =>
         nb.loadMtdSymbol(nb.loadTypSymbol("squid.lib.package$"), "dead", None), typ::Nil, nb.Args(rep)::Nil, typ)
     }
     
+    /* FIXME: this is currently broken
+     *   We used not to handle boxes that cannot be applied on the current partial context, but in principle they
+     *   can very well happen.
+     *   I fixed the problem by posponing such boxes, but now it seems we miss some shceduling of shared nodes that
+     *   appear inside continuation arguments!
+     *   In ManualGraphTests I made an OopsBox test that exhibit this; it's now not crashing, but it duplicates an
+     *   expression that should be shared, when invoking the continuation.
+     *   The problem is likely that the analysis ignore the fact that some seemingly-non-shared things may end up
+     *   being shared after being postponed (and thus sent as continuation arguments) 
+     *   It seems solving this would also provide a solution to the general duplication of continuation arguments problem!
+     *     in fact, it hints that continuation arguments are not always mere function calls, and that (I think) they
+     *     may be scheduled differently depending on the context, meaning we really should solve the problem upstream,
+     *     and can't rely on a CSE postprocessing phase
+     *   ---
+     *   Also note that postponing a box may add continuation parameters for variables that are not certain to be
+     *   free (it depends on the full context!)
+     *     can't this cause problems down the line? should we
+     *     pass 'undefined' when there is no such variable in some of the contexts?
+     */
     // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
       Sdebug(s"Scheduling: ${rep.showFullGraph}")
@@ -217,9 +236,38 @@ trait GraphScheduling extends AST { graph: Graph =>
         */
         val m = n
         
+        def postpone() = {
+          val fv = freeVals(rep)
+          val vset = vctx.keySet
+          println(s"FV ${fv} ? $vset")
+          if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
+            //val v = freshBoundVal(rep.typ)
+            //val w = recv(v)
+            val v = rep.bound
+            val w = recv(v)
+            Sdebug(s"$v ~> $w")
+            ListMap(rep->w) -> nb.readVal(w)
+          } else {
+            val extrudedVals = (fv & vset).toList
+            val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
+            val kbody = lambda(extrudedVals, rep)
+            pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
+            val rk = recv(k)
+            println(k,kbody)
+            ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
+          }
+        }
+        
         val res = ScheduleDebug.nestDbg { rep.boundTo |>[recRet] { // Note: never scheduling control-flow nodes, on purpose
           //case Box(cid,res,_) => rec(pred,res,n)
-          case Box(cid,res,k) => rec(pred,res,n)(vctx,cctx.withOp_?(k->cid).getOrElse(???))
+          
+          //case Box(cid,res,k) => rec(pred,res,n)(vctx,cctx.withOp_?(k->cid).getOrElse(???))
+          case Box(cid,res,k) =>
+            cctx.withOp_?(k->cid) match {
+              case Some(c) => rec(pred,res,n)(vctx,c)
+              case None => postpone()
+            }
+            
           //case Branch(cond,thn,els) if allCtx(pred)(cond) => rec(pred,thn,n)
           //case Branch(cond,thn,els) if !someCtx(pred)(cond) => rec(pred,els,n)
           case b @ Branch(cond,thn,els) =>
@@ -229,30 +277,10 @@ trait GraphScheduling extends AST { graph: Graph =>
             val hc = hasCond_?(cond)
             if (hc===Some(true)) rec(pred,thn,n)
             else if (hc===Some(false)) rec(pred,els,n)
-            else {
-              val fv = freeVals(rep)
-              val vset = vctx.keySet
-              println(s"FV ${fv} ? $vset")
-              if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
-                //val v = freshBoundVal(rep.typ)
-                //val w = recv(v)
-                val v = rep.bound
-                val w = recv(v)
-                Sdebug(s"$v ~> $w")
-                ListMap(rep->w) -> nb.readVal(w)
-              } else {
-                val extrudedVals = (fv & vset).toList
-                val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
-                val kbody = lambda(extrudedVals, rep)
-                pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
-                val rk = recv(k)
-                println(k,kbody)
-                ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
-              }
-            }
+            else postpone()
           // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
           // obviously fail as they will be extruded from their scope...
-          // But if that condition enough to prevent scope extrusion in general?!
+          // But is that condition enough to prevent scope extrusion in general?!
           case nde @ ConcreteNode(d) if !d.isSimple && pointers(rep).size > 1 && !topLevel => // FIXME condition '!d.isSimple'
             Sdebug(s"! 1 < |${pointers(rep).iterator.mapLHS(_.mkString(":")).mapRHS(_.bound).mkSetString}|")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
@@ -323,7 +351,11 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Path-sensitive free-variables computation. */
   def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.boundTo match {
-    case b:Box => freeVals(b.result)(withBox(b))
+      
+    //case b:Box => freeVals(b.result)(withBox(b))
+    case b:Box => freeVals(b.result)(cctx.withOp_?(b.kind,b.cid).getOrElse(cctx))
+    // ^ needed as freeVals is now called in order to postpone a box that cannot be applied
+      
     case Branch(cond,thn,els) =>
       val hc = hasCond_?(cond)
       if (hc===Some(true)) freeVals(thn)

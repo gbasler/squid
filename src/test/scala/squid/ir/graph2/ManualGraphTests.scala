@@ -72,6 +72,20 @@ class ManualGraphTests extends MyFunSuite(ManualGraphTests) with MyFunSuiteTrait
     
   }
   
+  test("OopsBox") {
+    
+    // FIXedME: this triggered the unimplemented case where a Pop node cannot pop anything!
+    // FIXME now the readInt is duplicated, because of the duplication of continuation arguments bug
+    
+    val shd0 = Code[Int,Any](Box(c0, code"readInt".rep, Arg).mkRep)
+    val shd1 = code"identity($shd0)"
+    val g = Box(c0, code"$shd1 + $shd1".rep, Call).mkRep
+    println(g.showGraph)
+    //ScheduleDebug debugFor
+    println(g.showRep)
+    
+  }
+  
   /*
   test("Rebuild/Unbuild") {
     
