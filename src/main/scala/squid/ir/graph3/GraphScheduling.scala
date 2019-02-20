@@ -38,15 +38,15 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  type CCtx = Map[CallId,Bool]
+  type CCtx = List[(CallId,Set[Val])]
   object CCtx {
-    val unknown: CCtx = Map.empty
-    val empty: CCtx = Map.empty.withDefaultValue(false)
+    def unknown: CCtx = empty
+    val empty: CCtx = List.empty
   }
-  def withStop(v: Val)(implicit cctx: CCtx): CCtx = cctx.filter(_._1.v =/= v)
-  def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = cctx + (cid -> true)
-  def hasCid(cid: CallId)(implicit cctx: CCtx): Bool = cctx(cid)
-  def mayHaveCid(cid: CallId)(implicit cctx: CCtx): Option[Bool] = cctx.get(cid)
+  def withStop(v: Val)(implicit cctx: CCtx): CCtx = cctx.dropWhile(_._2 contains v)
+  def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = (cid -> Set.empty[Val]) :: cctx
+  def hasCid(cid: CallId)(implicit cctx: CCtx): Bool = cctx.exists(_._1 === cid)
+  def mayHaveCid(cid: CallId)(implicit cctx: CCtx): Option[Bool] = ??? //cctx.get(cid)
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
