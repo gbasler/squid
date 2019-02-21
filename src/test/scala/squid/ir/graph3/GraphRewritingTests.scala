@@ -99,19 +99,19 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   }
   
   // also test when f is a val
-  def f = code"val f = (x: Int) => x + x; f"
+  //def f = code"val f = (x: Int) => x + x; f"
   
   test("Simple") {
     
     doTest(code"666.toDouble")()
     
-    doTest(code"$f(2)")()
+    doTest(code"val f = (x: Int) => x + x; f(2)")()
     
   }
   
   test("Nested calls") {
     
-    val f = code"val f = (x: Int) => x * x; f" // TODO also try as def or val again
+    val f = code"val f = (x: Int) => x * x; f"
     
     //DSL.ScheduleDebug debugFor
     doTest(code"$f(11) + $f(22)", 1)(605)
@@ -126,15 +126,13 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   
   test("Basic Cross-Boundary Rewriting") {
     
-    val
-    //def // TODO also try
-    f = code"val f = (x: Int) => x + x; f"
+    val f = code"val f = (x: Int) => x + x; f"
     
     //DSL.ScheduleDebug debugFor
-    //doTest(code"$f(11) + $f(22)", 1)(66)
+    doTest(code"$f(11) + $f(22)", 1)(66)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"$f($f(22))", 1)(88) // FIXME crashes because the Control nodes semantics is wrong!
+    doTest(code"$f($f(22))", 1)(88)
     
     //DSL.ScheduleDebug debugFor
     doTest(code"$f(11) + $f($f(22))", 1)(110)
@@ -147,14 +145,15 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
   }
   
-  /*
   test("My Tests") {
+    //val f = code"val f = (x: Int) => x + x; f"
     //def g = code"(x: Int) => (y: Int) => x - y"
     
     //DSL.ScheduleDebug debugFor
     
   }
   
+  /*
   def g = code"(x: Int) => (y: Int) => x+y"
   
   test("Nested Curried Calls") {

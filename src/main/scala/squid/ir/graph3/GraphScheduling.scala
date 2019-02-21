@@ -39,34 +39,21 @@ trait GraphScheduling extends AST { graph: Graph =>
   override def runRep(rep: Rep): Any = eval(rep)
   
   /** CallId -> whether it's a Begin or a Block */
-  type Token = CallId -> Bool
-  type CCtx = List[Token]
+  type CCtx = Control
   object CCtx {
     def unknown: CCtx = empty
-    val empty: CCtx = List.empty
+    val empty: CCtx = Id
   }
+  
   def withCtrl_!(ctrl: Control)(implicit cctx: CCtx): CCtx = withCtrl_?(ctrl).get
-  def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ctrl match {
-    case Id => Some(cctx)
-      
-    // The filterNot parts would be an optimization, but they're probably incorrect (shadowed controls may resurface after an End...)
-    //case Begin(cid) => Some(cid -> true :: cctx/*.filterNot(_._1 === cid)*/)
-    //case Block(cid) => Some(cid -> false :: cctx/*.filterNot(_._1 === cid)*/)
-      
-    //case Start(cond,rest) => withCtrl_?(rest) map (cond :: _) // type checks but wrong!
-    case Start(cond,rest) => withCtrl_?(rest)(cond :: cctx)
-      
-    case End(cid, rest) =>
-      val c = cctx.dropWhile(_._1 =/= cid)
-      if (c.nonEmpty) {
-        assert(c.head._2)
-        withCtrl_?(rest)(c.tail)
-      } else None
-  }
+  def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = Some(cctx `;` ctrl) // TODO rm (cannot fail)
+  
+  /** To call only when we have complete info */
   def hasCid_!(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool =
-    mayHaveCid(ctrl,cid).getOrElse(lastWords(s"([$ctrl]$cid?) $cctx -> ${withCtrl_?(ctrl)}"))
+    //mayHaveCid(ctrl,cid).getOrElse(lastWords(s"([$ctrl]$cid?) $cctx -> ${withCtrl_?(ctrl)}"))
+    mayHaveCid(ctrl,cid).getOrElse(false) // if we have complete info, an empty context means 'no'
   def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] =
-    withCtrl_?(ctrl).flatMap(_.find(_._1 === cid).map(_._2))
+    withCtrl_?(ctrl).flatMap(_.lastCallId.map(_ === cid))
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
@@ -75,9 +62,11 @@ trait GraphScheduling extends AST { graph: Graph =>
         if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
-          Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
+          Constant((a: Any) => rec(b)(
+            //cctx,
+            Push(DummyCallId,Id,cctx), // we should take the 'else' of the next branches since we are traversing a lambda!
+            vctx+(p->Constant(a))).value)
         case v: Val => vctx(v)
-        //case MirrorVal(v) => vctx(v)
         case Ascribe(r, tp) => rec(r)
         case c: ConstantLike => c
         case bd: BasicDef =>
@@ -140,7 +129,7 @@ trait GraphScheduling extends AST { graph: Graph =>
       
       // TODO use `analysed` to avoid useless traversals?
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = /*ScheduleDebug.nestDbg*/ {
-        //Sdebug(s"[${cctx.mkString(",")}] ${pred._2.bound} -> $rep")
+        //Sdebug(s"[${cctx}] $rep")
         rep.node match {
           case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
           case Branch(ctrl, cid, thn, els) =>
@@ -148,7 +137,7 @@ trait GraphScheduling extends AST { graph: Graph =>
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
-          case ConcreteNode(d) =>
+          case ConcreteNode(d) => // FIME handle traversing lambdas?
             val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
             ptrs += pred
             d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
@@ -167,13 +156,13 @@ trait GraphScheduling extends AST { graph: Graph =>
       // TODO prevent infinite recursion?
       // TODO remove `pred` and `n` and associated analyses
       type recRet = ListMap[Rep,nb.BoundVal]->nb.Rep
-      def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx): recRet = {
-        Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
+      def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx, cctxIsComplete: Bool): recRet = {
+        //Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
+        Sdebug(s"> Sch $cctxIsComplete[$cctx] $rep  (${vctx.mkString(",")})")
         
         def postpone() = {
           val fv = freeVals(rep)
           val vset = vctx.keySet
-          println(s"FV ${fv} ? $vset")
           if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
             //val v = freshBoundVal(rep.typ)
             //val w = recv(v)
@@ -196,7 +185,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           
           //case Box(ctrl,res) => rec(res)(vctx,withCtrl(ctrl)) // FIXedME?
           case Box(ctrl,res) => withCtrl_?(ctrl) match {
-            case Some(c) => rec(res)(vctx,c)
+            case Some(c) => rec(res)(vctx,c,cctxIsComplete)
             case None => postpone()
           }
             
@@ -209,7 +198,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             mayHaveCid(ctrl, cid) match {
             case Some(true) => rec(thn)
             case Some(false) => rec(els)
-            case _ => postpone()
+            case None => if (cctxIsComplete) rec(els) else postpone()
             }
           // Note that if we don't have `!d.isSimple`, we'll end up trying to schedule variable occurrences, which will
           // obviously fail as they will be extruded from their scope...
@@ -218,7 +207,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             Sdebug(s"! 1 < |${pointers(rep).iterator.mapLHS(_.mkString(":")).mapRHS(_.bound).mkSetString}|")
             val (fsym,_,args,_) = scheduled.getOrElse(rep, {
               //val as->nr = rec(rep,rep,nPaths(nde))(Map.empty)
-              val as->nr = rec(rep,topLevel=true)(Map.empty,CCtx.unknown) ||> (_.toList)
+              val as->nr = rec(rep,topLevel=true)(Map.empty,CCtx.unknown,false) ||> (_.toList)
               //val v = freshBoundVal(lambdaType(as.unzip._2.map(_.typ),nde.typ))
               val v = bindVal(
                 //"sch"+rep.bound.name,
@@ -243,7 +232,10 @@ trait GraphScheduling extends AST { graph: Graph =>
             case Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
-              val as->r = rec(b)(vctx + (p->v), cctx)
+              val as->r = rec(b)(vctx + (p->v),
+                //cctx,
+                Push(DummyCallId,Id,cctx), // we should take the 'else' of the next branches since we are traversing a lambda!
+                cctxIsComplete)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
             case MethodApp(self, mtd, targs, argss, tp) =>
@@ -266,7 +258,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         Sdebug(s"< "+res._1.mkString("\n  "))
         res
       }
-      val lsm->r = rec(rep)(Map.empty,CCtx.empty)
+      val lsm->r = rec(rep)(Map.empty,CCtx.empty,true)
       //assert(lsm.isEmpty,lsm) // TODO B/E
       if(lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
@@ -287,20 +279,30 @@ trait GraphScheduling extends AST { graph: Graph =>
   /** Path-sensitive free-variables computation.
     * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides... */
   // TODO propagate assumptions to reduce false-positives?
-  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = rep.node match {
-    case Box(ctrl,res) => withCtrl_?(ctrl) match {
-      case Some(c) => freeVals(res)(c)
-      case None => freeVals(res) // approximation!
-    }
-    case Branch(ctrl,cid,thn,els) =>
-      mayHaveCid(ctrl,cid) match {
-        case Some(b) => freeVals(if (b) thn else els)
-        case None => freeVals(thn) ++ freeVals(els) // approximation!
+  def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = {
+    val analysed = mutable.Set.empty[CCtx->Rep]
+    def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = analysed.setAndIfUnset(cctx->rep,
+    //println(s"FV [$cctx] $rep") thenReturn
+    rep.node match {
+      case Box(ctrl,res) => withCtrl_?(ctrl) match {
+        case Some(c) => freeVals(res)(c)
+        case None => freeVals(res) // approximation!
       }
-    //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
-    //case ConcreteNode(MirrorVal(v)) => Set single v
-    case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
+      case Branch(ctrl,cid,thn,els) =>
+        mayHaveCid(ctrl,cid) match {
+          case Some(b) => freeVals(if (b) thn else els)
+          //case None => freeVals(thn) ++ freeVals(els) // approximation!
+          case None =>
+            freeVals(thn)(Push(cid,Id,cctx)) ++ freeVals(els)(Push(DummyCallId,Id,cctx)) // approximation!
+            // ^ works like making assumptions?
+        }
+      //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
+      //case ConcreteNode(MirrorVal(v)) => Set single v
+      case ConcreteNode(d) => d.children.flatMap(freeVals).toSet // FIME handle traversing lambdas?
+    }, Set.empty)
+    freeVals(rep)
   }
+  protected val DummyCallId = new CallId(freshBoundVal(Predef.implicitType[Any].rep))
   
 }
 

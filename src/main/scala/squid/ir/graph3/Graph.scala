@@ -98,54 +98,58 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   
-  /* There's a problem with this approach:
-       While pushing a Begin through a lambda is fine, pushing an End through a lambda is not, as it will start
-       squashing tokens after the lambda, including future tokens for the reduction of the lambda...
-       The previous sysem dealt with this by being somewhat even less hygienic and only squashing a token if there
-       existed a related token before the Begin_a of the squasher End_a – which was encoded using the funky environment
-       restore semantics which worked by shadowing (put everything saved on top, leaving he current things below), and
-       not by overriding.
-       But I find it really hard to make a convincing argument that this really always work. And I'm not sure how to
-       implement this semantics with simple Control nodes...
-         It would likely have to accumulate everything, and only do reductions when asked by a branch;
-         indeed, we can squash a Begin_a against an End_b only if there is a related Begin_a or Block_a before the
-         corresponding Begin_b!
-         And this would probably not work with partial information (which probably applies to the original funky
-         environment-based mechanism too). 
-  */
   sealed abstract class Control {
-    def `;` (that: Control): Control = (this,that) match {
-      case (Id,_) => that
-      case (Start((cid0,bool),Id), End(cid1,rest1)) => if (cid0 === cid1) { assert(bool); rest1 } else that
-      case (End(t0,rest0), _) => End(t0, rest0 `;` that)
-      case (t0: TransitiveControl, t1: TransitiveControl) => t0 `;` t1
-      case (Start(t0,rest0), _) => Start(t0,Id) `;` (rest0 `;` that)
+    
+    def `;` (that: Control): Control =
+    //println(s"($this) ; ($that)") thenReturn (
+    (this,that) match {
+      case (Id, _) => that
+      case (Push(cid, pl, rest), t: TransitiveControl) => Push(cid, pl, rest `;` t)
+      case (Push(cid, pl, rest0), rest1) => Push(cid, pl, rest0 `;` rest1)
+      case (Pop(rest0), rest1) => Pop(rest0 `;` rest1)
+      case (Drop(rest0), rest1) => Pop(rest0 `;` rest1)
+    }
+    //) also ("= (" + _ + ")" also println)
+    
+    def lastCallId = lastPush.map(_.cid)
+    def lastPush: Opt[Push] = this match {
+      case p: Push => p.rest.lastPush orElse Some(p)
+      case Pop(rest) => rest.lastPush
+      case Drop(rest) => rest.lastPush
+      case Id => None
+    }
+  
+    override def toString = (new DefPrettyPrinter)(this).mkString(";")
+  }
+  sealed abstract case class Push(cid: CallId, payload: Control, rest: TransitiveControl) extends TransitiveControl {
+  }
+  object Push {
+    def apply(cid: CallId, payload: Control, rest: TransitiveControl): TransitiveControl = new Push(cid, payload, rest){}
+    def apply(cid: CallId, payload: Control, rest: Control): Control = rest match {
+      case Pop(rest2) => payload `;` rest2
+      case Drop(rest2) => rest2
+      case rest: TransitiveControl => apply(cid, payload, rest)
     }
   }
-  case class End(cid: CallId, rest: Control) extends Control {
+  case class Pop(rest: Control) extends Control {
   }
+  case class Drop(rest: Control) extends Control {
+  }
+  
+  object Drop {
+    val it = Drop(Id)
+  }
+  
   sealed abstract class TransitiveControl extends Control {
     def `;` (that: TransitiveControl): TransitiveControl = (this,that) match {
       case (Id,_) => that
       case (_,Id) => this
-      case (Start(t0,rest0), Start(t1,rest1)) => Start(t0, rest0 `;` Start(t1,rest1))
-      case (Start(t0,rest0), _) => Start(t0,Id) `;` (rest0 `;` that)
+      case (Push(cid0, pl0, rest0), t) => Push(cid0, pl0, rest0 `;` t)
     }
-  }
-  case class Start(tok: Token, rest: TransitiveControl) extends TransitiveControl {
   }
   case object Id extends TransitiveControl {
   }
-  object Begin {
-    def apply(cid: CallId): Start = apply(cid, Id)
-    def apply(cid: CallId, rest: TransitiveControl) = Start(cid->true, rest)
-    def unapply(s: Start): Opt[CallId -> TransitiveControl] = s.tok._1 -> s.rest optionIf s.tok._2
-  }
-  object Block {
-    def apply(cid: CallId): Start = apply(cid, Id)
-    def apply(cid: CallId, rest: TransitiveControl) = Start(cid->false, rest)
-    def unapply(s: Start): Opt[CallId -> TransitiveControl] = s.tok._1 -> s.rest optionUnless s.tok._2
-  }
+  
   
   //def dfn(r: Rep): Def = r.dfn
   def dfn(r: Rep): Def = r.bound
@@ -180,6 +184,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       }
     } else value, body)
   
+  // TODO FIXME should insert the Stop nodes after construction, if fresh!
   override def abs(param: BoundVal, body: => Rep): Rep = {
     val occ = param.toRep
     lambdaVariableOccurrences.put(param, occ)
@@ -188,7 +193,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   //class MirrorVal(v: Val) extends BoundVal("@"+v.name)(v.typ,Nil)
   protected val lambdaVariableOccurrences = new java.util.WeakHashMap[Val,Rep]
-  protected val lambdaVariableBindings = new java.util.WeakHashMap[Val,Rep]
+  protected val lambdaVariableBindings = new java.util.WeakHashMap[Val,Rep] // TODO rm
   // ^ TODO: use a more precise RepOf[NodeSubtype] type
   
   // TODO only evaluate mkArg if the variable actually occurs (cf. mandated semantics of Squid)
@@ -206,20 +211,22 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
+    /*
     // We replace the old Abs node... which should now be garbage-collected.
     // We do this because AST#Abs' body is not mutable
     
     //abs.body.node = Box(Block(cid), abs.body.node.mkRep)
     lam.node = ConcreteNode(Abs(v, Box(Block(cid), abs.body).mkRep)(abs.typ))
+    */
     
     val arg = mkArg
     //val bran = Branch(None, cid, Box(End(cid),arg).mkRep, newOcc)
-    val bran = Branch(Id, cid, Box(End(cid,Id),arg).mkRep, newOcc)
+    val bran = Branch(Id, cid, Box(Drop.it,arg).mkRep, newOcc)
     occ.node = bran
     
     //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
-    Box(Begin(cid), r).mkRep
+    Box(Push(cid,Id,Id), r).mkRep
   }
   
   
@@ -270,18 +277,20 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //  case MirrorVal(v) => s"<$v>"
     //  case _ => super.apply(d)
     //}
+    def apply(ctrl: Control): List[String] = ctrl match {
+      case Id => Nil
+      case Push(cid, Id, rest) =>
+        val col = colorOf(cid)
+        s"$col$cid↑$curCol" :: apply(rest)
+      case Push(cid, payload, rest) =>
+        val col = colorOf(cid)
+        s"$col$cid↑$curCol[${apply(payload).mkString(";")}]" :: apply(rest)
+      case Pop(rest) => s"↓" :: apply(rest)
+      case Drop(rest) => s"🚫" :: apply(rest)
+    }
     def apply(n: Node): String = n match {
-      case Box(Begin(cid,rest), res) =>
-        val col = colorOf(cid)
-        s"$col⟦$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
-      case Box(End(cid, rest), res) =>
-        val col = colorOf(cid)
-        s"$col⟦/$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
-      case Box(Block(cid,rest), res) =>
-        val col = colorOf(cid)
-        s"$col⟦!$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
-      case Box(Id, res) =>
-        apply(res)
+      case Box(ctrl, res) =>
+        apply(ctrl).mkString(";") + apply(res)
       case Branch(ctrl, cid, cbr, els) =>
         val oldCol = curCol
         curCol = colorOf(cid)

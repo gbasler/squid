@@ -164,7 +164,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         
         e <- merge(typE, repExtract(name -> r2))
       } yield GraphExtract fromExtract e
-        
+        /*
       //case _ -> Rep(Call(cid, res)) =>
       //case _ -> Rep(Arg(cid, res)) =>
       case _ -> Rep(Box(ctrl, res)) =>
@@ -190,7 +190,7 @@ trait GraphRewriting extends AST { graph: Graph =>
               (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond))
             */
         }
-        
+        */
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
         case (_, Ascribe(v,tp)) => extractGraph(xtor,v)
@@ -225,7 +225,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           || ctx.valMap.get(v1).contains(v2)
           ) EmptyExtract |> fromExtract |> Nil.:: else Nil
           
-        case (a1: Abs, a2: Abs) =>
+        case (a1: Abs, a2: Abs) => // FIME handle traversing lambdas?
           require(a1.param.isExtractedBinder, s"alternative not implemented yet")
           for {
             pt <- a1.ptyp.extract(a2.ptyp, Contravariant).toList //map fromExtract
