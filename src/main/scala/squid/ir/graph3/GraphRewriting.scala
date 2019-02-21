@@ -93,7 +93,6 @@ trait GraphRewriting extends AST { graph: Graph =>
     //matches.iterator.flatMap { ge =>
     matches.filterNot(alreadyTransformedBy(xtor,_)).iterator.flatMap { ge =>
       //println(s"...considering $xtor << ${ge.traversedReps.map(_.simpleString)} --> ${ge.extr}")
-      //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
           ///*
@@ -149,7 +148,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx, cctx: CCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
     import GraphExtract.fromExtract
     
-    xtor -> xtee |> { // FIXME not matching Rep(Call...) ?!
+    xtor -> xtee |> {
         
       case Rep(ConcreteNode(Hole(name))) -> _ => for {
         typE <- xtor.typ.extract(xtee.typ, Covariant).toList
@@ -178,10 +177,13 @@ trait GraphRewriting extends AST { graph: Graph =>
         //hasCond_?(cond) match {
         mayHaveCid(ctrl,cid) match {
           case Some(true) => extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + (ctrl->cid)),cctx).map(_ assuming (ctrl->cid))
-          case Some(false) => extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + (ctrl->cid)),cctx).map(_ assumingNot (ctrl->cid))
-          case None =>
             
-            lastWords("I think this is never used; but could be useful if we want to rewrite incomplete graph fragments?")
+          //case Some(false) =>
+          case _ => // !!! FIXME here we assume the rewriting is with full context 
+            extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + (ctrl->cid)),cctx).map(_ assumingNot (ctrl->cid))
+          //case None =>
+          //  lastWords("I think this is never used; but could be useful if we want to rewrite incomplete graph fragments?")
+            
             /*
             if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
             else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
@@ -373,6 +375,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             case None => rec(thn); rec(els)
           }
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
+        case Box(ctrl, r @ Rep(ConcreteNode(_:LeafDef))) if ctrl =/= Id => rep rewireTo r; again
         case Box(ctrl0,Rep(Box(ctrl1,body))) =>
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again
@@ -463,9 +466,13 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     def rec(r: Rep,tried:Bool=false)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
     //r.boundTo match {
-    r.node match { // TODO ignore top-level Pop and Drop boxes!
-      //case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???)) // FIXME: probably useless (and wasteful)
-      case Box(ctrl,res) => (if (tried) None else tryThis(r)) orElse rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
+    r.node match {
+        
+      //case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???)) // FIXedME: probably useless (and wasteful)
+      //case Box(ctrl,res) => (if (tried) None else tryThis(r)) orElse rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
+      case Box(ctrl,res) => rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
+      // ^ Ignore top-level boxes (Q: why was it previously done as above?):
+        
       case Branch(ctrl,cid,thn,els) => if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec(_)).headOption
     }
@@ -473,7 +480,14 @@ trait GraphRewriting extends AST { graph: Graph =>
   }
   
   
-  // TODO:
-  //override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = ???
+  override protected def unapplyConst(rep: Rep, typ: TypeRep): Option[Any] = {
+    //println(s"?! ${rep.node} ${rep.node.getClass} : $typ")
+    rep.node match {
+      case Box(_, body) => unapplyConst(body, typ)
+      case ConcreteNode(cst @ Constant(v)) if typLeq(cst.typ, typ) => Some(v)
+      case _ => None
+      //case _ => super.unapplyConst(rep, typ)  // does not work because `dfn` returns the Rep#bound representative...
+    }
+  } //also("= " + _ also println)
   
 }

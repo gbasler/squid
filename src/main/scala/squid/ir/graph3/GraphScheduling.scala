@@ -127,13 +127,14 @@ trait GraphScheduling extends AST { graph: Graph =>
         * we assign 0 for left, 1 for right) */
       val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
       
+      /* // Can't actually do somethinf like that, as it messes with the updates to the mutable `pointers` map!
       // Use of an `analysed` hash set to avoid useless traversals:
       val analysed = mutable.Set.empty[CCtx->Rep] // and possible cycles in wrong code
       // ^ not sure it's a net win
       // ^ TODO test performance and remove if better without
-      
+      */
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = //ScheduleDebug nestDbg 
-      analysed.setAndIfUnset(cctx->rep, {
+      //analysed.setAndIfUnset(cctx->rep, {
         //Sdebug(s"[${cctx}] $rep")
         rep.node match {
           case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
@@ -147,7 +148,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             ptrs += pred
             d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
         }
-      })
+      //})
       //Sdebug(s"Analysing...")
       analyse((Nil,rep),rep)(CCtx.empty)
       

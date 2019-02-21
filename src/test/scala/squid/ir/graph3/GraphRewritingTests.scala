@@ -97,8 +97,9 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
         */
         
       case r @ code"lib.const[Int](${n0@Const(n)}) + lib.const[Int](${m0@Const(m)})" =>
-        //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
-        println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
+        //println(s"!Constant folding ${r.rep}"); mod = true
+        println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}")
+        Const(n+m)
     }
     
   }
@@ -155,7 +156,8 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //def g = code"(x: Int) => (y: Int) => x - y"
     
     DSL.ScheduleDebug debugFor
-    doTest(code"$f($f(22))", 1)() // FIXME why don't the constant folding matches rewrite?
+    //doTest(code"$f($f(22))", 1)()
+    doTest(code"$f($f(11) - $f($f(22)))", 1)()
     
   }
   
