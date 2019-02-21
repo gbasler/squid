@@ -64,7 +64,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(
             //cctx,
-            Push(DummyCallId,Id,cctx), // we should take the 'else' of the next branches since we are traversing a lambda!
+            cctx push DummyCallId, // we should take the 'else' of the next branches since we are traversing a lambda!
             vctx+(p->Constant(a))).value)
         case v: Val => vctx(v)
         case Ascribe(r, tp) => rec(r)
@@ -127,8 +127,13 @@ trait GraphScheduling extends AST { graph: Graph =>
         * we assign 0 for left, 1 for right) */
       val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
       
-      // TODO use `analysed` to avoid useless traversals?
-      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = /*ScheduleDebug.nestDbg*/ {
+      // Use of an `analysed` hash set to avoid useless traversals:
+      val analysed = mutable.Set.empty[CCtx->Rep] // and possible cycles in wrong code
+      // ^ not sure it's a net win
+      // ^ TODO test performance and remove if better without
+      
+      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = //ScheduleDebug nestDbg 
+      analysed.setAndIfUnset(cctx->rep, {
         //Sdebug(s"[${cctx}] $rep")
         rep.node match {
           case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
@@ -137,12 +142,12 @@ trait GraphScheduling extends AST { graph: Graph =>
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
-          case ConcreteNode(d) => // FIME handle traversing lambdas?
+          case ConcreteNode(d) => // FIXME handle traversing lambdas?
             val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
             ptrs += pred
             d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
         }
-      }
+      })
       //Sdebug(s"Analysing...")
       analyse((Nil,rep),rep)(CCtx.empty)
       
@@ -234,7 +239,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val v = recv(p)
               val as->r = rec(b)(vctx + (p->v),
                 //cctx,
-                Push(DummyCallId,Id,cctx), // we should take the 'else' of the next branches since we are traversing a lambda!
+                cctx push DummyCallId, // we should take the 'else' of the next branches since we are traversing a lambda!
                 cctxIsComplete)
               //println(s"/Abs")
               as->newBase.lambda(v::Nil,r)
@@ -278,7 +283,7 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   /** Path-sensitive free-variables computation.
     * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides... */
-  // TODO propagate assumptions to reduce false-positives?
+  // TODO propagate assumptions to reduce false-positives? (is the current thing sound?)
   def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = {
     val analysed = mutable.Set.empty[CCtx->Rep]
     def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = analysed.setAndIfUnset(cctx->rep,
@@ -293,16 +298,18 @@ trait GraphScheduling extends AST { graph: Graph =>
           case Some(b) => freeVals(if (b) thn else els)
           //case None => freeVals(thn) ++ freeVals(els) // approximation!
           case None =>
+            //freeVals(thn)(cctx push cid) ++ freeVals(els)(cctx push DummyCallId) // approximation!
             freeVals(thn)(Push(cid,Id,cctx)) ++ freeVals(els)(Push(DummyCallId,Id,cctx)) // approximation!
-            // ^ works like making assumptions?
+            // ^ idea above: putting a Push at the outset works like making assumptions (is it sound?)
         }
       //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
       //case ConcreteNode(MirrorVal(v)) => Set single v
-      case ConcreteNode(d) => d.children.flatMap(freeVals).toSet // FIME handle traversing lambdas?
+      case ConcreteNode(a: Abs) => freeVals(a.body)(cctx push DummyCallId) // handle traversing lambdas!
+      case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
     }, Set.empty)
     freeVals(rep)
   }
-  protected val DummyCallId = new CallId(freshBoundVal(Predef.implicitType[Any].rep))
+  protected val DummyCallId = new CallId(bindVal("_",Predef.implicitType[Any].rep,Nil))
   
 }
 

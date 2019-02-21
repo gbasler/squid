@@ -86,9 +86,9 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     //if (matches.nonEmpty) println(matches.size,matches.filterNot(alreadyTransformedBy(xtor,_)).size)
     
-    //if (matches.nonEmpty) println(s"Matches for ${xtor.bound}:"+
-    //  matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "√ " else "✗ ")+ge+s"\n\t${ge.traversedReps.map(_.simpleString)} ${
-    //    ge.assumptions}").mkString)
+    if (matches.nonEmpty) println(s"Matches for ${xtor}:"+
+      matches.map(ge => "\n"+(if (alreadyTransformedBy(xtor,ge)) "√ " else "✗ ")+ge+s"\n\t${ge.traversedReps.map(_.simpleString)} ${
+        ge.assumptions}").mkString)
     
     //matches.iterator.flatMap { ge =>
     matches.filterNot(alreadyTransformedBy(xtor,_)).iterator.flatMap { ge =>
@@ -96,14 +96,14 @@ trait GraphRewriting extends AST { graph: Graph =>
       //println(s"...  ${ge.argsToRebuild} ${ge.callsToAvoid}")
       code(ge.extr) |>? {
         case Some(x0) =>
-          /*
+          ///*
           println(s"rewriteRep $xtee  >>  $xtor")
           //println(s"...transforming ${xtor.simpleString} -> $x0")
           //println(s"...transforming ${xtor.simpleString} -> ${x0.showGraph}")
           println(s"...transforming ${xtee.simpleString} -> ${x0.showGraph}")
           println(s"...  ${ge.assumptions}")
           println(s"...  ${xtor.simpleString} :: ${ge.traversedReps.map(_.bound)}")
-          */
+          //*/
           rememberTransformedBy(xtor,ge)
           //println(f: ${showEdges}")
           if (ge.assumptions.isEmpty) x0 else {
@@ -164,7 +164,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         
         e <- merge(typE, repExtract(name -> r2))
       } yield GraphExtract fromExtract e
-        /*
+        ///*
       //case _ -> Rep(Call(cid, res)) =>
       //case _ -> Rep(Arg(cid, res)) =>
       case _ -> Rep(Box(ctrl, res)) =>
@@ -190,7 +190,7 @@ trait GraphRewriting extends AST { graph: Graph =>
               (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond))
             */
         }
-        */
+        //*/
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
         case (_, Ascribe(v,tp)) => extractGraph(xtor,v)
@@ -225,7 +225,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           || ctx.valMap.get(v1).contains(v2)
           ) EmptyExtract |> fromExtract |> Nil.:: else Nil
           
-        case (a1: Abs, a2: Abs) => // FIME handle traversing lambdas?
+        case (a1: Abs, a2: Abs) =>
           require(a1.param.isExtractedBinder, s"alternative not implemented yet")
           for {
             pt <- a1.ptyp.extract(a2.ptyp, Contravariant).toList //map fromExtract
@@ -237,7 +237,25 @@ trait GraphRewriting extends AST { graph: Graph =>
             
             //m <- mergeGraph(pt, hExtr |> fromExtract)
             m <- merge(pt, hExtr).toList
-            b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param)),cctx)
+            b <- extractGraph(a1.body, a2.body)(ctx.copy(valMap = ctx.valMap + (a1.param -> a2.param),
+              // FIXME handle traversing lambdas
+              // It seems that we'll have to create a brand new variable and do a substitution here, which is a shame...
+              // We should at least delay the modification of the graph into a thunk until we are sure this match is the
+              // one we choose to perform the rewriting, otherwise we're going to pollute the graph unnecessarily.
+              // In the meantime, we'll do beta substitution in `simplifyGraph`
+              
+              //curCtrl = Push(DummyCallId,Id,ctx.curCtrl)
+              //curCtrl = ctx.curCtrl `;` Push(DummyCallId,Id,Id)
+              //curCtrl = ctx.curCtrl push DummyCallId
+              //curCtrl = ctx.curCtrl.throughLambda
+            ),
+              lastWords(s"Not yet supported: matching the inside of a lambda.")
+              // FIXME handle traversing lambdas
+              //cctx
+              //cctx.throughLambda
+              //Push(DummyCallId,Id,cctx)
+              //cctx push DummyCallId
+            )
             m <- m |> fromExtract merge b
             // * /
             /* // Old way of making sure a pass node is inserted; we now do it with smarter substituteVal and storing 'abs' in MirrorVal
@@ -342,34 +360,51 @@ trait GraphRewriting extends AST { graph: Graph =>
   // TODO merge boxes and remove useless ones
   // TODO make census and move boxes down non-shared nodes
   // TODO inline one-shot lambdas
-  def simplifyGraph(rep: Rep): Unit = {
-    /*
-    val traversed = mutable.Set.empty[Rep]
+  def simplifyGraph(rep: Rep): Bool = {
+    var changed = false
+    val traversed = mutable.Set.empty[CCtx->Rep]
     def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
-      def again = { traversed -= rep; rec(rep) }
-      traversed.setAndIfUnset(rep, rep.boundTo match {
-        case Branch(cond,thn,els) =>
-          // FIXME code dup?
-          if (cond.isAlwaysTrue) rebind(rep.bound, thn.boundTo) thenReturn again
-          else if (cond.isAlwaysFalse) rebind(rep.bound, els.boundTo) thenReturn again
-          else { rec(thn); rec(els) }
-        case Box(cid,b @ Rep(Branch(Condition(ops,c),thn,els)),kind) =>
-          //rebind(rep.bound, Box(cid,b,kind))
-          rebind(rep.bound, Branch(Condition((kind,cid)::ops,c), Box(cid,thn,kind).mkRep, Box(cid,els,kind).mkRep))
+      def again = { changed = true; traversed -= cctx->rep; rec(rep) }
+      traversed.setAndIfUnset(cctx->rep, rep.node match {
+        case Branch(ctrl,cid,thn,els) =>
+          mayHaveCid(Id,cid)(ctrl) match { // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)
+            case Some(true) => rep rewireTo thn; again
+            case Some(false) => rep rewireTo els; again
+            case None => rec(thn); rec(els)
+          }
+        //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
+        case Box(ctrl0,Rep(Box(ctrl1,body))) =>
+          rep.node = Box(ctrl0 `;` ctrl1, body)
           again
-        case Box(cid,res,kind) => rec(res)
+        case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els))) =>
+          rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
+          again
+        case Box(ctrl,res) =>
+          rec(res)(withCtrl_!(ctrl))
+          
+        // Simple beta reduction
+        case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
+          println(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
+          rep.node = substituteVal(fun.body, fun.param, arg).node // fine (no duplication) because substituteVal creates a fresh Rep...
+          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          again
+          
+        // Beta reduction across box TODO
+          
         case ConcreteNode(d) => d.children.foreach(rec)
       })
     }
     rec(rep)(CCtx.empty)
-    */
-    rep // FIXME
+    changed
   }
   
   def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(r: Rep): Option[Rep] = {
     
     //println(s"Before simpl: ${rep.showFullGraph}")
-    simplifyGraph(r)
+    
+    //simplifyGraph(r)
+    if (simplifyGraph(r)) return Some(r)
+    
     //println(s"After simpl: ${rep.showFullGraph}")
     
     def tryThis(r: Rep)(implicit cctx: CCtx): Option[Rep] = {
@@ -404,19 +439,22 @@ trait GraphRewriting extends AST { graph: Graph =>
           rebind(r.bound, res.node)
           rebind(res.bound, ConcreteNode(r.bound))
           */
-          res.node |>? {
-            case ConcreteNode(abs:Abs) =>
-              val occ = Option(lambdaVariableBindings.get(abs.param)).getOrElse(???) // TODO B/E
-              
-              // FIXME port missing logic here!
-              
-              //val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
-              //assert(mir.abs === res)
-              //mir.abs = r
-          }
-          //r.node = ConcreteNode(res.bound) // this would duplicate the node!
-          r.node = res.node
-          res.node = ConcreteNode(r.bound)
+          
+          //res.node |>? {
+          //  case ConcreteNode(abs:Abs) =>
+          //    val occ = Option(lambdaVariableBindings.get(abs.param)).getOrElse(???) // TODO B/E
+          //    
+          //    // FIXME port missing logic here!
+          //    
+          //    //val mir = boundTo_!(occ).asInstanceOf[ConcreteNode].dfn.asInstanceOf[MirrorVal]
+          //    //assert(mir.abs === res)
+          //    //mir.abs = r
+          //}
+          ////r.node = ConcreteNode(res.bound) // to avoid duplicating the node
+          //r.node = res.node
+          //res.node = ConcreteNode(r.bound) // FIXME won't work
+          
+          r rewireTo res
           
       //}).collectFirst{case Some(r)=>r}
       }).headOption
@@ -425,7 +463,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     
     def rec(r: Rep,tried:Bool=false)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
     //r.boundTo match {
-    r.node match {
+    r.node match { // TODO ignore top-level Pop and Drop boxes!
       //case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???)) // FIXME: probably useless (and wasteful)
       case Box(ctrl,res) => (if (tried) None else tryThis(r)) orElse rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
       case Branch(ctrl,cid,thn,els) => if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)

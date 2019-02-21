@@ -85,12 +85,17 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     rewrite {
       case c"666" => c"42"
+        
+        // No longer done here: cf., current problems with matching the inside of lambdas
+        /*
       case code"(($x: $xt) => $body:$bt)($arg)" =>
         println(s"!>> SUBSTITUTE ${x} with ${arg.rep} in ${body.rep.showGraph}")
         val res = body.subs(x) ~> arg
         println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
         //println(s"Nota: ${showEdges}")
         res
+        */
+        
       case r @ code"lib.const[Int](${n0@Const(n)}) + lib.const[Int](${m0@Const(m)})" =>
         //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
         println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
@@ -146,10 +151,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   }
   
   test("My Tests") {
-    //val f = code"val f = (x: Int) => x + x; f"
+    val f = code"val f = (x: Int) => x + x; f"
     //def g = code"(x: Int) => (y: Int) => x - y"
     
-    //DSL.ScheduleDebug debugFor
+    DSL.ScheduleDebug debugFor
+    doTest(code"$f($f(22))", 1)() // FIXME why don't the constant folding matches rewrite?
     
   }
   

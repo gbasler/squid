@@ -67,6 +67,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def fullString = toString // TODO
     def simpleString = bound.name
     
+    def rewireTo(that: Rep): Unit = node = Id(that)
+    
     override def toString = s"$bound = $node"
   }
   object Rep {
@@ -118,7 +120,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case Drop(rest) => rest.lastPush
       case Id => None
     }
-  
+    
+    def push(cid: CallId) = this `;` Push(cid,Id,Id)
+    
+    //def throughLambda: Control = this `;` Push(DummyCallId,Pop(Id),Id)
+    def throughLambda: Control = Push(DummyCallId,this `;` Pop(Id),Id)
+    // ^ TODO use in matcher? – it did not seem sufficient, though.... we probably have to create a new variable and propoer substitution.
+    
     override def toString = (new DefPrettyPrinter)(this).mkString(";")
   }
   sealed abstract case class Push(cid: CallId, payload: Control, rest: TransitiveControl) extends TransitiveControl {
@@ -148,6 +156,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
   }
   case object Id extends TransitiveControl {
+    /** It's sometimes useful to rewire a node to another node, without having to duplicate its Def! */
+    def apply(r: Rep) = Box(Id,r)
   }
   
   
