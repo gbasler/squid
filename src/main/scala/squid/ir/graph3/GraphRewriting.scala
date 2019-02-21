@@ -144,6 +144,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     def fromExtract(e: Extract): GraphExtract = empty copy (extr = e)
   }
   
+  // TODO generalize to handle rewriting of incomplete graphs... (it will currently crash on them)
   // FIXME: make this traverse var-to-var bindings??! does it not already?
   protected def extractGraph(xtor: Rep, xtee: Rep)(implicit ctx: XCtx, cctx: CCtx): List[GraphExtract] = debug(s"Extract ${xtor} << $xtee") thenReturn nestDbg {
     import GraphExtract.fromExtract
@@ -163,30 +164,33 @@ trait GraphRewriting extends AST { graph: Graph =>
         
         e <- merge(typE, repExtract(name -> r2))
       } yield GraphExtract fromExtract e
-        /*
+        
       //case _ -> Rep(Call(cid, res)) =>
       //case _ -> Rep(Arg(cid, res)) =>
-      case _ -> Rep(Box(cid, res, k)) =>
+      case _ -> Rep(Box(ctrl, res)) =>
         //println("BOX ",cid, res, k)
-        extractGraph(xtor, res)(ctx.copy(curCtrl = (k,cid) :: ctx.curCtrl),cctx.withOp_?(k,cid).getOrElse(???)) // TODO upd cctx
+        //extractGraph(xtor, res)(ctx.copy(curCtrl = ctrl `;` ctx.curCtrl),withCtrl_?(ctrl).getOrElse(???)) // TODO upd cctx
+        extractGraph(xtor, res)(ctx.copy(curCtrl = ctx.curCtrl `;` ctrl),withCtrl_?(ctrl).getOrElse(???)) // TODO upd cctx
         
-      case _ -> Rep(Branch(cond, thn, els)) =>
+      case _ -> Rep(Branch(ctrl, cid, thn, els)) =>
         //println("BRANCH ",cond, thn, els, cctx)
-        val newCond = Condition(ctx.curCtrl ++ cond.ops, cond.cid)
-        hasCond_?(cond) match {
-          case Some(true) => extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond),cctx).map(_ assuming newCond)
-          case Some(false) => extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond)
+        //val newCond = Condition(ctx.curCtrl ++ cond.ops, cond.cid)
+        //hasCond_?(cond) match {
+        mayHaveCid(ctrl,cid) match {
+          case Some(true) => extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + (ctrl->cid)),cctx).map(_ assuming (ctrl->cid))
+          case Some(false) => extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + (ctrl->cid)),cctx).map(_ assumingNot (ctrl->cid))
           case None =>
             
             lastWords("I think this is never used; but could be useful if we want to rewrite incomplete graph fragments?")
-            
+            /*
             if (newCond.isAlwaysTrue) extractGraph(xtor, thn)
             else if (newCond.isAlwaysFalse) extractGraph(xtor, els)
               // ^ Q: sound?
             else (if (newCond in ctx.assumedNot) Nil else extractGraph(xtor, thn)(ctx.copy(assumed = ctx.assumed + newCond),cctx).map(_ assuming newCond)) ++
               (if (newCond in ctx.assumed) Nil else extractGraph(xtor, els)(ctx.copy(assumedNot = ctx.assumedNot + newCond),cctx).map(_ assumingNot newCond))
-            }
-        */
+            */
+        }
+        
       case Rep(ConcreteNode(dxtor)) -> Rep(ConcreteNode(dxtee)) => dxtor -> dxtee match {
           
         case (_, Ascribe(v,tp)) => extractGraph(xtor,v)

@@ -91,7 +91,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
         println(s"!<< SUBSTITUTE'd ${res.rep.showGraph}")
         //println(s"Nota: ${showEdges}")
         res
-      case r @ code"lib.const[Int](${n0@Const(n)})+lib.const[Int](${m0@Const(m)})" =>
+      case r @ code"lib.const[Int](${n0@Const(n)}) + lib.const[Int](${m0@Const(m)})" =>
         //println(s"!Constant folding ${r.rep}"); mod = true; Const(n+m)
         println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}"); Const(n+m)
     }
@@ -111,8 +111,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   
   test("Nested calls") {
     
-    //val f = code"(x: Int) => x * x" // TODO also try as def or val again
-    val f = code"val f = (x: Int) => x * x; f" // TODO
+    val f = code"val f = (x: Int) => x * x; f" // TODO also try as def or val again
     
     //DSL.ScheduleDebug debugFor
     doTest(code"$f(11) + $f(22)", 1)(605)
@@ -124,28 +123,31 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     doTest(code"$f($f(11) + $f($f(22)))", 1)(-901996719)
     
   }
-  /*
+  
   test("Basic Cross-Boundary Rewriting") {
     
-    val f = code"(x: Int) => x + x" // TODO also try as def or val again
+    val
+    //def // TODO also try
+    f = code"val f = (x: Int) => x + x; f"
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(11) + f(22)", 1)(66)
+    //doTest(code"$f(11) + $f(22)", 1)(66)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(22))", 1)(88)
+    doTest(code"$f($f(22))", 1)(88) // FIXME crashes because the Control nodes semantics is wrong!
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(11) + f(f(22))", 1)(110)
+    doTest(code"$f(11) + $f($f(22))", 1)(110)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $f; f(f(11) * f(f(22)))", 1)(3872)
+    doTest(code"$f($f(11) * $f($f(22)))", 1)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     // ^ Note: used to diverges (in constant folding): kept rewriting a dead-code else clause...
     
   }
   
+  /*
   test("My Tests") {
     //def g = code"(x: Int) => (y: Int) => x - y"
     

@@ -39,7 +39,8 @@ trait GraphScheduling extends AST { graph: Graph =>
   override def runRep(rep: Rep): Any = eval(rep)
   
   /** CallId -> whether it's a Begin or a Block */
-  type CCtx = List[CallId -> Bool]
+  type Token = CallId -> Bool
+  type CCtx = List[Token]
   object CCtx {
     def unknown: CCtx = empty
     val empty: CCtx = List.empty
@@ -47,9 +48,14 @@ trait GraphScheduling extends AST { graph: Graph =>
   def withCtrl_!(ctrl: Control)(implicit cctx: CCtx): CCtx = withCtrl_?(ctrl).get
   def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ctrl match {
     case Id => Some(cctx)
+      
     // The filterNot parts would be an optimization, but they're probably incorrect (shadowed controls may resurface after an End...)
-    case Begin(cid) => Some(cid -> true :: cctx/*.filterNot(_._1 === cid)*/)
-    case Block(cid) => Some(cid -> false :: cctx/*.filterNot(_._1 === cid)*/)
+    //case Begin(cid) => Some(cid -> true :: cctx/*.filterNot(_._1 === cid)*/)
+    //case Block(cid) => Some(cid -> false :: cctx/*.filterNot(_._1 === cid)*/)
+      
+    //case Start(cond,rest) => withCtrl_?(rest) map (cond :: _) // type checks but wrong!
+    case Start(cond,rest) => withCtrl_?(rest)(cond :: cctx)
+      
     case End(cid, rest) =>
       val c = cctx.dropWhile(_._1 =/= cid)
       if (c.nonEmpty) {

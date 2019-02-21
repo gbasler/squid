@@ -65,6 +65,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def typ: TypeRep = node.typ
     
     def fullString = toString // TODO
+    def simpleString = bound.name
     
     override def toString = s"$bound = $node"
   }
@@ -97,21 +98,54 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   
+  /* There's a problem with this approach:
+       While pushing a Begin through a lambda is fine, pushing an End through a lambda is not, as it will start
+       squashing tokens after the lambda, including future tokens for the reduction of the lambda...
+       The previous sysem dealt with this by being somewhat even less hygienic and only squashing a token if there
+       existed a related token before the Begin_a of the squasher End_a – which was encoded using the funky environment
+       restore semantics which worked by shadowing (put everything saved on top, leaving he current things below), and
+       not by overriding.
+       But I find it really hard to make a convincing argument that this really always work. And I'm not sure how to
+       implement this semantics with simple Control nodes...
+         It would likely have to accumulate everything, and only do reductions when asked by a branch;
+         indeed, we can squash a Begin_a against an End_b only if there is a related Begin_a or Block_a before the
+         corresponding Begin_b!
+         And this would probably not work with partial information (which probably applies to the original funky
+         environment-based mechanism too). 
+  */
   sealed abstract class Control {
-    def toList: List[Control] = this match {
-      case End(_, rest) => this :: rest.toList
-      case _ => this :: Nil
+    def `;` (that: Control): Control = (this,that) match {
+      case (Id,_) => that
+      case (Start((cid0,bool),Id), End(cid1,rest1)) => if (cid0 === cid1) { assert(bool); rest1 } else that
+      case (End(t0,rest0), _) => End(t0, rest0 `;` that)
+      case (t0: TransitiveControl, t1: TransitiveControl) => t0 `;` t1
+      case (Start(t0,rest0), _) => Start(t0,Id) `;` (rest0 `;` that)
     }
-  }
-  case class Begin(cid: CallId) extends Control {
   }
   case class End(cid: CallId, rest: Control) extends Control {
   }
-  case class Block(cid: CallId) extends Control {
+  sealed abstract class TransitiveControl extends Control {
+    def `;` (that: TransitiveControl): TransitiveControl = (this,that) match {
+      case (Id,_) => that
+      case (_,Id) => this
+      case (Start(t0,rest0), Start(t1,rest1)) => Start(t0, rest0 `;` Start(t1,rest1))
+      case (Start(t0,rest0), _) => Start(t0,Id) `;` (rest0 `;` that)
+    }
   }
-  case object Id extends Control {
+  case class Start(tok: Token, rest: TransitiveControl) extends TransitiveControl {
   }
-  
+  case object Id extends TransitiveControl {
+  }
+  object Begin {
+    def apply(cid: CallId): Start = apply(cid, Id)
+    def apply(cid: CallId, rest: TransitiveControl) = Start(cid->true, rest)
+    def unapply(s: Start): Opt[CallId -> TransitiveControl] = s.tok._1 -> s.rest optionIf s.tok._2
+  }
+  object Block {
+    def apply(cid: CallId): Start = apply(cid, Id)
+    def apply(cid: CallId, rest: TransitiveControl) = Start(cid->false, rest)
+    def unapply(s: Start): Opt[CallId -> TransitiveControl] = s.tok._1 -> s.rest optionUnless s.tok._2
+  }
   
   //def dfn(r: Rep): Def = r.dfn
   def dfn(r: Rep): Def = r.bound
@@ -237,15 +271,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //  case _ => super.apply(d)
     //}
     def apply(n: Node): String = n match {
-      case Box(Begin(cid), res) =>
+      case Box(Begin(cid,rest), res) =>
         val col = colorOf(cid)
-        s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
+        s"$col⟦$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
       case Box(End(cid, rest), res) =>
         val col = colorOf(cid)
-        s"$col⟦/$cid$curCol ${res |> apply}$col⟧$curCol"
-      case Box(Block(cid), res) =>
+        s"$col⟦/$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
+      case Box(Block(cid,rest), res) =>
         val col = colorOf(cid)
-        s"$col⟦!$cid$curCol ${res |> apply}$col⟧$curCol"
+        s"$col⟦!$cid$curCol ${Box(rest,res) |> apply}$col⟧$curCol"
       case Box(Id, res) =>
         apply(res)
       case Branch(ctrl, cid, cbr, els) =>
