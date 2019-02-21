@@ -105,22 +105,23 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"666.toDouble")()
     
-    DSL.ScheduleDebug debugFor
     doTest(code"$f(2)")()
     
   }
   
   test("Nested calls") {
     
-    val f = code"(x: Int) => x * x" // TODO also try as def or val again
-     
-    doTest(code"val f = $f; f(11) + f(22)", 1)(605)
+    //val f = code"(x: Int) => x * x" // TODO also try as def or val again
+    val f = code"val f = (x: Int) => x * x; f" // TODO
     
-    doTest(code"val f = $f; f(f(22))", 1)(234256)
+    //DSL.ScheduleDebug debugFor
+    doTest(code"$f(11) + $f(22)", 1)(605)
     
-    doTest(code"val f = $f; f(11) + f(f(22))", 1)(234377)
+    doTest(code"$f($f(22))", 1)(234256)
     
-    doTest(code"val f = $f; f(f(11) + f(f(22)))", 1)(-901996719)
+    doTest(code"$f(11) + $f($f(22))", 1)(234377)
+    
+    doTest(code"$f($f(11) + $f($f(22)))", 1)(-901996719)
     
   }
   /*

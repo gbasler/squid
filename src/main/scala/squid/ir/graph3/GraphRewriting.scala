@@ -335,6 +335,9 @@ trait GraphRewriting extends AST { graph: Graph =>
     case _ => throw IRException(s"Trying to splice-extract with invalid extractor $xtor")
   }) :: Nil
   
+  // TODO merge boxes and remove useless ones
+  // TODO make census and move boxes down non-shared nodes
+  // TODO inline one-shot lambdas
   def simplifyGraph(rep: Rep): Unit = {
     /*
     val traversed = mutable.Set.empty[Rep]
@@ -421,7 +424,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     r.node match {
       //case Box(cid,res,k) => tryThis(r) orElse rec(res)(cctx.withOp_?(k->cid).getOrElse(???)) // FIXME: probably useless (and wasteful)
       case Box(ctrl,res) => (if (tried) None else tryThis(r)) orElse rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
-      case Branch(ctrl,cid,thn,els) => if (hasCid(ctrl,cid)) rec(thn) else rec(els)
+      case Branch(ctrl,cid,thn,els) => if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec(_)).headOption
     }
     rec(r)(CCtx.empty)

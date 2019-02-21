@@ -38,7 +38,8 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   override def runRep(rep: Rep): Any = eval(rep)
   
-  type CCtx = List[CallId]
+  /** CallId -> whether it's a Begin or a Block */
+  type CCtx = List[CallId -> Bool]
   object CCtx {
     def unknown: CCtx = empty
     val empty: CCtx = List.empty
@@ -46,23 +47,26 @@ trait GraphScheduling extends AST { graph: Graph =>
   def withCtrl_!(ctrl: Control)(implicit cctx: CCtx): CCtx = withCtrl_?(ctrl).get
   def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = ctrl match {
     case Id => Some(cctx)
-    case Begin(cid) => Some(cid :: cctx)
-    case Block(cid) => Some(cctx.filterNot(_ === cid)) // FIXME correct?
-    //case End(cid, rest) => withCtrl_!(rest)(cctx.dropWhile(_ =/= cid).tail)
+    // The filterNot parts would be an optimization, but they're probably incorrect (shadowed controls may resurface after an End...)
+    case Begin(cid) => Some(cid -> true :: cctx/*.filterNot(_._1 === cid)*/)
+    case Block(cid) => Some(cid -> false :: cctx/*.filterNot(_._1 === cid)*/)
     case End(cid, rest) =>
-      val c = cctx.dropWhile(_ =/= cid)
-      if (c.nonEmpty) withCtrl_?(rest)(c.tail) else None
+      val c = cctx.dropWhile(_._1 =/= cid)
+      if (c.nonEmpty) {
+        assert(c.head._2)
+        withCtrl_?(rest)(c.tail)
+      } else None
   }
-  //def withCall(cid: CallId)(implicit cctx: CCtx): CCtx = (cid -> Set.empty[Val]) :: cctx
-  def hasCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool = withCtrl_!(ctrl).exists(_ === cid)
+  def hasCid_!(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool =
+    mayHaveCid(ctrl,cid).getOrElse(lastWords(s"([$ctrl]$cid?) $cctx -> ${withCtrl_?(ctrl)}"))
   def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] =
-    withCtrl_?(ctrl).map(_.exists(_ === cid)) // FIXME an Id ctrl and empty CCtx give Some(false) instead of None...
+    withCtrl_?(ctrl).flatMap(_.find(_._1 === cid).map(_._2))
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
       case Box(ctrl,res) => rec(res)(withCtrl_!(ctrl),vctx)
       case Branch(ctrl,cid,thn,els) =>
-        if (hasCid(ctrl,cid)) rec(thn) else rec(els)
+        if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(cctx,vctx+(p->Constant(a))).value)
@@ -129,12 +133,12 @@ trait GraphScheduling extends AST { graph: Graph =>
       val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
       
       // TODO use `analysed` to avoid useless traversals?
-      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = {
-        //println(pred,rep)
+      def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = /*ScheduleDebug.nestDbg*/ {
+        //Sdebug(s"[${cctx.mkString(",")}] ${pred._2.bound} -> $rep")
         rep.node match {
           case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
           case Branch(ctrl, cid, thn, els) =>
-            if (hasCid(ctrl, cid))
+            if (hasCid_!(ctrl, cid))
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
@@ -144,6 +148,7 @@ trait GraphScheduling extends AST { graph: Graph =>
             d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
         }
       }
+      //Sdebug(s"Analysing...")
       analyse((Nil,rep),rep)(CCtx.empty)
       
       Sdebug(s"Pointers:"+pointers.map{case r->s => s"\n\t[${s.size}]\t${r.fullString}"}.mkString)

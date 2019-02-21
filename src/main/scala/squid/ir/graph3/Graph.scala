@@ -53,7 +53,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def typ: TypeRep
     def mkRep = new Rep(this)
   }
+  
+  protected var freshnessCount = 0
+  override def wrapConstruct(r: => Rep) = { freshnessCount += 1; super.wrapConstruct(r) }
+  
   class Rep(var node: Node) {
+    
+    protected var freshness = freshnessCount
+    def isFresh: Bool = freshness === freshnessCount
     
     // TODO check all usages; there might be obsolete usages of this, which is now...
     /** Only used for debuggability, to give a nice name to the Rep. */
@@ -134,7 +141,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   
   override def letin(_bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
-    letinImpl(_bound, new Rep(value.node) { override val bound = _bound }, body)
+    letinImpl(_bound, if (value.isFresh) new Rep(value.node) {
+      override val bound = _bound
+      node match {
+        case ConcreteNode(a: Abs) => // Make sure to update the variable->lambda mapping
+          assert(lambdaVariableBindings.containsKey(a.param))
+          lambdaVariableBindings.put(a.param,this)
+        case _ =>
+      }
+    } else value, body)
   
   override def abs(param: BoundVal, body: => Rep): Rep = {
     val occ = param.toRep
