@@ -47,13 +47,6 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override def toString: String = uidstr
   }
   
-  //abstract class Node(val bound: Val) {
-  sealed abstract class Node {
-    def children: Iterator[Rep]
-    def typ: TypeRep
-    def mkRep = new Rep(this)
-  }
-  
   protected var freshnessCount = 0
   override def wrapConstruct(r: => Rep) = { freshnessCount += 1; super.wrapConstruct(r) }
   
@@ -78,13 +71,18 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   object Rep {
     def unapply(r: Rep): Some[Node] = Some(r.node)
   }
-  //case class ConcreteNode(dfn: Def) extends Node(freshBoundVal(dfn.typ)) {
+  
+  sealed abstract class Node {
+    def children: Iterator[Rep]
+    def typ: TypeRep
+    def mkRep = new Rep(this)
+    override def toString = (new DefPrettyPrinter)(this)
+  }
   case class ConcreteNode(dfn: Def) extends Node {
     def typ: TypeRep = dfn.typ
     def children = dfn.children
-    override def toString = s"$dfn"
+    //override def toString = s"$dfn"
   }
-  //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
   case class Box(ctrl: Control, body: Rep) extends Node {
     def typ: TypeRep = body.typ
     def children: Iterator[Rep] = Iterator(body)
@@ -93,14 +91,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   object Box {
     def rep(ctrl: Control, body: Rep): Rep = if (ctrl === Id) body else Box(ctrl, body).mkRep
   }
-  //case class Branch(cid: CallId, lhs: Rep, rhs: Rep) extends Node(freshBoundVal(ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil))) {
-  //case class Branch(ctrl: Option[Control], cid: CallId, lhs: Rep, rhs: Rep) extends Node {
   case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
     def children: Iterator[Rep] = Iterator(lhs,rhs)
-    override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
+    //override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
-  
   
   sealed abstract class Control {
     def toList: List[Control] = this match {
@@ -201,11 +196,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   def showGraph(rep: Rep, full: Bool = false): String = s"$rep" + {
     val defsStr = iterator(rep).toList.distinct.filterNot(_ === rep).collect {
-      // TODO use 'full'
-      case r => s"\n\t$r;"
-      //case r if full =>
-      //  s"\n\t${r.bound} = ${r.boundTo.mkString(false,false)};"
-      //case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = ${d};"
+      case r if full =>
+        //s"\n\t${r.bound} = ${r.boundTo.mkString(false,false)};"
+        s"\n\t${r.bound} = ${r.node};"
+      case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = $d;"
     }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
@@ -219,42 +213,48 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
   }
   
+  private val colors = List(
+    //Console.BLACK,
+    Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
+    //Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B
+  )
+  private def colorOf(cid: CallId) = colors(cid.uid%colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
-  class DefPrettyPrinter(showInlineNames: Bool = true, showInlineCF:Bool = true) extends super.DefPrettyPrinter {
+  class DefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends super.DefPrettyPrinter {
     val printed = mutable.Set.empty[Rep]
     override val showValTypes = false
     override val desugarLetBindings = false
     var curCol = Console.BLACK
-    //override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.boundTo match {
-    //  case _ if !showInlineCF => super.apply(r.bound)
-    //  case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
-    //  case n => (if (showInlineNames) Debug.GREY +r.bound+":" + curCol else "")+apply(n)
-    //}) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
+    override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.node match {
+      case _ if !showInlineCF => super.apply(r.bound)
+      case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
+      case n => (if (showInlineNames) Debug.GREY +r.bound+":" + curCol else "")+apply(n)
+    }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     //override def apply(d: Def): String = d match {
     //  case Bottom => "⊥"
     //  case MirrorVal(v) => s"<$v>"
     //  case _ => super.apply(d)
     //}
-    //def apply(n: Node): String = n match {
-    //  case Pass(cid, res) =>
-    //    val col = colorOf(cid)
-    //    s"$col⟦$cid⟧$curCol ${res |> apply}"
-    //  case Call(cid, res) =>
-    //    val col = colorOf(cid)
-    //    s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
-    //  case Arg(cid, res) =>
-    //    val col = colorOf(cid)
-    //    //s"$col$cid⟨⟩$curCol${res|>apply}"
-    //    s"⟦$col$cid⟧$curCol${res|>apply}"
-    //  case Branch(Condition(ops,cid), cbr, els) =>
-    //    val oldCol = curCol
-    //    curCol = colorOf(cid)
-    //    //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
-    //    s"(${ops.map{case(k,c)=>s"$k$c;"}.mkString}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
-    //  case cn@ConcreteNode(v:Val) => apply(cn.mkRep)
-    //  case ConcreteNode(d) => apply(d)
-    //}
+    def apply(n: Node): String = n match {
+      case Box(Begin(cid), res) =>
+        val col = colorOf(cid)
+        s"$col⟦$cid$curCol ${res |> apply}$col⟧$curCol"
+      case Box(End(cid, rest), res) =>
+        val col = colorOf(cid)
+        s"$col⟦/$cid$curCol ${res |> apply}$col⟧$curCol"
+      case Box(Block(cid), res) =>
+        val col = colorOf(cid)
+        s"$col⟦!$cid$curCol ${res |> apply}$col⟧$curCol"
+      case Box(Id, res) =>
+        apply(res)
+      case Branch(ctrl, cid, cbr, els) =>
+        val oldCol = curCol
+        curCol = colorOf(cid)
+        //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
+        s"(${if (ctrl === Id) "" else s"[$ctrl]"}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+      case ConcreteNode(d) => apply(d)
+    }
   }
   
   
