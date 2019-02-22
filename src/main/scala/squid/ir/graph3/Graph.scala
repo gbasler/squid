@@ -293,7 +293,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
     //Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B
   )
-  private def colorOf(cid: CallId) = colors((cid.uid - 1) % colors.size)
+  private def colorOf(cid: CallId) = colors((cid.uid + colors.size - 1) % colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends super.DefPrettyPrinter {

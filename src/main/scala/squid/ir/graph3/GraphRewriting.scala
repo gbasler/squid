@@ -374,7 +374,10 @@ trait GraphRewriting extends AST { graph: Graph =>
         rep.node = substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
         println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
       }
-      def again = { changed = true; traversed -= cctx->rep; rec(rep) }
+      def again = {
+        changed = true
+        //traversed -= cctx->rep; rec(rep)  // TODO: restore
+      }
       traversed.setAndIfUnset(cctx->rep, rep.node match {
         case Branch(ctrl,cid,thn,els) =>
           mayHaveCid(Id,cid)(ctrl) match { // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)

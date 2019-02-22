@@ -163,10 +163,11 @@ trait GraphScheduling extends AST { graph: Graph =>
       // TODO remove `pred` and `n` and associated analyses
       type recRet = ListMap[Rep,nb.BoundVal]->nb.Rep
       def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx, cctxIsComplete: Bool): recRet = {
-        //Sdebug(s"> Sch $rep  (${vctx.mkString(",")})  ${cctx}")
-        Sdebug(s"> Sch $cctxIsComplete[$cctx] $rep  (${vctx.mkString(",")})")
+        //Sdebug(s"> Sch $cctxIsComplete[$cctx] (${vctx.mkString(",")})\n$rep")
+        Sdebug(s"Sch $cctxIsComplete[$cctx] (${vctx.mkString(",")})\n> $rep")
         
         def postpone() = {
+          Sdebug(s"Postponing ${rep.bound}")
           val fv = freeVals(rep)
           val vset = vctx.keySet
           if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
@@ -222,7 +223,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val w = recv(v)
               (w,if (as.isEmpty) nr else nb.lambda(as.unzip._2,nr),as.unzip._1,rect(v.typ)) : (nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)
             } also (scheduled += rep -> _))
-            val s = args.map(b => rec(b))
+            val s = args.map(b => Sdebug(s"Taking up ${b.bound}") thenReturn rec(b))
             val a: ListMap[Rep,nb.BoundVal] = s.flatMap(_._1)(scala.collection.breakOut)
             val f = fsym|>nb.readVal
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
@@ -299,9 +300,9 @@ trait GraphScheduling extends AST { graph: Graph =>
           case Some(b) => freeVals(if (b) thn else els)
           //case None => freeVals(thn) ++ freeVals(els) // approximation!
           case None =>
-            //freeVals(thn)(cctx push cid) ++ freeVals(els)(cctx push DummyCallId) // approximation!
-            freeVals(thn)(Push(cid,Id,cctx)) ++ freeVals(els)(Push(DummyCallId,Id,cctx)) // approximation!
-            // ^ idea above: putting a Push at the outset works like making assumptions (is it sound?)
+            //freeVals(thn)(Push(cid,Id,cctx)) ++ freeVals(els)(Push(DummyCallId,Id,cctx)) // approximation!
+            freeVals(thn)(cctx push cid) ++ freeVals(els)(cctx push DummyCallId) // approximation!
+            // ^ idea above: putting a Push at the inset works like making assumptions (is it sound?)
         }
       //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
       //case ConcreteNode(MirrorVal(v)) => Set single v
