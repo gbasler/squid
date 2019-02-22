@@ -179,61 +179,44 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
   }
   
-  /*
-  def g = code"(x: Int) => (y: Int) => x+y"
-  
   test("Nested Curried Calls") {
     
-    // TODO: try making `g` a `val` here
-    def g = code"(x: Int) => (y: Int) => x - y"
+    val g = code"(x: Int) => (y: Int) => x - y"
     
-    //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $g; f(11)(22) + 1", 1)(-10)
+    doTest(code"val f = $g; f(11)(22) + 1", 9)(-10)
     
-    doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(-21)
+    doTest(code"val f = $g; f(11)(22) + f(30)(40)")(-21)
     
     doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(18)
     
-    doTest(code"val f = $g; f(f(33)(40))")(-108, _(101)) // FIXME wrong result!
+    doTest(code"val f = $g; f(f(33)(40))")(-108, _(101))
     
-    //DSL.ScheduleDebug debugFor
-    doTest(code"val f = $g; f(f(11)(22))(40)", 1)(-51)
+    doTest(code"val f = $g; f(f(11)(22))(40)")(-51)
     
-    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
-    // ^ Note: used to never finish; accumulates tons of control-flow
+    doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)")(-74)
     
-    doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
-    // ^ Note: used to never finish
+    doTest(code"val g = $g; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(0)
     
   }
   
   test("Complex Cross-Boundary Rewriting") {
     
-    // TODO: try making `g` a `val` here
-    //val g = code"(x: Int) => (y: Int) => x+y"
+    val g = code"(x: Int) => (y: Int) => x + y"
     
     doTest(code"val f = $g; f(11)(22) + 1", 1)(34)
     
     doTest(code"val f = $g; f(11)(22) + f(30)(40)", 1)(103)
     
-    doTest(code"val f = $g; f(11)(f(33)(40))"/*, 1*/)(84)
-    // ^ Note: used to SOF in scheduling's analysis
-    //   Note: used to make CCtx's hashCode SOF! but I chanegd it to a lazy val...
-    //   Note: was another manifestation of the lambda bug, since the reason for the cycle was there were no pass nodes
+    doTest(code"val f = $g; f(11)(f(33)(40))", 1)(84)
     
-    doTest(code"val f = $g; f(f(33)(40))")(174, _(101)) // FIXME wrong result!
-    // ^ Note: used to never finish; looping on: "Constant folding $9 = 73 + $8 = 40"
+    doTest(code"val f = $g; f(f(33)(40))")(174, _(101))
     
     doTest(code"val f = $g; f(f(11)(22))(40)", 1)(73)
     
     doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
-    // ^ Note: used to never finish; accumulates tons of control-flow, such as:
-    // !Constant folding $9190 = ⟦α1⟧ $9189:⟦α8 $9188:⟦α7⟧ $9187:⟦α5⟧ $7:11⟧ + $9202 = ⟦α1⟧ $9201:⟦α8 $9200:⟦α7⟧ $9199:⟦α5⟧ $16:30⟧ from: $3882 = ⟦α1⟧ $2165:(↑α8;|α5;|α7;α9 ? $3888:(↑α8;|α5;|α7;α0 ? $3890:(↑α8;|α5;|α7;α1 ? $3892:(↑α8;|α5;|α7;|α5;|α7;↑α8;|α1;↑α2;↑α9;α0 ? $3894:⟦α8 $2281:71⟧ ¿ [...]
     
-    doTest(code"val g = (x: Int) => (y: Int) => x+y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))")(88)
-    // ^ Note: used to also accumulates tons of nodes
+    doTest(code"val g = (x: Int) => (y: Int) => x + y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))", 1)(88)
     
   }
-  */
   
 }
