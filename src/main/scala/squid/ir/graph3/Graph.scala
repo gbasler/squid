@@ -214,7 +214,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   // ^ TODO: use a more precise RepOf[NodeSubtype] type
   
   // TODO only evaluate mkArg if the variable actually occurs (cf. mandated semantics of Squid)
-  override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = {
+  override def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep): Rep = substituteVal(r, v, mkArg, Id)
+  def substituteVal(r: Rep, v: BoundVal, mkArg: => Rep, payload: Control): Rep = {
     val cid = new CallId(v)
     
     val occ = Option(lambdaVariableOccurrences.get(v)).getOrElse(???) // TODO B/E
@@ -243,7 +244,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
-    Box(Push(cid,Id,Id), r).mkRep
+    Box(Push(cid,payload,Id), r).mkRep
   }
   
   
@@ -277,7 +278,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
     //Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B
   )
-  private def colorOf(cid: CallId) = colors(cid.uid%colors.size)
+  private def colorOf(cid: CallId) = colors((cid.uid - 1) % colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)
   class DefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends super.DefPrettyPrinter {
@@ -303,7 +304,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         s"$col$cid↑$curCol" :: apply(rest)
       case Push(cid, payload, rest) =>
         val col = colorOf(cid)
-        s"$col$cid↑$curCol[${apply(payload).mkString(";")}]" :: apply(rest)
+        s"$col$cid↑[${apply(payload).mkString(";")}$col]$curCol" :: apply(rest)
       case Pop(rest) => s"↓" :: apply(rest)
       case Drop(rest) => s"🚫" :: apply(rest)
     }

@@ -370,6 +370,10 @@ trait GraphRewriting extends AST { graph: Graph =>
     var changed = false
     val traversed = mutable.Set.empty[CCtx->Rep]
     def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
+      def betaRed(ctrl: Control, fun: Abs, arg: Rep): Unit = {
+        rep.node = substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
+        println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+      }
       def again = { changed = true; traversed -= cctx->rep; rec(rep) }
       traversed.setAndIfUnset(cctx->rep, rep.node match {
         case Branch(ctrl,cid,thn,els) =>
@@ -392,11 +396,14 @@ trait GraphRewriting extends AST { graph: Graph =>
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
-          rep.node = substituteVal(fun.body, fun.param, arg).node // fine (no duplication) because substituteVal creates a fresh Rep...
-          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          betaRed(Id, fun, arg)
           again
           
-        // Beta reduction across box TODO
+        // Beta reduction across a box
+        case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
+          println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
+          betaRed(ctrl, fun, arg)
+          again
           
         case ConcreteNode(d) => d.children.foreach(rec)
       })
