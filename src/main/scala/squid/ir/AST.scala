@@ -59,7 +59,10 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   private var varCount = 0
   
   /** AST does not implement `lambda` and only supports one-parameter lambdas. To encode multiparameter-lambdas, consider mixing in CurryEncoding */
-  def abs(param: BoundVal, body: => Rep): Rep = rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
+  def abs(param: BoundVal, mkBody: => Rep): Rep = {
+    val body = mkBody
+    rep(Abs(param, body)(lambdaType(param.typ::Nil, body.typ)))
+  }
   
   override def ascribe(self: Rep, typ: TypeRep): Rep = Ascribe.mk(self, typ).fold(self)(rep)
   
