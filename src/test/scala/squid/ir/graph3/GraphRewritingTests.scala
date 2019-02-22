@@ -66,6 +66,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
         //Thread.sleep(50)
       }
     } while (mod)
+    assert(cde.rep.size <= expectedSize, s"for ${cde.rep}")
     printSep()
     cde.rep
   }
@@ -109,11 +110,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   
   test("Simple") {
     
-    doTest(code"666.toDouble")()
+    doTest(code"666.toDouble", 3)()
     
-    doTest(code"val f = (x: Int) => x + x; f(2)")()
+    doTest(code"val f = (x: Int) => x + x; f(2)", 1)()
     
-    doTest(code"val f = (x: Int) => (y: Int) => x + y; f(2)(3)")()
+    doTest(code"val f = (x: Int) => (y: Int) => x + y; f(2)(3)", 1)()
     
   }
   
@@ -122,13 +123,13 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     val f = code"val f = (x: Int) => x * x; f"
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"$f(11) + $f(22)", 1)(605)
+    doTest(code"$f(11) + $f(22)", 7)(605)
     
-    doTest(code"$f($f(22))", 1)(234256)
+    doTest(code"$f($f(22))", 9)(234256)
     
-    doTest(code"$f(11) + $f($f(22))", 1)(234377)
+    doTest(code"$f(11) + $f($f(22))", 15)(234377)
     
-    doTest(code"$f($f(11) + $f($f(22)))", 1)(-901996719)
+    doTest(code"$f($f(11) + $f($f(22)))", 21)(-901996719)
     
   }
   
@@ -146,7 +147,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     doTest(code"$f(11) + $f($f(22))", 1)(110)
     
     //DSL.ScheduleDebug debugFor
-    doTest(code"$f($f(11) * $f($f(22)))", 1)(3872)
+    doTest(code"$f($f(11) * $f($f(22)))", 26)(3872)
     // ^ Note: we schedule '$9' which is used only once... this is because if the branch under which it appears could be
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     // ^ Note: used to diverges (in constant folding): kept rewriting a dead-code else clause...
@@ -156,12 +157,11 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   }
   
   test("My Tests") {
-    val f = code"val f = (x: Int) => x + x; f"
+    //val f = code"val f = (x: Int) => x + x; f"
     //def g = code"(x: Int) => (y: Int) => x - y"
     
-    DSL.ScheduleDebug debugFor
-    //doTest(code"$f($f(22))", 1)()
-    doTest(code"$f($f(11) - $f($f(22)))", 1)()
+    //DSL.ScheduleDebug debugFor
+    //doTest(code"val f = (x: Int) => (y: Int) => x + y; f(f(2)(3))(f(4)(5))")() // FIXME
     
   }
   

@@ -69,6 +69,21 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def rewireTo(that: Rep): Unit = node = Id(that)
     
+    def allChildren: mutable.Set[Rep] = {
+      val traversed = mutable.Set.empty[Rep]
+      var workList = List(this)
+      while (workList.nonEmpty) {
+        val cur = workList.head
+        workList = workList.tail
+        if (!traversed(cur)) {
+          traversed += cur
+          workList = workList ::: cur.node.children.toList
+        }
+      }
+      traversed
+    }
+    def size: Int = allChildren.filter(!_.node.isInstanceOf[Box]).toSet.size
+    
     override def toString = s"$bound = $node"
   }
   object Rep {
