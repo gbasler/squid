@@ -175,17 +175,18 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   
   
-  val reificationContext = mutable.Map.empty[Val,Rep]
+  var reificationContext = Map.empty[Val,Rep]
   
   def letinImpl(bound: BoundVal, value: Rep, mkBody: => Rep) = { 
     require(!reificationContext.contains(bound))
+    val old = reificationContext
     try {
       reificationContext += bound -> value
       mkBody
-    } finally reificationContext -= bound 
+    } finally reificationContext = old 
   }
   
-  override def letin(_bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep) =
+  override def letin(_bound: BoundVal, value: Rep, mkBody: => Rep, bodyType: TypeRep) =
     letinImpl(_bound, if (value.isFresh) new Rep(value.node) {
       override val bound = _bound
       node match {
@@ -194,13 +195,17 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
           lambdaVariableBindings.put(a.param,this)
         case _ =>
       }
-    } else value, body)
+    } else value, mkBody)
   
-  // TODO FIXME should insert the Stop nodes after construction, if fresh!
-  override def abs(param: BoundVal, body: => Rep): Rep = {
+  // TODO make more robust? check for illegal occurrences in non-fresh inserted capturing lambdas...?
+  override def abs(param: BoundVal, mkBody: => Rep): Rep = {
     val occ = param.toRep
     lambdaVariableOccurrences.put(param, occ)
-    letinImpl(param, occ, super.abs(param, body) also {lambdaVariableBindings.put(param,_)})
+    val old = reificationContext
+    try {
+      reificationContext = reificationContext.map{case(k,v) => (k,Box(Pop.it,v).mkRep)}
+      letinImpl(param, occ, super.abs(param, mkBody) also {lambdaVariableBindings.put(param,_)})
+    } finally reificationContext = old
   }
   
   //class MirrorVal(v: Val) extends BoundVal("@"+v.name)(v.typ,Nil)

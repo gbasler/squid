@@ -113,6 +113,8 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"val f = (x: Int) => x + x; f(2)")()
     
+    doTest(code"val f = (x: Int) => (y: Int) => x + y; f(2)(3)")()
+    
   }
   
   test("Nested calls") {
