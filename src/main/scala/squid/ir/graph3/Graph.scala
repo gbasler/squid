@@ -95,7 +95,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def rep(ctrl: Control, body: Rep): Rep = if (ctrl === Id) body else Box(ctrl, body).mkRep
   }
   case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
-    def typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
+    lazy val typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
+    // ^ when this was a `def`, it used to become the bottleneck in branch-deep graphs!
+    
     def children: Iterator[Rep] = Iterator(lhs,rhs)
     //override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
@@ -109,7 +111,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case (Push(cid, pl, rest), t: TransitiveControl) => Push(cid, pl, rest `;` t)
       case (Push(cid, pl, rest0), rest1) => Push(cid, pl, rest0 `;` rest1)
       case (Pop(rest0), rest1) => Pop(rest0 `;` rest1)
-      case (Drop(rest0), rest1) => Pop(rest0 `;` rest1)
+      case (Drop(rest0), rest1) => Drop(rest0 `;` rest1)
     }
     //) also ("= (" + _ + ")" also println)
     
@@ -141,12 +143,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   case class Pop(rest: Control) extends Control {
   }
+  object Pop { val it = Pop(Id) }
+  
   case class Drop(rest: Control) extends Control {
   }
-  
-  object Drop {
-    val it = Drop(Id)
-  }
+  object Drop { val it = Drop(Id) }
   
   sealed abstract class TransitiveControl extends Control {
     def `;` (that: TransitiveControl): TransitiveControl = (this,that) match {
@@ -163,6 +164,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   //def dfn(r: Rep): Def = r.dfn
   def dfn(r: Rep): Def = r.bound
+  
   //def rep(dfn: Def) = new Rep(dfn, dfn.children.toList)
   def rep(dfn: Def) = dfn match {
     case v: Val if reificationContext.contains(v) => reificationContext(v)
@@ -251,6 +253,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         //s"\n\t${r.bound} = ${r.boundTo.mkString(false,false)};"
         s"\n\t${r.bound} = ${r.node};"
       case r @ Rep(ConcreteNode(d)) if !d.isSimple => s"\n\t${r.bound} = $d;"
+      case r @ Rep(br: Branch) => s"\n\t${r.bound} = ${(new DefPrettyPrinter)(br)};"
     }.mkString
     if (defsStr.isEmpty) "" else " where:" + defsStr
   }
@@ -280,6 +283,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.node match {
       case _ if !showInlineCF => super.apply(r.bound)
       case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
+      case _: Branch => super.apply(r.bound)
       case n => (if (showInlineNames) Debug.GREY +r.bound+":" + curCol else "")+apply(n)
     }) alsoDo {printed -= r}, s"[RECURSIVE ${super.apply(r.bound)}]")
     //override def apply(d: Def): String = d match {
@@ -301,11 +305,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def apply(n: Node): String = n match {
       case Box(ctrl, res) =>
         apply(ctrl).mkString(";") + apply(res)
-      case Branch(ctrl, cid, cbr, els) =>
+      case Branch(ctrl, cid, thn, els) =>
         val oldCol = curCol
         curCol = colorOf(cid)
-        //s"${cid}⟨${cbr |> apply}⟩$oldCol${curCol = oldCol; apply(els)}"
-        s"(${if (ctrl === Id) "" else s"[$ctrl]"}$curCol$cid ? ${cbr |> apply} ¿ $oldCol${curCol = oldCol; apply(els)})"
+        s"(${if (ctrl === Id) "" else s"[$ctrl]"}$curCol$cid ? ${thn |> apply} ¿ $oldCol${curCol = oldCol; els |> apply})"
       case ConcreteNode(d) => apply(d)
     }
   }

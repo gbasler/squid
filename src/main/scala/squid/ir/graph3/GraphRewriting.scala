@@ -362,6 +362,10 @@ trait GraphRewriting extends AST { graph: Graph =>
   // TODO merge boxes and remove useless ones
   // TODO make census and move boxes down non-shared nodes
   // TODO inline one-shot lambdas
+  // TODO(maybe?) recurse in both branch legs (while avoiding infinite recs) and remember negative assumptions...
+  //   indeed, I noticed a lot of patterns like: $96 = (x1 ? 22 ¿ $140); $140 = (x1 ? $253 ¿ $139); $253 = (x1 ? $290 ¿ $252); ...
+  //   doing this correctly would probably need some sort of lens, as we can't just modify the leg of a branch (which
+  //   may be shared); we have to reconstruct whole branch nodes, possibly several levels up.
   def simplifyGraph(rep: Rep): Bool = {
     var changed = false
     val traversed = mutable.Set.empty[CCtx->Rep]

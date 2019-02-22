@@ -149,6 +149,8 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     // ^ Note: used to diverges (in constant folding): kept rewriting a dead-code else clause...
     
+    doTest(code"$f($f(11) + $f($f(22)))", 1)()
+    
   }
   
   test("My Tests") {
