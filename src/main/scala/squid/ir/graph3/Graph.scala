@@ -107,7 +107,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //override def toString = s"$bound = [$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
   object Box {
-    def rep(ctrl: Control, body: Rep): Rep = if (ctrl === Id) body else Box(ctrl, body).mkRep
+    def rep(ctrl: Control, body: Rep): Rep = if (ctrl === Id) body else body.node match {
+      case Box(ctrl2, body2) => Box.rep(ctrl `;` ctrl2, body2)
+      case _ => Box(ctrl, body).mkRep
+    }
   }
   case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
     lazy val typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)

@@ -9,9 +9,10 @@ object MyTests2 extends App {
   import IR._
   val c0,c1 = new CallId(bindVal("α",typeRepOf[Any],Nil))
   
-  // FIXME the Pop is lost after we postpone the branch, so the branch is misinterpreted
+  // FIXedME the Pop is lost after we postpone the branch, so the branch is misinterpreted
+  // FIXME now the 42.toString is duplicated, because of the duplication of continuation arguments bug
   
-  val shd0 = Code[Int,Any](Box.rep(Pop(Id), Branch(Id, c0, code"readInt".rep, code"???".rep).mkRep))
+  val shd0 = Code[Int,Any](Box.rep(Pop(Id), Branch(Id, c0, code"???".rep, code"42.toString".rep).mkRep))
   val shd1 = code"identity($shd0)"
   //val g = Branch(Id, c0, code"$shd1 + $shd1".rep, code"???".rep).mkRep
   val g = Box.rep(Push(c0,Id,Id), code"$shd1 + $shd1".rep)

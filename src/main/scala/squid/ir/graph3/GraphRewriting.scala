@@ -376,7 +376,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       }
       def again = {
         changed = true
-        //traversed -= cctx->rep; rec(rep)  // TODO: restore
+        traversed -= cctx->rep; rec(rep) // Note: commenting this will make some tests slow as they will print many more steps
       }
       traversed.setAndIfUnset(cctx->rep, rep.node match {
         case Branch(ctrl,cid,thn,els) =>
@@ -385,8 +385,13 @@ trait GraphRewriting extends AST { graph: Graph =>
             case Some(false) => rep rewireTo els; again
             case None => rec(thn); rec(els)
           }
+          
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
-        case Box(ctrl, r @ Rep(ConcreteNode(_:LeafDef))) if ctrl =/= Id => rep rewireTo r; again
+          
+        case Box(ctrl, r @ Rep(ConcreteNode(d:LeafDef))) // Need to make sure 'd' is not a variable! 
+          if !d.isInstanceOf[Val] && (ctrl =/= Id)
+        => rep rewireTo r; again
+          
         case Box(ctrl0,Rep(Box(ctrl1,body))) =>
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again

@@ -135,7 +135,9 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"$g($g(2)(3))(4)", 10)(24)
     
-    //doTest(code"$g(4)($g(2)(3))", 10)(24) // TODO
+    doTest(code"$g(4)($g(2)(3))", 17)(24) // note: 17 also accounts for some of the nodes of the above!
+    
+    doTest(code"$g($g(2)(3))($g(4)(5))", 27)(120)
     
   }
   
@@ -172,9 +174,8 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //doTest(code"val f = (x: Int) => (y: Int) => x + y; f(f(2)(3))")() // FIXME not fully reduced
     
     val g = code"val g = (x: Int) => (y: Int) => x * y; g"
-    DSL.ScheduleDebug debugFor
-    doTest(code"$g(4)($g(2)(3))", 10)(24)
-    // ^ FIXME when simplifying all-at-once crashes; otherwise at some point schedules wrong 
+    //DSL.ScheduleDebug debugFor
+    //doTest(code"$g($g(2)(3))($g(4)(5))")(120)
     
   }
   

@@ -134,7 +134,8 @@ trait GraphScheduling extends AST { graph: Graph =>
       // ^ TODO test performance and remove if better without
       */
       def analyse(pred: List[Int]->Rep, rep: Rep)(implicit cctx: CCtx): Unit = //ScheduleDebug nestDbg 
-      //analysed.setAndIfUnset(cctx->rep, {
+      //analysed.setAndIfUnset(cctx->rep, 
+      {
         //Sdebug(s"[${cctx}] $rep")
         rep.node match {
           case Box(ctrl,res) => analyse(pred,res)(withCtrl_!(ctrl)) // FIXME probably
@@ -143,12 +144,18 @@ trait GraphScheduling extends AST { graph: Graph =>
                  analyse(pred ||> (0 :: _), thn) 
             else analyse(pred ||> (1 :: _), els)
           case vn@ConcreteNode(v:Val) => //analyse(pred,vn.mkRep)
-          case ConcreteNode(d) => // FIXME handle traversing lambdas?
+          case ConcreteNode(d) =>
             val ptrs = pointers.getOrElseUpdate(rep,mutable.Set.empty)
             ptrs += pred
-            d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)}
+            val newCtx = d match {
+              case _: Abs => // When traversing a lambda, we need to assume the dummy token!
+                cctx push DummyCallId
+              case _ => cctx
+            }
+            d.children.zipWithIndex.foreach{case (c, idx) => analyse((idx::Nil) -> rep, c)(newCtx)}
         }
-      //})
+      }
+      //)
       //Sdebug(s"Analysing...")
       analyse((Nil,rep),rep)(CCtx.empty)
       
@@ -192,7 +199,10 @@ trait GraphScheduling extends AST { graph: Graph =>
           
           //case Box(ctrl,res) => rec(res)(vctx,withCtrl(ctrl)) // FIXedME?
           case Box(ctrl,res) => withCtrl_?(ctrl) match {
-            case Some(c) => rec(res)(vctx,c,cctxIsComplete)
+            case Some(c) =>
+              val as -> nr = rec(res)(vctx,c,cctxIsComplete)
+              // We need to wrap the postponed expressions into the boxes we traversed to find them!
+              as.map{case (r,b) => (Box.rep(ctrl,r),b)} -> nr
             case None => postpone()
           }
             
@@ -223,7 +233,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val w = recv(v)
               (w,if (as.isEmpty) nr else nb.lambda(as.unzip._2,nr),as.unzip._1,rect(v.typ)) : (nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)
             } also (scheduled += rep -> _))
-            val s = args.map(b => Sdebug(s"Taking up ${b.bound}") thenReturn rec(b))
+            val s = args.map(b => Sdebug(s"Taking up ${b}") thenReturn rec(b))
             val a: ListMap[Rep,nb.BoundVal] = s.flatMap(_._1)(scala.collection.breakOut)
             val f = fsym|>nb.readVal
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
@@ -239,12 +249,12 @@ trait GraphScheduling extends AST { graph: Graph =>
             case Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
-              val as->r = rec(b)(vctx + (p->v),
+              val as -> r = rec(b)(vctx + (p->v),
                 //cctx,
                 cctx push DummyCallId, // we should take the 'else' of the next branches since we are traversing a lambda!
                 cctxIsComplete)
-              //println(s"/Abs")
-              as->newBase.lambda(v::Nil,r)
+              // Do not forget to wrap the postponed expressions in the abstraction's dummy token!
+              as.map{case (r,b) => (Box.rep(Push(DummyCallId,Id,Id),r),b)} -> newBase.lambda(v::Nil,r)
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(self)
               var ass = sas
@@ -267,7 +277,8 @@ trait GraphScheduling extends AST { graph: Graph =>
       }
       val lsm->r = rec(rep)(Map.empty,CCtx.empty,true)
       //assert(lsm.isEmpty,lsm) // TODO B/E
-      if(lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
+      if (lsm.nonEmpty) System.err.println("NON-EMPTY-LIST!! "+lsm) // TODO B/E
+      assert(lsm.isEmpty)
       scheduled.valuesIterator.foldRight(r){case ((funsym,fun,args,typ),r) => nb.letin(funsym,fun,r,typ)}
       //???
     }
