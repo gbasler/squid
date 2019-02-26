@@ -415,6 +415,9 @@ trait GraphRewriting extends AST { graph: Graph =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
           betaRed(ctrl, fun, arg)
           again
+        
+        // TODO: Beta reduction through branches!
+          
           
         case ConcreteNode(d) => d.children.foreach(rec)
       })

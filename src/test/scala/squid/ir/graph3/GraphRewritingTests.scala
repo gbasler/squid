@@ -101,6 +101,17 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
         //println(s"!Constant folding ${r.rep}"); mod = true
         println(s"!Constant folding ${n0.rep.fullString} + ${m0.rep.fullString} from: ${r.rep.fullString}")
         Const(n+m)
+        
+        
+      case r @ code"haskell.Prelude.compose[$ta,$tb,$tc]($f)($g)" =>
+        code"(a: $ta) => $f($g(a))"
+      case r @ code"($opt:Option[$ta]).map[$tb]($f).map[$tc]($g)" =>
+        code"$opt.map(haskell.Prelude.compose($g)($f))"
+      case r @ code"(Some[$ta]($v):Option[ta]).get" => v
+        
+      //case r @ code"(Some[$ta]($v):Option[ta]).fold[$tb]($d)($f)" =>  // 'd' passed by name: matches a lambda! TODO handle by-name matching
+      //  ???
+        
     }
     
   }
@@ -110,11 +121,13 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   
   test("Simple") {
     
-    doTest(code"666.toDouble", 3)()
+    doTest(code"666.toDouble", 3)(true, res => (res == 42.0) || (res == 666.0))
     
-    doTest(code"val f = (x: Int) => x + x; f(2)", 1)()
+    doTest(code"Option(1).map(x => x.toDouble).map(y => y+1)", 13)(Some(2.0))
     
-    doTest(code"val f = (x: Int) => (y: Int) => x + y; f(2)(3)", 1)()
+    doTest(code"val f = (x: Int) => x + x; f(2)", 1)(4)
+    
+    doTest(code"val f = (x: Int) => (y: Int) => x + y; f(2)(3)", 1)(5)
     
   }
   
@@ -216,6 +229,35 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     doTest(code"val f = $g; val g = (z: Int) => f(f(11)(z))(f(z)(22)); g(30) + g(40)", 1)()
     
     doTest(code"val g = (x: Int) => (y: Int) => x + y; val f = (y: Int) => (x: Int) => g(x)(y); f(11)(f(33)(44))", 1)(88)
+    
+  }
+  
+  test("Higer-Order Functions") {
+    
+    // TODO reuse this:
+    //val h = code"(f: Int => Int) => f(0) + f(1)"
+    
+    doTest(code"val g = (f: Int => Int) => f(2) + f(3); g(_ * 2)")(10)
+    
+    doTest(code"val g = (f: Int => Int) => f(2) + f(3); g(x => x + x)")(10)
+    
+    doTest(code"val g = (f: Int => Int) => (x: Int) => f(x) + f(3); g(x => x + 1)(2)")(7)
+    
+    doTest(code"val g = (f: (Int => Int) => Int) => (x: Int) => f(x => x + 1) + f(x => x * 2); g(h => h(11) + h(22))(66)")(101)
+    
+  }
+  
+  test("Complex") {
+    
+    // TODO test with by-names:
+    //val f = code"val f = (opt: Option[Int]) => opt.fold(0)(x => x + 1); f"
+    
+    val f = code"val f = (opt: Option[Int]) => opt.get+1; f"
+    
+    //doTest(code"$f(Some(42))", 1)(43) // TODO
+    
+    doTest(code"(x: Int) => { val g = (a: Int => Option[Int]) => Some($f(a(x))); g(i => g(j => Some(i + j + x))).get }")(128, _(42))
+    //doTest(code"(x: Int) => { val g = (a: Int => Option[Int]) => Some($f(a(x))); g(i => g(j => Some(i + j + x))).get + 2 }", 1)(128, _(42)) // FIXME doesn't beta reduce at all
     
   }
   
