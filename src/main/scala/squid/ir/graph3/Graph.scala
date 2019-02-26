@@ -33,7 +33,7 @@ Possible imporvements:
 */
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
-  override protected def freshNameImpl(n: Int) = "$"+n
+  override protected def freshNameImpl(n: Int) = "$"+n.toHexString
   
   override def showVal(v: BoundVal): String = v.toString
   

@@ -81,6 +81,7 @@ TODO try to trigger the unsoundness with matching things inside lambda bodies an
 class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewritingTester[GraphRewritingTests.type] {
   import DSL.Predef._
   import DSL.Quasicodes._
+  import haskell.Prelude.compose
   
   object Tr extends SimpleRuleBasedTransformer with SelfTransformer {
     
@@ -103,10 +104,10 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
         Const(n+m)
         
         
-      case r @ code"haskell.Prelude.compose[$ta,$tb,$tc]($f)($g)" =>
+      case r @ code"compose[$ta,$tb,$tc]($f)($g)" =>
         code"(a: $ta) => $f($g(a))"
       case r @ code"($opt:Option[$ta]).map[$tb]($f).map[$tc]($g)" =>
-        code"$opt.map(haskell.Prelude.compose($g)($f))"
+        code"$opt.map(compose($g)($f))"
       case r @ code"(Some[$ta]($v):Option[ta]).get" => v
         
       //case r @ code"(Some[$ta]($v):Option[ta]).fold[$tb]($d)($f)" =>  // 'd' passed by name: matches a lambda! TODO handle by-name matching
@@ -173,7 +174,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     //         resolved on-the-spot and not moved as a parameter, '$9' would have _actually_ been used twice!
     // ^ Note: used to diverges (in constant folding): kept rewriting a dead-code else clause...
     
-    doTest(code"$f($f(11) + $f($f(22)))", 1)()
+    doTest(code"$f($f(11) + $f($f(22)))", 1)() // FIXME now SOF unless -Xss4m
     
   }
   
@@ -234,16 +235,39 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
   
   test("Higer-Order Functions") {
     
-    // TODO reuse this:
-    //val h = code"(f: Int => Int) => f(0) + f(1)"
+    val h0 = code"val h = (f: Int => Int) => f(2) + f(3); h"
     
-    doTest(code"val g = (f: Int => Int) => f(2) + f(3); g(_ * 2)")(10)
+    doTest(code"$h0(x => x * 2)", 13)(10)
     
-    doTest(code"val g = (f: Int => Int) => f(2) + f(3); g(x => x + x)")(10)
+    doTest(code"$h0(x => x + 1)", 13)(7)
     
-    doTest(code"val g = (f: Int => Int) => (x: Int) => f(x) + f(3); g(x => x + 1)(2)")(7)
+    doTest(code"$h0(x => x + x)", 1)(10)
     
-    doTest(code"val g = (f: (Int => Int) => Int) => (x: Int) => f(x => x + 1) + f(x => x * 2); g(h => h(11) + h(22))(66)")(101)
+    doTest(code"$h0(x => x + 1) + $h0(x => x + 2)", 1)(16)
+    
+    doTest(code"$h0(x => x * $h0(y => x - y))", 43)(1)
+    // ^ FIXME strange scheduling: ... ; x470_2.apply(x499_9.apply(2, 2, 2), x499_9.apply(3, 3, 3))
+    
+    doTest(code"$h0(x => x + $h0(y => x + y))", 1)(25)
+    
+    
+    doTest(code"val g = (f: Int => Int) => f(2) + f(3); g(x => x * 2) + g(x => x - 1)", 21)(13)
+    
+    doTest(code"val g = (f: Int => Int) => f(2) + f(3); val h = (x: Int) => x * 2; g(h) + g(compose(h)(h))", 21)(30)
+    
+    
+    val h1 = code"val h = (f: Int => Int) => (x: Int) => f(x) + f(3); h"
+    
+    doTest(code"$h1(x => x + 1)(2)", 1)(7)
+    
+    //doTest(code"$h1(x => x + 1)($h1(y => y + 2)(3))", 1)(15) // FIXME NON-EMPTY-LIST
+    
+    
+    val h2 = code"val h = (f: (Int => Int) => Int) => (x: Int) => f(x => x + 1) + f(x => x * 2); h"
+    
+    doTest(code"$h2(f => f(11) + f(22))(66)",34)(101)
+    
+    doTest(code"$h2(f => f(11) + f(22))( $h2(f => f(11) + f(22))(66) )",76)(101)
     
   }
   

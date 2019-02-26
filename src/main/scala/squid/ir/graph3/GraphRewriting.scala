@@ -369,17 +369,41 @@ trait GraphRewriting extends AST { graph: Graph =>
   //   indeed, I noticed a lot of patterns like: $96 = (x1 ? 22 ¿ $140); $140 = (x1 ? $253 ¿ $139); $253 = (x1 ? $290 ¿ $252); ...
   //   doing this correctly would probably need some sort of lens, as we can't just modify the leg of a branch (which
   //   may be shared); we have to reconstruct whole branch nodes, possibly several levels up.
-  def simplifyGraph(rep: Rep): Bool = {
+  // FIXME make non-recursive, as we can quickly reach stack limit with deep branch traces (though we should also try to simplify them)
+  //   There appears to be a lot of dumb branching, as noted above; even for positive paths
+  def simplifyGraph(rep: Rep): Bool =
+  //scala.util.control.Breaks tryBreakable(
+  {
     var changed = false
     val traversed = mutable.Set.empty[CCtx->Rep]
+    
+    // We need to look through both legs of branches appearing under the lhs of applications, to figure out whether
+    // they lead to lambda expressions...
+    // To avoid combinatory explosion of recursive exploration, we memoize the results here:
+    type AbsPath = (List[(Control,CallId,Bool,Rep)],Control,Abs)
+    val leadsToAbs = mutable.Map.empty[Rep,List[AbsPath]]
+    
     def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
-      def betaRed(ctrl: Control, fun: Abs, arg: Rep): Unit = {
-        rep.node = substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
-        println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+      //println(s"$cctx\n${rep}")
+      
+      def betaRed(absPath: AbsPath, arg: Rep): Node = {
+        val (conds,ctrl,fun) = absPath
+        conds.foldRight (
+          substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
+        ) {
+          case ((ctrl,cid,isLHS,other0), nde) =>
+            // Reconstruct the application nodes of all branches
+            val r = nde.mkRep
+            val other = ConcreteNode(Apply(other0, arg, rep.typ)).mkRep
+            val (thn,els) = if (isLHS) (r, other) else (other, r)
+            Branch(ctrl,cid,thn,els)
+        }
       }
-      def again = {
+      def again(): Unit = {
         changed = true
-        traversed -= cctx->rep; rec(rep) // Note: commenting this will make some tests slow as they will print many more steps
+        //scala.util.control.Breaks.break()
+        // Note: commenting the following (or worse, uncommenting the above) will make some tests slow as they will print many more steps
+        traversed -= cctx->rep; rec(rep)
       }
       traversed.setAndIfUnset(cctx->rep, rep.node match {
           
@@ -396,30 +420,54 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         case Box(ctrl, r @ Rep(ConcreteNode(d:LeafDef))) // Need to make sure 'd' is not a variable! 
           if !d.isInstanceOf[Val] && (ctrl =/= Id)
-        => rep rewireTo r; again
+        => rep rewireTo r; again()
           
         case Box(ctrl0,Rep(Box(ctrl1,body))) =>
           rep.node = Box(ctrl0 `;` ctrl1, body)
-          again
+          again()
         case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els))) =>
           rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
-          again
+          again()
         case Box(ctrl,res) =>
           rec(res)(withCtrl_!(ctrl))
           
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
-          betaRed(Id, fun, arg)
-          again
+          rep.node = betaRed((Nil, Id, fun), arg)
+          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          again()
           
         // Beta reduction across a box
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
-          betaRed(ctrl, fun, arg)
-          again
+          rep.node = betaRed((Nil, ctrl, fun), arg)
+          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          again()
         
-        // TODO: Beta reduction through branches!
+        // Beta reduction through branches!
+        case ConcreteNode(Apply(br @ Rep(_: Branch), arg)) =>
+          // see if this branch leads to potentially other branches that lead to a beta redex
+          def go(rep: Rep): List[AbsPath] = leadsToAbs.getOrElseUpdate(rep, rep.node match {
+            case Branch(ctrl,cid,thn,els) =>
+              def upd(isLHS: Bool)(ap: AbsPath) = ((ctrl, cid, isLHS, if (isLHS) els else thn) :: ap._1, ap._2, ap._3) 
+              go(thn).map(upd(true)) ++ go(els).map(upd(false)) : List[AbsPath]
+            case Box(ctrl,Rep(ConcreteNode(fun: Abs))) => (Nil,ctrl,fun) :: Nil
+            case _ => Nil
+          })
+          val gone = go(br)
+          gone.headOption // TODO(maybe) do the tail too? would it work out? (maybe not since we destructively make modifications)
+          match {
+            case Some(path @ (conds,ctrl,fun)) =>
+              assert(conds.nonEmpty)
+              println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${conds.map(_._2).mkString(",")} in ${fun.body.showGraph}")
+              rep.node = betaRed(path, arg)
+              println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+              leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
+              again()
+            case None =>
+              rec(br); rec(arg)
+          }
           
           
         case ConcreteNode(d) => d.children.foreach(rec)
@@ -428,6 +476,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     rec(rep)(CCtx.empty)
     changed
   }
+  //) catchBreak true
   
   def rewriteSteps(tr: SimpleRuleBasedTransformer{val base: graph.type})(r: Rep): Option[Rep] = {
     
