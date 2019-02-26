@@ -61,6 +61,9 @@ trait GraphScheduling extends AST { graph: Graph =>
       case Branch(ctrl,cid,thn,els) =>
         if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => d match {
+        case ByName(b) =>
+          // byname is a Function0 to the runtime!
+          Constant(() => rec(b)(cctx push DummyCallId, vctx) also("!!! "+_ also println))
         case Abs(p,b) =>
           Constant((a: Any) => rec(b)(
             //cctx,
@@ -246,7 +249,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val w = recv(v1)
               ListMap(rep->w) -> nb.readVal(w)
             }
-            case Abs(p,b) =>
+            case a @ Abs(p,b) =>
               //println(s"Abs($p,$b)")
               val v = recv(p)
               val as -> r = rec(b)(vctx + (p->v),
@@ -254,7 +257,9 @@ trait GraphScheduling extends AST { graph: Graph =>
                 cctx push DummyCallId, // we should take the 'else' of the next branches since we are traversing a lambda!
                 cctxIsComplete)
               // Do not forget to wrap the postponed expressions in the abstraction's dummy token!
-              as.map{case (r,b) => (Box.rep(Push(DummyCallId,Id,Id),r),b)} -> newBase.lambda(v::Nil,r)
+              as.map{case (r,b) => (Box.rep(Push(DummyCallId,Id,Id),r),b)} -> {
+                if (ByName.unapply(a).isDefined) newBase.byName(r) else newBase.lambda(v::Nil,r)
+              }
             case MethodApp(self, mtd, targs, argss, tp) =>
               val sas->sr = rec(self)
               var ass = sas

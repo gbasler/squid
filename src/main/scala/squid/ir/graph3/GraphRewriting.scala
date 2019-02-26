@@ -171,7 +171,8 @@ trait GraphRewriting extends AST { graph: Graph =>
         //extractGraph(xtor, res)(ctx.copy(curCtrl = ctrl `;` ctx.curCtrl),withCtrl_?(ctrl).getOrElse(???)) // TODO upd cctx
         extractGraph(xtor, res)(ctx.copy(curCtrl = ctx.curCtrl `;` ctrl),withCtrl_?(ctrl).getOrElse(???)) // TODO upd cctx
         
-      case _ -> Rep(Branch(ctrl, cid, thn, els)) =>
+      case _ -> Rep(Branch(ctrl, cid, thn, els)) => // FIXME should't we add ctx.curCtrl to the branch's condition here?!
+        
         //println("BRANCH ",cond, thn, els, cctx)
         //val newCond = Condition(ctx.curCtrl ++ cond.ops, cond.cid)
         //hasCond_?(cond) match {
@@ -226,6 +227,8 @@ trait GraphRewriting extends AST { graph: Graph =>
              v1 == v2 // Q: really legit?
           || ctx.valMap.get(v1).contains(v2)
           ) EmptyExtract |> fromExtract |> Nil.:: else Nil
+          
+        // TODO handle by-name
           
         case (a1: Abs, a2: Abs) =>
           require(a1.param.isExtractedBinder, s"alternative not implemented yet")

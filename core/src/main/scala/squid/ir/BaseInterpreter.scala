@@ -129,6 +129,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
         
       // We handle function values specially because since Scala 2.12, we can't introspect lambda classes anymore
       // Here we assume no other methods than `apply` is ever called on function values... obviously incomplete
+      // TODO: a better plan would probably be to eta expand these into non-lambda FunctionN instances that can be introspected!
       case _ if _mtd.name.toString != "apply" || !(_mtd.fullName startsWith "scala.Function") =>
       case f: (() => Any) @unchecked => return f()
       case f: ((Any) => Any) @unchecked =>
