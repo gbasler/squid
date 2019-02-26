@@ -382,11 +382,14 @@ trait GraphRewriting extends AST { graph: Graph =>
         traversed -= cctx->rep; rec(rep) // Note: commenting this will make some tests slow as they will print many more steps
       }
       traversed.setAndIfUnset(cctx->rep, rep.node match {
+          
         case Branch(ctrl,cid,thn,els) =>
-          mayHaveCid(Id,cid)(ctrl) match { // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)
-            case Some(true) => rep rewireTo thn; again
-            case Some(false) => rep rewireTo els; again
-            case None => rec(thn); rec(els)
+          mayHaveCid(Id,cid)(ctrl) // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)
+          match {
+            case Some(true) => rep rewireTo thn; again()
+            case Some(false) => rep rewireTo els; again()
+            case None =>
+              if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
           }
           
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
