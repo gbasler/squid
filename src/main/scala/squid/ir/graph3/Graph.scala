@@ -97,6 +97,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     def typ: TypeRep
     def mkRep = new Rep(this)
     override def toString = (new DefPrettyPrinter)(this)
+    
+    /** Used to make sure we're not duplicating a Val node, which would be bad as it would mess up with `lambdaVariableOccurrences` */
+    def assertNotVal: this.type =
+      assert(!this.isInstanceOf[ConcreteNode] || !this.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Val],
+        s"$this <: ConcreteNode(_:Val)") thenReturn this
   }
   case class ConcreteNode(dfn: Def) extends Node {
     def typ: TypeRep = dfn.typ

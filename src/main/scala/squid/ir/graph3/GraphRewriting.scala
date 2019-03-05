@@ -106,7 +106,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           rememberTransformedBy(xtor,ge)
           //println(f: ${showEdges}")
           if (ge.assumptions.isEmpty) x0 else {
-            val oldXtee = xtee.node.mkRep // alternatively, could do the rebind here?
+            val oldXtee = xtee.node.assertNotVal.mkRep // alternatively, could do the rebind here?
             ge.assumptions.toList.reverse.foldRight(x0) {
               case (ctrl,cid)->true -> x => Branch(ctrl,cid,x,oldXtee).mkRep
               case (ctrl,cid)->false -> x => Branch(ctrl,cid,oldXtee,x).mkRep
@@ -386,11 +386,13 @@ trait GraphRewriting extends AST { graph: Graph =>
     def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
       //println(s"$cctx\n${rep}")
       
+      // TODO try without duplicating the applications? instead, couldn't we just go back to a reconstituted version of the original application?!
       def betaRed(absPath: AbsPath, arg: Rep): Node = {
         val (conds,ctrl,fun) = absPath
-        conds.foldRight (
+        conds.foldRight ({
           substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
-        ) {
+            .assertNotVal
+        }) {
           case ((ctrl,cid,isLHS,other0), nde) =>
             // Reconstruct the application nodes of all branches
             val r = nde.mkRep
@@ -423,9 +425,11 @@ trait GraphRewriting extends AST { graph: Graph =>
         => rep rewireTo r; again()
           
         case Box(ctrl0,Rep(Box(ctrl1,body))) =>
+          rep.node.assertNotVal
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again()
         case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els))) =>
+          rep.node.assertNotVal
           rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
           again()
         case Box(ctrl,res) =>
@@ -434,6 +438,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
+          rep.node.assertNotVal
           rep.node = betaRed((Nil, Id, fun), arg)
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           again()
@@ -443,6 +448,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         // Beta reduction across a box
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
+          rep.node.assertNotVal
           rep.node = betaRed((Nil, ctrl, fun), arg)
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           again()
@@ -463,6 +469,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             case Some(path @ (conds,ctrl,fun)) =>
               assert(conds.nonEmpty)
               println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${conds.map(_._2).mkString(",")} in ${fun.body.showGraph}")
+              rep.node.assertNotVal
               rep.node = betaRed(path, arg)
               println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
               leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
