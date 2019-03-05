@@ -38,7 +38,20 @@ class Antiquotation extends MyFunSuite {
     
   }
   
-  test("Escaped Term Unquote") {
+  test("Escaped Term Unquote in Expressions") {
+    
+    val n = code"readInt"
+    
+    val c0 = code"$$n + 1"
+    c0 eqt code"readInt+1"
+    
+    code"$$(identity(n)) + $$(Const(1))" eqt c0
+    
+    code"""$$(identity(code"readInt")) + 1""" eqt c0
+    
+  }
+  
+  test("Escaped Term Unquote in Patterns") {
     
     code"(42,42)".erase match {
       case code"($$n, $m: Int)" => eqt(m, n)
@@ -51,7 +64,16 @@ class Antiquotation extends MyFunSuite {
     
   }
   
-  test("Escaped Type Unquote") {
+  test("Escaped Type Unquote in Expressions") {
+    
+    val t = codeTypeOf[Int]
+    
+    code"  Option.empty[ $t]" eqt
+      code"Option.empty[$$t]"
+    
+  }
+  
+  test("Escaped Type Unquote in Patterns") {
     
     eqt(code"Option.empty[String]", code"scala.Option.empty[String]")
     

@@ -377,7 +377,8 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
           
         } catch {
           case e: ParseException => throw QuasiException(e.msg)
-          case e: TypecheckException => throw QuasiException(s"Unquoted variable symbol does not type check: ${e.msg}")
+          case e: TypecheckException =>
+            throw QuasiException(s"Unquoted variable symbol does not type check: ${e.msg}", Some(e.pos))
         }
         
         val myBaseTree = baseTree

@@ -55,7 +55,7 @@ class FreeVariablesNewSyntax extends MyFunSuite {
     assert(closed =~= code"(a: String) => (b: Int) => a + b.toDouble")
     assert(closed2 =~= code"(b: Int) => (a: String) => a + b.toDouble")
     
-    assertDoesNotCompile(""" code"42: $$t" """) // Error:(26, 5) Embedding Error: Free type variables are not supported: '$$t'
+    assertDoesNotCompile(""" code"42: $$t" """) // Error:(26, 5) Quasiquote Error: Unquoted type does not type check: not found: value t
     assertDoesNotCompile(""" code"42: t?" """)  // Error:(26, 5) Failed to parse DSL code: identifier expected but eof found.
     assertDoesNotCompile(""" code"42: ?t" """)  // Error:(40, 5) Failed to parse DSL code: identifier expected but eof found.
     
@@ -110,9 +110,9 @@ class FreeVariablesNewSyntax extends MyFunSuite {
   test("Syntax: Sticking the Colon") { // These cases test the previous "new" FV syntax `x?`
     
     assertCompiles("""
-    code"x?: Int" eqt code"$$x: Int"
-    code"x?: List[Int]" eqt code"$$x: List[Int]"
-    code"$$x: Int Map String" eqt
+    code"x?: Int" eqt code"?x: Int"
+    code"x?: List[Int]" eqt code"?x: List[Int]"
+    code"?x: Int Map String" eqt
       code"x? : Int Map String"
     // Expected failure:
     //  ir"x?: Int Map String"

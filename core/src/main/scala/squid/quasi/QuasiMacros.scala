@@ -21,6 +21,7 @@ import utils.CollectionUtils._
 import squid.lang.Base
 
 import collection.mutable
+import scala.reflect.macros.TypecheckException
 import scala.reflect.macros.{blackbox, whitebox}
 import scala.reflect.macros.runtime.AbortMacroException
 
@@ -492,32 +493,21 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
         }
         
         
+      // Escaped term unquote syntax, now valid both in expressions and patterns
       case t @ Ident(name: TermName) if name.decodedName.toString.startsWith("$") => // escaped unquote syntax
         //q"open(${name.toString})"
         val bareName = name.toString.tail
         if (bareName.isEmpty) throw EmbeddingException(s"Empty escaped unquote name: '$$$t'")
+        q"$base.$$(${TermName(bareName)})"
         
-        if (isUnapply) {
-          q"$base.$$(${TermName(bareName)})" // escaped unquote in unapply mode does a normal unquote
-        }
-        else { // !isUnapply
-          deprecated("The `$$x` free variable syntax is deprecated; use syntax `?x` instead.", "0.2.0")
-          val tn = TermName(bareName)
-          holes ::= Left(tn) -> q"$tn" // holes in apply mode are interpreted as free variables
-          q"$base.$$$$(${Symbol(bareName)})"
-        }
-        
+      // Escaped type unquote syntax, now valid both in expressions and patterns
       case t @ Ident(name: TypeName) if name.decodedName.toString.startsWith("$") => // escaped type unquote syntax
         val bareName = name.toString.tail
-        if (isUnapply) {
-          // Note: here we want a type unquote, not a type hole!
-          
-          val typedTypeRef = c.typecheck(Ident(TermName(bareName)))
-          unquoteType(TypeName(bareName), typedTypeRef.tpe, c.untypecheck(typedTypeRef))
-          
-        } else {
-          throw EmbeddingException(s"Free type variables are not supported: '$$$t'")
+        val typedTypeRef = try c.typecheck(Ident(TermName(bareName))) catch {
+          case e: TypecheckException =>
+            throw QuasiException(s"Unquoted type does not type check: ${e.msg}", Some(e.pos))
         }
+        unquoteType(TypeName(bareName), typedTypeRef.tpe, c.untypecheck(typedTypeRef))
         
     })
     if (remainingHoles nonEmpty) {

@@ -199,8 +199,10 @@ class VariableSymbolTests extends MyFunSuite {
     assertDoesNotCompile(""" code"val $n = 0; 1" """) // Error: Quasiquote Error: Cannot insert object of type `Int` here.
     
     assertDoesNotCompile(""" code"val $$x = 0; $$x+1" """)
-    // Warning: The `$$x` free variable syntax is deprecated; use syntax `?x` instead. (since 0.2.0)
-    // Embedding Error: Quoted expression does not type check: value + is not a member of Nothing
+    // Embedding Error: Quoted expression does not type check: not found: value x
+    
+    assertDoesNotCompile(""" val y = code"0"; code"val $$y = 0; $$y+1" """)
+    // Quasiquote Error: Unquoted variable symbol `y` of type VariableSymbolTests.this.DSL.ClosedCode[Int] is incompatible with declared type Int
     
     assertDoesNotCompile(""" code"var $v = 0; $v" """) // Quasiquote Error: Insertion of symbol in place of mutable variables is not yet supported; explicitly use the squid.Var[T] data type instead
     

@@ -38,7 +38,7 @@ class FreeVariables extends MyFunSuite {
     assert(closed2 =~= code"(b: Int) => (a: String) => a + b.toDouble")
     
     
-    assertDoesNotCompile(""" code"42: $$t" """) // scp.quasi.EmbeddingException: Free type variables are not supported: '$$t'
+    assertDoesNotCompile(""" code"42: $$t" """) // Quasiquote Error: Unquoted type does not type check: not found: value t
     
   }
   
