@@ -438,6 +438,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           again()
           
+        // TODO try alternative form of beta reduction across push controls (i.e., move the controls up and put drops on top of arg)
+          
         // Beta reduction across a box
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
           println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")

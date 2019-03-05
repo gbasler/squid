@@ -24,10 +24,12 @@ import scala.collection.mutable
 
 /*
 
-TODO:
-  - insert Stop nodes at the right places when reifying lambdas...
+Improvements:
+  - There is no way to duplicate the linked list of branches when we're just interested in ONE reduction! We should
+    reorder branches before making reductions (in simplifier and rewriter), instead of accounting for all the branches
+    on the way!
 
-Possible imporvements:
+Possible improvements:
   - an unrolling factor which needs parametrizing tokens and branches, allowing to push a stop past a branch of the same Val
 
 */
@@ -215,10 +217,22 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       }
     } else value, mkBody)
   
+  private var ignoreValBindings = false
+  def ignoreValBindings_![R](mkRes: => R) = {
+    val prev = ignoreValBindings
+    try {
+      ignoreValBindings = true
+      mkRes
+    } finally ignoreValBindings = prev
+  }
+  
   // TODO make more robust? check for illegal occurrences in non-fresh inserted capturing lambdas...?
   override def abs(param: BoundVal, mkBody: => Rep): Rep = {
     val occ = param.toRep
-    lambdaVariableOccurrences.put(param, occ)
+    if (!ignoreValBindings) {
+      assert(!lambdaVariableOccurrences.containsKey(param))
+      lambdaVariableOccurrences.put(param, occ)
+    }
     val old = reificationContext
     try {
       reificationContext = reificationContext.map{case(k,v) => (k,Box(Pop.it,v).mkRep)}
@@ -305,6 +319,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     override val desugarLetBindings = false
     var curCol = Console.BLACK
     override def apply(r: Rep): String = printed.setAndIfUnset(r, (r.node match {
+      //case ConcreteNode(d:Val) => Debug.GREY +r.bound+":" + curCol+apply(d)  // Useful for displaying occurrences' identities
       case _ if !showInlineCF => super.apply(r.bound)
       case ConcreteNode(d) if !d.isSimple => super.apply(r.bound)
       case _: Branch => super.apply(r.bound)

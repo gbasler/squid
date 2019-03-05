@@ -260,8 +260,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"$h1(x => x + 1)(2)", 1)(7)
     
-    //doTest(code"$h1(x => x + 1)($h1(y => y + 2)(3))", 1)(15) // FIXME NON-EMPTY-LIST
-    
+    doTest(code"$h1(y => y + 1)($h1(z => z + 2)(3))", 1)(15)
     
     val h2 = code"val h = (f: (Int => Int) => Int) => (x: Int) => f(x => x + 1) + f(x => x * 2); h"
     

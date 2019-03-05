@@ -169,16 +169,20 @@ trait GraphScheduling extends AST { graph: Graph =>
       var scheduled = ListMap.empty[Rep,(nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)]
       // ^ FIXME keys type?
       
+      val syntheticLambdas = mutable.Set.empty[Rep] // NOTE: won't have associated pop-nodes
+      // TODO a better approach is called for:
+      //   don't use graph-IR lambdas for this; just use a list of variables instead! remove the ugly ignoreValBindings_!
+      
       // TODO prevent infinite recursion?
       // TODO remove `pred` and `n` and associated analyses
       type recRet = ListMap[Rep,nb.BoundVal]->nb.Rep
       def rec(rep: Rep, topLevel:Bool=false)(implicit vctx: Map[Val,nb.BoundVal], cctx: CCtx, cctxIsComplete: Bool): recRet = {
         //Sdebug(s"> Sch $cctxIsComplete[$cctx] (${vctx.mkString(",")})\n$rep")
-        Sdebug(s"Sch $cctxIsComplete[$cctx] (${vctx.mkString(",")})\n> $rep")
+        Sdebug(s"Sch $cctxIsComplete[$cctx]  { ${vctx.mkString(",")} }\n> $rep")
         
         def postpone() = {
-          Sdebug(s"Postponing ${rep.bound}")
           val fv = freeVals(rep)
+          Sdebug(s"${Console.BOLD}Postponing${Console.RESET} ${rep.bound} (FV = ${fv.mkString("{",",","}")})")
           val vset = vctx.keySet
           if (fv & vset isEmpty) { // if none of the variables we locally bind are free in the branch, we can safely make the branch a parameter
             //val v = freshBoundVal(rep.typ)
@@ -187,13 +191,14 @@ trait GraphScheduling extends AST { graph: Graph =>
             val w = recv(v)
             Sdebug(s"$v ~> $w")
             ListMap(rep->w) -> nb.readVal(w)
-          } else {
+          } else ignoreValBindings_! { // <-------------- !!!
             val extrudedVals = (fv & vset).toList
             val k = bindVal("κ", lambdaType(extrudedVals.map(_.typ), rep.typ), Nil)
             val kbody = lambda(extrudedVals, rep)
-            pointers(kbody)=mutable.Set(List.empty[Int]->kbody)
+            assert(kbody.node.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs]) // FIXME auto-currying will probably mess with that!
+            syntheticLambdas += kbody
+            pointers(kbody)=mutable.Set(List.empty[Int]->kbody) // FIXME? maybe that's why we have duplicated continuation args
             val rk = recv(k)
-            println(k,kbody)
             ListMap(kbody->rk) -> appN(rk|>nb.readVal,extrudedVals.map(recv).map(nb.readVal),rect(rep.typ))
           }
         }
@@ -236,7 +241,7 @@ trait GraphScheduling extends AST { graph: Graph =>
               val w = recv(v)
               (w,if (as.isEmpty) nr else nb.lambda(as.unzip._2,nr),as.unzip._1,rect(v.typ)) : (nb.BoundVal,nb.Rep,List[Rep],nb.TypeRep)
             } also (scheduled += rep -> _))
-            val s = args.map(b => Sdebug(s"Taking up ${b}") thenReturn rec(b))
+            val s = args.map(b => Sdebug(s"${Console.BOLD}Taking up${Console.RESET} ${b}") thenReturn rec(b))
             val a: ListMap[Rep,nb.BoundVal] = s.flatMap(_._1)(scala.collection.breakOut)
             val f = fsym|>nb.readVal
             val e = if (s.isEmpty) f else appN(f,s.map(_._2),rect(nde.typ))
@@ -244,7 +249,7 @@ trait GraphScheduling extends AST { graph: Graph =>
           case cn@ConcreteNode(d) => d match {
             //case v:Val => ListMap.empty -> (vctx get v map nb.readVal getOrElse extrudedHandle(v))
             case v:Val => vctx get v map (ListMap.empty -> nb.readVal(_) : recRet) getOrElse {
-              //(ListMap(readVal(v))) ->)
+              Sdebug(s"${Console.BOLD}Variable${Console.RESET} $v not in $vctx")
               val v1 = bindVal("_"+v.name, v.typ, Nil)
               val w = recv(v1)
               ListMap(rep->w) -> nb.readVal(w)
@@ -257,7 +262,10 @@ trait GraphScheduling extends AST { graph: Graph =>
                 cctx push DummyCallId, // we should take the 'else' of the next branches since we are traversing a lambda!
                 cctxIsComplete)
               // Do not forget to wrap the postponed expressions in the abstraction's dummy token!
-              as.map{case (r,b) => (Box.rep(Push(DummyCallId,Id,Id),r),b)} -> {
+              as.map{case (r,b) => (Box.rep(Push(DummyCallId,Id,Id),r),b)}
+              as.map {
+                case (r,b) => if (syntheticLambdas(r)) (r,b) else (Box.rep(Push(DummyCallId,Id,Id),r),b)
+              }.-> {
                 if (ByName.unapply(a).isDefined) newBase.byName(r) else newBase.lambda(v::Nil,r)
               }
             case MethodApp(self, mtd, targs, argss, tp) =>
@@ -300,7 +308,11 @@ trait GraphScheduling extends AST { graph: Graph =>
   
   
   /** Path-sensitive free-variables computation.
-    * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides... */
+    * May return false-positives! Indeed, when a branch cannot be resolved we return the FVs of both sides...
+    * 
+    * TODO maybe instead of this we should have a version specifically made for scheduling, which behaves precisely like
+    *   scheduling does w.r.t traversing branches with incomplete info.
+    */
   // TODO propagate assumptions to reduce false-positives? (is the current thing sound?)
   def freeVals(rep: Rep)(implicit cctx: CCtx): Set[Val] = {
     val analysed = mutable.Set.empty[CCtx->Rep]
@@ -317,12 +329,19 @@ trait GraphScheduling extends AST { graph: Graph =>
           //case None => freeVals(thn) ++ freeVals(els) // approximation!
           case None =>
             //freeVals(thn)(Push(cid,Id,cctx)) ++ freeVals(els)(Push(DummyCallId,Id,cctx)) // approximation!
-            freeVals(thn)(cctx push cid) ++ freeVals(els)(cctx push DummyCallId) // approximation!
-            // ^ idea above: putting a Push at the inset works like making assumptions (is it sound?)
+            if (ctrl === Id) // almost certainly unsound otherwise: if 'ctrl' is not Id, we're not supposed to have such such a push here!
+              freeVals(thn)(cctx push cid) ++ freeVals(els)(cctx push DummyCallId) // assumption!
+              // ^ idea above: putting a Push at the inset works like making assumptions (is it sound?)
+            else
+              freeVals(thn) ++ freeVals(els) // approximation!
+              // ^ should be sound; we're just widening the possibilities, without making any unsound extra assumptions
         }
       //case cn@ConcreteNode(v: Val) => freeVals(cn.mkRep)
       //case ConcreteNode(MirrorVal(v)) => Set single v
-      case ConcreteNode(a: Abs) => freeVals(a.body)(cctx push DummyCallId) // handle traversing lambdas!
+      case ConcreteNode(a: Abs) =>
+        // handle traversing lambdas!
+        freeVals(a.body)(cctx push DummyCallId) - a.param
+      case ConcreteNode(v: Val) => Set.empty + v
       case ConcreteNode(d) => d.children.flatMap(freeVals).toSet
     }, Set.empty)
     freeVals(rep)
