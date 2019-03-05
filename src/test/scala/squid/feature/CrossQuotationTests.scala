@@ -68,14 +68,37 @@ class CrossQuotationTests extends MyFunSuite(CrossStageDSL) {
     assertDoesNotCompile("code{ x: Int => ${ println( ); code{ %(x) } } }")
     // ^ Error: Quasiquote Error: Cannot refer to local quoted 'x' from outside of quotation.
     
+      //val c0: Code[Int, scope.x] = code"x+1"
+    val c0q = code"""(x: Int) => $${
+      val c0: Code[Int, scope.x] = code{x+1}
+      val c = code{x+1} // Mixed QQ/QC
+      identity(code"$$c * x")
+    }"""
+    c0q eqt c0
+    
+    val c0m = code{ x: Int => ${
+      val c = code"x+1" // Mixed QC/QQ
+      identity(code"$c * x")
+    }}
+    c0m eqt c0
+    
     val f1 = code{ (x:Int, y:String) => ${ foo(code{y * x}) } }
     assert(f1.run.apply(3,"hey!") == "hey!hey!hey!!")
+    
+    val f1q = code"""(x:Int, y:String) => $${ foo(code"y * x") }"""
+    f1q eqt f1
     
     val c1 = code{ x: String => ${
       val c: Code[Int,x.type] = code{x.length}
       code{${c} + 1}
     }}
     c1 eqt code"(x: String) => x.length + 1"
+    
+    val c1q = code"""(x: String) => $${
+      val c: Code[Int,x.type] = code"x.length"
+      code"$${c} + 1"
+    }"""
+    c1q eqt c1
     
   }
   
@@ -88,12 +111,26 @@ class CrossQuotationTests extends MyFunSuite(CrossStageDSL) {
     }}
     c0 eqt code{ val a = 42; 'ok.name * a + "!" }
     
+    val c0q = code"""val x = 42; $${
+      
+      foo(code"'ok.name * x")
+      
+    }"""
+    c0q eqt c0
+    
     val c1: ClosedCode[String] = code{
-      val x = 42;
+      val x = 42
       val y = 'ok.name
       ${ foo(code{ y * x }) }
     }
     c1 eqt code{ val a = 42; val b = 'ok.name; b * a + "!" }
+    
+    val c1q = code"""
+      val x = 42
+      val y = 'ok.name
+      $${ foo(code" y * x ") }
+    """
+    c1q eqt c1
     
     // Erroneous use (reported after type checking by @compileTimeOnly):
     /*
@@ -112,6 +149,13 @@ class CrossQuotationTests extends MyFunSuite(CrossStageDSL) {
       }})
     }}
     c0 eqt code{ val a = 42; (b: String) => b * a + "!" }
+    
+    val c0q: ClosedCode[String => String] = code""" val x = 42; $${
+      identity(code{(y: String) => $${
+        foo(code" y * x ") // 'x' here refers to the one defined two levels out
+      }})
+    }"""
+    c0q eqt c0
     
   }
   
