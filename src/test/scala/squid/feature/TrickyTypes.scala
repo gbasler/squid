@@ -169,6 +169,20 @@ class TrickyTypes extends MyFunSuite {
     
   }
   
+  test("Refinement-Defined Methods") {
+    import scala.language.reflectiveCalls
+    
+    val c = code"???"
+    
+    val c0: ClosedCode[{val s: Symbol}] = c
+    assertDoesNotCompile(""" code"$c0.s" """) // Embedding Error: Cannot refer to method s defined in refinement: <refinement of AnyRef>
+    assertDoesNotCompile(""" code"$c0.s.name" """) // Embedding Error: Cannot refer to method s defined in refinement: <refinement of AnyRef>
+    
+    // In the future, we may allow something like this to enable first-class polymorphic definitions
+    val c1: ClosedCode[{def apply[T]: T => T}] = c
+    assertDoesNotCompile(""" code"$c1[Int]" """) // Embedding Error: Cannot refer to method apply defined in refinement: <refinement of AnyRef>
+    
+  }
 }
 
 object TrickyTypes {

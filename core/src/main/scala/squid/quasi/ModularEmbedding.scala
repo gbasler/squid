@@ -307,6 +307,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         
         //debug("OBJ "+obj.tpe.typeSymbol)
         
+        if (method.owner.name.toString === "<refinement>")
+          throw EmbeddingException(s"Cannot refer to method ${method.name} defined in refinement: ${method.owner}")
+        
         def refMtd = getMtd(method.owner.asType |> getTypSym, method)
         
         val tp = liftType(x.tpe)

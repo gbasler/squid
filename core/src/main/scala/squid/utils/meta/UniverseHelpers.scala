@@ -219,6 +219,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     * refers to a term. */
   def encodedTypeSymbol(tsym: TypeSymbol) = {
     assert(!tsym.isParameter, s"cannot encode static reference to parameter $tsym")
+    assert(tsym.name.toString =/= "<refinement>", s"cannot encode static reference to refinement $tsym")
     def rec(sym: Symbol): String =
       (if (sym.isStatic && sym.isClass) sym.fullName
        // ^ can only runtime-load classes [INV:RuntimeSymbols:loadclasses], so decompose further if this is an abstract type

@@ -94,7 +94,7 @@ object MacroUtils {
   private var debugNum = 0
   
   // cf: https://issues.scala-lang.org/browse/SI-7934
-  @deprecated("", "") class Deprecated { def lineContentForwarder = (pos: Position)=>pos.lineContent };
+  @deprecated("", "") class Deprecated { def lineContentForwarder = (pos: Position)=>pos.lineContent }
   object Deprecated extends Deprecated
   
   private[squid] def showPosition(pos: Position, indent: String = "  ") = {
