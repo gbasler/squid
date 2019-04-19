@@ -43,7 +43,7 @@ lazy val commonSettings = Seq(
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4",
   libraryDependencies += "eu.timepit" %% "singleton-ops" % "0.3.1",
-  libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.3",
+  //libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.3",
   
   //libraryDependencies += "com.lihaoyi" % "ammonite" % "1.1.2" % "test" cross CrossVersion.full,
   //// For the ammonite REPL:
@@ -68,6 +68,9 @@ lazy val main = (project in file(".")).
   settings(
     name := "squid",
     initialCommands in console := initialConsoleCommands,
+    
+    // Some Graph IR tests need more stack space... eventually, should refactor the algorithm to be tail recursive
+    Test / fork := true, Test / javaOptions += "-Xss4m",
   )
 
 lazy val core = (project in file("core")).

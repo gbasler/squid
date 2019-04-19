@@ -453,7 +453,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           again()
         
-        // Beta reduction through branches!
+        // Beta reduction through branches and possibly a box!
         case ConcreteNode(Apply(br @ Rep(_: Branch), arg)) =>
           // see if this branch leads to potentially other branches that lead to a beta redex
           def go(rep: Rep): List[AbsPath] = leadsToAbs.getOrElseUpdate(rep, rep.node match {
