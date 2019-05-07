@@ -123,11 +123,19 @@ trait GraphScheduling extends AST { graph: Graph =>
         nb.loadMtdSymbol(nb.loadTypSymbol("squid.lib.package$"), "dead", None), typ::Nil, nb.Args(rep)::Nil, typ)
     }
     
+    /** This scheduling algorithm only works on terminating programs (because it performs an analysis along the
+      * interpretation paths)... not ideal...
+      * Moreover, it cannot handle recursive function graphs, because it cannot call into a function being scheduled, as
+      * it need to finish scheduling the body to even know how the function is going to be called... */
     // FIXME we currently uselessly duplicate arguments to scheduled defs
     def schedule(rep: Rep): nb.Rep = {
       Sdebug(s"Scheduling: ${rep.showFullGraph}")
+      
       /** We need to distinguish each 'slot' in a predecessor node, and on top of that each side of a branch (currently
-        * we assign 0 for left, 1 for right) */
+        * we assign 0 for left, 1 for right).
+        * The underlying difficulty here is that we don't want to consider branch nodes shared; we want to find out the
+        * number of pointers to each concrete nodes, counting for two a single pointer coming from the a branch that is
+        * pointed to by two pointers. */
       val pointers = mutable.Map.empty[Rep,mutable.Set[List[Int]->Rep]]
       
       /* // Can't actually do somethinf like that, as it messes with the updates to the mutable `pointers` map!
