@@ -7,7 +7,7 @@ import squid.lib.matching._
 import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
-object RecursiveGraphTests extends Graph
+object RecursiveGraphTests extends Graph with RecGraphScheduling
 
 class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewritingTester[RecursiveGraphTests.type] {
   import DSL.Predef._
@@ -36,7 +36,7 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
   test("Count") {
     
     //val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1) else 0")
-    val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1)+$f(n-2) else 0")
+    val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1)+$f(n/2) else n")
     //val cde = f
     val cde = code"($f,$f)"
     println(cde.rep.showGraph)
@@ -55,6 +55,8 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
     
     if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
       println(cde.rep.showGraph)
+    
+    println(DSL.scheduleRec(cde.rep))
     
   }
   

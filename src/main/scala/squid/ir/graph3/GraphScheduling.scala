@@ -24,9 +24,9 @@ import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
 import squid.utils.CollectionUtils._
 
-import scala.collection.{mutable, immutable}
+import scala.collection.mutable
 import scala.collection.immutable.ListMap
-
+import squid.ir.graph.SimpleASTBackend
 
 import squid.ir.graph.SimpleASTBackend
 
