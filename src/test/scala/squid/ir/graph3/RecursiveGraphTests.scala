@@ -18,29 +18,44 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
     
   }
   
-  def letrec[A:CodeType,B:CodeType](f: Variable[A => B] => OpenCode[A => B]): ClosedCode[A => B] = {
-    val rec = Variable[A => B]
+  def letrec[A:CodeType,B:CodeType](f: OpenCode[A => B] => OpenCode[A => B]): ClosedCode[A => B] = {
+    val rec: Variable[A => B] = Variable[A => B]
+    /*
     val body = f(rec)
-    
     // does not work: (capture does not happen because val bindings are not supposed to be recursive)
     //code"val $rec = $body; $rec".unsafe_asClosedCode
-    
+    */
+    val recCde = rec.toCode
+    val body = f(recCde)
     import RecursiveGraphTests._
     val cde = letin(rec.`internal bound`, body.rep, rec.rep, rec.toCode.Typ.rep)
+    recCde.rep.rewireTo(cde)
     Code(cde)
   }
   
   test("Count") {
     
-    val f = letrec((f: Variable[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1) else 0")
+    //val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1) else 0")
+    val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1)+$f(n-2) else 0")
+    //val cde = f
     val cde = code"($f,$f)"
     println(cde.rep.showGraph)
     
-    // Does not work: the recursive binding is not visible while scheduling its own body
+    // Does not work: the recursive binding creates a stack overflow in the scheduling's analysis
     /*
     RecursiveGraphTests.ScheduleDebug debugFor
       println(cde.rep.show)
+    //doTest(cde)()
     */
+    
+    //println(DSL.simplifyGraph(cde.rep)) // Stack overflow: simplifier tried to follow the recursive calls
+    
+    if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+      println(cde.rep.showGraph)
+    
+    if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+      println(cde.rep.showGraph)
+    
   }
   
   test("Omega") {

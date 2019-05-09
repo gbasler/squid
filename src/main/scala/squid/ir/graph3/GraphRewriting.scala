@@ -371,7 +371,8 @@ trait GraphRewriting extends AST { graph: Graph =>
   //   may be shared); we have to reconstruct whole branch nodes, possibly several levels up.
   // FIXME make non-recursive, as we can quickly reach stack limit with deep branch traces (though we should also try to simplify them)
   //   There appears to be a lot of dumb branching, as noted above; even for positive paths
-  def simplifyGraph(rep: Rep): Bool =
+  /** `recurse` tells us whether to follow possibly-cyclic paths with different contexts; won't work with recursive functions */
+  def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
   {
     var changed = false
@@ -401,13 +402,14 @@ trait GraphRewriting extends AST { graph: Graph =>
             Branch(ctrl,cid,thn,els)
         }
       }
+      val key = if (recurse) cctx->rep else Id->rep
       def again(): Unit = {
         changed = true
         //scala.util.control.Breaks.break()
         // Note: commenting the following (or worse, uncommenting the above) will make some tests slow as they will print many more steps
-        traversed -= cctx->rep; rec(rep)
+        traversed -= key; rec(rep)
       }
-      traversed.setAndIfUnset(cctx->rep, rep.node match {
+      traversed.setAndIfUnset(key, rep.node match {
           
         case Branch(ctrl,cid,thn,els) =>
           mayHaveCid(Id,cid)(ctrl) // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)
