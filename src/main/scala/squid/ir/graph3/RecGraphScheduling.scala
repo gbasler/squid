@@ -50,6 +50,12 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         case _ => M.empty
       }
       
+      def shouldBeScheduled = rep.node match {
+        case _: Branch => false
+        case ConcreteNode(d) => !d.isSimple
+        case _ => true
+      }
+      
       def printDef: String = rep.node match {
       case _: Branch => rep.bound.toString
       case _ =>
@@ -61,6 +67,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
                 case (Right(d),v) => pre+apply(d)
               }.getOrElse("?")
             sr.rep.node match {
+              case ConcreteNode(d) if d.isSimple => super.apply(d)
               case b: Branch =>
                 assert(sr.branches.size === 1)
                 printArg((Id,b),"")
@@ -127,7 +134,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
     }
     val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
     reps.foreach { sr =>
-      if (!sr.rep.node.isInstanceOf[Branch]) println(sr
+      if (sr.shouldBeScheduled) println(sr
         // + s" ${sr.branches.valuesIterator.map{case (Left(cb),v) => v case (Right(d),v) => s"$v = $d"}.mkString(" wh{","; ","}")}" +
         // + s"  \t\t\t//  ${sr.rep.node}"
       )
