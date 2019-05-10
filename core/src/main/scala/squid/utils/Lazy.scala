@@ -17,25 +17,30 @@ package squid.utils
 import squid.lib.{transparencyPropagating, transparent}
 
 /** Cheap Lazy implementation for pure computations */
+// Note: `+A <: AnyRef` should actually be `+A >: Null`, which would avoid the casts
 final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
   private[this] var computedValue: A = null.asInstanceOf[A]
   private[this] var computing = false
   def isComputing = computing
-  def computed = computedValue != null
+  def isComputed = computedValue != null
+  def compute(): Unit = value
   @transparent
   def value = {
     if (computedValue == null) {
-      val wasComputing = computing
+      val wasComputing = computing // I'm not sure this is very helpful... maybe just throw if `computing == true`?
       computing = true
       try computedValue = vl()
       finally computing = wasComputing
     }
     computedValue
   }
+  def valueOption: Option[A] = Option(valueOrElse(null.asInstanceOf[A]))
+  def valueOrElse[B >: A](default: => B): B = if (!computing) value else default
+  
   @transparencyPropagating
   def `internal pure value` = value // TODO doc
   def internal_pure_value = value // TODO doc
-  override def toString = s"Lazy(${if (computed || computeWhenShow) value else "..."})"
+  override def toString = s"Lazy(${if (isComputed || computeWhenShow) value else "..."})"
 }
 object Lazy {
   @transparencyPropagating

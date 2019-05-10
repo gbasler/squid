@@ -250,16 +250,16 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     new PartialTransformer(self => {
       case RepDef(`v`) => arg.value
       case r @ RepDef(Abs(`v`,_)) => r
-      case r @ RepDef(Abs(v2,body)) if arg.computed => // if we can already look at the free variables, this is faster
+      case r @ RepDef(Abs(v2,body)) if arg.isComputed => // if we can already look at the free variables, this is faster
         if (freeInArg.value.contains(v2)) captureAvoiding(self,v2,body)
         else {
           val newBody = self(body)
           if (newBody eq body) r else Abs(v2,newBody)(r.typ) |> rep
         }
       case r @ RepDef(Abs(v2,body)) =>
-        assert(!arg.computed && !freeInArg.computed)
+        assert(!arg.isComputed && !freeInArg.isComputed)
         val newBody = self(body) // need to try with 'body' in case it evaluates 'arg'
-        if (arg.computed && freeInArg.value.contains(v2)) {
+        if (arg.isComputed && freeInArg.value.contains(v2)) {
           captureAvoiding(self,v2,body)
           // ^ we need to rebuild the substitution to avoid mixing the legit occrrences witht he ones introduced by arg!!
         } else if (newBody eq body) r else Abs(v2,newBody)(r.typ) |> rep
