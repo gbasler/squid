@@ -33,7 +33,22 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
     Code(cde)
   }
   
-  test("Count") {
+  test("Simple Count") {
+    
+    val cde = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1)+1 else 0")
+    println(cde.rep.showGraph)
+    
+    if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+      println(cde.rep.showGraph)
+    
+    if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+      println(cde.rep.showGraph)
+    
+    println(DSL.scheduleRec(cde.rep))
+    
+  }
+  
+  test("Weird Count") {
     
     //val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1) else 0")
     val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 1) $f(n-1)+$f(n/2) else n")
