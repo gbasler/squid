@@ -31,12 +31,12 @@ trait RecGraphScheduling extends AST { graph: Graph =>
   import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
   import ruh.sru
   
-  type TrBranch = Either[(Control,Branch),Rep]
-  
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
   
   class RecScheduler(nb: squid.lang.Base) {
+    type TrBranch = Either[(Control,Branch),ScheduledRep]
+    
     val scheduledReps = M.empty[Rep,ScheduledRep]
     
     class ScheduledRep private(val rep: Rep) {
@@ -50,27 +50,38 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         case _ => M.empty
       }
       
+      var usages = 0
+      
       def shouldBeScheduled = rep.node match {
         case _: Branch => false
         case ConcreteNode(d) => !d.isSimple
         case _ => true
       }
       
-      def printDef: String = rep.node match {
+      def printDef(dbg: Bool): String = rep.node match {
       case _: Branch => rep.bound.toString
       case _ =>
         new DefPrettyPrinter(showInlineCF = false) {
+          override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
+            case Box(_, body) => apply(body)
+            case ConcreteNode(d) => apply(d)
+            case _: Branch => die
+          }
           override def apply(r: Rep): String = {
             val sr = scheduledReps(r)
             def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
                 case (Left(_),v) => v.toString
-                case (Right(d),v) => pre+apply(d)
+                case (Right(r),v) => pre + apply(r.rep)
               }.getOrElse("?")
             sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
+              case ConcreteNode(ByName(body)) if !dbg => apply(body)
               case b: Branch =>
                 assert(sr.branches.size === 1)
                 printArg((Id,b),"")
+              case _ if !dbg && (sr.usages <= 1) =>
+                assert(sr.usages === 1)
+                sr.printDef(dbg)
               case _ =>
                 s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
                   case (Left(cb),v) => printArg(cb,s"$v=")
@@ -80,11 +91,12 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         } apply rep.node
       }
       
-      def params = {
-        branches.valuesIterator.collect{case (Left(cb),v) => v}
-      }
+      def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
+      def args =
+        children ++ branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
+      
       override def toString =
-        s"${rep.bound}(${params.mkString(",")}) = $printDef"
+        s"${rep.bound}(${params.mkString(",")}) = ${printDef(true)}"
     }
     object ScheduledRep {
       def apply(rep: Rep): ScheduledRep = new ScheduledRep(rep)
@@ -104,7 +116,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         sr.branches.valuesIterator.foreach {
         case (Left(cb @ (c,b)), v) =>
           if (!sr2.branches.contains(cb)) {
-            def addBranch(cb2: TrBranch) = {
+            def addBranch(cb2: sch.TrBranch) = {
               if (cb2.isLeft) workingSet ::= sr2
               sr2.branches += cb -> (cb2, v)
             }
@@ -121,7 +133,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
                     val r2 = sch.scheduledReps(if (c) b.lhs else b.rhs)
                     r2.backEdges += sr2
                     workingSet ::= r2
-                    addBranch(Right(r2.rep))
+                    addBranch(Right(r2))
                   case None => addBranch(Left(newCtrl,b))
                 }
               case ConcreteNode(_) => addBranch(Left(cb))
@@ -134,12 +146,29 @@ trait RecGraphScheduling extends AST { graph: Graph =>
     }
     val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
     reps.foreach { sr =>
-      if (sr.shouldBeScheduled) println(sr
-        // + s" ${sr.branches.valuesIterator.map{case (Left(cb),v) => v case (Right(d),v) => s"$v = $d"}.mkString(" wh{","; ","}")}" +
-        // + s"  \t\t\t//  ${sr.rep.node}"
-      )
+      if (sr.shouldBeScheduled) {
+        sr.args.foreach(_.usages += 1)
+      }
+    }
+    // Note: the root will probably always have 0 usage
+    reps.foreach { sr =>
+      if (sr.shouldBeScheduled) {
+        println(s"[${sr.usages}] $sr")
+        //println(sr.args.map(_.rep.bound).toList)
+      }
     }
     
+    val defs = for (
+      sr <- reps
+      if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
+    ) yield s"def ${
+        if (sr eq root) "main" else sr.rep.bound
+      }(${sr.params.map{ p =>
+          s"$p: ${p.typ}"
+        }.mkString(",")
+      }): ${sr.rep.typ} = ${sr.printDef(false)}"
+    
+    println(defs.mkString("\n"))
     
     
   }

@@ -36,7 +36,7 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
   test("Count") {
     
     //val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1) else 0")
-    val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 0) $f(n-1)+$f(n/2) else n")
+    val f = letrec((f: OpenCode[Int => Int]) => code"(n: Int) => if (n > 1) $f(n-1)+$f(n/2) else n")
     //val cde = f
     val cde = code"($f,$f)"
     println(cde.rep.showGraph)
@@ -55,6 +55,32 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
     
     if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
       println(cde.rep.showGraph)
+    
+    println(DSL.scheduleRec(cde.rep))
+    
+    // TODO count tailrec
+    
+  }
+  
+  
+  test("Oops 1") {
+    
+    val cde = letrec[Int,Int](f => code"(n: Int) => $f(n)-1")
+    
+    if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+      println(cde.rep.showGraph)
+    
+    println(DSL.scheduleRec(cde.rep))
+    
+  }
+  
+  test("Oops 2") {
+    
+    val cde = letrec[Int,Int](f => code"(n: Int) => $f(n-1)")
+    
+    // FIXME SOF
+    //if (DSL.simplifyGraph(cde.rep, recurse = false) also println)
+    //  println(cde.rep.showGraph)
     
     println(DSL.scheduleRec(cde.rep))
     
