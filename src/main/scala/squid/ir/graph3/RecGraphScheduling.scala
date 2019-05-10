@@ -50,16 +50,25 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         case _ => M.empty
       }
       
-      def printDef = {
+      def printDef: String = rep.node match {
+      case _: Branch => rep.bound.toString
+      case _ =>
         new DefPrettyPrinter(showInlineCF = false) {
           override def apply(r: Rep): String = {
             val sr = scheduledReps(r)
-            s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
-              case (Left(cb),v) => branches.get(cb).map{
-                case (Left(_),v) => v
-                case (Right(d),v) => s"$v="+apply(d)
+            def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
+                case (Left(_),v) => v.toString
+                case (Right(d),v) => pre+apply(d)
               }.getOrElse("?")
-            }.mkString(",")})"
+            sr.rep.node match {
+              case b: Branch =>
+                assert(sr.branches.size === 1)
+                printArg((Id,b),"")
+              case _ =>
+                s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
+                  case (Left(cb),v) => printArg(cb,s"$v=")
+                }.mkString(",")})"
+            }
           }
         } apply rep.node
       }
@@ -79,11 +88,11 @@ trait RecGraphScheduling extends AST { graph: Graph =>
     val sch = new RecScheduler(SimpleASTBackend)
     val root = sch.ScheduledRep(rep)
     var workingSet = sch.scheduledReps.valuesIterator.filter(_.branches.nonEmpty).toList
-    println(workingSet)
+    //println(workingSet)
     while (workingSet.nonEmpty) {
       val sr = workingSet.head
       workingSet = workingSet.tail
-      println(sr, sr.branches)
+      //println(sr, sr.branches)
       sr.backEdges.foreach { sr2 =>
         sr.branches.valuesIterator.foreach {
         case (Left(cb @ (c,b)), v) =>
@@ -93,13 +102,12 @@ trait RecGraphScheduling extends AST { graph: Graph =>
               sr2.branches += cb -> (cb2, v)
             }
             val nde = sr2.rep.node match {
-              case ConcreteNode(abs: Abs) => Box(Push(DummyCallId, Id, Id),abs.body)
+              case ConcreteNode(abs: Abs) if ByName.unapply(abs).isEmpty => Box(Push(DummyCallId, Id, Id),abs.body)
               case n => n
             }
             nde match {
-              case br: Branch => // can't bubble up to a branch!
-              case Box(ctrl, body) =>
-                val sr = sch.scheduledReps(body)
+              case _: Branch => // can't bubble up to a branch!
+              case Box(ctrl, _) =>
                 val newCtrl = ctrl `;` c
                 mayHaveCid(newCtrl `;` b.ctrl, b.cid)(Id) match {
                   case Some(c) =>
@@ -119,7 +127,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
     }
     val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
     reps.foreach { sr =>
-      println(sr
+      if (!sr.rep.node.isInstanceOf[Branch]) println(sr
         // + s" ${sr.branches.valuesIterator.map{case (Left(cb),v) => v case (Right(d),v) => s"$v = $d"}.mkString(" wh{","; ","}")}" +
         // + s"  \t\t\t//  ${sr.rep.node}"
       )
