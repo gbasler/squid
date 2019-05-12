@@ -1,11 +1,12 @@
 package squid
 package haskellopt
+package ghcdump
 
 import squid.utils._
 import io.bullet.borer.Dom._
 
 /** Decoding the CBOR emitted by the GhcDump plugin for GHC. */
-abstract class DumpInterpreter {
+abstract class Interpreter {
   
   type Expr
   type Lit

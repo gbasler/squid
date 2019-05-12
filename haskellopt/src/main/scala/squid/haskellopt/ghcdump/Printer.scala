@@ -1,9 +1,10 @@
 package squid
 package haskellopt
+package ghcdump
 
 import squid.utils._
 
-object DumpPrinter extends DumpInterpreter {
+object Printer extends Interpreter {
   
   type Expr = String
   type Lit = String

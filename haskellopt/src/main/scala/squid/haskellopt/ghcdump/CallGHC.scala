@@ -1,12 +1,13 @@
 package squid
 package haskellopt
+package ghcdump
 
 import squid.utils._
 import ammonite.ops._
 import ammonite.ops.ImplicitWd._
 
 /** This requires GHC on the PATH, and the GhcDump plugin for GHC. */
-object HaskellDumper {
+object CallGHC {
   
   val hsExt = "hs"
   
