@@ -25,6 +25,7 @@ object HaskellDumper {
       "-fforce-recomp",
       "-outputdir", outputPath.toString,
       "-fplugin", "GhcDump.Plugin",
+      //"-O",
       
       // 'dumpdir' doesn't seem to work... so I'm moving the files manually below
       //s"-dumpdir=$outputPath",
