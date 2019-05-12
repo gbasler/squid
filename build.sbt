@@ -92,7 +92,6 @@ lazy val core_macros = (project in file("core_macros")).
     libraryDependencies += scalaVersion("org.scala-lang" % "scala-reflect" % _).value
   )
 
-
 lazy val example = (project in file("example")).
   settings(commonSettings: _*).
   settings(
@@ -102,6 +101,17 @@ lazy val example = (project in file("example")).
   ).
   dependsOn(main).
   dependsOn(main % "test->test")
+
+lazy val haskellopt = (project in file("haskellopt")).
+  settings(commonSettings: _*).
+  settings(
+    name := "squid-haskellopt",
+    parallelExecution in Test := false,
+    initialCommands in console := initialConsoleCommands,
+    libraryDependencies += "io.bullet" %% "borer-core" % "0.9.0",
+    libraryDependencies += "com.lihaoyi" %% "ammonite-ops" % "1.6.6",
+  ).
+  dependsOn(main)
 
 val developers = 
       <developers>
