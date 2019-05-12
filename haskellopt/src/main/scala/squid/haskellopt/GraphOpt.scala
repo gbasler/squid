@@ -30,18 +30,30 @@ class GraphOpt {
       import Graph.{dummyTyp => dt}
       
       val bindings = mutable.Map.empty[BinderId, Graph.Val]
+      val ignoredBindings = mutable.Set.empty[Graph.Val]
+      
+      val typeBinding = Graph.bindVal("ty", dt, Nil)
+      ignoredBindings += typeBinding
       
       def EVar(b: BinderId): Expr = bindings(b) |> Graph.readVal
       def EVarGlobal(ExternalName: ExternalName): Expr =
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
         Graph.staticModule(ExternalName.externalModuleName+"."+ExternalName.externalName)
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)
-      def EApp(e0: Expr, e1: Expr): Expr = Graph.app(e0, e1)(dt)
+      def EApp(e0: Expr, e1: Expr): Expr = e1.node match {
+        case Graph.ConcreteNode(v: Graph.Val) if ignoredBindings(v) => e0
+        case Graph.ConcreteNode(Graph.StaticModule(modName)) if modName.contains("$f") => // TODO more robust?
+          // ^ such as '$fNumInteger' in '$27.apply(GHC.Num.$fNumInteger)'
+          e0
+        case _ =>
+           Graph.app(e0, e1)(dt)
+      }
       def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
       def ELam(bndr: Binder, e0: => Expr): Expr = {
         val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name, dt, Nil)
         bindings += bndr.binderId -> v
-        Graph.abs(v, e0)
+        if (bndr.binderName.startsWith("$")) { ignoredBindings += v; e0 } // ignore type and type class lambdas
+        else Graph.abs(v, e0)
       }
       def ELet(lets: Array[(Binder, () => Expr)], e0: => Expr): Expr = {
         // FIXME first bind all names, as they can be mutually-recursive...
@@ -53,7 +65,7 @@ class GraphOpt {
         }()
       }
       def ECase(e0: Expr, bndr: Binder, alts: Array[Alt]): Expr = ???
-      def EType(ty: Type): Expr = Graph.Constant(()) |> Graph.rep // FIXME
+      def EType(ty: Type): Expr = typeBinding |> Graph.readVal
       
       def LitInteger(n: Int): Lit = Graph.Constant(n)
       def LitString(s: String): Lit = Graph.Constant(s)
