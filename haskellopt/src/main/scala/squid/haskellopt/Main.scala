@@ -28,3 +28,11 @@ object MainAll extends App {
   
   Main.main(args)
 }
+
+object MainOpt extends App {
+  
+  val go = new GraphOpt
+  val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
+  println(pgrm.show)
+  
+}

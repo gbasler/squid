@@ -10,6 +10,8 @@ abstract class Interpreter {
   
   type Expr
   type Lit
+  
+  // TODO:
   type Alt = Element
   type Type = Element
   
@@ -48,8 +50,8 @@ abstract class Interpreter {
   def ELit(Lit: Lit): Expr
   def EApp(e0: Expr, e1: Expr): Expr
   def ETyLam(bndr: Binder, e0: Expr): Expr
-  def ELam(bndr: Binder, e0: Expr): Expr
-  def ELet(lets: Array[(Binder, Expr)], e0: Expr): Expr
+  def ELam(bndr: Binder, e0: => Expr): Expr
+  def ELet(lets: Array[(Binder, () => Expr)], e0: => Expr): Expr
   def ECase(e0: Expr, bndr: Binder, alts: Array[Alt]): Expr
   def EType(ty: Type): Expr
   def ECoercion(): Expr = ???
@@ -78,7 +80,7 @@ abstract class Interpreter {
     case Arr(IntElem(4), b, e) => ETyLam(Binder(b), Expr(e))
     case Arr(IntElem(5), b, e) => ELam(Binder(b), Expr(e))
     case Arr(IntElem(6), lets: ArrayElem, e) => ELet(lets.elements.map {
-      case Arr(b, e) => (Binder(b), Expr(e))
+      case Arr(b, e) => (Binder(b), () => Expr(e))
     }.toArray, Expr(e))
     case Arr(IntElem(7), e, b, alts: ArrayElem) => ECase(Expr(e), Binder(b), alts.elements.toArray)
     case Arr(IntElem(8), ty) => EType(ty)
