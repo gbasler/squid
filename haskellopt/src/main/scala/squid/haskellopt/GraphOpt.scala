@@ -14,11 +14,13 @@ class GraphOpt {
   }
   
   case class Module(modName: String, lets: Map[String, Graph.Rep]) {
-    def show = {
-      "module " + modName + ":" + lets.map {
-        case (name, body) => s"\n[$name] ${body.showGraph}"
-      }.mkString
+    val letReps = lets.valuesIterator.toList
+    lazy val toplvlRep = {
+      val mv = Graph.bindVal(modName, Graph.dummyTyp, Nil)
+      Graph.Rep.withVal(mv, Graph.Imperative(letReps.init, letReps.last))
     }
+    def showGraph = toplvlRep.showGraph
+    def show = "module " + toplvlRep.showGraph
   }
   
   def loadFromDump(dump: FilePath): Module = {
