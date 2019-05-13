@@ -102,13 +102,14 @@ abstract class Interpreter {
     }
   }
   
-  case class TopBinding(bndr: Binder, /*CoreStats: Element,*/ expr: Expr) {
+  class TopBinding(val bndr: Binder, /*CoreStats: Element,*/ mkExpr: => Expr) {
+    lazy val expr = mkExpr
     def str = s"${bndr.str} = $expr"
   }
   case class Module(moduleName: String, modulePhase: String, moduleTopBindings: List[TopBinding])
   
   def topBinding(elt: Element): TopBinding = elt match {
-    case Arr(IntElem(0), b, _, e) => TopBinding(Binder(b), Expr(e))
+    case Arr(IntElem(0), b, _, e) => new TopBinding(Binder(b), Expr(e))
     case Arr(IntElem(1), _ @ _*) => ??? // TODO rec top-level bindings
   }
   

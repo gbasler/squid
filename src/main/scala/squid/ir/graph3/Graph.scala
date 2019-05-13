@@ -71,6 +71,12 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def rewireTo(that: Rep): Unit = node = Id(that)
     
+    /** To avoid; only use if `that` is fresh and won't be used again; otherwise we will duplicate its node. */
+    def hardRewireTo_!(that: Rep): Unit = {
+      require(that.isFresh)
+      node = that.node
+    }
+    
     def allChildren: mutable.Set[Rep] = {
       val traversed = mutable.Set.empty[Rep]
       var workList = List(this)
@@ -90,6 +96,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   object Rep {
     def unapply(r: Rep): Some[Node] = Some(r.node)
+    def withVal(v: Val, d: Def) = new Rep(ConcreteNode(d)) {
+      override val bound = v
+    }
   }
   
   sealed abstract class Node {

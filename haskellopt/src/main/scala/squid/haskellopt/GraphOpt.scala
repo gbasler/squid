@@ -16,27 +16,31 @@ class GraphOpt {
   case class Module(modName: String, lets: Map[String, Graph.Rep]) {
     def show = {
       "module " + modName + ":" + lets.map {
-        case (name, body) => s"\n$name = ${body.showGraph}"
+        case (name, body) => s"\n[$name] ${body.showGraph}"
       }.mkString
     }
   }
   
   def loadFromDump(dump: FilePath): Module = {
+    import Graph.{dummyTyp => dt}
+    
+    var modName = Option.empty[String]
+    val moduleBindings = mutable.Map.empty[String, Graph.Rep]
+    
     object GraphDumpInterpreter extends ghcdump.Interpreter {
       
       type Expr = Graph.Rep
       type Lit = Graph.Constant
       
-      import Graph.{dummyTyp => dt}
-      
-      val bindings = mutable.Map.empty[BinderId, Graph.Val]
+      val bindings = mutable.Map.empty[BinderId, (Graph.Val, Graph.Rep)]
       val ignoredBindings = mutable.Set.empty[Graph.Val]
       
       val typeBinding = Graph.bindVal("ty", dt, Nil)
       ignoredBindings += typeBinding
       
-      def EVar(b: BinderId): Expr = bindings(b) |> Graph.readVal
+      def EVar(b: BinderId): Expr = bindings(b)._2
       def EVarGlobal(ExternalName: ExternalName): Expr =
+        if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalName) else
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
         Graph.staticModule(ExternalName.externalModuleName+"."+ExternalName.externalName)
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)
@@ -50,18 +54,22 @@ class GraphOpt {
       }
       def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
       def ELam(bndr: Binder, e0: => Expr): Expr = {
-        val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name, dt, Nil)
-        bindings += bndr.binderId -> v
+        val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name+"_"+bindings.size, dt, Nil)
+        bindings += bndr.binderId -> (v -> Graph.Rep.withVal(v,v))
         if (bndr.binderName.startsWith("$")) { ignoredBindings += v; e0 } // ignore type and type class lambdas
         else Graph.abs(v, e0)
       }
       def ELet(lets: Array[(Binder, () => Expr)], e0: => Expr): Expr = {
-        // FIXME first bind all names, as they can be mutually-recursive...
         lets.foldRight(() => e0){
           case ((bndr, rhs), body) =>
-            val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name, dt, Nil)
-            bindings += bndr.binderId -> v
-            () => Graph.letin(bindings(bndr.binderId), rhs(), body(), dt)
+            val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name+"_"+bindings.size, dt, Nil)
+            val rv = Graph.Rep.withVal(v,v)
+            bindings += bndr.binderId -> (v -> rv)
+            () => {
+              val bod = rhs()
+              rv.hardRewireTo_!(bod)
+              body()
+            }
         }()
       }
       def ECase(e0: Expr, bndr: Binder, alts: Array[Alt]): Expr = ???
@@ -72,11 +80,23 @@ class GraphOpt {
       
     }
     val mod = ghcdump.Reader(dump, GraphDumpInterpreter)
+    modName = Some(mod.moduleName)
+    
+    mod.moduleTopBindings.foreach { tb =>
+      val v = Graph.bindVal(tb.bndr.binderName, dt, Nil)
+      val rv = Graph.Rep.withVal(v,v)
+      moduleBindings += tb.bndr.binderName -> rv
+      GraphDumpInterpreter.bindings += tb.bndr.binderId -> (v -> rv)
+    }
     
     Module(mod.moduleName,
       mod.moduleTopBindings.iterator
         .filter(_.bndr.binderName =/= "$trModule")
-        .map(tb => tb.bndr.binderName -> tb.expr).toMap
+        .map(tb => tb.bndr.binderName -> {
+          val (_,rv) = GraphDumpInterpreter.bindings(tb.bndr.binderId)
+          rv.hardRewireTo_!(tb.expr)
+          rv
+        }).toMap
     )
     
   }
