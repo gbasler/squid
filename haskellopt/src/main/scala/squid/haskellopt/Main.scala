@@ -1,15 +1,18 @@
 package squid
 package haskellopt
 
-import ghcdump.{CallGHC, Reader, Printer}
+import squid.utils._
+import ghcdump.{CallGHC, Printer, Reader}
 import ammonite.ops._
+import squid.haskellopt.MainOpt.go
 
 // TODO CLI for haskellopt
 object Main extends App {
   
   // Quick test:
   
-  val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor", Printer)
+  val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor", Printer)
+  //val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor", Printer)
   
   // Note: with -O, GHC converts lists (even list literals!) to build/foldr, at pass 1:
   //val mod = DumpReader(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor", DumpPrinter)
@@ -32,11 +35,14 @@ object MainAll extends App {
 object MainOpt extends App {
   
   val go = new GraphOpt
-  val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")
+  val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
+  //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")
   println(pgrm.show)
+  println("Generated:")
+  println(go.Graph.scheduleRec(pgrm).toHaskell(go.imports.toList))
   
-  val ls1 = pgrm.lets("ls1")
+  //val ls1 = pgrm.lets("ls1")
   //println(ls1.showGraph)
-  println(go.Graph.scheduleRec(ls1))
+  //println(go.Graph.scheduleRec(ls1))
   
 }

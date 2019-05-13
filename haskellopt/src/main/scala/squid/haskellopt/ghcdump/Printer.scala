@@ -19,6 +19,7 @@ object Printer extends Interpreter {
   def ECase(e0: Expr, bndr: Binder, alts: Array[Alt]): Expr = s"case $e0 as $bndr of {...}"
   
   def LitInteger(n: Int): Lit = n.toString
+  def MachInt(n: Int): Lit = n.toString
   def LitString(s: String): Lit = '"' + s + '"'
   
 }

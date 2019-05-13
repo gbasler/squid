@@ -57,6 +57,7 @@ abstract class Interpreter {
   def ECoercion(): Expr = ???
   
   def LitInteger(n: Int): Lit
+  def MachInt(n: Int): Lit
   def LitString(s: String): Lit
   
   def ExternalName(e: Element): ExternalName = e match {
@@ -65,6 +66,7 @@ abstract class Interpreter {
   }
   def Lit(e: Element): Lit = e match {
     case Arr(IntElem(1), ByteArrayElem(s)) => LitString(s.map(_.toChar).mkString)
+    case Arr(IntElem(3), IntElem(n)) => MachInt(n)
     case Arr(IntElem(10), IntElem(n)) => LitInteger(n)
     case Arr(xs@_*) =>
       println(xs.size)

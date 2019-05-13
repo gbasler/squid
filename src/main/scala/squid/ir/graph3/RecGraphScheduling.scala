@@ -16,14 +16,11 @@ package squid.ir
 package graph3
 
 import squid.utils._
-import squid.utils.CollectionUtils.MutSetHelper
-import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
-
-import squid.utils.CollectionUtils._
 
 import scala.collection.mutable
-import scala.collection.immutable.ListMap
 import squid.ir.graph.SimpleASTBackend
+
+private final class UnboxedMarker // for Haskell gen purposes
 
 trait RecGraphScheduling extends AST { graph: Graph =>
   
@@ -33,6 +30,19 @@ trait RecGraphScheduling extends AST { graph: Graph =>
   
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
+  
+  val Any = Predef.implicitType[Any].rep
+  val UnboxedMarker = Predef.implicitType[UnboxedMarker].rep
+  
+  case class PgrmModule(modName: String, lets: Map[String, Rep]) {
+    val letReps = lets.valuesIterator.toList
+    lazy val toplvlRep = if (letReps.size < 2) letReps.head else {
+      val mv = bindVal(modName, Any, Nil)
+      Rep.withVal(mv, Imperative(letReps.init, letReps.last))
+    }
+    def showGraph = toplvlRep.showGraph
+    def show = "module " + showGraph
+  }
   
   class RecScheduler(nb: squid.lang.Base) {
     type TrBranch = Either[(Control,Branch),ScheduledRep]
@@ -90,6 +100,46 @@ trait RecGraphScheduling extends AST { graph: Graph =>
           }
         } apply rep.node
       }
+      def printHaskellDef: String = {
+        def printDef(d: Def) = d match {
+            case v: Val => s"$v"
+            case Constant(n: Int) => s"$n"
+            case Constant(s: String) => s
+            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
+            case StaticModule(name) => name
+            case Apply(a,b) => s"(${printSubRep(a)} ${printSubRep(b)})"
+            case Abs(p,b) => s"(\\$p -> ${printSubRep(b)})"
+          }
+        def printSubRep(r: Rep): String = {
+          val sr = scheduledReps(r)
+          def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
+              case (Left(_),v) => v.toString
+              case (Right(r),v) => pre + printSubRep(r.rep)
+            }.getOrElse("?")
+          r.node match {
+            case ConcreteNode(d) if d.isSimple => printDef(d)
+            case ConcreteNode(ByName(body)) => printSubRep(body) // Q: should we really keep this one?
+            case b: Branch =>
+              assert(sr.branches.size === 1)
+              printArg((Id,b),"")
+            case _ if sr.usages <= 1 =>
+              assert(sr.usages === 1)
+              sr.printHaskellDef
+            case _ =>
+              val args = branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
+              val argList = if (args.isEmpty) "" else s" (# ${args.mkString(", ")} #)"
+              s"${sr.rep.bound}$argList"
+          }
+        }
+        rep.node match {
+          case ConcreteNode(d) => printDef(d)
+          case _ => die
+        }
+      }
+      def printHaskell = {
+        val paramList = if (params.isEmpty) "" else s"(# ${params.map{ p => s"$p" }.mkString(", ")} #)"
+        s"${rep.bound} $paramList = $printHaskellDef"
+      }
       
       def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
       def args =
@@ -103,9 +153,16 @@ trait RecGraphScheduling extends AST { graph: Graph =>
     }
   }
   
-  def scheduleRec(rep: Rep): Unit = {
+  abstract class ScheduledModule {
+    def toHaskell(imports: List[String]): String
+    override def toString: String
+  }
+  
+  def scheduleRec(rep: Rep): ScheduledModule =
+    scheduleRec(PgrmModule("<module>", Map("main" -> rep)))
+  def scheduleRec(mod: PgrmModule): ScheduledModule = {
     val sch = new RecScheduler(SimpleASTBackend)
-    val root = sch.ScheduledRep(rep)
+    val root = sch.ScheduledRep(mod.toplvlRep)
     var workingSet = sch.scheduledReps.valuesIterator.filter(_.branches.nonEmpty).toList
     //println(workingSet)
     while (workingSet.nonEmpty) {
@@ -158,18 +215,39 @@ trait RecGraphScheduling extends AST { graph: Graph =>
       }
     }
     
-    val defs = for (
+    val isTopLevel = mod.letReps.toSet
+    
+    val toplvls = for (
       sr <- reps
-      if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
-    ) yield s"def ${
-        if (sr eq root) "main" else sr.rep.bound
-      }(${sr.params.map{ p =>
-          s"$p: ${p.typ}"
-        }.mkString(",")
-      }): ${sr.rep.typ} = ${sr.printDef(false)}"
+      if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
+    ) yield sr
     
-    println(defs.mkString("\n"))
-    
+    new ScheduledModule {
+      override def toHaskell(imports: List[String]) = s"""
+        |{-# LANGUAGE UnboxedTuples #-}
+        |{-# LANGUAGE MagicHash #-}
+        |
+        |module ${mod.modName} (${mod.letReps.map(_.bound).mkString(",")}) where
+        |
+        |${imports.map("import "+_).mkString("\n")}
+        |
+        |${toplvls.map(_.printHaskell).mkString("\n\n")}
+        |""".tail.stripMargin
+      
+      override def toString: String = {
+        val defs = for (
+          sr <- reps
+          if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
+        ) yield s"def ${
+            if (sr eq root) "main" else sr.rep.bound
+          }(${sr.params.map{ p =>
+              s"$p: ${p.typ}"
+            }.mkString(",")
+          }): ${sr.rep.typ} = ${sr.printDef(false)}"
+        defs.mkString("\n")
+      }
+      
+    }
     
   }
   

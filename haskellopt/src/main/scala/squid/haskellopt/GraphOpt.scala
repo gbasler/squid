@@ -9,22 +9,15 @@ import scala.collection.mutable
 
 class GraphOpt {
   object Graph extends Graph with RecGraphScheduling {
-    val dummyTyp = Predef.implicitType[Any].rep
-    override def staticModuleType(name: String): TypeRep = dummyTyp
+    val DummyTyp = Any
+    override def staticModuleType(name: String): TypeRep = DummyTyp
   }
+  import Graph.PgrmModule
   
-  case class Module(modName: String, lets: Map[String, Graph.Rep]) {
-    val letReps = lets.valuesIterator.toList
-    lazy val toplvlRep = {
-      val mv = Graph.bindVal(modName, Graph.dummyTyp, Nil)
-      Graph.Rep.withVal(mv, Graph.Imperative(letReps.init, letReps.last))
-    }
-    def showGraph = toplvlRep.showGraph
-    def show = "module " + toplvlRep.showGraph
-  }
+  val imports = mutable.Set.empty[String]
   
-  def loadFromDump(dump: FilePath): Module = {
-    import Graph.{dummyTyp => dt}
+  def loadFromDump(dump: FilePath): PgrmModule = {
+    import Graph.{DummyTyp => dt, UnboxedMarker}
     
     var modName = Option.empty[String]
     val moduleBindings = mutable.Map.empty[String, Graph.Rep]
@@ -32,7 +25,7 @@ class GraphOpt {
     object GraphDumpInterpreter extends ghcdump.Interpreter {
       
       type Expr = Graph.Rep
-      type Lit = Graph.Constant
+      type Lit = Graph.ConstantLike
       
       val bindings = mutable.Map.empty[BinderId, (Graph.Val, Graph.Rep)]
       val ignoredBindings = mutable.Set.empty[Graph.Val]
@@ -44,11 +37,20 @@ class GraphOpt {
       def EVarGlobal(ExternalName: ExternalName): Expr =
         if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalName) else
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
-        Graph.staticModule(ExternalName.externalModuleName+"."+ExternalName.externalName)
+        Graph.staticModule {
+          val mod = ExternalName.externalModuleName
+          val nme = ExternalName.externalName
+          (if (nme.head.isLetter) s"$mod.$nme" else s"($mod.$nme)") match {
+            // weird special cases in GHC:
+            case "(GHC.Types.:)" => "(:)"
+            case "(GHC.Types.[])" => "[]"
+            case n => imports += mod; n
+          }
+        }
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)
       def EApp(e0: Expr, e1: Expr): Expr = e1.node match {
         case Graph.ConcreteNode(v: Graph.Val) if ignoredBindings(v) => e0
-        case Graph.ConcreteNode(Graph.StaticModule(modName)) if modName.contains("$f") => // TODO more robust?
+        case Graph.ConcreteNode(Graph.StaticModule(nme)) if nme.contains("$f") => // TODO more robust?
           // ^ such as '$fNumInteger' in '$27.apply(GHC.Num.$fNumInteger)'
           e0
         case _ =>
@@ -78,6 +80,7 @@ class GraphOpt {
       def EType(ty: Type): Expr = typeBinding |> Graph.readVal
       
       def LitInteger(n: Int): Lit = Graph.Constant(n)
+      def MachInt(n: Int): Lit = Graph.CrossStageValue(n, UnboxedMarker)
       def LitString(s: String): Lit = Graph.Constant(s)
       
     }
@@ -91,7 +94,7 @@ class GraphOpt {
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> (v -> rv)
     }
     
-    Module(mod.moduleName,
+    PgrmModule(mod.moduleName,
       mod.moduleTopBindings.iterator
         .filter(_.bndr.binderName =/= "$trModule")
         .map(tb => tb.bndr.binderName -> {

@@ -410,9 +410,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   override def hopHole(name: String, typ: TypeRep, yes: List[List[Val]], no: List[Val]) = rep(new HOPHole(name, typ, yes, no))
   class HOPHole(name: String, typ: TypeRep, val yes: List[List[Val]], val no: List[Val]) extends HoleClass(name, typ)()
   
-  sealed trait ConstantLike { val value: Any }
+  sealed trait ConstantLike extends LeafDef { val value: Any }
   
-  case class Constant(value: Any) extends LeafDef with ConstantLike {
+  case class Constant(value: Any) extends ConstantLike {
     lazy val typ = value match {
       case () => TypeRep(ruh.Unit)
       //case null => TypeRep(ruh.Null) // Not necessary; Scala creates a constant type Null(null) -- note: that type is a strict subtype of Null...
@@ -425,7 +425,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   }
   
   // Note: would have probably been simpler to just give Constant a smart constructor/destructor and discriminate based on type...
-  case class CrossStageValue protected(value: Any, typ: TypeRep) extends LeafDef with ConstantLike
+  case class CrossStageValue protected(value: Any, typ: TypeRep) extends ConstantLike
   
   case class Abs(param: BoundVal, body: Rep)(val typ: TypeRep) extends Def {
     def ptyp = param.typ
