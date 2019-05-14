@@ -9,7 +9,7 @@ import squid.haskellopt.ghcdump.Interpreter
 import scala.collection.mutable
 
 class GraphOpt {
-  object Graph extends Graph with RecGraphScheduling {
+  object Graph extends Graph with HaskellGraphScheduling {
     val DummyTyp = Any
     override def staticModuleType(name: String): TypeRep = DummyTyp
   }

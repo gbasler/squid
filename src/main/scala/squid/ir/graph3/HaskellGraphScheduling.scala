@@ -29,7 +29,7 @@ private class HaskellADT {
 }
 
 /** New scheduling algorithm that supports recursive definitions and Haskell output. */
-trait RecGraphScheduling extends AST { graph: Graph =>
+trait HaskellGraphScheduling extends AST { graph: Graph =>
   
   //import mutable.{Map => M}
   import mutable.{ListMap => M}

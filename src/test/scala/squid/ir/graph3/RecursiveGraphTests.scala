@@ -7,7 +7,7 @@ import squid.lib.matching._
 import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
-object RecursiveGraphTests extends Graph with RecGraphScheduling
+object RecursiveGraphTests extends Graph with HaskellGraphScheduling
 
 class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewritingTester[RecursiveGraphTests.type] {
   import DSL.Predef._
