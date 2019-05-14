@@ -1,5 +1,6 @@
 package squid.haskellopt
 
+import squid.utils._
 import org.scalatest.FunSuite
 
 class Lists extends FunSuite {
@@ -12,6 +13,14 @@ class Lists extends FunSuite {
     val go = new GraphOpt
     val mod = go.loadFromDump(rp)
     println(s"=== PHASE ${mod.modPhase} ===")
+    
+    var ite = 0
+    do {
+      println(s"--- Graph ${ite} ---")
+      println(mod.show)
+      ite += 1
+    } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
+    
     val sch = go.Graph.scheduleRec(mod)
     println("--- Scheduled ---")
     println(sch)

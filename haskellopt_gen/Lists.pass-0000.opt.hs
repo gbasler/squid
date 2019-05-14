@@ -15,22 +15,24 @@ import GHC.Show
 import GHC.Types
 import System.IO
 
-a_a_12  = (((:) 1) (((:) 2) a_a_12))
+_24(# _1e, _1f #) = (((GHC.Num.+) _1f) _1e)
 
-a_a_17  = (\x_a_20 -> (((:) (GHC.Num.fromInteger 1)) (b_a_18 (((GHC.Num.+) x_a_20) (GHC.Num.fromInteger 1)))))
+_73 = (((:) (GHC.Num.fromInteger 2)) _89)
 
-b_a_18  = (\y_a_19 -> (((:) (GHC.Num.fromInteger 2)) (a_a_17 (((GHC.Num.*) y_a_19) (GHC.Num.fromInteger 2)))))
+_89 = (((:) (GHC.Num.fromInteger 1)) _73)
 
-ds_d_14  = (((,) a_a_17) b_a_18)
+a_a_12 = (((:) 1) (((:) 2) a_a_12))
 
-lol  = (\x_a_8 -> (\y_a_9 -> (((GHC.Num.+) x_a_8) y_a_9)))
+ds_d_14 = (((,) (\x_a_20 -> _89)) (\y_a_19 -> _73))
 
-ls0  = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
+lol = (\x_a_8 -> (\y_a_9 -> _24))
 
-ls1  = ((GHC.Base.map (\ds_d_11 -> (((GHC.Num.+) ds_d_11) ((lol 11) 22)))) ls0)
+ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-main  = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
+ls1 = ((GHC.Base.map (\ds_d_11 -> (((GHC.Num.+) ds_d_11) (_24(# 22, 11 #))))) ls0)
 
-mutrec0  = ((GHC.List.take (GHC.Types.I# 20#)) a_a_12)
+main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 
-mutrec1  = ((GHC.List.take (GHC.Types.I# 30#)) ((case ds_d_14 of {(,) arg0 arg1 -> arg0}) 0))
+mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a_a_12)
+
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case ds_d_14 of {(,) arg0 arg1 -> arg0}) 0))

@@ -29,13 +29,13 @@ class GraphOpt {
       type Lit = Graph.ConstantLike
       type Alt = (AltCon, () => Expr, Graph.Rep => Map[BinderId, Graph.Rep])
       
-      val bindings = mutable.Map.empty[BinderId, (Graph.Val, Graph.Rep)]
+      val bindings = mutable.Map.empty[BinderId, Either[Graph.Val, Graph.Rep]] // Left for lambda-bound; Right for let-bound
       val ignoredBindings = mutable.Set.empty[Graph.Val]
       
       val typeBinding = Graph.bindVal("ty", dt, Nil)
       ignoredBindings += typeBinding
       
-      def EVar(b: BinderId): Expr = bindings(b)._2
+      def EVar(b: BinderId): Expr = bindings(b).fold(_ |> Graph.readVal, id)
       def EVarGlobal(ExternalName: ExternalName): Expr =
         if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalName) else
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
@@ -62,7 +62,7 @@ class GraphOpt {
       def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
       def ELam(bndr: Binder, e0: => Expr): Expr = {
         val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name+"_"+bindings.size, dt, Nil)
-        bindings += bndr.binderId -> (v -> Graph.Rep.withVal(v,v))
+        bindings += bndr.binderId -> Left(v)
         if (bndr.binderName.startsWith("$")) { ignoredBindings += v; e0 } // ignore type and type class lambdas
         else Graph.abs(v, e0)
       }
@@ -71,7 +71,7 @@ class GraphOpt {
           case ((bndr, rhs), body) =>
             val v = Graph.bindVal(bndr.binderName+"_"+bndr.binderId.name+"_"+bindings.size, dt, Nil)
             val rv = Graph.Rep.withVal(v,v)
-            bindings += bndr.binderId -> (v -> rv)
+            bindings += bndr.binderId -> Right(rv)
             () => {
               val bod = rhs()
               rv.hardRewireTo_!(bod)
@@ -82,10 +82,10 @@ class GraphOpt {
       def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr =
         // TODO handle special case where the only alt is AltDefault?
       {
-        bindings += bndr.binderId -> (e0.bound -> e0)
+        bindings += bndr.binderId -> Right(e0)
         val altValues = alts.map { case (c,r,f) =>
           val rs = f(e0)
-          bindings ++= rs.map(r => r._1 -> (r._2.bound -> r._2))
+          bindings ++= rs.map(r => r._1 -> Right(r._2))
           (c, rs.size, r)
         }
         Graph.mkCase(e0, altValues.map{case(con,arity,rhs) =>
@@ -117,14 +117,14 @@ class GraphOpt {
       val v = Graph.bindVal(tb.bndr.binderName, dt, Nil)
       val rv = Graph.Rep.withVal(v,v)
       moduleBindings += tb.bndr.binderName -> rv
-      GraphDumpInterpreter.bindings += tb.bndr.binderId -> (v -> rv)
+      GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
     }
     
     PgrmModule(mod.moduleName, mod.modulePhase,
       mod.moduleTopBindings.iterator
         .filter(_.bndr.binderName =/= "$trModule")
         .map(tb => tb.bndr.binderName -> {
-          val (_,rv) = GraphDumpInterpreter.bindings(tb.bndr.binderId)
+          val Right(rv) = GraphDumpInterpreter.bindings(tb.bndr.binderId)
           rv.hardRewireTo_!(tb.expr)
           rv
         }).toMap

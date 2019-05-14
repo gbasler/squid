@@ -127,8 +127,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               }.getOrElse("?")
             sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
-              case ConcreteNode(ByName(body)) if !dbg => apply(body)
-              case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) if !dbg =>
+              case ConcreteNode(ByName(body)) /*if !dbg*/ => apply(body)
+              //case ConcreteNode(Apply(lhs,rhs)) /*if !dbg*/ => s"${apply(lhs)} ${apply(rhs)}"
+              case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) /*if !dbg*/ =>
                 s"{${apply(lhs)} -> ${apply(rhs)}}"
               case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx))))::Nil,_)) if !dbg =>
                 s"${apply(scrut)}!$con#$idx"
@@ -146,10 +147,11 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
         } apply rep.node
       }
+      def printVal(v: Val) = v.name.replace('$', '_')
       def printHaskellDef: String = printHaskellDefWith(Map.empty)
       def printHaskellDefWith(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
         def printDef(d: Def)(implicit enclosingCases: Map[(Rep,String), List[Val]]) = d match {
-            case v: Val => s"$v"
+            case v: Val => printVal(v)
             case Constant(n: Int) => s"$n"
             case Constant(s: String) => s
             case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
@@ -168,7 +170,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         def printSubRep(r: Rep)(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
           val sr = scheduledReps(r)
           def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
-              case (Left(_),v) => v.toString
+              case (Left(_),v) => printVal(v)
               case (Right(r),v) => pre + printSubRep(r.rep)
             }.getOrElse("?")
           r.node match {
@@ -180,7 +182,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
                   // TODO if no corresponding enclosing case, do a patmat right here
-                  enclosingCases(scrut->con)(idx).toString
+                  enclosingCases(scrut->con)(idx) |> printVal
               }
             case b: Branch =>
               assert(sr.branches.size === 1)
@@ -189,19 +191,20 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               assert(sr.usages === 1)
               sr.printHaskellDefWith
             case _ =>
-              val args = branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
-              val argList = if (args.isEmpty) "" else s" (# ${args.mkString(", ")} #)"
-              s"${sr.rep.bound}$argList"
+              val args = branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled).toList
+              if (args.isEmpty) printVal(sr.rep.bound) else
+                s"(${sr.rep.bound |> printVal}(# ${args.map(_.rep).map(printSubRep).mkString(", ")} #))"
           }
         }
         rep.node match {
           case ConcreteNode(d) => printDef(d)
-          case _ => die
+          case Box(_, body) => printSubRep(body)
+          case _: Branch => die
         }
       }
       def printHaskell = {
-        val paramList = if (params.isEmpty) "" else s"(# ${params.map{ p => s"$p" }.mkString(", ")} #)"
-        s"${rep.bound} $paramList = $printHaskellDef"
+        val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
+        s"${rep.bound |> printVal}$paramList = $printHaskellDef"
       }
       
       def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
@@ -270,12 +273,14 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
     }
     // Note: the root will probably always have 0 usage
+    /*
     reps.foreach { sr =>
       if (sr.shouldBeScheduled) {
         println(s"[${sr.usages}] $sr")
         //println(sr.args.map(_.rep.bound).toList)
       }
     }
+    */
     
     val isTopLevel = mod.letReps.toSet
     
