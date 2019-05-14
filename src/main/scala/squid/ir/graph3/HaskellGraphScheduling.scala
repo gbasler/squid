@@ -30,6 +30,21 @@ private class HaskellADT {
 
 /** New scheduling algorithm that supports recursive definitions and Haskell output. */
 trait HaskellGraphScheduling extends AST { graph: Graph =>
+  /* Notes.
+  
+  Problems with exporting Haskell from GHC-Core:
+   - After rewrite rules, we get code that refers to functions not exported from modules,
+     such as `GHC.Base.mapFB`, `GHC.List.takeFB`
+   - After some point (phase Specialise), we start getting fictive symbols,
+     such as `GHC.Show.$w$cshowsPrec4`
+   - The _simplifier_ itself creates direct references to type class instance methods, such as
+     `GHC.Show.$fShowInteger_$cshowsPrec`, and I didn't find a way to disable that behavior... 
+  So the Haskell export really only works kind-of-consistently right after the desugar phase OR after some
+  simplification with optimization turned off, but no further...
+  Yet, the -O flag is useful, as it makes list literals be represented as build.
+  So it's probably best to selectively disable optimizations, such as the application of rewrite rules (a shame, really).
+  
+  */
   
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
@@ -61,7 +76,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   }
   
   
-  case class PgrmModule(modName: String, lets: Map[String, Rep]) {
+  case class PgrmModule(modName: String, modPhase: String, lets: Map[String, Rep]) {
     val letReps = lets.valuesIterator.toList
     lazy val toplvlRep = if (letReps.size < 2) letReps.head else {
       val mv = bindVal(modName, Any, Nil)
@@ -131,9 +146,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
         } apply rep.node
       }
-      def printHaskellDef: String = {
-        var enclosingCases = Map.empty[(Rep,String), List[Val]]
-        def printDef(d: Def) = d match {
+      def printHaskellDef: String = printHaskellDefWith(Map.empty)
+      def printHaskellDefWith(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
+        def printDef(d: Def)(implicit enclosingCases: Map[(Rep,String), List[Val]]) = d match {
             case v: Val => s"$v"
             case Constant(n: Int) => s"$n"
             case Constant(s: String) => s
@@ -147,13 +162,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                val oldEC = enclosingCases
-                enclosingCases = enclosingCases + ((scrut,con) -> boundVals)
-                try s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)}"
-                finally enclosingCases = oldEC
+                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals))}"
             }
         }
-        def printSubRep(r: Rep): String = {
+        def printSubRep(r: Rep)(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
           val sr = scheduledReps(r)
           def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
               case (Left(_),v) => v.toString
@@ -167,6 +179,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
+                  // TODO if no corresponding enclosing case, do a patmat right here
                   enclosingCases(scrut->con)(idx).toString
               }
             case b: Branch =>
@@ -174,7 +187,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               printArg((Id,b),"")
             case _ if sr.usages <= 1 =>
               assert(sr.usages === 1)
-              sr.printHaskellDef
+              sr.printHaskellDefWith
             case _ =>
               val args = branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
               val argList = if (args.isEmpty) "" else s" (# ${args.mkString(", ")} #)"
@@ -208,8 +221,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     override def toString: String
   }
   
-  def scheduleRec(rep: Rep): ScheduledModule =
-    scheduleRec(PgrmModule("<module>", Map("main" -> rep)))
+  def scheduleRec(rep: Rep): ScheduledModule = scheduleRec(PgrmModule("<module>", "?", Map("main" -> rep)))
   def scheduleRec(mod: PgrmModule): ScheduledModule = {
     val sch = new RecScheduler(SimpleASTBackend)
     val root = sch.ScheduledRep(mod.toplvlRep)
@@ -274,6 +286,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
     new ScheduledModule {
       override def toHaskell(imports: List[String]) = s"""
+        |-- Generated Haskell code from Graph optimizer
+        |-- Optimized after GHC phase:
+        |${mod.modPhase.split("\n").map("--   "+_).mkString("\n")}
+        |
         |{-# LANGUAGE UnboxedTuples #-}
         |{-# LANGUAGE MagicHash #-}
         |

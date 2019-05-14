@@ -120,7 +120,7 @@ class GraphOpt {
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> (v -> rv)
     }
     
-    PgrmModule(mod.moduleName,
+    PgrmModule(mod.moduleName, mod.modulePhase,
       mod.moduleTopBindings.iterator
         .filter(_.bndr.binderName =/= "$trModule")
         .map(tb => tb.bndr.binderName -> {

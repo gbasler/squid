@@ -11,7 +11,7 @@ object CallGHC {
   
   val hsExt = "hs"
   
-  def apply(filePath: FilePath, outputPath: Path): Unit = {
+  def apply(filePath: FilePath, outputPath: Path, opt: Bool = false): Unit = {
     assert(filePath.ext === hsExt, filePath.ext)
     
     def getPasses(dir: Path) =
@@ -20,14 +20,19 @@ object CallGHC {
     mkdir! outputPath
     getPasses(outputPath) |! rm
     
-    val cmd: Seq[Shellable] = List(
+    val cmd = List[Shellable](
       'ghc,
       //"-fno-code", // seems to prevent the dumping of GHC core
       "-fforce-recomp",
       "-outputdir", outputPath.toString,
       "-fplugin", "GhcDump.Plugin",
-      //"-O",
-      //"-ddump-ds",
+      "-c", // Stop after generating object (.o) file
+      
+      "-ddump-to-file",
+      "-ddump-ds",
+      "-ddump-simpl",
+      "-ddump-simpl-iterations",
+      "-ddump-rule-rewrites",
       
       // 'dumpdir' doesn't seem to work... so I'm moving the files manually below
       //s"-dumpdir=$outputPath",
@@ -35,6 +40,12 @@ object CallGHC {
       //s"-dumpdir=dump",
       
       filePath.toString,
+    ) ++ (
+      if (opt) List[Shellable](
+        "-O",
+        //"-fno-enable-rewrite-rules", // creates references to non-exported functions such as `GHC.Base.mapFB`; ALSO seems to disable encoding of list literals with build
+        "-fno-specialise", // creates fictive functions with illegal names, such as `GHC.Show.$w$cshowsPrec4`
+      ) else Nil
     )
     println(s"Executing:\n\t${cmd.head.s.head} ${cmd.tail.map('"'+ _.s.mkString(" ") +'"').mkString(" ")}")
     %.applyDynamic("apply")(cmd: _*)

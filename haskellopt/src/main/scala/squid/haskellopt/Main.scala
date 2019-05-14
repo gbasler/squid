@@ -27,6 +27,7 @@ object MainAll extends App {
   CallGHC(
     pwd/'haskellopt/'src/'test/'haskell/"Lists.hs",
     pwd/'haskellopt/'target/'dump,
+    //opt = true,
   )
   
   Main.main(args)

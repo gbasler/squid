@@ -92,13 +92,14 @@ abstract class Interpreter {
       case Arr(b, e) => (Binder(b), () => Expr(e))
     }, Expr(e))
     case Arr(IntElem(7), e, b, alts: ArrayElem) => ECase(Expr(e), Binder(b), alts.elements.map {
-      case Arr(IntElem(0), altCon, altBinders: ArrayElem.Unsized, altRHS) =>
+      case Arr(IntElem(0), altCon, Arr(altBinders @ _*), altRHS) =>
         Alt(altCon match {
           case Arr(IntElem(0), StringElem(n)) => AltDataCon(n)
           case Arr(IntElem(1), l) => AltLit(Lit(l))
           case Arr(IntElem(2)) => AltDefault
-        }, altBinders.elements.map(Binder), Expr(altRHS))
+        }, altBinders.map(Binder), Expr(altRHS))
       case Arr(xs@_*) =>
+        println(elt.getClass)
         println(xs.size)
         println(xs(0))
         println(xs)

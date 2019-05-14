@@ -11,7 +11,13 @@ class Lists extends FunSuite {
     if (exists(writePath)) rm(writePath)
     val go = new GraphOpt
     val mod = go.loadFromDump(rp)
-    val modStr = go.Graph.scheduleRec(mod).toHaskell(go.imports.toList.sorted)
+    println(s"=== PHASE ${mod.modPhase} ===")
+    val sch = go.Graph.scheduleRec(mod)
+    println("--- Scheduled ---")
+    println(sch)
+    println("--- Generated ---")
+    val modStr = sch.toHaskell(go.imports.toList.sorted)
+    println(modStr)
     write(writePath, modStr, createFolders = true)
   }
   
@@ -19,6 +25,7 @@ class Lists extends FunSuite {
     
     pipeline("haskellopt/target/dump/Lists.pass-0000.cbor")
     pipeline("haskellopt/target/dump/Lists.pass-0001.cbor")
+    //for (i <- 2 to 9) pipeline(s"haskellopt/target/dump/Lists.pass-000$i.cbor")
     
   }
   

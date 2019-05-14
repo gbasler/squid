@@ -1,3 +1,12 @@
+-- Generated Haskell code from Graph optimizer
+-- Optimized after GHC phase:
+--   Simplifier: Max iterations = 4
+--               SimplMode {Phase = 0 [Non-opt simplification],
+--                          inline,
+--                          no rules,
+--                          eta-expand,
+--                          case-of-case}
+
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 

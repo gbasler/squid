@@ -1,3 +1,7 @@
+-- Generated Haskell code from Graph optimizer
+-- Optimized after GHC phase:
+--   desugar
+
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
