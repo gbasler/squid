@@ -22,17 +22,44 @@ import squid.ir.graph.SimpleASTBackend
 
 private final class UnboxedMarker // for Haskell gen purposes
 
+/** Dummy class for encoding Haskell pat-mat in the graph. */
+private class HaskellADT {
+  def `case`(cases: (String -> Any)*): Any = ???
+  def get(ctorName: String, fieldIdx: Int): Any = ???
+}
+
+/** New scheduling algorithm that supports recursive definitions and Haskell output. */
 trait RecGraphScheduling extends AST { graph: Graph =>
-  
-  import squid.quasi.MetaBases
-  import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
-  import ruh.sru
   
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
   
   val Any = Predef.implicitType[Any].rep
   val UnboxedMarker = Predef.implicitType[UnboxedMarker].rep
+  
+  val HaskellADT = loadTypSymbol("squid.ir.graph3.HaskellADT")
+  val CaseMtd = loadMtdSymbol(HaskellADT, "case")
+  val GetMtd = loadMtdSymbol(HaskellADT, "get")
+  
+  var ctorArities = mutable.Map.empty[String, Int]
+  def mkCase(scrut: Rep, alts: Seq[(String, Int, () => Rep)]): Rep = {
+    methodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(),Args(alts.map{case(con,arity,rhs) =>
+      ctorArities.get(con) match {
+        case Some(a2) => assert(a2 === arity)
+        case None => ctorArities += con -> arity
+      }
+      Tuple2(con |> staticModule, rhs())
+    }:_*))::Nil, Any)
+  }
+  
+  object Tuple2 {
+    //val TypSymbol = loadTypSymbol("scala.Tuple2")
+    val ModTypSymbol = loadTypSymbol("scala.Tuple2$")
+    val Mod = staticModule("scala.Tuple2")
+    val ApplySymbol = loadMtdSymbol(ModTypSymbol, "apply")
+    def apply(x0: Rep, x1: Rep): Rep = methodApp(Mod, ApplySymbol, Nil, Args(x0,x1)::Nil, Any)
+  }
+  
   
   case class PgrmModule(modName: String, lets: Map[String, Rep]) {
     val letReps = lets.valuesIterator.toList
@@ -86,6 +113,10 @@ trait RecGraphScheduling extends AST { graph: Graph =>
             sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
               case ConcreteNode(ByName(body)) if !dbg => apply(body)
+              case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) if !dbg =>
+                s"{${apply(lhs)} -> ${apply(rhs)}}"
+              case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx))))::Nil,_)) if !dbg =>
+                s"${apply(scrut)}!$con#$idx"
               case b: Branch =>
                 assert(sr.branches.size === 1)
                 printArg((Id,b),"")
@@ -101,6 +132,7 @@ trait RecGraphScheduling extends AST { graph: Graph =>
         } apply rep.node
       }
       def printHaskellDef: String = {
+        var enclosingCases = Map.empty[(Rep,String), List[Val]]
         def printDef(d: Def) = d match {
             case v: Val => s"$v"
             case Constant(n: Int) => s"$n"
@@ -110,6 +142,17 @@ trait RecGraphScheduling extends AST { graph: Graph =>
             case Apply(a,b) => s"(${printSubRep(a)} ${printSubRep(b)})"
             case Abs(p,b) => s"(\\$p -> ${printSubRep(b)})"
           }
+        def printAlt(scrut: Rep, r: Rep): String = r.node |>! {
+          case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
+            lhs.node |>! {
+              case ConcreteNode(StaticModule(con)) =>
+                val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
+                val oldEC = enclosingCases
+                enclosingCases = enclosingCases + ((scrut,con) -> boundVals)
+                try s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)}"
+                finally enclosingCases = oldEC
+            }
+        }
         def printSubRep(r: Rep): String = {
           val sr = scheduledReps(r)
           def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
@@ -119,6 +162,13 @@ trait RecGraphScheduling extends AST { graph: Graph =>
           r.node match {
             case ConcreteNode(d) if d.isSimple => printDef(d)
             case ConcreteNode(ByName(body)) => printSubRep(body) // Q: should we really keep this one?
+            case ConcreteNode(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
+              s"(case ${printSubRep(scrut)} of {${alts.map(printAlt(scrut,_)).mkString("; ")}})"
+            case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
+              (con,idx) |>! {
+                case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
+                  enclosingCases(scrut->con)(idx).toString
+              }
             case b: Branch =>
               assert(sr.branches.size === 1)
               printArg((Id,b),"")

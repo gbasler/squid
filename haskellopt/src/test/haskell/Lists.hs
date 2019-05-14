@@ -9,13 +9,12 @@ lol x y = x + y
 mutrec0 = let
     a = 1 : b
     b = 2 : a
-  in take 2 a
+  in take 20 a
 
---TODO
---mutrec1 = let
---    a x = 1 : b (x + 1)
---    b y = 2 : a (y * 2)
---  in take 2 (a 0)
+mutrec1 = let
+    a x = 1 : b (x + 1)
+    b y = 2 : a (y * 2)
+  in take 30 (a 0)
 
 --TODO
 --toprec0 x = x : toprec1 (x + 1)

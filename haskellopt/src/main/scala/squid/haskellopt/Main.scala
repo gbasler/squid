@@ -38,8 +38,11 @@ object MainOpt extends App {
   val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")
   println(pgrm.show)
-  println("Generated:")
-  println(go.Graph.scheduleRec(pgrm).toHaskell(go.imports.toList))
+  val sch = go.Graph.scheduleRec(pgrm)
+  println("--- Scheduled ---")
+  println(sch)
+  println("--- Generated ---")
+  println(sch.toHaskell(go.imports.toList))
   
   //val ls1 = pgrm.lets("ls1")
   //println(ls1.showGraph)

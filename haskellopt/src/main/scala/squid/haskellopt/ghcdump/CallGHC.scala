@@ -27,6 +27,7 @@ object CallGHC {
       "-outputdir", outputPath.toString,
       "-fplugin", "GhcDump.Plugin",
       //"-O",
+      //"-ddump-ds",
       
       // 'dumpdir' doesn't seem to work... so I'm moving the files manually below
       //s"-dumpdir=$outputPath",

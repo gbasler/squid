@@ -18,6 +18,7 @@ class Lists extends FunSuite {
   test("Lists 0") {
     
     pipeline("haskellopt/target/dump/Lists.pass-0000.cbor")
+    pipeline("haskellopt/target/dump/Lists.pass-0001.cbor")
     
   }
   

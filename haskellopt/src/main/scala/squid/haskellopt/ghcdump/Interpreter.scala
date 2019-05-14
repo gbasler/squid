@@ -10,9 +10,9 @@ abstract class Interpreter {
   
   type Expr
   type Lit
+  type Alt
   
   // TODO:
-  type Alt = Element
   type Type = Element
   
   case class ExternalName(externalModuleName: String, externalName: String, externalUnique: Element)
@@ -51,10 +51,17 @@ abstract class Interpreter {
   def EApp(e0: Expr, e1: Expr): Expr
   def ETyLam(bndr: Binder, e0: Expr): Expr
   def ELam(bndr: Binder, e0: => Expr): Expr
-  def ELet(lets: Array[(Binder, () => Expr)], e0: => Expr): Expr
-  def ECase(e0: Expr, bndr: Binder, alts: Array[Alt]): Expr
+  def ELet(lets: Seq[(Binder, () => Expr)], e0: => Expr): Expr
+  def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr
   def EType(ty: Type): Expr
   def ECoercion(): Expr = ???
+  
+  def Alt(altCon: AltCon, altBinders: Seq[Binder], altRHS: => Expr): Alt
+  
+  sealed abstract class AltCon
+  case class AltDataCon(name: String) extends AltCon 
+  case class AltLit(lit: Lit) extends AltCon
+  case object AltDefault extends AltCon
   
   def LitInteger(n: Int): Lit
   def MachInt(n: Int): Lit
@@ -83,8 +90,20 @@ abstract class Interpreter {
     case Arr(IntElem(5), b, e) => ELam(Binder(b), Expr(e))
     case Arr(IntElem(6), lets: ArrayElem, e) => ELet(lets.elements.map {
       case Arr(b, e) => (Binder(b), () => Expr(e))
-    }.toArray, Expr(e))
-    case Arr(IntElem(7), e, b, alts: ArrayElem) => ECase(Expr(e), Binder(b), alts.elements.toArray)
+    }, Expr(e))
+    case Arr(IntElem(7), e, b, alts: ArrayElem) => ECase(Expr(e), Binder(b), alts.elements.map {
+      case Arr(IntElem(0), altCon, altBinders: ArrayElem.Unsized, altRHS) =>
+        Alt(altCon match {
+          case Arr(IntElem(0), StringElem(n)) => AltDataCon(n)
+          case Arr(IntElem(1), l) => AltLit(Lit(l))
+          case Arr(IntElem(2)) => AltDefault
+        }, altBinders.elements.map(Binder), Expr(altRHS))
+      case Arr(xs@_*) =>
+        println(xs.size)
+        println(xs(0))
+        println(xs)
+        ???
+    })
     case Arr(IntElem(8), ty) => EType(ty)
     case Arr(xs@_*) => 
       println(xs.size)
@@ -110,14 +129,24 @@ abstract class Interpreter {
   }
   case class Module(moduleName: String, modulePhase: String, moduleTopBindings: List[TopBinding])
   
-  def topBinding(elt: Element): TopBinding = elt match {
-    case Arr(IntElem(0), b, _, e) => new TopBinding(Binder(b), Expr(e))
-    case Arr(IntElem(1), _ @ _*) => ??? // TODO rec top-level bindings
+  def topBindings(elt: Element): List[TopBinding] = elt match {
+    case Arr(IntElem(0), b, _, e) => new TopBinding(Binder(b), Expr(e)) :: Nil
+    case Arr(b, _, e) => new TopBinding(Binder(b), Expr(e)) :: Nil
+    case Arr(x) => topBindings(x)
+    case Arr(IntElem(1), xs @ _*) => // rec top-level bindings
+      xs.toList.flatMap(topBindings)
+    case ArrayElem.Unsized(xs) =>
+      xs.toList.flatMap(topBindings)
+    case Arr(xs@_*) =>
+      println(elt.getClass)
+      println(xs.size)
+      println(xs.head)
+      ???
   }
   
   def apply(elt: Element): Module = elt match {
     case Arr(IntElem(0), StringElem(moduleName), StringElem(modulePhase), moduleTopBindings: ArrayElem) =>
-      Module(moduleName, modulePhase, moduleTopBindings.elements.iterator.map(topBinding).toList)
+      Module(moduleName, modulePhase, moduleTopBindings.elements.iterator.flatMap(topBindings).toList)
   }
   
 }
