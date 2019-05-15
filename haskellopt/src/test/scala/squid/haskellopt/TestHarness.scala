@@ -33,16 +33,17 @@ object TestHarness {
   }
   
   def apply(testName: String): Unit = {
+    import ghcdump._
+    
     val srcPath = pwd/'haskellopt/'src/'test/'haskell/(testName+".hs")
     val md5Path = dumpFolder/(testName+".md5")
     val md5 = read! md5Path optionIf (exists! md5Path)
     
-    val srcMd5 = %%('md5, srcPath)(pwd).out.string
+    val srcMd5 = %%(CallGHC.ensureExec('md5), srcPath)(pwd).out.string
     
     if (!md5.contains(srcMd5)) {
       println(s"Compiling $srcPath...")
       
-      import ghcdump._
       CallGHC(
         srcPath,
         dumpFolder,

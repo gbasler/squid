@@ -11,6 +11,12 @@ object CallGHC {
   
   val hsExt = "hs"
   
+  def ensureExec(execName: Symbol): Shellable = {
+    println("Looking for " + execName.name)
+    println("Found " + %%('which, execName).out.string.stripSuffix("\n"))
+    execName
+  }
+  
   def apply(filePath: FilePath, outputPath: Path, opt: Bool = false): Unit = {
     assert(filePath.ext === hsExt, filePath.ext)
     
@@ -21,7 +27,7 @@ object CallGHC {
     getPasses(outputPath) |! rm
     
     val cmd = List[Shellable](
-      'ghc,
+      ensureExec('ghc),
       //"-fno-code", // seems to prevent the dumping of GHC core
       "-fforce-recomp",
       "-outputdir", outputPath.toString,
