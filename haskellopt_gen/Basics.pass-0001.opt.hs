@@ -15,13 +15,13 @@ module Basics (ncG,x,ncFTest1,ncGTest0,ncFTest0,ncGTest1,ncGTest2,ncF) where
 import GHC.Num
 import GHC.Types
 
-ncF = (\x_X_16 -> (((GHC.Num.*) x_X_16) x_X_16))
+ncF = (\x_X -> (((GHC.Num.*) x_X) x_X))
 
-ncFTest0 = (((GHC.Num.+) (((GHC.Num.*) x_X_17) x_X_17)) (((GHC.Num.*) x_X_18) x_X_18))
+ncFTest0 = (((GHC.Num.+) (((GHC.Num.*) x_X'0) x_X'0)) (((GHC.Num.*) x_X'1) x_X'1))
 
 ncFTest1 = (((GHC.Num.*) x) x)
 
-ncG = (\x_a_14 -> (\y_a_15 -> (((GHC.Num.*) x_a_14) y_a_15)))
+ncG = (\x_a -> (\y_a -> (((GHC.Num.*) x_a) y_a)))
 
 ncGTest0 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) (GHC.Types.I# 4#))
 
@@ -29,10 +29,10 @@ ncGTest1 = (((GHC.Num.*) (GHC.Types.I# 4#)) (((GHC.Num.*) (GHC.Types.I# 2#)) (GH
 
 ncGTest2 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) (((GHC.Num.*) (GHC.Types.I# 4#)) (GHC.Types.I# 5#)))
 
-x = (((GHC.Num.*) x) x)
+x = (((GHC.Num.*) x'0) x'0)
 
-x = (GHC.Types.I# 33#)
+x'0 = (GHC.Types.I# 33#)
 
-x_X_17 = (GHC.Types.I# 11#)
+x_X'0 = (GHC.Types.I# 11#)
 
-x_X_18 = (GHC.Types.I# 22#)
+x_X'1 = (GHC.Types.I# 22#)

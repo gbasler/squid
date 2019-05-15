@@ -20,22 +20,22 @@ import GHC.Show
 import GHC.Types
 import System.IO
 
-_33(# _2d, _2e #) = (((GHC.Num.+) _2e) _2d)
+_2(# _0, _1 #) = (((GHC.Num.+) _1) _0)
 
-_92 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _92))
+_3 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _3))
 
 a = (((:) 1) b)
 
 b = (((:) 2) a)
 
-lol = (\x_a_23 -> (\y_a_24 -> (_33(# y_a_24, x_a_23 #))))
+lol = (\x_a -> (\y_a -> (_2(# y_a, x_a #))))
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-ls1 = ((GHC.Base.map (\ds_d_26 -> (((GHC.Num.+) ds_d_26) (_33(# 22, 11 #))))) ls0)
+ls1 = ((GHC.Base.map (\ds_d -> (((GHC.Num.+) ds_d) (_2(# 22, 11 #))))) ls0)
 
 main = (System.IO.print (Data.Foldable.sum ls1))
 
 mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
-mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _92)
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _3)

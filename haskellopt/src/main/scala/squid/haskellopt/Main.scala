@@ -11,7 +11,9 @@ object Main extends App {
   
   // Quick test:
   
-  val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor", Printer)
+  //val mod = Reader(pwd/'haskellopt/'target/'dump/"Basics.pass-0000.cbor", Printer)
+  val mod = Reader(pwd/'haskellopt/'target/'dump/"Basics.pass-0001.cbor", Printer)
+  //val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor", Printer)
   //val mod = Reader(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor", Printer)
   
   // Note: with -O, GHC converts lists (even list literals!) to build/foldr, at pass 1:
@@ -31,8 +33,8 @@ object MainAll extends App {
     //opt = true,
   )
   
-  //Main.main(args)
-  MainOpt.main(args)
+  Main.main(args)
+  //MainOpt.main(args)
 }
 
 object MainOpt extends App {

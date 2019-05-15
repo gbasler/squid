@@ -92,6 +92,16 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
     val scheduledReps = M.empty[Rep,ScheduledRep]
     
+    private val nameCounts = mutable.Map.empty[String, Int]
+    private val nameAliases = mutable.Map.empty[Val, String]
+    def printVal(v: Val) = nameAliases.getOrElseUpdate(v, {
+      val nme = v.name takeWhile (_ =/= '$')
+      val cnt = nameCounts.getOrElse(nme, 0)
+      nameCounts(nme) = cnt+1
+      if (nme.isEmpty) "_"+cnt else
+      if (cnt === 0) nme else nme+"'"+(cnt-1)
+    })
+    
     class ScheduledRep private(val rep: Rep) {
       var backEdges: mutable.Buffer[ScheduledRep] = mutable.Buffer.empty
       scheduledReps += rep -> this
@@ -164,7 +174,6 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
         } apply rep.node
       }
-      def printVal(v: Val) = v.name.replace('$', '_')
       def printHaskellDef: String = printHaskellDefWith(branches.toMap, Map.empty)
       type CaseCtx = Map[(Rep,String), List[Val]]
       def printHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
@@ -179,7 +188,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               //println(s"ABS ${brc}")
               val res = printSubRep(b)
               //println(s"RES ${res}")
-              s"(\\$p -> $res)"
+              s"(\\${p |> printVal} -> $res)"
           }
         def printAlt(scrut: Rep, r: Rep): String = r.node |>! {
           case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
@@ -251,6 +260,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   def scheduleRec(rep: Rep): ScheduledModule = scheduleRec(PgrmModule("<module>", "?", Map("main" -> rep)))
   def scheduleRec(mod: PgrmModule): ScheduledModule = {
     val sch = new RecScheduler(SimpleASTBackend)
+    mod.letReps.foreach(r => sch.printVal(r.bound))
+    // ^ reserves non-disambiguated names for all (non-ambiguous) top-level defs
     val root = sch.ScheduledRep(mod.toplvlRep)
     var workingSet = sch.scheduledReps.valuesIterator.filter(_.branches.nonEmpty).toList
     //println(workingSet)
