@@ -21,6 +21,7 @@ class Lists extends FunSuite {
       ite += 1
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
+    //println(mod.show)
     val sch = go.Graph.scheduleRec(mod)
     println("--- Scheduled ---")
     println(sch)

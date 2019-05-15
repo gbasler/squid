@@ -87,6 +87,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   }
   
   class RecScheduler(nb: squid.lang.Base) {
+    /** Left: propagated argument; Right: provided argument */
     type TrBranch = Either[(Control,Branch),ScheduledRep]
     
     val scheduledReps = M.empty[Rep,ScheduledRep]
@@ -97,6 +98,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       val children = rep.node.children.map(c => scheduledReps.getOrElseUpdate(c, new ScheduledRep(c))).toList
       children.foreach(_.backEdges += this)
       
+      /** `branches` maps each branch instance to what it's transformed to, along with the original branch val (for argument-naming purposes) */ 
       val branches: M[(Control,Branch),(TrBranch,Val)] = rep.node match {
         case br: Branch => M((Id,br) -> (Left(Id,br),rep.bound))
         case _ => M.empty
@@ -111,7 +113,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       
       def printDef(dbg: Bool): String = rep.node match {
-      case _: Branch => rep.bound.toString
+      case _: Branch => rep.bound.toString // really?
       case _ =>
         new DefPrettyPrinter(showInlineCF = false) {
           override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
@@ -135,7 +137,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 s"${apply(scrut)}!$con#$idx"
               case b: Branch =>
                 assert(sr.branches.size === 1)
-                printArg((Id,b),"")
+                printArg((Id,b),"") // FIXME??
               case _ if !dbg && (sr.usages <= 1) =>
                 assert(sr.usages === 1)
                 sr.printDef(dbg)
@@ -148,31 +150,37 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         } apply rep.node
       }
       def printVal(v: Val) = v.name.replace('$', '_')
-      def printHaskellDef: String = printHaskellDefWith(Map.empty)
-      def printHaskellDefWith(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
-        def printDef(d: Def)(implicit enclosingCases: Map[(Rep,String), List[Val]]) = d match {
+      def printHaskellDef: String = printHaskellDefWith(branches.toMap, Map.empty)
+      type CaseCtx = Map[(Rep,String), List[Val]]
+      type BranchCtx = Map[(Control,Branch),(TrBranch,Val)]
+      def printHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
+        def printDef(d: Def)(implicit brc: BranchCtx, enclosingCases: CaseCtx) = d match {
             case v: Val => printVal(v)
             case Constant(n: Int) => s"$n"
             case Constant(s: String) => s
             case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
             case StaticModule(name) => name
             case Apply(a,b) => s"(${printSubRep(a)} ${printSubRep(b)})"
-            case Abs(p,b) => s"(\\$p -> ${printSubRep(b)})"
+            case Abs(p,b) =>
+              //println(s"ABS ${brc}")
+              val res = printSubRep(b)
+              //println(s"RES ${res}")
+              s"(\\$p -> $res)"
           }
         def printAlt(scrut: Rep, r: Rep): String = r.node |>! {
           case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals))}"
+                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(brc, enclosingCases + ((scrut,con) -> boundVals))}"
             }
         }
-        def printSubRep(r: Rep)(implicit enclosingCases: Map[(Rep,String), List[Val]]): String = {
+        def printSubRep(r: Rep)(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
           val sr = scheduledReps(r)
-          def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
-              case (Left(_),v) => printVal(v)
-              case (Right(r),v) => pre + printSubRep(r.rep)
-            }.getOrElse("?")
+          def printArg(cb: (Control,Branch), pre: String)(implicit brc: BranchCtx): String = brc(cb) match {
+            case (Left(_),v) => printVal(v)
+            case (Right(r),v) => pre + printSubRep(r.rep)
+          }
           r.node match {
             case ConcreteNode(d) if d.isSimple => printDef(d)
             case ConcreteNode(ByName(body)) => printSubRep(body) // Q: should we really keep this one?
@@ -186,16 +194,21 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               }
             case b: Branch =>
               assert(sr.branches.size === 1)
-              printArg((Id,b),"")
+              printArg((Id,b),"") // FIXME??
             case _ if sr.usages <= 1 =>
               assert(sr.usages === 1)
-              sr.printHaskellDefWith
+              sr.printHaskellDefWith(sr.branches.map {
+                case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
+                case r => r
+              }(collection.breakOut), enclosingCases)
             case _ =>
-              val args = branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled).toList
+              val args = sr.branches.valuesIterator.collect{ case (Left(cb),v) => printArg(cb,"") }.toList
               if (args.isEmpty) printVal(sr.rep.bound) else
-                s"(${sr.rep.bound |> printVal}(# ${args.map(_.rep).map(printSubRep).mkString(", ")} #))"
+                s"(${sr.rep.bound |> printVal}(# ${args.mkString(", ")} #))"
           }
         }
+        //if (brc.nonEmpty)
+        //  println(s"? ${rep}\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}")
         rep.node match {
           case ConcreteNode(d) => printDef(d)
           case Box(_, body) => printSubRep(body)
@@ -308,7 +321,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       override def toString: String = {
         val defs = for (
           sr <- reps
-          if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
+          //if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
+          if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isTopLevel(sr.rep))
         ) yield s"def ${
             if (sr eq root) "main" else sr.rep.bound
           }(${sr.params.map{ p =>
