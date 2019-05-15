@@ -21,6 +21,10 @@ example/target/
 haskellopt/target/
 site/target/
 
+haskellopt/src/test/haskell/*.dump-*
+haskellopt_gen/*.hi
+haskellopt_gen/*.o
+
 lib_managed/
 src_managed/
 project/boot/
