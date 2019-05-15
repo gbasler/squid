@@ -112,7 +112,14 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         case _ => true
       }
       
-      def printDef(dbg: Bool): String = rep.node match {
+      type BranchCtx = Map[(Control,Branch),(TrBranch,Val)]
+      def xtendBranchCtx(traversed: ScheduledRep)(implicit brc: BranchCtx): BranchCtx = traversed.branches.map {
+        case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
+        case r => r
+      }(collection.breakOut)
+      
+      def printDef(dbg: Bool): String = printDefWith(dbg)(branches.toMap)
+      def printDefWith(dbg: Bool)(implicit brc: BranchCtx): String = rep.node match {
       case _: Branch => rep.bound.toString // really?
       case _ =>
         new DefPrettyPrinter(showInlineCF = false) {
@@ -123,7 +130,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
           override def apply(r: Rep): String = {
             val sr = scheduledReps(r)
-            def printArg(cb: (Control,Branch), pre: String): String = branches.get(cb).map{
+            def printArg(cb: (Control,Branch), pre: String): String = brc.get(cb).map{
                 case (Left(_),v) => v.toString
                 case (Right(r),v) => pre + apply(r.rep)
               }.getOrElse("?")
@@ -140,7 +147,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 printArg((Id,b),"") // FIXME??
               case _ if !dbg && (sr.usages <= 1) =>
                 assert(sr.usages === 1)
-                sr.printDef(dbg)
+                sr.printDefWith(dbg)(xtendBranchCtx(sr))
               case _ =>
                 s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
                   case (Left(cb),v) => printArg(cb,s"$v=")
@@ -152,9 +159,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       def printVal(v: Val) = v.name.replace('$', '_')
       def printHaskellDef: String = printHaskellDefWith(branches.toMap, Map.empty)
       type CaseCtx = Map[(Rep,String), List[Val]]
-      type BranchCtx = Map[(Control,Branch),(TrBranch,Val)]
       def printHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
-        def printDef(d: Def)(implicit brc: BranchCtx, enclosingCases: CaseCtx) = d match {
+        def printDef(d: Def)(implicit enclosingCases: CaseCtx) = d match {
             case v: Val => printVal(v)
             case Constant(n: Int) => s"$n"
             case Constant(s: String) => s
@@ -172,12 +178,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(brc, enclosingCases + ((scrut,con) -> boundVals))}"
+                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals))}"
             }
         }
-        def printSubRep(r: Rep)(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
+        def printSubRep(r: Rep)(implicit enclosingCases: CaseCtx): String = {
           val sr = scheduledReps(r)
-          def printArg(cb: (Control,Branch), pre: String)(implicit brc: BranchCtx): String = brc(cb) match {
+          def printArg(cb: (Control,Branch), pre: String): String = brc(cb) match {
             case (Left(_),v) => printVal(v)
             case (Right(r),v) => pre + printSubRep(r.rep)
           }
@@ -197,10 +203,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               printArg((Id,b),"") // FIXME??
             case _ if sr.usages <= 1 =>
               assert(sr.usages === 1)
-              sr.printHaskellDefWith(sr.branches.map {
-                case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
-                case r => r
-              }(collection.breakOut), enclosingCases)
+              sr.printHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
               val args = sr.branches.valuesIterator.collect{ case (Left(cb),v) => printArg(cb,"") }.toList
               if (args.isEmpty) printVal(sr.rep.bound) else
