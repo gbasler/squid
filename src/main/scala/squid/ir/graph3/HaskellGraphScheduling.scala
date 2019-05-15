@@ -78,9 +78,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   
   case class PgrmModule(modName: String, modPhase: String, lets: Map[String, Rep]) {
     val letReps = lets.valuesIterator.toList
-    lazy val toplvlRep = if (letReps.size < 2) letReps.head else {
+    lazy val toplvlRep = {
       val mv = bindVal(modName, Any, Nil)
-      Rep.withVal(mv, Imperative(letReps.init, letReps.last))
+      Rep.withVal(mv, Imperative(letReps.init, letReps.last, allowEmptyEffects = true))
     }
     def showGraph = toplvlRep.showGraph
     def show = "module " + showGraph
@@ -113,16 +113,22 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       
       type BranchCtx = Map[(Control,Branch),(TrBranch,Val)]
-      def xtendBranchCtx(traversed: ScheduledRep)(implicit brc: BranchCtx): BranchCtx = traversed.branches.map {
-        case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
-        case r => r
-      }(collection.breakOut)
+      def xtendBranchCtx(traversed: ScheduledRep)(implicit brc: BranchCtx): BranchCtx =
+        // We need to take over the old `brc` entries, as we may uncover branches nested under other branches
+        brc ++ traversed.branches.map {
+          case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
+          case r => r
+        }
       
       def printDef(dbg: Bool): String = printDefWith(dbg)(branches.toMap)
       def printDefWith(dbg: Bool)(implicit brc: BranchCtx): String = rep.node match {
       case _: Branch => rep.bound.toString // really?
       case _ =>
-        new DefPrettyPrinter(showInlineCF = false) {
+        //if (brc.nonEmpty) println(s"? ${rep}"+
+        //  s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
+        //  s"\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"
+        //)
+        new HaskellDefPrettyPrinter(showInlineCF = false) {
           override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
             case Box(_, body) => apply(body)
             case ConcreteNode(d) => apply(d)
@@ -133,11 +139,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             def printArg(cb: (Control,Branch), pre: String): String = brc.get(cb).map{
                 case (Left(_),v) => v.toString
                 case (Right(r),v) => pre + apply(r.rep)
-              }.getOrElse("?")
+              }.getOrElse {
+              if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
+              s"${Console.RED}???${Console.RESET}"
+            }
             sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
               case ConcreteNode(ByName(body)) /*if !dbg*/ => apply(body)
-              //case ConcreteNode(Apply(lhs,rhs)) /*if !dbg*/ => s"${apply(lhs)} ${apply(rhs)}"
               case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) /*if !dbg*/ =>
                 s"{${apply(lhs)} -> ${apply(rhs)}}"
               case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx))))::Nil,_)) if !dbg =>
@@ -339,6 +347,16 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
   }
   
+  
+  
+  override def prettyPrint(d: Def) = (new HaskellDefPrettyPrinter)(d)
+  class HaskellDefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends graph.DefPrettyPrinter(showInlineNames, showInlineCF) {
+    override def apply(d: Def): String = d match {
+      case Apply(lhs,rhs) => s"${apply(lhs)} ${apply(rhs)}" // FIXME?
+      case _ => super.apply(d)
+    }
+  }
+  override def printNode(n: Node) = (new HaskellDefPrettyPrinter)(n)
   
 }
 

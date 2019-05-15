@@ -86,8 +86,8 @@ trait ASTHelpers extends Base { self: AST =>
   // TODO implement helpers to ease method loading : method[Tp](name) or method[Tp](_.mtd(???...)), or using QQ: ir"($$_:Int)+($$_:Int)".method?
   object Imperative {
     val Symbol = loadMtdSymbol(loadTypSymbol("squid.lib.package$"), "Imperative", None)
-    def apply(effects: Seq[Rep], res: Rep) = {
-      require(effects nonEmpty)
+    def apply(effects: Seq[Rep], res: Rep, allowEmptyEffects: Bool = false) = {
+      require(allowEmptyEffects || effects.nonEmpty)
       MethodApp(staticModule("squid.lib.package"), Symbol, res.typ::Nil, ArgsVarargs(Args(),Args(effects: _*))::Args(res)::Nil, res.typ) // TODO factor below
     }
     def apply(effects: Rep*)(res: Rep) = if (effects isEmpty) res else

@@ -25,18 +25,21 @@ object Main extends App {
 
 object MainAll extends App {
   CallGHC(
-    pwd/'haskellopt/'src/'test/'haskell/"Lists.hs",
+    //pwd/'haskellopt/'src/'test/'haskell/"Lists.hs",
+    pwd/'haskellopt/'src/'test/'haskell/"Basics.hs",
     pwd/'haskellopt/'target/'dump,
     //opt = true,
   )
   
-  Main.main(args)
+  //Main.main(args)
+  MainOpt.main(args)
 }
 
 object MainOpt extends App {
   
   val go = new GraphOpt
-  val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
+  val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Basics.pass-0000.cbor")
+  //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")
   println(pgrm.show)
   val sch = go.Graph.scheduleRec(pgrm)

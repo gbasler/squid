@@ -3,7 +3,7 @@ package squid.haskellopt
 import squid.utils._
 import org.scalatest.FunSuite
 
-class Lists extends FunSuite {
+class OptTests extends FunSuite {
   
   def pipeline(filePath: String): Unit = {
     import ammonite.ops._
@@ -18,6 +18,7 @@ class Lists extends FunSuite {
     do {
       println(s"--- Graph ${ite} ---")
       println(mod.show)
+      println(go.Graph.scheduleRec(mod))
       ite += 1
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
@@ -31,11 +32,18 @@ class Lists extends FunSuite {
     write(writePath, modStr, createFolders = true)
   }
   
-  test("Lists 0") {
+  test("Lists") {
     
     pipeline("haskellopt/target/dump/Lists.pass-0000.cbor")
     pipeline("haskellopt/target/dump/Lists.pass-0001.cbor")
     //for (i <- 2 to 9) pipeline(s"haskellopt/target/dump/Lists.pass-000$i.cbor")
+    
+  }
+  
+  test("Basics") {
+    
+    pipeline("haskellopt/target/dump/Basics.pass-0000.cbor")
+    pipeline("haskellopt/target/dump/Basics.pass-0001.cbor")
     
   }
   
