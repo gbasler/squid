@@ -74,6 +74,11 @@ abstract class Interpreter {
   def Lit(e: Element): Lit = e match {
     case Arr(IntElem(1), ByteArrayElem(s)) => LitString(s.map(_.toChar).mkString)
     case Arr(IntElem(3), IntElem(n)) => MachInt(n)
+      
+    // These come up in the context of data types and type classes:
+    case Arr(IntElem(5), OverLongElem(_,n)) => ???
+    case Arr(IntElem(5), LongElem(n)) => ???
+      
     case Arr(IntElem(10), IntElem(n)) => LitInteger(n)
     case Arr(xs@_*) =>
       println(xs.size)
@@ -117,6 +122,9 @@ abstract class Interpreter {
         Binder(binderName, binderId)
       case Arr(IntElem(0), Arr(IntElem(1), StringElem(binderName), BinderId(binderId), binderKind)) => // type binders
         Binder(binderName, binderId) // TODO something else for type bindings...
+      case Arr(IntElem(0), Arr(IntElem(0), StringElem(binderName), BinderId(binderId), _ @ _*),_) =>
+        // comes up in the context of type classes
+        ???
       case Arr(xs@_*) =>
         println(xs.size)
         println(xs)
