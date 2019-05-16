@@ -21,4 +21,10 @@ class OptTests extends FunSuite {
     
   }
   
+  test("HigherOrder") {
+    
+    TestHarness("HigherOrder")
+    
+  }
+  
 }
