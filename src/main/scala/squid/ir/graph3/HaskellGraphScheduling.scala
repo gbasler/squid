@@ -46,6 +46,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   
   */
   
+  // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
+  //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
+  
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
   
@@ -113,10 +116,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       SchDef(schDefs.flatMap(_.freeVals)(collection.breakOut), m => mkStr(schDefs.map(_.body(m))))
     
     class SchedulableRep private(val rep: Rep) {
-      var backEdges: mutable.Buffer[SchedulableRep] = mutable.Buffer.empty
+      var backEdges: mutable.Buffer[Control -> SchedulableRep] = mutable.Buffer.empty
       scheduledReps += rep -> this
       val children = rep.node.children.map(c => scheduledReps.getOrElseUpdate(c, new SchedulableRep(c))).toList
-      children.foreach(_.backEdges += this)
+      children.foreach(_.backEdges += Id -> this)
       
       /** `branches` maps each branch instance to what it's transformed to,
         * along with the original branch val (for argument-naming purposes) */
@@ -157,13 +160,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
           override def apply(r: Rep): String = {
             val sr = scheduledReps(r)
-            def printArg(cb: (Control,Branch), pre: String): String = brc.get(cb).map{
+            def printArg(cb: (Control, Branch), pre: String): String = brc.get(cb).map {
                 case (Left(_),v) => v.toString
                 case (Right(r),v) => pre + apply(r.rep)
               }.getOrElse {
-              if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
-              s"${Console.RED}???${Console.RESET}"
-            }
+                if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
+                s"${Console.RED}???${Console.RESET}"
+              }
             sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
               case ConcreteNode(ByName(body)) /*if !dbg*/ => apply(body)
@@ -290,17 +293,26 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     val root = sch.SchedulableRep(mod.toplvlRep)
     var workingSet = sch.scheduledReps.valuesIterator.filter(_.branches.nonEmpty).toList
     //println(workingSet)
+    
+    def dbg(msg: => Unit): Unit = ()
+    //def dbg(msg: String): Unit = println("> "+msg)
+    
+    dbg(s">> Starting fixed point... <<")
     while (workingSet.nonEmpty) {
       val sr = workingSet.head
       workingSet = workingSet.tail
+      dbg(s"Working set: [${sr.rep.bound}], ${workingSet.map(_.rep.bound).mkString(", ")}")
       //println(sr, sr.branches)
-      sr.backEdges.foreach { sr2 =>
+      sr.backEdges.foreach { case (backCtrl, sr2) =>
+        dbg(s"  Back Edge: $backCtrl ${sr2.rep.bound}")
         sr.branches.valuesIterator.foreach {
-        case (Left(cb @ (c,b)), v) =>
-          if (!sr2.branches.contains(cb)) {
+        case (Left(cb0 @ (c0,b)), v) =>
+          val c = backCtrl `;` c0
+          if (!sr2.branches.contains(cb0)) {
             def addBranch(cb2: sch.TrBranch) = {
+              dbg(s"    Add Branch: $cb2")
               if (cb2.isLeft) workingSet ::= sr2
-              sr2.branches += cb -> (cb2, v)
+              sr2.branches += cb0 -> (cb2, v)
             }
             val nde = sr2.rep.node match {
               case ConcreteNode(abs: Abs) if ByName.unapply(abs).isEmpty => Box(Push(DummyCallId, Id, Id),abs.body)
@@ -313,12 +325,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 mayHaveCid(newCtrl `;` b.ctrl, b.cid)(Id) match {
                   case Some(c) =>
                     val r2 = sch.scheduledReps(if (c) b.lhs else b.rhs)
-                    r2.backEdges += sr2
+                    r2.backEdges += newCtrl -> sr2
                     workingSet ::= r2
                     addBranch(Right(r2))
                   case None => addBranch(Left(newCtrl,b))
                 }
-              case ConcreteNode(_) => addBranch(Left(cb))
+              case ConcreteNode(_) => addBranch(Left(cb0))
             }
             
           }
@@ -326,6 +338,18 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         }
       }
     }
+    dbg {
+      dbg(s">> Results <<")
+      for (sr <- sch.scheduledReps.valuesIterator; if sr.branches.nonEmpty) {
+        dbg(sr.rep.toString)
+        dbg(s"\t${sr.branches.map(kv => s"${kv._1}>>${kv._2._1 match {
+          case Left(cb) => cb
+          case Right(sr) => sr.rep.bound
+        }}[${kv._2._2}]").mkString}")
+      }
+      s">> Done! <<"
+    }
+    
     val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
     reps.foreach { sr =>
       if (sr.shouldBeScheduled) {
@@ -349,9 +373,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
     ) yield sr
     
-    val haskellDefs = scheduledReps.iterator.map(r => r -> r.haskellDef)
-    val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep))
-    val m = nestedReps.map(_._2).flatMap(_.toValDepReps).toList
+    lazy val haskellDefs = scheduledReps.iterator.map(r => r -> r.haskellDef)
+    lazy val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep) /*|| true*/)
+    lazy val m = nestedReps.map(_._2).flatMap(_.toValDepReps).toList
     
     new ScheduledModule {
       // FIXME what if some nestedReps were never scheduled? (could happen if they have impossible scopes!)

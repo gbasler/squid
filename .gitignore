@@ -24,6 +24,8 @@ site/target/
 haskellopt/src/test/haskell/*.dump-*
 haskellopt_gen/*.hi
 haskellopt_gen/*.o
+haskellopt/src/test/haskell/*.hi
+haskellopt/src/test/haskell/*.o
 
 lib_managed/
 src_managed/

@@ -22,7 +22,7 @@ ncFTest0 = (((GHC.Num.+) (_3(# (GHC.Types.I# 11#) #))) (_3(# (GHC.Types.I# 22#) 
 
 ncFTest1 = (_3(# (_3(# (GHC.Types.I# 33#) #)) #))
 
-ncG(# _5 #) = (\x_a'1 -> (\y_a -> (_0(# y_a, _5 #))))
+ncG = (\x_a'1 -> (\y_a -> (_0(# y_a, x_a'1 #))))
 
 ncGTest0 = (_0(# (GHC.Types.I# 4#), (_0(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
 
