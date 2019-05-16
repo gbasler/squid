@@ -88,13 +88,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   
   class RecScheduler(nb: squid.lang.Base) {
     /** Left: propagated argument; Right: provided argument */
-    type TrBranch = Either[(Control,Branch),ScheduledRep]
+    type TrBranch = Either[(Control,Branch),SchedulableRep]
     
-    val scheduledReps = M.empty[Rep,ScheduledRep]
+    val scheduledReps = M.empty[Rep,SchedulableRep]
     
     private val nameCounts = mutable.Map.empty[String, Int]
     private val nameAliases = mutable.Map.empty[Val, String]
-    def printVal(v: Val) = nameAliases.getOrElseUpdate(v, {
+    def printVal(v: Val): String = nameAliases.getOrElseUpdate(v, {
       val nme = v.name takeWhile (_ =/= '$')
       val cnt = nameCounts.getOrElse(nme, 0)
       nameCounts(nme) = cnt+1
@@ -102,13 +102,24 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if (cnt === 0) nme else nme+"'"+(cnt-1)
     })
     
-    class ScheduledRep private(val rep: Rep) {
-      var backEdges: mutable.Buffer[ScheduledRep] = mutable.Buffer.empty
+    type ValDepReps = List[Set[Val] -> SchDef]
+    // This could be made generic and given an Applicative instance
+    case class SchDef(freeVals: Set[Val], body: ValDepReps => String) {
+      def mapStr(strf: String => String): SchDef = SchDef(freeVals, str => strf(body(str)))
+      def toValDepReps: ValDepReps = freeVals -> this :: Nil
+    }
+    def mkSD(s: String): SchDef = SchDef(Set.empty, _ => s)
+    def sequenceSchDefs(schDefs: List[SchDef])(mkStr: List[String] => String): SchDef =
+      SchDef(schDefs.flatMap(_.freeVals)(collection.breakOut), m => mkStr(schDefs.map(_.body(m))))
+    
+    class SchedulableRep private(val rep: Rep) {
+      var backEdges: mutable.Buffer[SchedulableRep] = mutable.Buffer.empty
       scheduledReps += rep -> this
-      val children = rep.node.children.map(c => scheduledReps.getOrElseUpdate(c, new ScheduledRep(c))).toList
+      val children = rep.node.children.map(c => scheduledReps.getOrElseUpdate(c, new SchedulableRep(c))).toList
       children.foreach(_.backEdges += this)
       
-      /** `branches` maps each branch instance to what it's transformed to, along with the original branch val (for argument-naming purposes) */ 
+      /** `branches` maps each branch instance to what it's transformed to,
+        * along with the original branch val (for argument-naming purposes) */
       val branches: M[(Control,Branch),(TrBranch,Val)] = rep.node match {
         case br: Branch => M((Id,br) -> (Left(Id,br),rep.bound))
         case _ => M.empty
@@ -123,7 +134,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       
       type BranchCtx = Map[(Control,Branch),(TrBranch,Val)]
-      def xtendBranchCtx(traversed: ScheduledRep)(implicit brc: BranchCtx): BranchCtx =
+      def xtendBranchCtx(traversed: SchedulableRep)(implicit brc: BranchCtx): BranchCtx =
         // We need to take over the old `brc` entries, as we may uncover branches nested under other branches
         brc ++ traversed.branches.map {
           case bc -> ((Left(cb2),v)) => bc -> brc(cb2)
@@ -174,70 +185,84 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
         } apply rep.node
       }
-      def printHaskellDef: String = printHaskellDefWith(branches.toMap, Map.empty)
+      def mkHaskellDef: SchDef = mkHaskellDefWith(branches.toMap, Map.empty)
       type CaseCtx = Map[(Rep,String), List[Val]]
-      def printHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): String = {
-        def printDef(d: Def)(implicit enclosingCases: CaseCtx) = d match {
-            case v: Val => printVal(v)
-            case Constant(n: Int) => s"$n"
-            case Constant(s: String) => s
-            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
-            case StaticModule(name) => name
-            case Apply(a,b) => s"(${printSubRep(a)} ${printSubRep(b)})"
+      def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): SchDef = {
+        def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchDef = d match {
+            case v: Val => SchDef(Set(v), _ => printVal(v))
+            case Constant(n: Int) => s"$n" |> mkSD
+            case Constant(s: String) => s |> mkSD
+            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#" |> mkSD
+            case StaticModule(name) => name |> mkSD
+            case Apply(a,b) =>
+              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) = (mkSubRep(a), mkSubRep(b))
+              SchDef(fv0 ++ fv1, m => s"(${fs0(m)} ${fs1(m)})")
             case Abs(p,b) =>
-              //println(s"ABS ${brc}")
-              val res = printSubRep(b)
-              //println(s"RES ${res}")
-              s"(\\${p |> printVal} -> $res)"
+              val SchDef(fv,fs) = mkSubRep(b)
+              SchDef(fv - p, m => s"(\\${p |> printVal} -> ${
+                var whereDefs = List.empty[String]
+                val m2: ValDepReps = m.flatMap {
+                  case fvs -> sd =>
+                    val fvs2 = fvs - p
+                    if (fvs2.isEmpty) { whereDefs ::= sd.body(m); Nil } else fvs2 -> sd :: Nil
+                }
+                if (whereDefs.isEmpty) fs(m2) else
+                s"let { ${whereDefs.mkString("; ")} } in ${fs(m2)}"
+              })")
           }
-        def printAlt(scrut: Rep, r: Rep): String = r.node |>! {
+        def mkAlt(scrut: Rep, r: Rep): SchDef = r.node |>! {
           case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                s"$con${boundVals.map{" "+_}.mkString} -> ${printSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals))}"
+                mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals)).mapStr(str =>
+                  s"$con${boundVals.map{" "+_}.mkString} -> $str")
             }
         }
-        def printSubRep(r: Rep)(implicit enclosingCases: CaseCtx): String = {
+        def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchDef = {
           val sr = scheduledReps(r)
-          def printArg(cb: (Control,Branch), pre: String): String = brc(cb) match {
-            case (Left(_),v) => printVal(v)
-            case (Right(r),v) => pre + printSubRep(r.rep)
+          def mkArg(cb: (Control,Branch), pre: String): SchDef = brc(cb) match {
+            case (Left(_),v) => printVal(v) |> mkSD
+            case (Right(r),v) => mkSubRep(r.rep).mapStr(pre + _)
           }
           r.node match {
-            case ConcreteNode(d) if d.isSimple => printDef(d)
-            case ConcreteNode(ByName(body)) => printSubRep(body) // Q: should we really keep this one?
+            case ConcreteNode(d) if d.isSimple => mkDef(d)
+            case ConcreteNode(ByName(body)) => mkSubRep(body) // Q: should we really keep this one?
             case ConcreteNode(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
-              s"(case ${printSubRep(scrut)} of {${alts.map(printAlt(scrut,_)).mkString("; ")}})"
+              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) =
+                (mkSubRep(scrut), sequenceSchDefs(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
+              SchDef(fv0 ++ fv1, m => s"(case ${fs0(m)} of {${fs1(m)}})")
             case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
                   // TODO if no corresponding enclosing case, do a patmat right here
-                  enclosingCases(scrut->con)(idx) |> printVal
+                  enclosingCases(scrut->con)(idx) |> printVal |> mkSD
               }
             case b: Branch =>
               assert(sr.branches.size === 1)
-              printArg((Id,b),"") // FIXME??
+              mkArg((Id,b),"") // FIXME??
             case _ if sr.usages <= 1 =>
               assert(sr.usages === 1)
-              sr.printHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
+              sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
-              val args = sr.branches.valuesIterator.collect{ case (Left(cb),v) => printArg(cb,"") }.toList
-              if (args.isEmpty) printVal(sr.rep.bound) else
-                s"(${sr.rep.bound |> printVal}(# ${args.mkString(", ")} #))"
+              val name = sr.rep.bound |> printVal
+              val args = sr.branches.valuesIterator.collect{ case (Left(cb),v) => mkArg(cb,"") }.toList
+              if (args.isEmpty) name |> mkSD
+              else sequenceSchDefs(args)(_.mkString(", ")).mapStr(argsStr => s"($name(# $argsStr #))")
           }
         }
         //if (brc.nonEmpty)
         //  println(s"? ${rep}\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}")
         rep.node match {
-          case ConcreteNode(d) => printDef(d)
-          case Box(_, body) => printSubRep(body)
+          case ConcreteNode(d) => mkDef(d)
+          case Box(_, body) => mkSubRep(body)
           case _: Branch => die
         }
       }
-      def printHaskell = {
+      def haskellDef: SchDef = {
+        val name = rep.bound |> printVal
         val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
-        s"${rep.bound |> printVal}$paramList = $printHaskellDef"
+        mkHaskellDef.mapStr(str => s"$name$paramList = $str")
       }
       
       def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
@@ -247,8 +272,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       override def toString =
         s"${rep.bound}(${params.mkString(",")}) = ${printDef(true)}"
     }
-    object ScheduledRep {
-      def apply(rep: Rep): ScheduledRep = new ScheduledRep(rep)
+    object SchedulableRep {
+      def apply(rep: Rep): SchedulableRep = new SchedulableRep(rep)
     }
   }
   
@@ -262,7 +287,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     val sch = new RecScheduler(SimpleASTBackend)
     mod.letReps.foreach(r => sch.printVal(r.bound))
     // ^ reserves non-disambiguated names for all (non-ambiguous) top-level defs
-    val root = sch.ScheduledRep(mod.toplvlRep)
+    val root = sch.SchedulableRep(mod.toplvlRep)
     var workingSet = sch.scheduledReps.valuesIterator.filter(_.branches.nonEmpty).toList
     //println(workingSet)
     while (workingSet.nonEmpty) {
@@ -319,12 +344,17 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
     val isTopLevel = mod.letReps.toSet
     
-    val toplvls = for (
+    val scheduledReps = for (
       sr <- reps
       if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
     ) yield sr
     
+    val haskellDefs = scheduledReps.iterator.map(_.haskellDef)
+    val (topLevelReps, nestedReps) = haskellDefs.partition(_.freeVals.isEmpty)
+    val m = nestedReps.flatMap(_.toValDepReps).toList
+    
     new ScheduledModule {
+      // FIXME what if some nestedReps were never scheduled? (could happen if they have impossible scopes!)
       override def toHaskell(imports: List[String]) = s"""
         |-- Generated Haskell code from Graph optimizer
         |-- Optimized after GHC phase:
@@ -337,7 +367,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |
         |${imports.map("import "+_).mkString("\n")}
         |
-        |${toplvls.map(_.printHaskell).mkString("\n\n")}
+        |${topLevelReps.map(_.body(m)).mkString("\n\n")}
         |""".tail.stripMargin
       
       override def toString: String = {

@@ -15,7 +15,7 @@ import GHC.Show
 import GHC.Types
 import System.IO
 
-_2(# _0, _1 #) = (((GHC.Num.+) _1) _0)
+_0(# _1, _2 #) = (((GHC.Num.+) _2) _1)
 
 _3 = (((:) (GHC.Num.fromInteger 2)) _4)
 
@@ -25,11 +25,11 @@ a_a = (((:) 1) (((:) 2) a_a))
 
 ds_d = (((,) (\x_a -> _4)) (\y_a -> _3))
 
-lol = (\x_a'0 -> (\y_a'0 -> (_2(# y_a'0, x_a'0 #))))
+lol = (\x_a'0 -> (\y_a'0 -> (_0(# y_a'0, x_a'0 #))))
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-ls1 = ((GHC.Base.map (\ds_d'0 -> (((GHC.Num.+) ds_d'0) (_2(# 22, 11 #))))) ls0)
+ls1 = ((GHC.Base.map (\ds_d'0 -> (((GHC.Num.+) ds_d'0) (_0(# 22, 11 #))))) ls0)
 
 main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 

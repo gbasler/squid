@@ -1,10 +1,12 @@
 module Basics where
 
--- FIXME
---foo :: Int -> Int
---foo x =
---  let tmp = x * 2
---  in tmp + tmp
+
+-- Local shared work
+
+foo :: Int -> Int
+foo x =
+  let tmp = x * 2
+  in tmp + tmp
 
 
 -- Nested calls

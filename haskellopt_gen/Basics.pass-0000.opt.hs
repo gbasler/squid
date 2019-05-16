@@ -5,25 +5,27 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Basics (ncG,ncFTest1,ncGTest0,ncFTest0,ncGTest1,ncGTest2,ncF) where
+module Basics (ncG,ncFTest1,ncGTest0,ncFTest0,ncGTest1,ncGTest2,ncF,foo) where
 
 import GHC.Num
 import GHC.Types
 
-_2(# _0, _1 #) = (((GHC.Num.*) _0) _1)
+_0(# _1, _2 #) = (((GHC.Num.*) _2) _1)
 
-_4(# _3 #) = (((GHC.Num.*) _3) _3)
+_3(# _4 #) = (((GHC.Num.*) _4) _4)
 
-ncF = (\x_a -> (_4(# x_a #)))
+foo = (\x_a -> let { tmp_a = (((GHC.Num.*) x_a) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp_a) tmp_a))
 
-ncFTest0 = (((GHC.Num.+) (_4(# (GHC.Types.I# 11#) #))) (_4(# (GHC.Types.I# 22#) #)))
+ncF = (\x_a'0 -> (_3(# x_a'0 #)))
 
-ncFTest1 = (_4(# (_4(# (GHC.Types.I# 33#) #)) #))
+ncFTest0 = (((GHC.Num.+) (_3(# (GHC.Types.I# 11#) #))) (_3(# (GHC.Types.I# 22#) #)))
 
-ncG(# _5 #) = (\x_a'0 -> (\y_a -> (_2(# _5, y_a #))))
+ncFTest1 = (_3(# (_3(# (GHC.Types.I# 33#) #)) #))
 
-ncGTest0 = (_2(# (_2(# (GHC.Types.I# 2#), (GHC.Types.I# 3#) #)), (GHC.Types.I# 4#) #))
+ncG(# _5 #) = (\x_a'1 -> (\y_a -> (_0(# y_a, _5 #))))
 
-ncGTest1 = (_2(# (GHC.Types.I# 4#), (_2(# (GHC.Types.I# 2#), (GHC.Types.I# 3#) #)) #))
+ncGTest0 = (_0(# (GHC.Types.I# 4#), (_0(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
 
-ncGTest2 = (_2(# (_2(# (GHC.Types.I# 2#), (GHC.Types.I# 3#) #)), (_2(# (GHC.Types.I# 4#), (GHC.Types.I# 5#) #)) #))
+ncGTest1 = (_0(# (_0(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)), (GHC.Types.I# 4#) #))
+
+ncGTest2 = (_0(# (_0(# (GHC.Types.I# 5#), (GHC.Types.I# 4#) #)), (_0(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
