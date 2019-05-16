@@ -14,7 +14,3 @@ hoHTest5 = (hoH (\x -> x * hoH (\y -> x - y)))
 ----h :: (forall )
 ----h f = f f
 
--- FIXME scope!
--- hoG f x = id (f (id x))
--- hoGTest0 = hoG (+1)
-

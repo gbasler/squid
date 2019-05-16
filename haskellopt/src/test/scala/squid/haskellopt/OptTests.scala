@@ -27,4 +27,11 @@ class OptTests extends FunSuite {
     
   }
   
+  test("HigherOrderHard") {
+    
+    //TestHarness("HigherOrderHard")
+    TestHarness("HigherOrderHard", "0000"::Nil)
+    
+  }
+  
 }

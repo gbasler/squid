@@ -18,7 +18,7 @@ object TestHarness {
     do {
       println(s"--- Graph ${ite} ---")
       println(mod.show)
-      println(go.Graph.scheduleRec(mod))
+      //println(go.Graph.scheduleRec(mod))
       ite += 1
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
@@ -32,7 +32,7 @@ object TestHarness {
     write(writePath, modStr, createFolders = true)
   }
   
-  def apply(testName: String): Unit = {
+  def apply(testName: String, passes: List[String] = List("0000", "0001")): Unit = {
     import ghcdump._
     
     val srcPath = pwd/'haskellopt/'src/'test/'haskell/(testName+".hs")
@@ -54,8 +54,8 @@ object TestHarness {
       write(md5Path, srcMd5)
     }
     
-    pipeline(dumpFolder/(testName+".pass-0000.cbor"))
-    pipeline(dumpFolder/(testName+".pass-0001.cbor"))
+    for (idxStr <- passes)
+      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"))
     
   }
   

@@ -349,9 +349,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
     ) yield sr
     
-    val haskellDefs = scheduledReps.iterator.map(_.haskellDef)
-    val (topLevelReps, nestedReps) = haskellDefs.partition(_.freeVals.isEmpty)
-    val m = nestedReps.flatMap(_.toValDepReps).toList
+    val haskellDefs = scheduledReps.iterator.map(r => r -> r.haskellDef)
+    val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep))
+    val m = nestedReps.map(_._2).flatMap(_.toValDepReps).toList
     
     new ScheduledModule {
       // FIXME what if some nestedReps were never scheduled? (could happen if they have impossible scopes!)
@@ -367,7 +367,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |
         |${imports.map("import "+_).mkString("\n")}
         |
-        |${topLevelReps.map(_.body(m)).mkString("\n\n")}
+        |${topLevelReps.map(_._2.body(m)).mkString("\n\n")}
         |""".tail.stripMargin
       
       override def toString: String = {
