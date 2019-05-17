@@ -417,7 +417,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             case Some(true) => rep rewireTo thn; again()
             case Some(false) => rep rewireTo els; again()
             case None =>
-              if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
+              if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) else rec(els)
           }
           
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
@@ -561,7 +561,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       case Box(ctrl,res) => rec(res,true)(withCtrl_?(ctrl).getOrElse(???))
       // ^ Ignore top-level boxes (Q: why was it previously done as above?):
         
-      case Branch(ctrl,cid,thn,els) => if (hasCid_!(ctrl,cid)) rec(thn) else rec(els)
+      case Branch(ctrl,cid,thn,els) => if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) else rec(els)
       case cn@ConcreteNode(d) => tryThis(r) orElse d.children.flatMap(rec(_)).headOption
     }
     rec(r)(CCtx.empty)

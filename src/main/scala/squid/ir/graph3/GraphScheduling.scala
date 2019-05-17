@@ -49,11 +49,15 @@ trait GraphScheduling extends AST { graph: Graph =>
   def withCtrl_?(ctrl: Control)(implicit cctx: CCtx): Opt[CCtx] = Some(cctx `;` ctrl) // TODO rm (cannot fail)
   
   /** To call only when we have complete info */
-  def hasCid_!(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Bool =
+  def hasCid_!(ctrl: Control, cid: CallId, allowUnrelated: Bool = false)(implicit cctx: CCtx): Bool =
     //mayHaveCid(ctrl,cid).getOrElse(lastWords(s"([$ctrl]$cid?) $cctx -> ${withCtrl_?(ctrl)}"))
-    mayHaveCid(ctrl,cid).getOrElse(false) // if we have complete info, an empty context means 'no'
-  def mayHaveCid(ctrl: Control, cid: CallId)(implicit cctx: CCtx): Option[Bool] =
-    withCtrl_?(ctrl).flatMap(_.lastCallId.map(_ === cid))
+    mayHaveCid(ctrl,cid,allowUnrelated).getOrElse(false) // if we have complete info, an empty context means 'no'
+  def mayHaveCid(ctrl: Control, cid: CallId, allowUnrelated: Bool = false)(implicit cctx: CCtx): Option[Bool] =
+    withCtrl_?(ctrl).flatMap(_.lastCallId.map{cid0 =>
+      assert(allowUnrelated || (cid0.v === cid.v) || (cid0 === DummyCallId) || (cid === DummyCallId),
+        s"Cannot compare unrelated call identifiers $cid0 and $cid!")
+      cid0 === cid
+    })
   
   def eval(rep: Rep) = {
     def rec(rep: Rep)(implicit cctx: CCtx, vctx: Map[Val,ConstantLike]): ConstantLike = rep.node match {
