@@ -11,18 +11,18 @@ foo x =
 
 -- Nested calls
 
-ncF :: Int -> Int
-ncF x = x * x
+f :: Int -> Int
+f x = x * x
 
-ncFTest0 = ncF 11 + ncF 22
-ncFTest1 = ncF (ncF 33)
+fTest0 = f 11 + f 22
+fTest1 = f (f 33)
 
-ncG :: Int -> Int -> Int
-ncG x y = x * y
+g :: Int -> Int -> Int
+g x y = x * y
 
-ncGTest0 = ncG (ncG 2 3) 4
-ncGTest1 = ncG 4 (ncG 2 3)
-ncGTest2 = ncG (ncG 2 3) (ncG 4 5)
+gTest0 = g (g 2 3) 4
+gTest1 = g 4 (g 2 3)
+gTest2 = g (g 2 3) (g 4 5)
 
 
 

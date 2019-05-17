@@ -10,7 +10,7 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module HigherOrder (hoHTest5,f,hoHTest3,hoHTest4,hoH) where
+module HigherOrder (hTest3,f,hTest5,h,hTest4) where
 
 import GHC.Num
 import GHC.Types
@@ -21,14 +21,14 @@ _2(# _3 #) = (((GHC.Num.*) _3) (((GHC.Num.*) (((GHC.Num.-) _3) (GHC.Types.I# 2#)
 
 ds_d = (GHC.Types.I# 1#)
 
-ds_d'0 = (GHC.Types.I# 2#)
+ds_d' = (GHC.Types.I# 2#)
 
 f = (\x_a -> (_2(# x_a #)))
 
-hoH = (\f_X -> (_0(# f_X #)))
+h = (\f_X -> (_0(# f_X #)))
 
-hoHTest3 = (((GHC.Num.+) (_0(# ((GHC.Num.+) (GHC.Types.I# 1#)) #))) (_0(# ((GHC.Num.*) (GHC.Types.I# 2#)) #)))
+hTest3 = (((GHC.Num.+) (_0(# ((GHC.Num.+) (GHC.Types.I# 1#)) #))) (_0(# ((GHC.Num.*) (GHC.Types.I# 2#)) #)))
 
-hoHTest4 = (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) (GHC.Types.I# 2#)) ds_d)) (((GHC.Num.+) (GHC.Types.I# 3#)) ds_d))) (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) ds_d'0)) (((GHC.Num.*) (GHC.Types.I# 3#)) ds_d'0)))
+hTest4 = (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) (GHC.Types.I# 2#)) ds_d)) (((GHC.Num.+) (GHC.Types.I# 3#)) ds_d))) (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) ds_d')) (((GHC.Num.*) (GHC.Types.I# 3#)) ds_d')))
 
-hoHTest5 = (((GHC.Num.*) (_2(# (GHC.Types.I# 2#) #))) (_2(# (GHC.Types.I# 3#) #)))
+hTest5 = (((GHC.Num.*) (_2(# (GHC.Types.I# 2#) #))) (_2(# (GHC.Types.I# 3#) #)))

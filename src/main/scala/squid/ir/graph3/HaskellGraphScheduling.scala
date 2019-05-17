@@ -105,7 +105,11 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       val cnt = nameCounts.getOrElse(nme, 0)
       nameCounts(nme) = cnt+1
       if (nme.isEmpty) "_"+cnt else
-      if (cnt === 0) nme else nme+"'"+(cnt-1)
+      cnt match {
+        case 0 => nme
+        case 1 => nme+"'"
+        case n => nme+"'"+n
+      }
     })
     
     /** Stringification context: current scope, association between sub-scopes to what to bind in them */

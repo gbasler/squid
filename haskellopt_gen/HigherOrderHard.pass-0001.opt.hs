@@ -10,23 +10,23 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module HigherOrderHard (hoG',hoGTest0,hoG'',ds,hoG''Test1,hoG'Test0,hoG,hoGTest1) where
+module HigherOrderHard (gTest1,g''Test1,ds,g,g'',g'Test0,gTest0,g') where
 
 import GHC.Base
 import GHC.Num
 
 ds = 1
 
-hoG = (\f_a -> (\x_a -> (GHC.Base.id (f_a (GHC.Base.id x_a)))))
+g = (\f_a -> (\x_a -> (GHC.Base.id (f_a (GHC.Base.id x_a)))))
 
-hoG' = (\f_a'0 -> (\x_a'0 -> (GHC.Base.id (f_a'0 (GHC.Base.id x_a'0)))))
+g' = (\f_a' -> (\x_a' -> (GHC.Base.id (f_a' (GHC.Base.id x_a')))))
 
-hoG'' = (\f_a'1 -> (\x_a'1 -> (GHC.Base.id (f_a'1 (GHC.Base.id x_a'1)))))
+g'' = (\f_a'2 -> (\x_a'2 -> (GHC.Base.id (f_a'2 (GHC.Base.id x_a'2)))))
 
-hoG''Test1 = (\y_a -> (\x_X -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X)) y_a))))
+g''Test1 = (\y_a -> (\x_X -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X)) y_a))))
 
-hoG'Test0 = (\x_a'2 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'2)) 1)))
+g'Test0 = (\x_a'3 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'3)) 1)))
 
-hoGTest0 = (\x_a'3 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'3)) 1)))
+gTest0 = (\x_a'4 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'4)) 1)))
 
-hoGTest1 = (\y_a'0 -> (\x_X'0 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X'0)) y_a'0))))
+gTest1 = (\y_a' -> (\x_X' -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X')) y_a'))))

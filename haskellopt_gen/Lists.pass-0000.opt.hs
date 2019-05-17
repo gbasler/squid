@@ -25,11 +25,11 @@ a_a = (((:) 1) (((:) 2) a_a))
 
 ds_d = (((,) (\x_a -> _4)) (\y_a -> _3))
 
-lol = (\x_a'0 -> (\y_a'0 -> (_0(# y_a'0, x_a'0 #))))
+lol = (\x_a' -> (\y_a' -> (_0(# y_a', x_a' #))))
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-ls1 = ((GHC.Base.map (\ds_d'0 -> (((GHC.Num.+) ds_d'0) (_0(# 22, 11 #))))) ls0)
+ls1 = ((GHC.Base.map (\ds_d' -> (((GHC.Num.+) ds_d') (_0(# 22, 11 #))))) ls0)
 
 main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 

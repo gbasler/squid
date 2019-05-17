@@ -2,13 +2,13 @@ module HigherOrderHard where
 
 -- FIXME scopes!
 
-hoG f x = id (f (id x))
-hoGTest0 = hoG (+1)
-hoGTest1 y = hoG (+y)
+g f x = id (f (id x))
+gTest0 = g (+1)
+gTest1 y = g (+y)
 
-hoG' f x = id (f (id x))
-hoG'Test0 = hoG' (+1)
+g' f x = id (f (id x))
+g'Test0 = g' (+1)
 
-hoG'' f x = id (f (id x))
-hoG''Test1 y = hoG (+y)
+g'' f x = id (f (id x))
+g''Test1 y = g (+y)
 

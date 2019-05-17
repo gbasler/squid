@@ -3,15 +3,15 @@ module HigherOrder where
 
 -- Higer-Order Functions
 
-hoH :: (Int -> Int) -> Int
-hoH f = f 2 * f 3
+h :: (Int -> Int) -> Int
+h f = f 2 * f 3
 
-hoHTest3 = (hoH (1+)) + (hoH (2*))
-hoHTest4 = (hoH (+1)) + (hoH (*2))
-hoHTest5 = (hoH (\x -> x * hoH (\y -> x - y)))
--- hoHTest5 = (hoH (\x -> x * hoH (\_ -> x))) -- simpler, but exhibit the same general trickiness as above
+hTest3 = (h (1+)) + (h (2*))
+hTest4 = (h (+1)) + (h (*2))
+hTest5 = (h (\x -> x * h (\y -> x - y)))
+-- hTest5 = (h (\x -> x * h (\_ -> x))) -- simpler, but exhibit the same general trickiness as above
 
 ---- TODO
-----h :: (forall )
-----h f = f f
+----h' :: (forall ...) -> ...
+----h' f = f f
 
