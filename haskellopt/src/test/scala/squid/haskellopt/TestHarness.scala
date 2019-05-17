@@ -33,9 +33,11 @@ object TestHarness {
     //println("REF: "+AST.showRep(go.Graph.treeInSimpleASTBackend(mod.toplvlRep))) // diverges in graphs with recursion
     
     println("--- Generated ---")
-    val modStr = sch.toHaskell(go.imports.toList.sorted)
-    println(modStr)
-    write(writePath, modStr, createFolders = true)
+    val moduleStr = sch.toHaskell(go.imports.toList.sorted)
+    println(moduleStr)
+    write(writePath, moduleStr, createFolders = true)
+    
+    %%(ghcdump.CallGHC.ensureExec('ghc), writePath)(pwd)
   }
   
   def apply(testName: String, passes: List[String] = List("0000", "0001")): Unit = {
