@@ -133,6 +133,19 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       
       var usages = 0
       
+      /** The most specific scope under which all references to this def appear. Top-level defs have the emtpy set. */
+      var maximalSharedScope = Option.empty[Set[Val]]
+      /** Add a scope from which this definition is referenced; returns whether the maximalSharedScope changed. */
+      def registerScope_!(scp: Set[Val]): Bool = maximalSharedScope match {
+        case Some(scp0) =>
+          val inter = scp0 & scp
+          maximalSharedScope = Some(inter)
+          inter =/= scp0
+        case None =>
+          maximalSharedScope = Some(scp)
+          true
+      }
+      
       def shouldBeScheduled = rep.node match {
         case _: Branch => false
         case ConcreteNode(d) => !d.isSimple
@@ -361,8 +374,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       s">> Done! <<"
     }
     
-    val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
-    reps.foreach { sr =>
+    val sreps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
+    sreps.foreach { sr =>
       if (sr.shouldBeScheduled) {
         sr.subReps.foreach(_.usages += 1)
       }
@@ -377,15 +390,26 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     }
     */
     
-    val isTopLevel = mod.letReps.toSet
+    val isExported = mod.letReps.toSet
+    
+    def propagateScp(sr: sch.SchedulableRep, scp: Set[Val]): Unit = {
+      if (sr.registerScope_!(scp)) sr.subReps.foreach(propagateScp(_, sr.rep.node match {
+        case ConcreteNode(abs: Abs) => scp + abs.param
+        case _ => scp
+      }))
+    }
+    sreps.iterator.filter(_.rep |> isExported).foreach(propagateScp(_, Set.empty))
     
     val scheduledReps = for (
-      sr <- reps
-      if sr.shouldBeScheduled && !(sr eq root) && sr.usages > 1 || isTopLevel(sr.rep)
+      sr <- sreps
+      if sr.shouldBeScheduled && !(sr eq root) && sr.usages > 1 || isExported(sr.rep)
     ) yield sr
     
     lazy val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
-    lazy val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep) /*|| true*/)
+    lazy val (topLevelReps, nestedReps) = {
+      //haskellDefs.foreach{case (r,d) => println(s"Schscp ${r.maximalSharedScope}")}
+      haskellDefs.partition{ case (r,d) => isExported(r.rep) || (d.freeVals & r.maximalSharedScope.get isEmpty) }
+    }
     lazy val m = {
       //println(s"Top: ${topLevelReps}")
       println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVals)}")
@@ -411,9 +435,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       
       override def toString: String = {
         val defs = for (
-          sr <- reps
+          sr <- sreps
           //if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
-          if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isTopLevel(sr.rep))
+          if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isExported(sr.rep))
         ) yield s"def ${
             if (sr eq root) "main" else sr.rep.bound
           }(${sr.params.map{ p =>

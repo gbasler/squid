@@ -10,9 +10,13 @@ module HigherOrderHard (hoG',hoGTest0,hoG'',hoG''Test1,hoG'Test0,hoG,hoGTest1) w
 import GHC.Base
 import GHC.Num
 
-_1(# _2 #) = (\x_a -> let { _0 = (GHC.Base.id x_a) } in (GHC.Base.id _2))
+_0 = (GHC.Base.id x_a)
 
-_4(# _5 #) = (\x_a'0 -> let { _3 = (GHC.Base.id x_a'0) } in (GHC.Base.id _5))
+_1(# _2 #) = (\x_a -> (GHC.Base.id _2))
+
+_3 = (GHC.Base.id x_a'0)
+
+_4(# _5 #) = (\x_a'0 -> (GHC.Base.id _5))
 
 hoG = (\f_a -> (_1(# (f_a _0) #)))
 

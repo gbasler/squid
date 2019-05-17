@@ -18,6 +18,7 @@ class OptTests extends FunSuite {
   test("Basics") {
     
     TestHarness("Basics")
+    //TestHarness("Basics", "0000"::Nil)
     
   }
   
