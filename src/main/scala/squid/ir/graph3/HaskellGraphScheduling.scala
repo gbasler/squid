@@ -46,6 +46,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   
   */
   
+  object HaskellScheduleDebug extends PublicTraceDebug
+  import HaskellScheduleDebug.{debug=>Sdebug}
+  
   // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
   //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
   
@@ -148,17 +151,18 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       def printDefWith(dbg: Bool)(implicit brc: BranchCtx): String = rep.node match {
       case _: Branch => rep.bound.toString // really?
       case _ =>
-        //if (brc.nonEmpty) println(s"? ${rep}"+
-        //  s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
-        //  s"\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"
-        //)
-        new HaskellDefPrettyPrinter(showInlineCF = false) {
+        if (brc.nonEmpty) Sdebug(s"? ${rep}"+
+          s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
+          s"\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"
+        ) else Sdebug(s"? ${rep}")
+        val res = HaskellScheduleDebug.nestDbg(new HaskellDefPrettyPrinter(showInlineCF = false) {
           override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
             case Box(_, body) => apply(body)
             case ConcreteNode(d) => apply(d)
             case _: Branch => die
           }
           override def apply(r: Rep): String = {
+            Sdebug(s"? ${r}")
             val sr = scheduledReps(r)
             def printArg(cb: (Control, Branch), pre: String): String = brc.get(cb).map {
                 case (Left(_),v) => v.toString
@@ -167,7 +171,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
                 s"${Console.RED}???${Console.RESET}"
               }
-            sr.rep.node match {
+            val res = HaskellScheduleDebug.nestDbg (sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
               case ConcreteNode(ByName(body)) /*if !dbg*/ => apply(body)
               case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) /*if !dbg*/ =>
@@ -184,9 +188,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
                   case (Left(cb),v) => printArg(cb,s"$v=")
                 }.mkString(",")})"
-            }
+            })
+            Sdebug(s"= ${res}")
+            res
           }
-        } apply rep.node
+        } apply rep.node)
+        Sdebug(s"= ${res}")
+        res
       }
       def mkHaskellDef: SchDef = mkHaskellDefWith(branches.toMap, Map.empty)
       type CaseCtx = Map[(Rep,String), List[Val]]
@@ -269,11 +277,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       
       def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
-      def args =
+      
+      def subReps =
         children ++ branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
       
       override def toString =
-        s"${rep.bound}(${params.mkString(",")}) = ${printDef(true)}"
+        s"${rep.bound}(...) = ${rep.node}"
     }
     object SchedulableRep {
       def apply(rep: Rep): SchedulableRep = new SchedulableRep(rep)
@@ -309,6 +318,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         case (Left(cb0 @ (c0,b)), v) =>
           val c = backCtrl `;` c0
           if (!sr2.branches.contains(cb0)) {
+            dbg(s"    New: ${cb0}")
             def addBranch(cb2: sch.TrBranch) = {
               dbg(s"    Add Branch: $cb2")
               if (cb2.isLeft) workingSet ::= sr2
@@ -322,15 +332,16 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               case _: Branch => // can't bubble up to a branch!
               case Box(ctrl, _) =>
                 val newCtrl = ctrl `;` c
+                dbg(s"    Consider: $newCtrl")
                 mayHaveCid(newCtrl `;` b.ctrl, b.cid)(Id) match {
-                  case Some(c) =>
-                    val r2 = sch.scheduledReps(if (c) b.lhs else b.rhs)
-                    r2.backEdges += newCtrl -> sr2
-                    workingSet ::= r2
-                    addBranch(Right(r2))
+                  case Some(cnd) =>
+                    val r3 = sch.scheduledReps(if (cnd) b.lhs else b.rhs)
+                    r3.backEdges += c -> sr2 // Important: not newCtrl, as the `ctrl` part will be picked up later
+                    workingSet ::= r3
+                    addBranch(Right(r3))
                   case None => addBranch(Left(newCtrl,b))
                 }
-              case ConcreteNode(_) => addBranch(Left(cb0))
+              case ConcreteNode(_) => addBranch(Left(c->b))
             }
             
           }
@@ -343,9 +354,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       for (sr <- sch.scheduledReps.valuesIterator; if sr.branches.nonEmpty) {
         dbg(sr.rep.toString)
         dbg(s"\t${sr.branches.map(kv => s"${kv._1}>>${kv._2._1 match {
-          case Left(cb) => cb
-          case Right(sr) => sr.rep.bound
-        }}[${kv._2._2}]").mkString}")
+          case Left(cb) => "L:"+cb
+          case Right(sr) => "R:"+sr.rep.bound
+        }}[${kv._2._2}]").mkString(" ")}")
       }
       s">> Done! <<"
     }
@@ -353,7 +364,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     val reps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
     reps.foreach { sr =>
       if (sr.shouldBeScheduled) {
-        sr.args.foreach(_.usages += 1)
+        sr.subReps.foreach(_.usages += 1)
       }
     }
     // Note: the root will probably always have 0 usage
@@ -373,9 +384,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
     ) yield sr
     
-    lazy val haskellDefs = scheduledReps.iterator.map(r => r -> r.haskellDef)
+    lazy val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
     lazy val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep) /*|| true*/)
-    lazy val m = nestedReps.map(_._2).flatMap(_.toValDepReps).toList
+    lazy val m = {
+      println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVals)}")
+      nestedReps.map(_._2).flatMap(_.toValDepReps)
+    }
     
     new ScheduledModule {
       // FIXME what if some nestedReps were never scheduled? (could happen if they have impossible scopes!)

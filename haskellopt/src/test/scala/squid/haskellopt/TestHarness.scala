@@ -25,7 +25,13 @@ object TestHarness {
     //println(mod.show)
     val sch = go.Graph.scheduleRec(mod)
     println("--- Scheduled ---")
+    
+    //go.Graph.HaskellScheduleDebug debugFor
     println(sch)
+    
+    //import squid.ir.graph.{SimpleASTBackend => AST}
+    //println("REF: "+AST.showRep(go.Graph.treeInSimpleASTBackend(mod.toplvlRep))) // diverges in graphs with recursion
+    
     println("--- Generated ---")
     val modStr = sch.toHaskell(go.imports.toList.sorted)
     println(modStr)

@@ -1,10 +1,15 @@
 package squid.ir.graph
 
-import squid.ir.{SchedulingANFBase, SimpleANF}
+import squid.ir.CrossStageAST
+import squid.ir.{SimpleANF, SchedulingANFBase}
 import squid.utils._
 
-object SimpleASTBackend extends squid.ir.SimpleAST {
+/* Extend CrossStageAST so that we can reinterpret the CrossStage-based hacks in HaskellGraphScheduling. */ 
+object SimpleASTBackend extends squid.ir.SimpleAST with CrossStageAST {
 //object SimpleASTBackend extends SimpleANF with SchedulingANFBase {
+  
+  // To support HaskellGraphScheduling:
+  override def staticModuleType(name: String): TypeRep = Predef.implicitType[Any].rep
   
   override def showScala(r: Rep): String = 
     super.showScala(r) |> trimPrefixes
