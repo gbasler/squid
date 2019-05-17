@@ -108,15 +108,19 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if (cnt === 0) nme else nme+"'"+(cnt-1)
     })
     
-    type ValDepReps = List[Set[Val] -> SchDef]
+    /** Stringification context: current scope, association between sub-scopes to what to bind in them */
+    type StrfyCtx = List[Set[Val] -> SchDef]
+    
     // This could be made generic and given an Applicative instance
-    case class SchDef(freeVals: Set[Val], body: ValDepReps => String) {
-      def mapStr(strf: String => String): SchDef = SchDef(freeVals, str => strf(body(str)))
-      def toValDepReps: ValDepReps = freeVals -> this :: Nil
+    case class SchDef(freeVals: Set[Val], private val body: StrfyCtx => String) {
+      def mapStr(strf: String => String): SchDef = SchDef(freeVals, strctx => strf(body(strctx)))
+      def mkStr(ctx: StrfyCtx): String = body(ctx)
     }
-    def mkSD(s: String): SchDef = SchDef(Set.empty, _ => s)
-    def sequenceSchDefs(schDefs: List[SchDef])(mkStr: List[String] => String): SchDef =
-      SchDef(schDefs.flatMap(_.freeVals)(collection.breakOut), m => mkStr(schDefs.map(_.body(m))))
+    object SchDef {
+      def mk(s: String): SchDef = SchDef(Set.empty, _ => s)
+      def sequence(schDefs: List[SchDef])(mkStr: List[String] => String): SchDef =
+        SchDef(schDefs.flatMap(_.freeVals)(collection.breakOut), m => mkStr(schDefs.map(_.body(m))))
+    }
     
     class SchedulableRep private(val rep: Rep) {
       var backEdges: mutable.Buffer[Control -> SchedulableRep] = mutable.Buffer.empty
@@ -145,6 +149,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           maximalSharedScope = Some(scp)
           true
       }
+      
+      var valParams = Option.empty[List[Val]]
       
       def shouldBeScheduled = rep.node match {
         case _: Branch => false
@@ -214,10 +220,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): SchDef = {
         def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchDef = d match {
             case v: Val => SchDef(Set(v), _ => printVal(v))
-            case Constant(n: Int) => s"$n" |> mkSD
-            case Constant(s: String) => s |> mkSD
-            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#" |> mkSD
-            case StaticModule(name) => name |> mkSD
+            case Constant(n: Int) => s"$n" |> SchDef.mk
+            case Constant(s: String) => s |> SchDef.mk
+            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#" |> SchDef.mk
+            case StaticModule(name) => name |> SchDef.mk
             case Apply(a,b) =>
               val (SchDef(fv0,fs0), SchDef(fv1,fs1)) = (mkSubRep(a), mkSubRep(b))
               SchDef(fv0 ++ fv1, m => s"(${fs0(m)} ${fs1(m)})")
@@ -225,10 +231,11 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               val SchDef(fv,fs) = mkSubRep(b)
               SchDef(fv - p, m => s"(\\${p |> printVal} -> ${
                 var whereDefs = List.empty[String]
-                val m2: ValDepReps = m.flatMap {
+                val m2: StrfyCtx = m.flatMap {
                   case fvs -> sd =>
                     val fvs2 = fvs - p
-                    if (fvs2.isEmpty) { whereDefs ::= sd.body(m); Nil } else fvs2 -> sd :: Nil
+                    if (fvs2.isEmpty) {
+                      whereDefs ::= sd.mkStr(m); Nil } else fvs2 -> sd :: Nil
                 }
                 if (whereDefs.isEmpty) fs(m2) else
                 s"let { ${whereDefs.mkString("; ")} } in ${fs(m2)}"
@@ -246,7 +253,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchDef = {
           val sr = scheduledReps(r)
           def mkArg(cb: (Control,Branch), pre: String): SchDef = brc(cb) match {
-            case (Left(_),v) => printVal(v) |> mkSD
+            case (Left(_),v) => printVal(v) |> SchDef.mk
             case (Right(r),v) => mkSubRep(r.rep).mapStr(pre + _)
           }
           r.node match {
@@ -254,13 +261,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             case ConcreteNode(ByName(body)) => mkSubRep(body) // Q: should we really keep this one?
             case ConcreteNode(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
               val (SchDef(fv0,fs0), SchDef(fv1,fs1)) =
-                (mkSubRep(scrut), sequenceSchDefs(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
+                (mkSubRep(scrut), SchDef.sequence(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
               SchDef(fv0 ++ fv1, m => s"(case ${fs0(m)} of {${fs1(m)}})")
             case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
                   // TODO if no corresponding enclosing case, do a patmat right here
-                  enclosingCases(scrut->con)(idx) |> printVal |> mkSD
+                  enclosingCases(scrut->con)(idx) |> printVal |> SchDef.mk
               }
             case b: Branch =>
               assert(sr.branches.size === 1)
@@ -271,8 +278,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             case _ =>
               val name = sr.rep.bound |> printVal
               val args = sr.branches.valuesIterator.collect{ case (Left(cb),v) => mkArg(cb,"") }.toList
-              if (args.isEmpty) name |> mkSD
-              else sequenceSchDefs(args)(_.mkString(", ")).mapStr(argsStr => s"($name(# $argsStr #))")
+              SchDef.sequence(args) { argStrs =>
+                val valArgs = sr.valParams.get.map(printVal)
+                val allArgStrs = argStrs ++ valArgs
+                if (allArgStrs.isEmpty) name else
+                s"($name(# ${allArgStrs.mkString(", ")} #))"
+              }
           }
         }
         //if (brc.nonEmpty)
@@ -285,11 +296,15 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       def haskellDef: SchDef = {
         val name = rep.bound |> printVal
-        val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
-        mkHaskellDef.mapStr(str => s"$name$paramList = $str")
+        paramsRest.foreach(printVal) // This is done just to get the `printVal`-generated names in the 'right' order.
+        mkHaskellDef.mapStr { str =>
+          val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
+          s"$name$paramList = $str"
+        }
       }
       
-      def params = branches.valuesIterator.collect{case (Left(cb),v) => v}
+      def params = valParams.get ++ paramsRest
+      def paramsRest = branches.valuesIterator.collect{case (Left(cb),v) => v}
       
       def subReps =
         children ++ branches.valuesIterator.collect{case (Right(r),v) => r}.filter(_.shouldBeScheduled)
@@ -407,13 +422,16 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
     lazy val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
     lazy val (topLevelReps, nestedReps) = {
-      //haskellDefs.foreach{case (r,d) => println(s"Schscp ${r.maximalSharedScope}")}
+      haskellDefs.foreach {case (r,d) =>
+        //println(s"Schscp ${r.maximalSharedScope}")
+        r.valParams = Some((d.freeVals -- r.maximalSharedScope.get).toList.sortBy(sch.printVal))
+      }
       haskellDefs.partition{ case (r,d) => isExported(r.rep) || (d.freeVals & r.maximalSharedScope.get isEmpty) }
     }
-    lazy val m = {
+    lazy val m: sch.StrfyCtx = {
       //println(s"Top: ${topLevelReps}")
       println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVals)}")
-      nestedReps.map(_._2).flatMap(_.toValDepReps)
+      nestedReps.map { case (r,d) => (d.freeVals & r.maximalSharedScope.get) -> d }
     }
     
     new ScheduledModule {
@@ -430,7 +448,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |
         |${imports.map("import "+_).mkString("\n")}
         |
-        |${topLevelReps.map(_._2.body(m)).mkString("\n\n")}
+        |${topLevelReps.map(_._2.mkStr(m)).mkString("\n\n")}
         |""".tail.stripMargin
       
       override def toString: String = {
@@ -440,9 +458,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isExported(sr.rep))
         ) yield s"def ${
             if (sr eq root) "main" else sr.rep.bound
-          }(${sr.params.map{ p =>
+          }(${(".." :: sr.paramsRest.map{ p =>
               s"$p: ${p.typ}"
-            }.mkString(",")
+            }.toList).mkString(",")
           }): ${sr.rep.typ} = ${sr.printDef(false)}"
         defs.mkString("\n")
       }
