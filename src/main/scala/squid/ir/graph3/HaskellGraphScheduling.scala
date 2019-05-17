@@ -381,12 +381,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
     val scheduledReps = for (
       sr <- reps
-      if sr.shouldBeScheduled && !(sr eq root) && (sr.usages > 1 || isTopLevel(sr.rep))
+      if sr.shouldBeScheduled && !(sr eq root) && sr.usages > 1 || isTopLevel(sr.rep)
     ) yield sr
     
     lazy val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
     lazy val (topLevelReps, nestedReps) = haskellDefs.partition(d => d._2.freeVals.isEmpty || isTopLevel(d._1.rep) /*|| true*/)
     lazy val m = {
+      //println(s"Top: ${topLevelReps}")
       println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVals)}")
       nestedReps.map(_._2).flatMap(_.toValDepReps)
     }
