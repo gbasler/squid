@@ -131,12 +131,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
   }
   case class Branch(ctrl: Control, cid: CallId, lhs: Rep, rhs: Rep) extends Node {
-    lazy val typ: TypeRep = ruh.uni.lub(lhs.typ.tpe::rhs.typ.tpe::Nil)
+    lazy val typ: TypeRep = branchType(lhs.typ, rhs.typ)
     // ^ when this was a `def`, it used to become the bottleneck in branch-deep graphs!
     
     def children: Iterator[Rep] = Iterator(lhs,rhs)
     //override def toString = s"[$cid? ${lhs.bound} ¿ ${rhs.bound}]"
   }
+  def branchType(lhs: => TypeRep, rhs: => TypeRep): TypeRep = ruh.uni.lub(lhs.tpe :: rhs.tpe :: Nil)
   
   sealed abstract class Control {
     

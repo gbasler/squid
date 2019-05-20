@@ -37,4 +37,26 @@ class OptTests extends FunSuite {
     
   }
   
+  test("HigherOrderRec") {
+    
+    TestHarness("HigherOrderRec")
+    //TestHarness("HigherOrderRec", "0000"::Nil)
+    
+  }
+  
+  test("BuildFoldr") {
+    
+    TestHarness("BuildFoldr")
+    
+  }
+  
+  test("IterCont") {
+    
+    //TestHarness("IterCont")
+    TestHarness("IterCont", "0000"::Nil, compileResult = false) // FIXME
+    //TestHarness("IterCont", "0001"::Nil, opt = true)
+    //TestHarness("IterCont", "0001"::Nil)
+    
+  }
+  
 }

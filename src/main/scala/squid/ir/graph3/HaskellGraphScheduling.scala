@@ -52,6 +52,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
   //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
   
+  // Otherwise creates a stack overflow while LUB-ing to infinity
+  override def branchType(lhs: => TypeRep, rhs: => TypeRep): TypeRep = Any
+  
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
   
@@ -232,6 +235,17 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             case Apply(a,b) =>
               val (SchDef(fv0,fs0), SchDef(fv1,fs1)) = (mkSubRep(a), mkSubRep(b))
               SchDef(fv0 ++ fv1, m => s"(${fs0(m)} ${fs1(m)})")
+            case ByName(body) => mkSubRep(body) // Q: should we really keep this one?
+            case MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _) =>
+              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) =
+                (mkSubRep(scrut), SchDef.sequence(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
+              SchDef(fv0 ++ fv1, m => s"(case ${fs0(m)} of {${fs1(m)}})")
+            case MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_) =>
+              (con,idx) |>! {
+                case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
+                  // TODO if no corresponding enclosing case, do a patmat right here
+                  enclosingCases(scrut->con)(idx) |> printVal |> SchDef.mk
+              }
             case Abs(p,b) =>
               val SchDef(fv,fs) = mkSubRep(b)
               SchDef(fv - p, m => s"(\\${p |> printVal} -> ${
@@ -252,7 +266,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
                 mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals)).mapStr(str =>
-                  s"$con${boundVals.map{" "+_}.mkString} -> $str")
+                  (if (con.head.isLetter || con === "[]" || con.head === '(') con else s"($con)") +
+                    boundVals.map{" "+_}.mkString + s" -> $str")
             }
         }
         def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchDef = {
@@ -271,22 +286,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           }
           r.node match {
             case ConcreteNode(d) if d.isSimple => mkDef(d)
-            case ConcreteNode(ByName(body)) => mkSubRep(body) // Q: should we really keep this one?
-            case ConcreteNode(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
-              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) =
-                (mkSubRep(scrut), SchDef.sequence(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
-              SchDef(fv0 ++ fv1, m => s"(case ${fs0(m)} of {${fs1(m)}})")
-            case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
-              (con,idx) |>! {
-                case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
-                  // TODO if no corresponding enclosing case, do a patmat right here
-                  enclosingCases(scrut->con)(idx) |> printVal |> SchDef.mk
-              }
+            case ConcreteNode(ByName(body)) => mkSubRep(body)
             case b: Branch =>
               assert(sr.branches.size === 1)
               mkArg((Id,b),"") // FIXME??
             case _ if sr.usages <= 1 =>
-              assert(sr.usages === 1)
+              //assert(sr.usages === 1)
+              //assert(!sr.shouldBeScheduled)
               sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
               val name = sr.rep.bound |> printVal

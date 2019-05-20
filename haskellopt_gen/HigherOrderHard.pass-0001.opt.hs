@@ -10,7 +10,7 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module HigherOrderHard (gTest1,g''Test1,ds,g,g'',g'Test0,gTest0,g') where
+module HigherOrderHard (gTest1,g''Test1,ds,hTest0,g,g'',hTest1,g'Test0,h,gTest0,g') where
 
 import GHC.Base
 import GHC.Num
@@ -30,3 +30,9 @@ g'Test0 = (\x_a'3 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'3)) 1)))
 gTest0 = (\x_a'4 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'4)) 1)))
 
 gTest1 = (\y_a' -> (\x_X' -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X')) y_a'))))
+
+h = (\f_a'3 -> let { _0 = f_a'3 } in (\x_a'5 -> (GHC.Base.id (_0 (GHC.Base.id (_0 x_a'5))))))
+
+hTest0 = (\x_a'6 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) x_a'6) 1))) 1)))
+
+hTest1 = (\y_a'2 -> let { _1 = y_a'2 } in (\eta_B -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) eta_B) _1))) _1))))
