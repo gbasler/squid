@@ -70,8 +70,10 @@ object TestHarness {
     }
     
     for (idxStr <- passes) {
+      val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
+      if (exists(execPath)) os.remove(execPath)
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult)
-      if (exec) %%(genFolder/RelPath(testName+s".pass-$idxStr.opt"))(pwd)
+      if (exec) %%(execPath)(pwd)
     }
     
   }
