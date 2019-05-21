@@ -6,6 +6,8 @@ ls1 = map (+ lol 11 22) ls0
 {-# NOINLINE lol #-}
 lol x y = x + y
 
+rec0 = 1 : rec0
+
 mutrec0 = let
     a = 1 : b
     b = 2 : a

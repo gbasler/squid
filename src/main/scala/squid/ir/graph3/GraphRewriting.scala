@@ -426,7 +426,7 @@ trait GraphRewriting extends AST { graph: Graph =>
           if !d.isInstanceOf[Val] && (ctrl =/= Id)
         => rep rewireTo r; again()
           
-        case Box(ctrl0,Rep(Box(ctrl1,body))) =>
+        case Box(ctrl0, Rep(Box(ctrl1,body))) =>
           rep.node.assertNotVal
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again()

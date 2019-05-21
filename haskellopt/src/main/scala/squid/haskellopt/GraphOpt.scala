@@ -47,7 +47,8 @@ class GraphOpt {
             // weird special cases in GHC:
             case "(GHC.Types.:)" => "(:)"
             case "(GHC.Types.[])" => "[]"
-            case "(GHC.Tuple.(,))" => "(,)"
+            case "(GHC.Tuple.())" => "()"
+            case "(GHC.Tuple.(,))" => "(,)" // TODO other tuple arities...
             case n => imports += mod; n
           }
         }

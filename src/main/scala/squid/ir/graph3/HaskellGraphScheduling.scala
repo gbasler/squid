@@ -44,6 +44,26 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   Yet, the -O flag is useful, as it makes list literals be represented as build.
   So it's probably best to selectively disable optimizations, such as the application of rewrite rules (a shame, really).
   
+  Problems with fixed-point scheduling of recursive graphs:
+   – Branch duplicity: sometimes, we end up scheduling to mutually-recursive branches that should really be the same:
+     they simply recurse into each other, and could be simplified to the same node, as in for example $8 and $5 in the
+     graph of `rec7 f () = f (rec7 f ())`, which is:
+        rec7 = {f_a$4 => $11};
+        $11 = {ds_d$6 => $10};
+        $10 = $7.case($f);
+        $7 = (ds_d$62 ? 🚫() ¿ ds_d$6);
+        $f = scala.Tuple2.apply((),$e);
+        $e = $8 ds_d$62↑[f_a$41↑]$10;
+        $8 = ([↓]f_a$41 ? ↓;🚫;↓$5 ¿ ↓f_a$4);
+        $5 = (f_a$41 ? 🚫$8 ¿ f_a$4);
+     This is due to the two occurrences of `f` happening under two different 'expression scopes'.
+     We end up scheduling two alternating arguments _1 and _3 for the worker def, which is unnecessary:
+        _0(# _1, _2, _3 #) = (case _2 of {() -> (_3 (_0(# _3, (), _1 #)))})
+        rec7 = (\f_a -> (\ds_d -> (_0(# f_a, ds_d, f_a #))))
+     Naive approaches at considering such two branches the same obviously (in retrospect) end up in infinite recursions.
+     So it seems the only thing to do is to perform some analysis, either on the graoh itself (but that seems hard and
+     probably neccessarily incomplete) or on the generated defs for post-hoc simplification.
+  
   */
   
   object HaskellScheduleDebug extends PublicTraceDebug
@@ -296,7 +316,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
               val name = sr.rep.bound |> printVal
-              val args = sr.branches.valuesIterator.collect{ case (Left(cb),v,xvs) => mkArg(cb,"") }.toList
+              val args = sr.mkParamsRest.map(_._1 |> (mkArg(_,"")))
               SchDef.sequence(args) { argStrs =>
                 val valArgs = sr.valParams.get.map(printVal)
                 val allArgStrs = argStrs ++ valArgs
@@ -315,15 +335,21 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
       def haskellDef: SchDef = {
         val name = rep.bound |> printVal
-        paramsRest.foreach(printVal) // This is done just to get the `printVal`-generated names in the 'right' order.
+        mkParamsRest.foreach(_._2 |> printVal) // This is done just to get the `printVal`-generated names in the 'right' order.
+        mkParamsRest.groupBy(_._2).valuesIterator.foreach {
+          case Nil | _ :: Nil =>
+          case (_,v) :: _ => lastWords(s"Duplicated param: $v (i.e., ${v |> printVal})")
+        }
         mkHaskellDef.mapStr { str =>
           val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
           s"$name$paramList = $str"
         }
       }
       
-      def params = valParams.get ++ paramsRest
-      def paramsRest = branches.valuesIterator.collect{case (Left(cb),v,xvs) => v}
+      def params = valParams.get ++ mkParamsRest.map(_._2)
+      def paramRestVals = branches.valuesIterator.collect{case (Left(cb),v,xvs) => v}
+      lazy val mkParamsRest: List[(Control,Branch)->Val] =
+        branches.valuesIterator.collect{case (Left(cb),v,xvs) => cb->v}.toList
       
       def subReps =
         children ++ branches.valuesIterator.collect{case (Right(r),v,xvs) => r}.filter(_.shouldBeScheduled)
@@ -376,7 +402,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               if (cb2.isLeft) workingSet ::= sr2
               if (!nde.isInstanceOf[Branch] && lambdaBound.nonEmpty && cb2.isLeft)
                 dbg(s"      !!! Extruded variable! ${lambdaBound}")
-              sr2.branches += cb0 -> (cb2, v, if (cb2.isRight) xvs else lambdaBound.toList ::: xvs)
+              sr2.branches += cb0 -> (cb2, v.renew, if (cb2.isRight) xvs else lambdaBound.toList ::: xvs)
             }
             nde match {
               case _: Branch => // can't bubble up to a branch!
@@ -409,8 +435,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         dbg(sr.rep.toString)
         dbg(s"\t${sr.branches.map(kv => s"${kv._1}>>${kv._2._1 match {
           case Left(cb) => "L:"+cb
-          case Right(sr) => "R:"+sr.rep.bound
-        }}[${kv._2._2}]").mkString(" ")}")
+          case Right(sr) => "R:("+sr.rep+")"
+        }}[${kv._2._2}] ").mkString(" ")}")
       }
       s">> Done! <<"
     }
@@ -484,7 +510,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isExported(sr.rep))
         ) yield s"def ${
             if (sr eq root) "main" else sr.rep.bound
-          }(${(".." :: sr.paramsRest.map{ p =>
+          }(${(".." :: sr.paramRestVals.map{ p =>
               s"$p: ${p.typ}"
             }.toList).mkString(",")
           }): ${sr.rep.typ} = ${sr.printDef(false)}"

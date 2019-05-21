@@ -14,35 +14,35 @@ _0 = (GHC.Types.I# 30#)
 
 _1(# _2 #) = (_3(# _2, (GHC.Types.I# 11#) #))
 
-_4(# _2 #) = (_3(# (GHC.Types.I# 22#), _2 #))
+_4(# _5 #) = (_3(# (GHC.Types.I# 22#), _5 #))
 
-_3(# _5, _6 #) = (((GHC.Num.*) _6) _5)
+_3(# _6, _7 #) = (((GHC.Num.*) _7) _6)
 
-_7(# _6 #) = (\y_a -> (_3(# y_a, (_6(y_a)) #)))
+_8(# _9 #) = (\y_a -> (_3(# y_a, (_9(y_a)) #)))
 
-_8(# _9 #) = (((GHC.Num.*) _9) _9)
+_10(# _11 #) = (((GHC.Num.*) _11) _11)
 
-f = (\x_a -> (_8(# x_a #)))
+f = (\x_a -> (_10(# x_a #)))
 
-fTest0 = (((GHC.Num.*) (_8(# (GHC.Types.I# 11#) #))) (_8(# (GHC.Types.I# 22#) #)))
+fTest0 = (((GHC.Num.*) (_10(# (GHC.Types.I# 11#) #))) (_10(# (GHC.Types.I# 22#) #)))
 
-fTest1 = (_8(# (_8(# (GHC.Types.I# 33#) #)) #))
+fTest1 = (_10(# (_10(# (GHC.Types.I# 33#) #)) #))
 
-fTest2 = (((GHC.Num.+) (_8(# (GHC.Types.I# 44#) #))) (_8(# (f (GHC.Types.I# 55#)) #)))
+fTest2 = (((GHC.Num.+) (_10(# (GHC.Types.I# 44#) #))) (_10(# (f (GHC.Types.I# 55#)) #)))
 
-fTest3 = (((GHC.Num.*) (_8(# (_8(# (GHC.Types.I# 66#) #)) #))) (_8(# (f (GHC.Types.I# 77#)) #)))
+fTest3 = (((GHC.Num.*) (_10(# (_10(# (GHC.Types.I# 66#) #)) #))) (_10(# (f (GHC.Types.I# 77#)) #)))
 
-fTest4 = (((GHC.Num.+) (_8(# (_8(# (GHC.Types.I# 66#) #)) #))) (_8(# (f (GHC.Types.I# 77#)) #)))
+fTest4 = (((GHC.Num.+) (_10(# (_10(# (GHC.Types.I# 66#) #)) #))) (_10(# (f (GHC.Types.I# 77#)) #)))
 
 foo = (\x_a' -> let { tmp_a = (((GHC.Num.*) x_a') (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp_a) tmp_a))
 
-g = (\x_a'2 -> (_7(# \(y_a) -> x_a'2 #)))
+g = (\x_a'2 -> (_8(# \(y_a) -> x_a'2 #)))
 
 gTest0 = (_3(# (GHC.Types.I# 4#), (_3(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
 
 gTest1 = (_3(# (_3(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)), (GHC.Types.I# 4#) #))
 
-gTest2 = (_7(# \(y_a) -> ((g (GHC.Types.I# 2#)) (GHC.Types.I# 3#)) #))
+gTest2 = (_8(# \(y_a) -> ((g (GHC.Types.I# 2#)) (GHC.Types.I# 3#)) #))
 
 gTest3 = (_3(# (GHC.Types.I# 4#), (_3(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
 
