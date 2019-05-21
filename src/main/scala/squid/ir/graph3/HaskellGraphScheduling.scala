@@ -319,7 +319,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               val args = sr.mkParamsRest.map(_._1 |> (mkArg(_,"")))
               SchDef.sequence(args) { argStrs =>
                 val valArgs = sr.valParams.get.map(printVal)
-                val allArgStrs = argStrs ++ valArgs
+                val allArgStrs = valArgs ++ argStrs
                 if (allArgStrs.isEmpty) name else
                 s"($name(# ${allArgStrs.mkString(", ")} #))"
               }
