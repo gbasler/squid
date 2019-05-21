@@ -6,9 +6,10 @@ import ammonite.ops._
 object TestHarness {
   
   val dumpFolder = pwd/'haskellopt/'target/'dump
+  val genFolder = pwd/'haskellopt_gen
   
   def pipeline(filePath: Path, compileResult: Bool): Unit = {
-    val writePath = pwd/'haskellopt_gen/RelPath(filePath.baseName+".opt.hs")
+    val writePath = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath)) rm(writePath)
     val go = new GraphOpt
     val mod = go.loadFromDump(filePath)
@@ -40,8 +41,14 @@ object TestHarness {
     if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath)(pwd)
   }
   
-  def apply(testName: String, passes: List[String] = List("0000", "0001"), opt: Bool = false, compileResult: Bool = true): Unit = {
+  def apply(testName: String,
+            passes: List[String] = List("0000", "0001"),
+            opt: Bool = false,
+            compileResult: Bool = true,
+            exec: Bool = false,
+           ): Unit = {
     import ghcdump._
+    if (exec) require(compileResult)
     
     val srcPath = pwd/'haskellopt/'src/'test/'haskell/(testName+".hs")
     val md5Path = dumpFolder/(testName+".md5")
@@ -62,8 +69,10 @@ object TestHarness {
       write(md5Path, srcMd5)
     }
     
-    for (idxStr <- passes)
+    for (idxStr <- passes) {
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult)
+      if (exec) %%(genFolder/RelPath(testName+s".pass-$idxStr.opt"))(pwd)
+    }
     
   }
   

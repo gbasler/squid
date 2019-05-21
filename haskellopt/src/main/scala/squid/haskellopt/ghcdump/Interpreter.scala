@@ -15,7 +15,7 @@ abstract class Interpreter {
   // TODO:
   type Type = Element
   
-  case class ExternalName(externalModuleName: String, externalName: String, externalUnique: Element)
+  case class ExternalName(externalModuleName: String, externalName: String, externalUnique: BinderId)
   
   case class Binder(binderName: String, binderId: BinderId) {
     def str = s"[$binderName]${binderId.str}"
@@ -68,7 +68,7 @@ abstract class Interpreter {
   def LitString(s: String): Lit
   
   def ExternalName(e: Element): ExternalName = e match {
-    case Arr(IntElem(0), StringElem(externalModuleName), StringElem(externalName), externalUnique) =>
+    case Arr(IntElem(0), StringElem(externalModuleName), StringElem(externalName), BinderId(externalUnique)) =>
       ExternalName(externalModuleName, externalName, externalUnique)
   }
   def Lit(e: Element): Lit = e match {

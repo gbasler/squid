@@ -39,7 +39,7 @@ class OptTests extends FunSuite {
   
   test("HigherOrderRec") {
     
-    TestHarness("HigherOrderRec")
+    TestHarness("HigherOrderRec", exec = true)
     //TestHarness("HigherOrderRec", "0000"::Nil)
     
   }

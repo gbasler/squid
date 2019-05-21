@@ -1,4 +1,12 @@
-module HigherOrderRec where
+-- module HigherOrderRec where
+module Main where
+
+import System.Exit
+
+main =
+  if rec7Test2 == [1,1,1]
+  then exitSuccess else exitFailure
+
 
 rec0 f = f (\x -> rec0 f x)
 
@@ -29,6 +37,11 @@ rec7 f () = f (rec7 f ()) -- simplest example of branch duplicity
 -- rec7 f  = f (rec7 f ) -- no branch duplicity
 -- rec7 f () = rec7 f () * rec7 f ()
 -- rec8 f x = let sx = x + 1 in sx - f (rec8 f sx) * f (rec8 f sx) -- FIXME should let-bind sx in generated program
+
+rec7Test0 = rec7 (1+)
+rec7Test1 = rec7 (*2)
+rec7Test2 = take 3 $ rec7 (1:) ()
+
 
 
 -- FIXME

@@ -249,7 +249,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchDef = d match {
             case v: Val => SchDef(Set(v), _ => printVal(v))
             case Constant(n: Int) => s"$n" |> SchDef.mk
-            case Constant(s: String) => s |> SchDef.mk
+            case Constant(s: String) => '"'+s+'"' |> SchDef.mk
             case CrossStageValue(n: Int, UnboxedMarker) => s"$n#" |> SchDef.mk
             case StaticModule(name) => name |> SchDef.mk
             case Apply(a,b) =>

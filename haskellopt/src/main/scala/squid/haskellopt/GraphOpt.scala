@@ -22,7 +22,7 @@ class GraphOpt {
     import Graph.{DummyTyp => dt, UnboxedMarker}
     
     var modName = Option.empty[String]
-    val moduleBindings = mutable.Map.empty[String, Graph.Rep]
+    val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, Graph.Rep]
     
     object GraphDumpInterpreter extends ghcdump.Interpreter {
       
@@ -38,7 +38,7 @@ class GraphOpt {
       
       def EVar(b: BinderId): Expr = bindings(b).fold(_ |> Graph.readVal, id)
       def EVarGlobal(ExternalName: ExternalName): Expr =
-        if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalName) else
+        if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalUnique) else
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
         Graph.staticModule {
           val mod = ExternalName.externalModuleName
@@ -49,7 +49,11 @@ class GraphOpt {
             case "(GHC.Types.[])" => "[]"
             case "(GHC.Tuple.())" => "()"
             case "(GHC.Tuple.(,))" => "(,)" // TODO other tuple arities...
-            case n => imports += mod; n
+            case n => mod match {
+              case "GHC.Integer.Type" =>
+              case _ => imports += mod
+            }
+            n
           }
         }
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)
@@ -118,7 +122,7 @@ class GraphOpt {
     mod.moduleTopBindings.foreach { tb =>
       val v = Graph.bindVal(tb.bndr.binderName, dt, Nil)
       val rv = Graph.Rep.withVal(v,v)
-      moduleBindings += tb.bndr.binderName -> rv
+      moduleBindings += tb.bndr.binderId -> rv
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
     }
     
