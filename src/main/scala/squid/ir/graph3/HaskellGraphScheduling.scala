@@ -158,7 +158,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       /** `branches` maps each branch instance to what it's transformed to,
         * along with the original branch val (for argument-naming purposes), and the extruded variables. */
       val branches: M[(Control,Branch),(TrBranch,Val,List[Val])] = rep.node match {
-        case br: Branch => M((Id,br) -> (Left(Id,br),rep.bound,Nil))
+        case br: Branch => M((Id,br) -> (Left(Id,br),br.cid.v.renew,Nil))
         case _ => M.empty
       }
       

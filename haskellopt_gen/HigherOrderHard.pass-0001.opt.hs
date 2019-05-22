@@ -17,22 +17,22 @@ import GHC.Num
 
 ds = 1
 
-g = (\f_a -> (\x_a -> (GHC.Base.id (f_a (GHC.Base.id x_a)))))
+g = (\f -> (\x -> (GHC.Base.id (f (GHC.Base.id x)))))
 
-g' = (\f_a' -> (\x_a' -> (GHC.Base.id (f_a' (GHC.Base.id x_a')))))
+g' = (\f' -> (\x' -> (GHC.Base.id (f' (GHC.Base.id x')))))
 
-g'' = (\f_a'2 -> (\x_a'2 -> (GHC.Base.id (f_a'2 (GHC.Base.id x_a'2)))))
+g'' = (\f'2 -> (\x'2 -> (GHC.Base.id (f'2 (GHC.Base.id x'2)))))
 
-g''Test1 = (\y_a -> (\x_X -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X)) y_a))))
+g''Test1 = (\y -> (\x'3 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x'3)) y))))
 
-g'Test0 = (\x_a'3 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'3)) 1)))
+g'Test0 = (\x'4 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x'4)) 1)))
 
-gTest0 = (\x_a'4 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_a'4)) 1)))
+gTest0 = (\x'5 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x'5)) 1)))
 
-gTest1 = (\y_a' -> (\x_X' -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x_X')) y_a'))))
+gTest1 = (\y' -> (\x'6 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x'6)) y'))))
 
-h = (\f_a'3 -> let { _0 = f_a'3 } in (\x_a'5 -> (GHC.Base.id (_0 (GHC.Base.id (_0 x_a'5))))))
+h = (\f'3 -> let { _0 = f'3 } in (\x'7 -> (GHC.Base.id (_0 (GHC.Base.id (_0 x'7))))))
 
-hTest0 = (\x_a'6 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) x_a'6) 1))) 1)))
+hTest0 = (\x'8 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) x'8) 1))) 1)))
 
-hTest1 = (\y_a'2 -> let { _1 = y_a'2 } in (\eta_B -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) eta_B) _1))) _1))))
+hTest1 = (\y'2 -> let { _1 = y'2 } in (\eta -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) eta) _1))) _1))))

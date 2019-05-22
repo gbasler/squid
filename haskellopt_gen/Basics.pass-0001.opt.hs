@@ -15,29 +15,29 @@ module Basics (fTest4,x,gTest1,gTest6,gTest2,f,fTest3,gTest5,fTest0,fTest2,g,gTe
 import GHC.Num
 import GHC.Types
 
-_0(# _1 #) = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 11#)) _1)) (((GHC.Num.*) _1) (GHC.Types.I# 22#)))
+_0(# z #) = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 11#)) z)) (((GHC.Num.*) z) (GHC.Types.I# 22#)))
 
-f = (\x_X'13 -> (((GHC.Num.*) x_X'13) x_X'13))
+f = (\x'15 -> (((GHC.Num.*) x'15) x'15))
 
-fTest0 = (((GHC.Num.*) (((GHC.Num.*) x_X) x_X)) (((GHC.Num.*) x_X') x_X'))
+fTest0 = (((GHC.Num.*) (((GHC.Num.*) x') x')) (((GHC.Num.*) x'2) x'2))
 
 fTest1 = (((GHC.Num.*) x) x)
 
-fTest2 = (((GHC.Num.+) (((GHC.Num.*) x_X'2) x_X'2)) (((GHC.Num.*) x_X'3) x_X'3))
+fTest2 = (((GHC.Num.+) (((GHC.Num.*) x'3) x'3)) (((GHC.Num.*) x'4) x'4))
 
-fTest3 = (((GHC.Num.*) (((GHC.Num.*) x_X'4) x_X'4)) (((GHC.Num.*) x_X'5) x_X'5))
+fTest3 = (((GHC.Num.*) (((GHC.Num.*) x'5) x'5)) (((GHC.Num.*) x'6) x'6))
 
-fTest4 = (((GHC.Num.+) (((GHC.Num.*) x_X'6) x_X'6)) (((GHC.Num.*) x_X'7) x_X'7))
+fTest4 = (((GHC.Num.+) (((GHC.Num.*) x'7) x'7)) (((GHC.Num.*) x'8) x'8))
 
-foo = (\x_a -> let { tmp_a = (((GHC.Num.*) x_a) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp_a) tmp_a))
+foo = (\x'16 -> let { tmp = (((GHC.Num.*) x'16) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
 
-g = (\x_X'14 -> (\y_a -> (((GHC.Num.*) x_X'14) y_a)))
+g = (\x'17 -> (\y -> (((GHC.Num.*) x'17) y)))
 
 gTest0 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) (GHC.Types.I# 4#))
 
 gTest1 = (((GHC.Num.*) (GHC.Types.I# 4#)) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#)))
 
-gTest2 = (\y_a' -> (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) y_a'))
+gTest2 = (\y' -> (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) y'))
 
 gTest3 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) (GHC.Types.I# 4#))
 
@@ -47,34 +47,34 @@ gTest5 = (((GHC.Num.+) (_0(# (GHC.Types.I# 30#) #))) (_0(# (GHC.Types.I# 40#) #)
 
 gTest6 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 44#)) (GHC.Types.I# 33#))) (GHC.Types.I# 11#))
 
-k = (\z_a -> (_0(# z_a #)))
+k = (\z' -> (_0(# z' #)))
 
-x' = (GHC.Types.I# 33#)
+x'9 = (GHC.Types.I# 33#)
 
-x = (((GHC.Num.*) x') x')
+x = (((GHC.Num.*) x'9) x'9)
 
-x_X'8 = (GHC.Types.I# 55#)
+x'10 = (GHC.Types.I# 55#)
 
-x_X'4 = (((GHC.Num.*) x_X'9) x_X'9)
+x'5 = (((GHC.Num.*) x'11) x'11)
 
-x_X'9 = (GHC.Types.I# 66#)
+x'11 = (GHC.Types.I# 66#)
 
-x_X'5 = (((GHC.Num.*) x_X'10) x_X'10)
+x'6 = (((GHC.Num.*) x'12) x'12)
 
-x_X'10 = (GHC.Types.I# 77#)
+x'12 = (GHC.Types.I# 77#)
 
-x_X'6 = (((GHC.Num.*) x_X'11) x_X'11)
+x'7 = (((GHC.Num.*) x'13) x'13)
 
-x_X'11 = (GHC.Types.I# 66#)
+x'13 = (GHC.Types.I# 66#)
 
-x_X'7 = (((GHC.Num.*) x_X'12) x_X'12)
+x'8 = (((GHC.Num.*) x'14) x'14)
 
-x_X'12 = (GHC.Types.I# 77#)
+x'14 = (GHC.Types.I# 77#)
 
-x_X = (GHC.Types.I# 11#)
+x' = (GHC.Types.I# 11#)
 
-x_X' = (GHC.Types.I# 22#)
+x'2 = (GHC.Types.I# 22#)
 
-x_X'2 = (GHC.Types.I# 44#)
+x'3 = (GHC.Types.I# 44#)
 
-x_X'3 = (((GHC.Num.*) x_X'8) x_X'8)
+x'4 = (((GHC.Num.*) x'10) x'10)

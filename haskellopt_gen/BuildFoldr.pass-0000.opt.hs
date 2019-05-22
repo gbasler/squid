@@ -9,8 +9,8 @@ module BuildFoldr (foldr',build) where
 
 
 
-_0(# _1, _2, _3, _4, _5 #) = (case _1 of {[] -> _2; (:) arg0 arg1 -> ((_3 arg0) (_0(# arg1, _5, _4, _3, _2 #)))})
+_0(# ds, n, c, c', n' #) = (case ds of {[] -> n; (:) arg0 arg1 -> ((c arg0) (_0(# arg1, n', c', c, n #)))})
 
-build = (\g_a -> ((g_a (:)) []))
+build = (\g -> ((g (:)) []))
 
-foldr' = (\c_a -> (\n_a -> (\ds_d -> (_0(# ds_d, n_a, c_a, c_a, n_a #)))))
+foldr' = (\c'2 -> (\n'2 -> (\ds' -> (_0(# ds', n'2, c'2, c'2, n'2 #)))))

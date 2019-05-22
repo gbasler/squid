@@ -9,20 +9,20 @@ module IterCont (loop,dont) where
 
 import GHC.Num
 
-_0(# _1 #) = (\new_state_a -> (_1(new_state_a)))
+_0(# f #) = (\new_state -> (f(new_state)))
 
-_2(# _3 #) = (((GHC.Num.+) _3) 1)
+_1(# s #) = (((GHC.Num.+) s) 1)
 
-_4 = (\k_a -> (\s_a -> (_2(# s_a #))))
+_2 = (\k -> (\s' -> (_1(# s' #))))
 
-_5(# new_state_a #) = new_state_a
+_3(# new_state #) = new_state
 
-_7(# _8 #) = _8
+_5(# f' #) = f'
 
-_10(# _11 #) = _11
+_7(# state #) = state
 
-_12(# _13, _14, _15 #) = (((_7(# _13 #)) (_0(# \(new_state_a) -> (_12(# _14, _15, (_7(# _13 #)) #)) #))) (_5(# new_state_a #)))
+_8(# f'2, f'3, f'4 #) = (((_5(# f'2 #)) (_0(# \(new_state) -> (_8(# f'3, f'4, (_5(# f'2 #)) #)) #))) (_3(# new_state #)))
 
-dont = (_2(# 0 #))
+dont = (_1(# 0 #))
 
-loop = (\f_a -> let { _9 = f_a; _6 = f_a } in (\state_a -> ((_6 (_0(# \(new_state_a) -> ((_9 (_0(# \(new_state_a) -> (_12(# _6, _9, (_7(# _6 #)) #)) #))) (_5(# new_state_a #))) #))) state_a)))
+loop = (\f'5 -> let { _6 = f'5; _4 = f'5 } in (\state' -> ((_4 (_0(# \(new_state) -> ((_6 (_0(# \(new_state) -> (_8(# _4, _6, (_5(# _4 #)) #)) #))) (_3(# new_state #))) #))) state')))

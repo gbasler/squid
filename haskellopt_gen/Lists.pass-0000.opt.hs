@@ -15,30 +15,30 @@ import GHC.Show
 import GHC.Types
 import System.IO
 
-_0(# _1, _2 #) = (((GHC.Num.+) _1) _2)
+_0(# x, y #) = (((GHC.Num.+) x) y)
 
-_3 = ((:) 1)
+_1 = ((:) 1)
 
-_4 = (((:) (GHC.Num.fromInteger 2)) _5)
+_2 = (((:) (GHC.Num.fromInteger 2)) _3)
 
-_5 = (((:) (GHC.Num.fromInteger 1)) _4)
+_3 = (((:) (GHC.Num.fromInteger 1)) _2)
 
-a_a = (((:) 1) (((:) 2) a_a))
+a = (((:) 1) (((:) 2) a))
 
-ds_d = (((,) (\x_a -> _5)) (\y_a -> _4))
+ds = (((,) (\x' -> _3)) (\y' -> _2))
 
-lol = (\x_a' -> (\y_a' -> (_0(# x_a', y_a' #))))
+lol = (\x'2 -> (\y'2 -> (_0(# x'2, y'2 #))))
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-ls1 = ((GHC.Base.map (\ds_d' -> (((GHC.Num.+) ds_d') (_0(# 11, 22 #))))) ls0)
+ls1 = ((GHC.Base.map (\ds' -> (((GHC.Num.+) ds') (_0(# 11, 22 #))))) ls0)
 
 main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 
-mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a_a)
+mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
-mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case ds_d of {(,) arg0 arg1 -> arg0}) 0))
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case ds of {(,) arg0 arg1 -> arg0}) 0))
 
-rec0 = (_3 rec0_a)
+rec0 = (_1 rec0')
 
-rec0_a = (_3 rec0_a)
+rec0' = (_1 rec0')

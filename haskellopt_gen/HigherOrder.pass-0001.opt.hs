@@ -15,76 +15,76 @@ module HigherOrder (gTest1,hTest3,f,iTest0,f0,iTest1,ds,i,g,iTest2,hTest5,h,gTes
 import GHC.Num
 import GHC.Types
 
-_0(# _1 #) = (((GHC.Num.*) _1) (((GHC.Num.*) (((GHC.Num.-) _1) (GHC.Types.I# 2#))) (((GHC.Num.-) _1) (GHC.Types.I# 3#))))
+_0(# x #) = (((GHC.Num.*) x) (((GHC.Num.*) (((GHC.Num.-) x) (GHC.Types.I# 2#))) (((GHC.Num.-) x) (GHC.Types.I# 3#))))
 
-_2(# f_a #) = f_a
+_1(# f'13 #) = f'13
 
-_3(# f_a' #) = f_a'
+_2(# f'14 #) = f'14
 
-_4 = (GHC.Num.fromInteger 3)
+_3 = (GHC.Num.fromInteger 3)
 
-_5(# _6, _7 #) = (((GHC.Num.+) _7) _6)
+_4(# f', f'2 #) = (((GHC.Num.+) f'2) f')
 
-_8(# _9 #) = (((GHC.Num.+) _9) 1)
+_5(# ds' #) = (((GHC.Num.+) ds') 1)
 
-_10 = (GHC.Types.I# 11#)
+_6 = (GHC.Types.I# 11#)
 
-_11 = (GHC.Types.I# 22#)
+_7 = (GHC.Types.I# 22#)
 
-_12(# _13, _14 #) = (((GHC.Num.+) _13) _14)
+_8(# f'3, f'4 #) = (((GHC.Num.+) f'3) f'4)
 
-_15(# _16 #) = (((GHC.Num.+) _16) (GHC.Types.I# 1#))
+_9(# ds'2 #) = (((GHC.Num.+) ds'2) (GHC.Types.I# 1#))
 
-_17 = (\ds_d'2 -> (_15(# ds_d'2 #)))
+_10 = (\ds'6 -> (_9(# ds'6 #)))
 
-_18(# _19 #) = (((GHC.Num.*) _19) (GHC.Types.I# 2#))
+_11(# ds'3 #) = (((GHC.Num.*) ds'3) (GHC.Types.I# 2#))
 
-_20 = (\ds_d'3 -> (_18(# ds_d'3 #)))
+_12 = (\ds'7 -> (_11(# ds'7 #)))
 
-_21(# _22, _23 #) = (((GHC.Num.+) _22) _23)
+_13(# f'5, f'6 #) = (((GHC.Num.+) f'5) f'6)
 
-_24(# _25, _26 #) = (\x_a -> (_21(# (_25(x_a)), (_26(x_a)) #)))
+_14(# f'7, f'8 #) = (\x' -> (_13(# (f'7(x')), (f'8(x')) #)))
 
-_27(# _28 #) = (((GHC.Num.+) (_28 (GHC.Types.I# 11#))) (_28 (GHC.Types.I# 22#)))
+_15(# f'9 #) = (((GHC.Num.+) (f'9 (GHC.Types.I# 11#))) (f'9 (GHC.Types.I# 22#)))
 
-_29 = (GHC.Types.I# 11#)
+_16 = (GHC.Types.I# 11#)
 
-_30 = (GHC.Types.I# 22#)
+_17 = (GHC.Types.I# 22#)
 
-_31(# _32, _33 #) = (((GHC.Num.+) _33) _32)
+_18(# f'10, f'11 #) = (((GHC.Num.+) f'11) f'10)
 
-_34(# _35 #) = (((GHC.Num.*) (_35 (GHC.Types.I# 2#))) (_35 (GHC.Types.I# 3#)))
+_19(# f'12 #) = (((GHC.Num.*) (f'12 (GHC.Types.I# 2#))) (f'12 (GHC.Types.I# 3#)))
 
 ds = 1
 
-ds_d = (GHC.Types.I# 2#)
+ds'4 = (GHC.Types.I# 2#)
 
-ds_d' = (GHC.Types.I# 1#)
+ds'5 = (GHC.Types.I# 1#)
 
-f = (\x_a' -> (_0(# x_a' #)))
+f = (\x'2 -> (_0(# x'2 #)))
 
-f0 = (\f_a'2 -> (_12(# (f_a'2 _10), (f_a'2 _11) #)))
+f0 = (\f'15 -> (_8(# (f'15 _6), (f'15 _7) #)))
 
-g = (\f_a' -> (\x_a'2 -> (_5(# ((_3(# f_a' #)) _4), ((_3(# f_a' #)) x_a'2) #))))
+g = (\f'14 -> (\x'3 -> (_4(# ((_2(# f'14 #)) _3), ((_2(# f'14 #)) x'3) #))))
 
-gTest0 = (_5(# (_8(# _4 #)), (_8(# 2 #)) #))
+gTest0 = (_4(# (_5(# _3 #)), (_5(# 2 #)) #))
 
-gTest1 = (((GHC.Num.+) (((GHC.Num.+) (_5(# (_8(# _4 #)), (_8(# 2 #)) #))) 1)) (((GHC.Num.+) (GHC.Num.fromInteger 3)) 1))
+gTest1 = (((GHC.Num.+) (((GHC.Num.+) (_4(# (_5(# _3 #)), (_5(# 2 #)) #))) 1)) (((GHC.Num.+) (GHC.Num.fromInteger 3)) 1))
 
-h = (\f_X -> (_34(# f_X #)))
+h = (\f'16 -> (_19(# f'16 #)))
 
-hTest3 = (((GHC.Num.+) (_34(# ((GHC.Num.+) (GHC.Types.I# 1#)) #))) (_34(# ((GHC.Num.*) (GHC.Types.I# 2#)) #)))
+hTest3 = (((GHC.Num.+) (_19(# ((GHC.Num.+) (GHC.Types.I# 1#)) #))) (_19(# ((GHC.Num.*) (GHC.Types.I# 2#)) #)))
 
-hTest4 = (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) (GHC.Types.I# 2#)) ds_d')) (((GHC.Num.+) (GHC.Types.I# 3#)) ds_d'))) (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) ds_d)) (((GHC.Num.*) (GHC.Types.I# 3#)) ds_d)))
+hTest4 = (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) (GHC.Types.I# 2#)) ds'5)) (((GHC.Num.+) (GHC.Types.I# 3#)) ds'5))) (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) ds'4)) (((GHC.Num.*) (GHC.Types.I# 3#)) ds'4)))
 
 hTest5 = (((GHC.Num.*) (_0(# (GHC.Types.I# 2#) #))) (_0(# (GHC.Types.I# 3#) #)))
 
-i = (\f_a -> (_24(# \(x_a) -> ((_2(# f_a #)) _17), \(x_a) -> ((_2(# f_a #)) _20) #)))
+i = (\f'13 -> (_14(# \(x') -> ((_1(# f'13 #)) _10), \(x') -> ((_1(# f'13 #)) _12) #)))
 
-iTest0 = (_24(# \(x_a) -> (_27(# _17 #)), \(x_a) -> (_27(# _20 #)) #))
+iTest0 = (_14(# \(x') -> (_15(# _10 #)), \(x') -> (_15(# _12 #)) #))
 
-iTest1 = (_21(# (_31(# (_15(# _30 #)), (_15(# _29 #)) #)), (_31(# (_18(# _30 #)), (_18(# _29 #)) #)) #))
+iTest1 = (_13(# (_18(# (_9(# _17 #)), (_9(# _16 #)) #)), (_18(# (_11(# _17 #)), (_11(# _16 #)) #)) #))
 
-iTest2 = (_21(# (_12(# (_15(# _10 #)), (_15(# _11 #)) #)), (_12(# (_18(# _10 #)), (_18(# _11 #)) #)) #))
+iTest2 = (_13(# (_8(# (_9(# _6 #)), (_9(# _7 #)) #)), (_8(# (_11(# _6 #)), (_11(# _7 #)) #)) #))
 
-p1 = (\ds_d'4 -> (_8(# ds_d'4 #)))
+p1 = (\ds'8 -> (_5(# ds'8 #)))

@@ -12,7 +12,9 @@ class GraphOpt {
   object Graph extends Graph with HaskellGraphScheduling {
     val DummyTyp = Any
     override def staticModuleType(name: String): TypeRep = DummyTyp
-    def mkName(base: String) = base + freshName
+    def mkName(base: String, idDomain: String) =
+      //base + "_" + idDomain + freshName  // gives names that are pretty cluttered...
+      base + freshName
   }
   import Graph.PgrmModule
   
@@ -67,7 +69,7 @@ class GraphOpt {
       }
       def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
       def ELam(bndr: Binder, e0: => Expr): Expr = {
-        val v = Graph.bindVal(Graph.mkName(bndr.binderName+"_"+bndr.binderId.name), dt, Nil)
+        val v = Graph.bindVal(Graph.mkName(bndr.binderName, bndr.binderId.name), dt, Nil)
         bindings += bndr.binderId -> Left(v)
         if (bndr.binderName.startsWith("$")) { ignoredBindings += v; e0 } // ignore type and type class lambdas
         else Graph.abs(v, e0)
@@ -75,7 +77,7 @@ class GraphOpt {
       def ELet(lets: Seq[(Binder, () => Expr)], e0: => Expr): Expr = {
         lets.foldRight(() => e0){
           case ((bndr, rhs), body) =>
-            val v = Graph.bindVal(Graph.mkName(bndr.binderName+"_"+bndr.binderId.name), dt, Nil)
+            val v = Graph.bindVal(Graph.mkName(bndr.binderName, bndr.binderId.name), dt, Nil)
             val rv = Graph.Rep.withVal(v,v)
             bindings += bndr.binderId -> Right(rv)
             () => {
