@@ -36,7 +36,8 @@ rec3 f x y = f x : (rec3 f (f y) x)
 rec7 f () = f (rec7 f ()) -- simplest example of branch duplicity
 -- rec7 f  = f (rec7 f ) -- no branch duplicity
 -- rec7 f () = rec7 f () * rec7 f ()
--- rec8 f x = let sx = x + 1 in sx - f (rec8 f sx) * f (rec8 f sx) -- FIXME should let-bind sx in generated program
+
+rec8 f x = let sx = x + 1 in sx - f (rec8 f sx) * f (rec8 f sx) -- FIXME should let-bind sx in generated program
 
 rec7Test0 = rec7 (1+)
 rec7Test1 = rec7 (*2)
