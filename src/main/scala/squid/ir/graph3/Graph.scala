@@ -92,6 +92,23 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
     def size: Int = allChildren.filter(!_.node.isInstanceOf[Box]).toSet.size
     
+    // TODO rm?
+    def directlyReachable: collection.Set[Rep] = {
+      val traversed = mutable.Set.empty[Rep]
+      def rec(rep: Rep): Unit = if (!traversed(rep)) {
+        traversed += rep
+        rep.node match {
+          case Box(_, body) => rec(body)
+          case Branch(_, _, thn, els) =>
+            rec(thn)
+            rec(els)
+          case _: ConcreteNode =>
+        }
+      }
+      rec(this)
+      traversed
+    }
+    
     override def toString = s"$bound = $node"
   }
   object Rep {

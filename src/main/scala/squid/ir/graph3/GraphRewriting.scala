@@ -372,11 +372,25 @@ trait GraphRewriting extends AST { graph: Graph =>
   // FIXME make non-recursive, as we can quickly reach stack limit with deep branch traces (though we should also try to simplify them)
   //   There appears to be a lot of dumb branching, as noted above; even for positive paths
   /** `recurse` tells us whether to follow possibly-cyclic paths with different contexts; won't work with recursive functions */
+  /* Notes.
+  
+  Problems with simplifying recursive graphs:
+   – Can no longer push boxes inside branches like there is no tomorrow, since we can have cyclic structures that would
+     grow unboundedly if we did that. Consequently, we should avoid pushing boxes into cycles, and we should generalize
+     beta reduction to be able to apply on interspersed branches and boxes, as opposed to only one top-level box
+     followed by branches...
+   
+  */
   def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
   {
     var changed = false
     val traversed = mutable.Set.empty[CCtx->Rep]
+    
+    // TODO use or rm
+    val reachableSets = // TODO improve; this is a bit wasteful, as we could share computations
+      mutable.Map.empty[Rep, collection.Set[Rep]].withDefault(_.directlyReachable)
+    def directlyLeadsBackTo(from: Rep, to: Rep) = reachableSets(from)(to)
     
     // We need to look through both legs of branches appearing under the lhs of applications, to figure out whether
     // they lead to lambda expressions...
@@ -417,7 +431,19 @@ trait GraphRewriting extends AST { graph: Graph =>
             case Some(true) => rep rewireTo thn; again()
             case Some(false) => rep rewireTo els; again()
             case None =>
-              if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) else rec(els)
+              if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) //else rec(els)
+              rec(els)
+              // ^ This whacky conditional recursion into 'thn' is all but a lucky heuristic that happens not to lead to
+              //   infinite rewriting...
+              // But it does miss opportunities that sohuld have been discovered by following the 'thn' branch more
+              // often, leading to non-totally reduced graphs, and in particular, making unrelated definitions not
+              // reduce completely when put together in the same graph!
+              // In principle, we should do something more deterministic based on always traversing both branches, but
+              // try to push boxes only into branches that don't have a path that cycle back to us (cf. the case for box/branch).
+              // However, currently that leads to less reduced graphs, because we need to generalize beta reduction too...
+              // I have commented it because the current scheduling algo fails on graphs that are not reduced enough...
+              
+              //rec(thn); rec(els)
           }
           
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
@@ -430,7 +456,9 @@ trait GraphRewriting extends AST { graph: Graph =>
           rep.node.assertNotVal
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again()
-        case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els))) =>
+        case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els)))
+          //if !directlyLeadsBackTo(thn,rep) // TODO!
+        =>
           rep.node.assertNotVal
           rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
           again()
