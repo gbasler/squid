@@ -270,12 +270,14 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               val SchDef(fv,fs) = mkSubRep(b)
               SchDef(fv - p, m => s"(\\${p |> printVal} -> ${
                 var whereDefs = List.empty[String]
-                val m2: StrfyCtx = m._1 + p -> m._2.flatMap {
+                import squid.utils.CollectionUtils.TraversableOnceHelper
+                val (toScheduleNow,toPostpone) = m._2.mapSplit {
                   case fvs -> sd =>
                     val fvs2 = fvs - p
-                    if (fvs2.isEmpty) {
-                      whereDefs ::= sd.mkStr(m); Nil } else fvs2 -> sd :: Nil
+                    if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
                 }
+                val m2 = m._1 + p -> toPostpone
+                toScheduleNow.foreach(sd => whereDefs ::= sd.mkStr(m2))
                 if (whereDefs.isEmpty) fs(m2) else
                 s"let { ${whereDefs.mkString("; ")} } in ${fs(m2)}"
               })")
