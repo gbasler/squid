@@ -292,7 +292,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       case _ =>
         if (brc.nonEmpty) Sdebug(s"? ${rep}"+
           s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
-          s"\n\t${brc.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"
+          s"\n\t${brc.map(kv => s"[${kv._2._2}] ${kv._1} >> ${kv._2._1}").mkString(s"\n\t")}"
         ) else Sdebug(s"? ${rep}")
         val res = HaskellScheduleDebug.nestDbg(new HaskellDefPrettyPrinter(showInlineCF = false) {
           override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
@@ -303,7 +303,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
           override def apply(r: Rep): String = {
             Sdebug(s"? ${r}")
             val sr = scheduledReps(r)
-            def printArg(cb: (Control, Branch), pre: String): String = brc.get(cb._1->cb._2).map {
+            def printArg(cb: (Control, Branch), pre: String): String = brc.get(cb).map {
                 case (Left(_),v,xvs) => v.toString + (if (xvs.isEmpty) "" else xvs.mkString("(",",",")"))
                 case (Right(r),v,xvs) => pre + (if (xvs.isEmpty) "" else s"\\(${xvs.mkString(",")}) -> ") + apply(r.rep)
               }.getOrElse {
@@ -319,6 +319,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
                 s"${apply(scrut)}!$con#$idx"
               case b: Branch =>
                 assert(sr.branches.size === 1)
+                assert(sr.branches.head._1._1 === Id)
+                assert(sr.branches.head._1._2 === b)
                 printArg((Id,b),"") // FIXME??
               case _ if !dbg && (sr.usages <= 1) =>
                 assert(sr.usages === 1)
@@ -530,6 +532,23 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if sr.shouldBeScheduled && !(sr eq root) && sr.usages > 1 || isExported(sr.rep)
     ) yield sr
     
+    lazy val showStr = {
+      val defs = for (
+        sr <- sreps
+        //if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
+        if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isExported(sr.rep))
+      ) yield s"def ${
+          if (sr eq root) "main" else sr.rep.bound
+        }(${(".." :: sr.paramRestVals.map{ p =>
+            s"$p: ${p.typ}"
+          }.toList).mkString(",")
+        }): ${sr.rep.typ} = ${sr.printDef(false)}"
+      defs.mkString("\n")
+    }
+    
+    //HaskellScheduleDebug debugFor
+    println(showStr)
+    
     val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
     
     // TODO rm valParams from SR
@@ -591,19 +610,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |""".tail.stripMargin
         //|${topLevelReps.sortBy{case(sr,d) => (!isExported(sr.rep),d.name)}.map(_._2.toHs).mkString("\n\n")}
       
-      override def toString: String = {
-        val defs = for (
-          sr <- sreps
-          //if sr.shouldBeScheduled && (sr.usages > 1 || (sr eq root))
-          if sr.shouldBeScheduled && /*!(sr eq root) &&*/ (sr.usages > 1 || isExported(sr.rep))
-        ) yield s"def ${
-            if (sr eq root) "main" else sr.rep.bound
-          }(${(".." :: sr.paramRestVals.map{ p =>
-              s"$p: ${p.typ}"
-            }.toList).mkString(",")
-          }): ${sr.rep.typ} = ${sr.printDef(false)}"
-        defs.mkString("\n")
-      }
+      override def toString: String = showStr
       
     }
     
