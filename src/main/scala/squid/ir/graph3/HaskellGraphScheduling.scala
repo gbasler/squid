@@ -138,15 +138,107 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     /** Stringification context: current scope, association between sub-scopes to what to bind in them */
     type StrfyCtx = (Set[Val], List[Set[Val] -> SchDef])
     
-    // This could be made generic and given an Applicative instance
-    case class SchDef(freeVals: Set[Val], private val body: StrfyCtx => String) {
-      def mapStr(strf: String => String): SchDef = SchDef(freeVals, strctx => strf(body(strctx)))
-      def mkStr(ctx: StrfyCtx): String = body(ctx)
+    sealed abstract class Sch {
+      def scope: Set[Val]
+    }
+    
+    case class SchDef(sr: SchedulableRep, branchParams: List[Val], body: SchExp) extends Sch {
+      def scope = Set.empty
+      val name = sr.rep.bound |> printVal
+      def freeVars: Set[Val] = body.freeVars 
+      lazy val nestingScope: Set[Val] = freeVars & sr.maximalSharedScope.get
+      lazy val valParams: List[Val] = (freeVars -- sr.maximalSharedScope.get).toList.sortBy(printVal)
+      lazy val params = valParams ++ branchParams
+      def toHs: String = {
+        val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
+        s"$name$paramList = ${body.toHs}"
+      }
+      body.setParent_!(this)
     }
     object SchDef {
-      def mk(s: String): SchDef = SchDef(Set.empty, _ => s)
-      def sequence(schDefs: List[SchDef])(mkStr: List[String] => String): SchDef =
-        SchDef(schDefs.flatMap(_.freeVals)(collection.breakOut), m => mkStr(schDefs.map(_.body(m))))
+    }
+    
+    sealed abstract class SchExp extends Sch {
+      private var parent: Option[Sch] = None
+      def setParent_!(p: Sch): Unit = { assert(parent.isEmpty); parent = Some(p) }
+      children.foreach(_.setParent_!(this))
+      
+      def toHs: String
+      
+      // TODO handle case and bindings!
+      lazy val scope: Set[Val] = this match {
+        case SchLam(p, _, _) => parent.get.scope + p
+        case _ => parent.get.scope
+      }
+      lazy val freeVars: Set[Val] = this match {
+        case SchVar(v) => Set.empty + v
+        case SchLam(p, _, b) => b.freeVars - p
+        case SchCase(e, es) => e.freeVars ++ es.flatMap(c => c._3.freeVars -- c._2)
+        case SchParam(v, xvs) => xvs.toSet // + v // FIXME?
+        case _ => children.flatMap(_.freeVars).toSet
+      }
+      def children: Iterator[SchExp] = this match {
+        case _: SchVar | _: SchConst | _: SchParam => Iterator.empty
+        case SchApp(lhs, rhs) => Iterator(lhs, rhs)
+        case SchCase(scrut, arms) => Iterator(scrut) ++ arms.iterator.map(_._3)
+        case SchCall(sr, args) => args.iterator
+        case SchLam(p, bs, b) => Iterator(b) ++ bs.iterator.map(_.body) // Q: really include the bindings here?
+        case SchArg(b, _) => Iterator(b)
+      }
+      def allChildren: Iterator[SchExp] = Iterator(this) ++ children.flatMap(_.allChildren)
+    }
+    /** `value` can be a Constant, a CrossStageValue, or a StaticModule */
+    case class SchConst(value: Any) extends SchExp {
+      def toHs = value match {
+        case Constant(n: Int) => n.toString
+        case Constant(s: String) => '"'+s+'"'
+        case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
+        case sm: StaticModule => sm.fullName
+      }
+    }
+    case class SchApp(lhs: SchExp, rhs: SchExp) extends SchExp {
+      def toHs: String = s"(${lhs.toHs} ${rhs.toHs})"
+    }
+    case class SchLam(param: Val, var bindings: List[SchDef], body: SchExp) extends SchExp {
+      def toHs = {
+        s"(\\${param |> printVal} -> ${
+          if (bindings.isEmpty) "" else
+          s"let { ${bindings.map(_.toHs).mkString("; ")} } in "
+        }${body.toHs})"
+      }
+    }
+    case class SchVar(v: Val) extends SchExp {
+      val toHs = v |> printVal
+    }
+    case class SchParam(v: Val, possiblyExtruded: List[Val]) extends SchExp {
+      // TODO use proper unboxed tuple arguments for the continuations
+      val toHs = {
+        if (possiblyExtruded.isEmpty) printVal(v) else
+        "{-P-}("+printVal(v)+possiblyExtruded.map(printVal).mkString("(",",",")")+")"
+      }
+    }
+    case class SchArg(body: SchExp, possiblyExtruded: List[Val]) extends SchExp {
+      def toHs = {
+        val extruded = possiblyExtruded.filterNot(scope)
+        if (extruded.isEmpty) body.toHs else
+        s"{-A-}\\(${extruded.map(printVal).mkString(",")}) -> " + body.toHs
+      }
+    }
+    case class SchCall(sr: SchedulableRep, args: List[SchExp]) extends SchExp {
+      val name = sr.rep.bound |> printVal
+      def toHs = {
+        val argStrs = args.map(_.toHs)
+        val valArgs = sr.valParams.get.map(printVal)
+        val allArgStrs = valArgs ++ argStrs
+        if (allArgStrs.isEmpty) name else
+        s"($name(# ${allArgStrs.mkString(", ")} #))"
+      }
+    }
+    case class SchCase(scrut: SchExp, arms: List[(String,List[Val],SchExp)]) extends SchExp {
+      def toHs = s"(case ${scrut.toHs} of {${arms.map { case (con, vars, rhs) =>
+          (if (con.head.isLetter || con === "[]" || con.head === '(') con else s"($con)") +
+            vars.map(printVal).map{" "+_}.mkString + s" -> ${rhs.toHs}"
+      }.mkString("; ")}})"
     }
     
     class SchedulableRep private(val rep: Rep) {
@@ -243,68 +335,39 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         Sdebug(s"= ${res}")
         res
       }
-      def mkHaskellDef: SchDef = mkHaskellDefWith(branches.toMap, Map.empty)
+      def mkHaskellDef: SchExp = mkHaskellDefWith(branches.toMap, Map.empty)
       type CaseCtx = Map[(Rep,String), List[Val]]
-      def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): SchDef = {
-        def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchDef = d match {
-            case v: Val => SchDef(Set(v), _ => printVal(v))
-            case Constant(n: Int) => s"$n" |> SchDef.mk
-            case Constant(s: String) => '"'+s+'"' |> SchDef.mk
-            case CrossStageValue(n: Int, UnboxedMarker) => s"$n#" |> SchDef.mk
-            case StaticModule(name) => name |> SchDef.mk
-            case Apply(a,b) =>
-              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) = (mkSubRep(a), mkSubRep(b))
-              SchDef(fv0 ++ fv1, m => s"(${fs0(m)} ${fs1(m)})")
+      def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): SchExp = {
+        def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchExp = d match {
+            case v: Val => SchVar(v)
+            case c: Constant => SchConst(c)
+            case cs: CrossStageValue => SchConst(cs)
+            case sm: StaticModule => SchConst(sm)
+            case Apply(a,b) => SchApp(mkSubRep(a), mkSubRep(b))
             case ByName(body) => mkSubRep(body) // Q: should we really keep this one?
             case MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _) =>
-              val (SchDef(fv0,fs0), SchDef(fv1,fs1)) =
-                (mkSubRep(scrut), SchDef.sequence(alts.map(mkAlt(scrut,_)).toList)(_.mkString("; ")))
-              SchDef(fv0 ++ fv1, m => s"(case ${fs0(m)} of {${fs1(m)}})")
+              SchCase(mkSubRep(scrut), alts.map(mkAlt(scrut,_)).toList)
             case MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_) =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
                   // TODO if no corresponding enclosing case, do a patmat right here
-                  enclosingCases(scrut->con)(idx) |> printVal |> SchDef.mk
+                  SchVar(enclosingCases(scrut->con)(idx))
               }
-            case Abs(p,b) =>
-              val SchDef(fv,fs) = mkSubRep(b)
-              SchDef(fv - p, m => s"(\\${p |> printVal} -> ${
-                var whereDefs = List.empty[String]
-                import squid.utils.CollectionUtils.TraversableOnceHelper
-                val (toScheduleNow,toPostpone) = m._2.mapSplit {
-                  case fvs -> sd =>
-                    val fvs2 = fvs - p
-                    if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
-                }
-                val m2 = m._1 + p -> toPostpone
-                toScheduleNow.foreach(sd => whereDefs ::= sd.mkStr(m2))
-                if (whereDefs.isEmpty) fs(m2) else
-                s"let { ${whereDefs.mkString("; ")} } in ${fs(m2)}"
-              })")
+            case Abs(p,b) => SchLam(p, Nil, mkSubRep(b))  
           }
-        def mkAlt(scrut: Rep, r: Rep): SchDef = r.node |>! {
+        def mkAlt(scrut: Rep, r: Rep): (String,List[Val],SchExp) = r.node |>! {
           case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals)).mapStr(str =>
-                  (if (con.head.isLetter || con === "[]" || con.head === '(') con else s"($con)") +
-                    boundVals.map{" "+_}.mkString + s" -> $str")
+                (con,boundVals,mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals)))
             }
         }
-        def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchDef = {
+        def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchExp = {
           val sr = scheduledReps(r)
-          // TODO use proper unboxed tuple arguments for the continuations
-          def mkArg(cb: (Control,Branch), pre: String): SchDef = brc(cb) match {
-            case (Left((_,_)),v,xvs) =>
-              val str = if (xvs.isEmpty) printVal(v) else "("+printVal(v)+xvs.map(printVal).mkString("(",",",")")+")"
-              str |> SchDef.mk
-            case (Right(r),v,xvs) =>
-              val SchDef(fv,f) = mkSubRep(r.rep)
-              SchDef(fv, { case (scp,m) =>
-                val toBind = xvs.filterNot(scp)
-                pre + (if (toBind.isEmpty) "" else s"\\(${toBind.map(printVal).mkString(",")}) -> ") + f(scp->m)
-              })
+          def mkArg(cb: (Control,Branch), pre: String): SchExp = brc(cb) match {
+            case (Left((_,_)),v,xvs) => SchParam(v, xvs)
+            case (Right(r),v,xvs) => SchArg(mkSubRep(r.rep), xvs)
           }
           r.node match {
             case ConcreteNode(d) if d.isSimple => mkDef(d)
@@ -317,14 +380,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
               //assert(!sr.shouldBeScheduled)
               sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
-              val name = sr.rep.bound |> printVal
+              sr.rep.bound |> printVal
               val args = sr.mkParamsRest.map(_._1 |> (mkArg(_,"")))
-              SchDef.sequence(args) { argStrs =>
-                val valArgs = sr.valParams.get.map(printVal)
-                val allArgStrs = valArgs ++ argStrs
-                if (allArgStrs.isEmpty) name else
-                s"($name(# ${allArgStrs.mkString(", ")} #))"
-              }
+              SchCall(sr, args)
           }
         }
         //if (brc.nonEmpty)
@@ -336,16 +394,13 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         }
       }
       def haskellDef: SchDef = {
-        val name = rep.bound |> printVal
+        rep.bound |> printVal
         mkParamsRest.foreach(_._2 |> printVal) // This is done just to get the `printVal`-generated names in the 'right' order.
         mkParamsRest.groupBy(_._2).valuesIterator.foreach {
           case Nil | _ :: Nil =>
           case (_,v) :: _ => lastWords(s"Duplicated param: $v (i.e., ${v |> printVal})")
         }
-        mkHaskellDef.mapStr { str =>
-          val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
-          s"$name$paramList = $str"
-        }
+        SchDef(this, mkParamsRest.map(_._2), mkHaskellDef)
       }
       
       def params = valParams.get ++ mkParamsRest.map(_._2)
@@ -474,22 +529,40 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       if sr.shouldBeScheduled && !(sr eq root) && sr.usages > 1 || isExported(sr.rep)
     ) yield sr
     
-    lazy val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
-    lazy val (topLevelReps, nestedReps) = {
-      haskellDefs.foreach {case (r,d) =>
-        //println(s"Schscp ${r.maximalSharedScope}")
-        r.valParams = Some((d.freeVals -- r.maximalSharedScope.get).toList.sortBy(sch.printVal))
-      }
-      haskellDefs.partition{ case (r,d) => isExported(r.rep) || (d.freeVals & r.maximalSharedScope.get isEmpty) }
-    }
-    lazy val m: sch.StrfyCtx = {
-      //println(s"Top: ${topLevelReps}")
-      println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVals)}")
-      (Set.empty, nestedReps.map { case (r,d) => (d.freeVals & r.maximalSharedScope.get) -> d })
+    val haskellDefs = scheduledReps.map(r => r -> r.haskellDef)
+    
+    // TODO rm valParams from SR
+    haskellDefs.foreach {case (r,d) =>
+      //println(s"Schscp ${r.maximalSharedScope}")
+      r.valParams = Some(d.valParams)
     }
     
+    val (topLevelReps, nestedReps) =
+      haskellDefs.partition{ case (r,d) => isExported(r.rep) || d.nestingScope.isEmpty }
+    
+    //println(s"Top: ${topLevelReps}")
+    println(s"Nested: ${nestedReps.map(n => n._1.rep.bound -> n._2.freeVars)}")
+    
+    var nestedCount = 0
+    
+    import sch._
+    def nestDefs(sd: SchExp, defs: List[Set[Val] -> SchDef]): Unit = sd match {
+      case lam @ SchLam(p, _, b) =>
+        import squid.utils.CollectionUtils.TraversableOnceHelper
+        val (toScheduleNow,toPostpone) = defs.mapSplit {
+          case fvs -> sd =>
+            val fvs2 = fvs - p
+            if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
+        }
+        toScheduleNow.foreach { d => nestedCount += 1; nestDefs(d.body, toPostpone); lam.bindings ::= d }
+        nestDefs(b, toPostpone)
+      case _ => sd.children.foreach(nestDefs(_, defs)) // FIXME variables bound by `case`?!
+    }
+    val toNest = nestedReps.map { case (r,d) => d.nestingScope -> d }
+    topLevelReps.map(_._2.body).foreach(nestDefs(_, toNest))
+    assert(nestedCount === toNest.size)
+    
     new ScheduledModule {
-      // FIXME what if some nestedReps were never scheduled? (could happen if they have impossible scopes!)
       override def toHaskell(imports: List[String]) = s"""
         |-- Generated Haskell code from Graph optimizer
         |-- Optimized after GHC phase:
@@ -502,7 +575,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |
         |${imports.map("import "+_).mkString("\n")}
         |
-        |${topLevelReps.map(_._2.mkStr(m)).mkString("\n\n")}
+        |${topLevelReps.map(_._2.toHs).mkString("\n\n")}
         |""".tail.stripMargin
       
       override def toString: String = {
@@ -528,7 +601,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   override def prettyPrint(d: Def) = (new HaskellDefPrettyPrinter)(d)
   class HaskellDefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends graph.DefPrettyPrinter(showInlineNames, showInlineCF) {
     override def apply(d: Def): String = d match {
-      case Apply(lhs,rhs) => s"${apply(lhs)} ${apply(rhs)}" // FIXME?
+      case Apply(lhs,rhs) => s"${apply(lhs)} @ ${apply(rhs)}" // FIXME?
       case _ => super.apply(d)
     }
   }

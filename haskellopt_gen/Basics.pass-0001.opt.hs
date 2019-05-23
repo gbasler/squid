@@ -17,21 +17,21 @@ import GHC.Types
 
 _0(# z #) = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 11#)) z)) (((GHC.Num.*) z) (GHC.Types.I# 22#)))
 
-f = (\x'15 -> (((GHC.Num.*) x'15) x'15))
+f = (\x' -> (((GHC.Num.*) x') x'))
 
-fTest0 = (((GHC.Num.*) (((GHC.Num.*) x') x')) (((GHC.Num.*) x'2) x'2))
+fTest0 = (((GHC.Num.*) (((GHC.Num.*) x'2) x'2)) (((GHC.Num.*) x'3) x'3))
 
 fTest1 = (((GHC.Num.*) x) x)
 
-fTest2 = (((GHC.Num.+) (((GHC.Num.*) x'3) x'3)) (((GHC.Num.*) x'4) x'4))
+fTest2 = (((GHC.Num.+) (((GHC.Num.*) x'4) x'4)) (((GHC.Num.*) x'5) x'5))
 
-fTest3 = (((GHC.Num.*) (((GHC.Num.*) x'5) x'5)) (((GHC.Num.*) x'6) x'6))
+fTest3 = (((GHC.Num.*) (((GHC.Num.*) x'6) x'6)) (((GHC.Num.*) x'7) x'7))
 
-fTest4 = (((GHC.Num.+) (((GHC.Num.*) x'7) x'7)) (((GHC.Num.*) x'8) x'8))
+fTest4 = (((GHC.Num.+) (((GHC.Num.*) x'8) x'8)) (((GHC.Num.*) x'9) x'9))
 
-foo = (\x'16 -> let { tmp = (((GHC.Num.*) x'16) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
+foo = (\x'11 -> let { tmp = (((GHC.Num.*) x'11) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
 
-g = (\x'17 -> (\y -> (((GHC.Num.*) x'17) y)))
+g = (\x'10 -> (\y -> (((GHC.Num.*) x'10) y)))
 
 gTest0 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) (GHC.Types.I# 3#))) (GHC.Types.I# 4#))
 
@@ -49,32 +49,32 @@ gTest6 = (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 44#)) (GHC.Types.I# 33#))) (G
 
 k = (\z' -> (_0(# z' #)))
 
-x'9 = (GHC.Types.I# 33#)
+x'12 = (GHC.Types.I# 33#)
 
-x = (((GHC.Num.*) x'9) x'9)
+x = (((GHC.Num.*) x'12) x'12)
 
-x'10 = (GHC.Types.I# 55#)
+x'13 = (GHC.Types.I# 55#)
 
-x'5 = (((GHC.Num.*) x'11) x'11)
+x'6 = (((GHC.Num.*) x'14) x'14)
 
-x'11 = (GHC.Types.I# 66#)
+x'14 = (GHC.Types.I# 66#)
 
-x'6 = (((GHC.Num.*) x'12) x'12)
+x'7 = (((GHC.Num.*) x'15) x'15)
 
-x'12 = (GHC.Types.I# 77#)
+x'15 = (GHC.Types.I# 77#)
 
-x'7 = (((GHC.Num.*) x'13) x'13)
+x'8 = (((GHC.Num.*) x'16) x'16)
 
-x'13 = (GHC.Types.I# 66#)
+x'16 = (GHC.Types.I# 66#)
 
-x'8 = (((GHC.Num.*) x'14) x'14)
+x'9 = (((GHC.Num.*) x'17) x'17)
 
-x'14 = (GHC.Types.I# 77#)
+x'17 = (GHC.Types.I# 77#)
 
-x' = (GHC.Types.I# 11#)
+x'2 = (GHC.Types.I# 11#)
 
-x'2 = (GHC.Types.I# 22#)
+x'3 = (GHC.Types.I# 22#)
 
-x'3 = (GHC.Types.I# 44#)
+x'4 = (GHC.Types.I# 44#)
 
-x'4 = (((GHC.Num.*) x'10) x'10)
+x'5 = (((GHC.Num.*) x'13) x'13)
