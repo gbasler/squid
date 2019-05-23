@@ -498,7 +498,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       s">> Done! <<"
     }
     
-    val sreps = sch.scheduledReps.valuesIterator.toList.sortBy(_.rep.bound.name)
+    val isExported = mod.letReps.toSet
+    
+    val sreps = sch.scheduledReps.valuesIterator.toList.sortBy(sr => (!isExported(sr.rep), sr.rep.bound.name))
+    
     sreps.foreach { sr =>
       if (sr.shouldBeScheduled) {
         sr.subReps.foreach(_.usages += 1)
@@ -513,8 +516,6 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       }
     }
     */
-    
-    val isExported = mod.letReps.toSet
     
     def propagateScp(sr: sch.SchedulableRep, scp: Set[Val]): Unit = {
       if (sr.registerScope_!(scp)) sr.subReps.foreach(propagateScp(_, sr.rep.node match {
@@ -562,6 +563,17 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     topLevelReps.map(_._2.body).foreach(nestDefs(_, toNest))
     assert(nestedCount === toNest.size)
     
+    val topLevelRepsOrdered: List[SchDef] = {
+      val topLevels = topLevelReps.iterator.map { case(sr,d) => sr.rep -> d }.toMap
+      val done = mutable.Set.empty[Rep]
+      topLevelReps.flatMap { case(sr,d) =>
+        (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(d) }) ++ d.body.allChildren.collect {
+          case SchCall(sr, args) if !done(sr.rep) && topLevels.contains(sr.rep) =>
+            done += sr.rep; topLevels(sr.rep) }
+      }
+    }
+    assert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
+    
     new ScheduledModule {
       override def toHaskell(imports: List[String]) = s"""
         |-- Generated Haskell code from Graph optimizer
@@ -575,8 +587,9 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |
         |${imports.map("import "+_).mkString("\n")}
         |
-        |${topLevelReps.map(_._2.toHs).mkString("\n\n")}
+        |${topLevelRepsOrdered.map(_.toHs).mkString("\n\n")}
         |""".tail.stripMargin
+        //|${topLevelReps.sortBy{case(sr,d) => (!isExported(sr.rep),d.name)}.map(_._2.toHs).mkString("\n\n")}
       
       override def toString: String = {
         val defs = for (

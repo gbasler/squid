@@ -20,15 +20,13 @@ import GHC.Show
 import GHC.Types
 import System.IO
 
-_0(# x, y #) = (((GHC.Num.+) x) y)
-
-_1 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _1))
-
 a = (((:) 1) b)
 
 b = (((:) 2) a)
 
-lol = (\x' -> (\y' -> (_0(# x', y' #))))
+lol = (\x -> (\y -> (_0(# x, y #))))
+
+_0(# x', y' #) = (((GHC.Num.+) x') y')
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
@@ -39,5 +37,7 @@ main = (System.IO.print (Data.Foldable.sum ls1))
 mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
 mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _1)
+
+_1 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _1))
 
 rec0 = (((:) 1) rec0)
