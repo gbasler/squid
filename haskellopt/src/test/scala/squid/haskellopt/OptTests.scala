@@ -60,6 +60,12 @@ class OptTests extends FunSuite {
     
   }
   
+  test("HigherOrderRec4") {
+    
+    TestHarness("HigherOrderRec4", exec = true)
+    
+  }
+  
   test("BuildFoldr") {
     
     TestHarness("BuildFoldr")

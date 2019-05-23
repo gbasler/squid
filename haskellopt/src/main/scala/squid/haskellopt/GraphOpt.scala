@@ -124,7 +124,8 @@ class GraphOpt {
     mod.moduleTopBindings.foreach { tb =>
       val v = Graph.bindVal(tb.bndr.binderName, dt, Nil)
       val rv = Graph.Rep.withVal(v,v)
-      moduleBindings += tb.bndr.binderId -> rv
+      moduleBindings += tb.bndr.binderId ->
+        Graph.Box(Graph.Id,rv).mkRep // used to be just `rv` here, but it would duplicate the node following the hardRewireTo_!
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
     }
     

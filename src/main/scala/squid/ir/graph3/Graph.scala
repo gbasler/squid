@@ -74,6 +74,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     /** To avoid; only use if `that` is fresh and won't be used again; otherwise we will duplicate its node. */
     def hardRewireTo_!(that: Rep): Unit = {
       require(that.isFresh)
+      that.freshness = freshnessCount - 1
       node = that.node
     }
     

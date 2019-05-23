@@ -211,6 +211,10 @@ package object utils {
   
   def die = lastWords("Program reached and unexpected state.")
   def lastWords(msg: String) = throw new Exception(s"Internal Error: $msg")
+  def softAssert(pred: Bool, mkMsg: => String = ""): Unit = if (!pred) {
+    val msg = mkMsg
+    new Exception(s"Assertion violation" + (if (msg.isEmpty) "" else ": "+msg)).printStackTrace()
+  }
   
   /** Used to make Scala unexhaustivity warnings believed to be spurious go away */
   def spuriousWarning = lastWords("Case was reached that was thought to be unreachable.")

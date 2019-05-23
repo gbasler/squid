@@ -580,7 +580,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     }
     val toNest = nestedReps.map { case (r,d) => d.nestingScope -> d }
     topLevelReps.map(_._2.body).foreach(nestDefs(_, toNest))
-    assert(nestedCount === toNest.size)
+    softAssert(nestedCount === toNest.size, s"${nestedCount} === ${toNest.size}")
     
     val topLevelRepsOrdered: List[SchDef] = {
       val topLevels = topLevelReps.iterator.map { case(sr,d) => sr.rep -> d }.toMap
@@ -591,7 +591,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
             done += sr.rep; topLevels(sr.rep) }
       }
     }
-    assert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
+    softAssert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
     
     new ScheduledModule {
       override def toHaskell(imports: List[String]) = s"""
