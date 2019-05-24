@@ -13,7 +13,7 @@ import GHC.TopHandler
 
 main = (GHC.TopHandler.runMainIO (GHC.Base.return ()))
 
-rec0(# x #) = (\f -> let { _1 = f } in (f (_0(# {-A-}\(x) -> ((_1 (_0(# {-A-}\(x) -> (_2(# x, (_3(# f #)), f, _1 #)) #))) x) #))))
+rec0 = (\f -> let { _1 = f } in (f (_0(# {-A-}\(x) -> ((_1 (_0(# {-A-}\(x) -> (_2(# x, (_3(# f #)), f, _1 #)) #))) x) #))))
 
 _0(# f' #) = (\x -> {-P-}(f'(x)))
 

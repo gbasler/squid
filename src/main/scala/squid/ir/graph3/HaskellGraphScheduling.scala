@@ -145,7 +145,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     case class SchDef(sr: SchedulableRep, branchParams: List[Val], body: SchExp) extends Sch {
       def scope = Set.empty
       val name = sr.rep.bound |> printVal
-      def freeVars: Set[Val] = body.freeVars 
+      def freeVars: Set[Val] = body.freeVars
       lazy val nestingScope: Set[Val] = freeVars & sr.maximalSharedScope.get
       lazy val valParams: List[Val] = (freeVars -- sr.maximalSharedScope.get).toList.sortBy(printVal)
       lazy val params = valParams ++ branchParams
@@ -174,7 +174,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         case SchVar(v) => Set.empty + v
         case SchLam(p, _, b) => b.freeVars - p
         case SchCase(e, es) => e.freeVars ++ es.flatMap(c => c._3.freeVars -- c._2)
-        case SchParam(v, xvs) => xvs.toSet // + v // FIXME?
+          
+        case SchArg(b, xvs) => b.freeVars -- xvs
+        /* This seemed to make sense, but in fact it doesn't!
+           Indeed, in both SchParam and SchArg cases, we filter xvs based on the current actual scope. */
+        // case SchParam(v, xvs) => xvs.toSet
+          
         case _ => children.flatMap(_.freeVars).toSet
       }
       def children: Iterator[SchExp] = this match {
@@ -186,6 +191,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         case SchArg(b, _) => Iterator(b)
       }
       def allChildren: Iterator[SchExp] = Iterator(this) ++ children.flatMap(_.allChildren)
+      
+      //override def toString = s"[|$toHs|]"
     }
     /** `value` can be a Constant, a CrossStageValue, or a StaticModule */
     case class SchConst(value: Any) extends SchExp {
@@ -212,9 +219,10 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     }
     case class SchParam(v: Val, possiblyExtruded: List[Val]) extends SchExp {
       // TODO use proper unboxed tuple arguments for the continuations
-      val toHs = {
-        if (possiblyExtruded.isEmpty) printVal(v) else
-        "{-P-}("+printVal(v)+possiblyExtruded.map(printVal).mkString("(",",",")")+")"
+      def toHs = {
+        val extruded = possiblyExtruded.filter(scope)
+        if (extruded.isEmpty) printVal(v) else
+        "{-P-}("+printVal(v)+extruded.map(printVal).mkString("(",",",")")+")"
       }
     }
     case class SchArg(body: SchExp, possiblyExtruded: List[Val]) extends SchExp {
@@ -228,7 +236,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
       val name = sr.rep.bound |> printVal
       def toHs = {
         val argStrs = args.map(_.toHs)
-        val valArgs = sr.valParams.get.map(printVal)
+        val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
         val allArgStrs = valArgs ++ argStrs
         if (allArgStrs.isEmpty) name else
         s"($name(# ${allArgStrs.mkString(", ")} #))"

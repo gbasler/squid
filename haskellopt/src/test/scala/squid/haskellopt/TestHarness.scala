@@ -17,18 +17,23 @@ object TestHarness {
     
     var ite = 0
     do {
+      /*
       println(s"--- Graph ${ite} ---")
       println(mod.show)
+      */
       //println(go.Graph.scheduleRec(mod))
       ite += 1
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
+    
+    println(s"--- Final Graph (${ite}) ---")
+    println(mod.show)
     
     //println(mod.show)
     val sch = go.Graph.scheduleRec(mod)
     println("--- Scheduled ---")
     
     //go.Graph.HaskellScheduleDebug debugFor
-    println(sch)
+    //println(sch)
     
     //import squid.ir.graph.{SimpleASTBackend => AST}
     //println("REF: "+AST.showRep(go.Graph.treeInSimpleASTBackend(mod.toplvlRep))) // diverges in graphs with recursion

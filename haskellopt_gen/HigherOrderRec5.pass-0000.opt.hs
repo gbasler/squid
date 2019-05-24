@@ -1,16 +1,11 @@
 -- Generated Haskell code from Graph optimizer
 -- Optimized after GHC phase:
---   Simplifier: Max iterations = 4
---               SimplMode {Phase = 0 [Non-opt simplification],
---                          inline,
---                          no rules,
---                          eta-expand,
---                          case-of-case}
+--   desugar
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Main (main,rec0,rec0_1,rec0_2) where
+module Main (rec0_1,main,rec0_0,rec0_0_,rec0) where
 
 import GHC.Base
 import GHC.Num
@@ -26,18 +21,20 @@ _2(# x, f'3, f'4, f'5 #) = (((_3(# f'4 #)) (_0(# {-A-}\(x) -> (_2(# x, (_3(# f'4
 
 _3(# f'2 #) = f'2
 
-rec0_1 = _4
+rec0_0 = GHC.Base.id
 
-_4 = (\s' -> (_6(# s' #)))
+rec0_0_ = _4
 
-rec0_2 = _5
+_4 = (\s -> s)
 
-_5 = (\s'3 -> (_8(# s'3 #)))
+rec0_1 = _5
 
-_6(# s #) = (((GHC.Num.+) s) 1)
+_5 = (\s'2 -> (_8(# s'2 #)))
 
-_7 = (\k -> _4)
+_6 = (\k -> GHC.Base.id)
 
-_8(# s'2 #) = (((GHC.Num.*) s'2) 2)
+_7 = (\k' -> _4)
 
-_9 = (\k' -> _5)
+_8(# s' #) = (((GHC.Num.+) s') 1)
+
+_9 = (\k'2 -> _5)

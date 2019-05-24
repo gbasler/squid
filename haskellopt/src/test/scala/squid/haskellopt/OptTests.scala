@@ -47,23 +47,24 @@ class OptTests extends FunSuite {
   }
   
   test("HigherOrderRec2") {
-    
-    TestHarness("HigherOrderRec2", exec = true)
-    //TestHarness("HigherOrderRec2", "0000"::Nil, exec = true)
-    
+    TestHarness("HigherOrderRec2")
+    //TestHarness("HigherOrderRec2", "0000"::Nil)
   }
   
   test("HigherOrderRec3") {
-    
-    // FIXME
-    //TestHarness("HigherOrderRec3", exec = true)
-    
+    //TestHarness("HigherOrderRec3")
+    TestHarness("HigherOrderRec3", "0000"::Nil)
+    //TestHarness("HigherOrderRec3", "0001"::Nil) // FIXME
   }
   
   test("HigherOrderRec4") {
-    
-    TestHarness("HigherOrderRec4", exec = true)
-    
+    TestHarness("HigherOrderRec4")
+  }
+  
+  test("HigherOrderRec5") {
+    //TestHarness("HigherOrderRec5")
+    TestHarness("HigherOrderRec5", "0000"::Nil)
+    //TestHarness("HigherOrderRec5", "0001"::Nil, exec = true) // FIXME
   }
   
   test("BuildFoldr") {
