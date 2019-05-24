@@ -33,6 +33,6 @@ gTest1 = (\y' -> (\x'6 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id x'6)) y'))))
 
 h = (\f'3 -> let { _0 = f'3 } in (\x'7 -> (GHC.Base.id (_0 (GHC.Base.id (_0 x'7))))))
 
-hTest0 = (\x'8 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) x'8) 1))) 1)))
+hTest0 = (\x'8 -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) x'8) ds))) ds)))
 
 hTest1 = (\y'2 -> let { _1 = y'2 } in (\eta -> (GHC.Base.id (((GHC.Num.+) (GHC.Base.id (((GHC.Num.+) eta) _1))) _1))))

@@ -15,6 +15,10 @@ class GraphOpt {
     def mkName(base: String, idDomain: String) =
       //base + "_" + idDomain + freshName  // gives names that are pretty cluttered...
       base + freshName
+    def setMeaningfulName(v: Val, n: String): Unit = {
+      //println(s"Set $v -> $n")
+      if (v.name.contains('$')) v.name_! = n
+    }
   }
   import Graph.PgrmModule
   
@@ -24,7 +28,7 @@ class GraphOpt {
     import Graph.{DummyTyp => dt, UnboxedMarker}
     
     var modName = Option.empty[String]
-    val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, Graph.Rep]
+    val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, String -> Graph.Rep]
     
     object GraphDumpInterpreter extends ghcdump.Interpreter {
       
@@ -40,7 +44,7 @@ class GraphOpt {
       
       def EVar(b: BinderId): Expr = bindings(b).fold(_ |> Graph.readVal, id)
       def EVarGlobal(ExternalName: ExternalName): Expr =
-        if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalUnique) else
+        if (ExternalName.externalModuleName === modName.get) moduleBindings(ExternalName.externalUnique)._2 else
         //Graph.module(Graph.staticModule(ExternalName.externalModuleName), ExternalName.externalName, dummyTyp)
         Graph.staticModule {
           val mod = ExternalName.externalModuleName
@@ -77,12 +81,14 @@ class GraphOpt {
       def ELet(lets: Seq[(Binder, () => Expr)], e0: => Expr): Expr = {
         lets.foldRight(() => e0){
           case ((bndr, rhs), body) =>
-            val v = Graph.bindVal(Graph.mkName(bndr.binderName, bndr.binderId.name), dt, Nil)
+            val name = Graph.mkName(bndr.binderName, bndr.binderId.name)
+            val v = Graph.bindVal(name+"$", dt, Nil)
             val rv = Graph.Rep.withVal(v,v)
             bindings += bndr.binderId -> Right(rv)
             () => {
               val bod = rhs()
-              rv.hardRewireTo_!(bod)
+              Graph.setMeaningfulName(bod.bound, name)
+              rv.rewireTo(bod)
               body()
             }
         }()
@@ -124,8 +130,7 @@ class GraphOpt {
     mod.moduleTopBindings.foreach { tb =>
       val v = Graph.bindVal(tb.bndr.binderName, dt, Nil)
       val rv = Graph.Rep.withVal(v,v)
-      moduleBindings += tb.bndr.binderId ->
-        Graph.Box(Graph.Id,rv).mkRep // used to be just `rv` here, but it would duplicate the node following the hardRewireTo_!
+      moduleBindings += tb.bndr.binderId -> (tb.bndr.binderName -> rv)
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
     }
     
@@ -133,8 +138,9 @@ class GraphOpt {
       mod.moduleTopBindings.iterator
         .filter(_.bndr.binderName =/= "$trModule")
         .map(tb => tb.bndr.binderName -> {
-          val Right(rv) = GraphDumpInterpreter.bindings(tb.bndr.binderId)
-          rv.hardRewireTo_!(tb.expr)
+          val (nme,rv) = moduleBindings(tb.bndr.binderId)
+          rv.rewireTo(tb.expr)
+          Graph.setMeaningfulName(tb.expr.bound, nme)
           rv
         }).toMap
     )

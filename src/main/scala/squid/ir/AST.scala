@@ -363,7 +363,8 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
   
   type Val = BoundVal
   // To do later: refactor this class for more convenience -- use a unique id in addition to the name
-  /*case*/ class BoundVal(val name: String)(val typ: TypeRep, val annots: List[Annot]) extends LeafDef { self =>
+  /*case*/ class BoundVal(protected[squid] var name_! : String)(val typ: TypeRep, val annots: List[Annot]) extends LeafDef { self =>
+    def name = name_!
     def isExtractedBinder = annots exists (_._1.tpe.typeSymbol === ExtractedBinderSym)
     def renew = new BoundVal(name+freshName)(typ,annots) //alsoDo (varCount += 1)
     
