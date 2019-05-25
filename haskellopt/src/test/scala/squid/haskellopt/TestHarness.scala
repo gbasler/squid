@@ -8,9 +8,14 @@ object TestHarness {
   val dumpFolder = pwd/'haskellopt/'target/'dump
   val genFolder = pwd/'haskellopt_gen
   
-  def pipeline(filePath: Path, compileResult: Bool): Unit = {
-    val writePath = genFolder/RelPath(filePath.baseName+".opt.hs")
-    if (exists(writePath)) rm(writePath)
+  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool): Unit = {
+    
+    val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
+    if (exists(writePath_hs)) rm(writePath_hs)
+    
+    val writePath_graph = genFolder/RelPath(filePath.baseName+".opt.graph")
+    if (exists(writePath_graph)) rm(writePath_graph)
+    
     val go = new GraphOpt
     val mod = go.loadFromDump(filePath)
     println(s"=== PHASE ${mod.modPhase} ===")
@@ -26,7 +31,9 @@ object TestHarness {
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
     println(s"--- Final Graph (${ite}) ---")
-    println(mod.show)
+    val graphStr = mod.show
+    println(graphStr)
+    if (dumpGraph) write(writePath_graph, graphStr, createFolders = true)
     
     //println(mod.show)
     val sch = go.Graph.scheduleRec(mod)
@@ -39,17 +46,19 @@ object TestHarness {
     //println("REF: "+AST.showRep(go.Graph.treeInSimpleASTBackend(mod.toplvlRep))) // diverges in graphs with recursion
     
     println("--- Generated ---")
-    val moduleStr = sch.toHaskell(go.imports.toList.sorted)
+    val ghcVersion = %%('ghc, "--version")(pwd).out.string.stripSuffix("\n")
+    val moduleStr = sch.toHaskell(go.imports.toList.sorted, ghcVersion)
     println(moduleStr)
-    write(writePath, moduleStr, createFolders = true)
+    write(writePath_hs, moduleStr, createFolders = true)
     
-    if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath)(pwd)
+    if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
   }
   
   def apply(testName: String,
             passes: List[String] = List("0000", "0001"),
             opt: Bool = false,
             compileResult: Bool = true,
+            dumpGraph: Bool = false,
             exec: Bool = false,
            ): Unit = {
     import ghcdump._
@@ -77,7 +86,7 @@ object TestHarness {
     for (idxStr <- passes) {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
-      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult)
+      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult, dumpGraph)
       if (exec) %%(execPath)(pwd)
     }
     

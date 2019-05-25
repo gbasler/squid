@@ -1,4 +1,5 @@
 -- Generated Haskell code from Graph optimizer
+-- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   Simplifier: Max iterations = 4
 --               SimplMode {Phase = 0 [Non-opt simplification],

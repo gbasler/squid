@@ -1,4 +1,5 @@
 -- Generated Haskell code from Graph optimizer
+-- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   Simplifier: Max iterations = 4
 --               SimplMode {Phase = 0 [Non-opt simplification],
@@ -12,6 +13,7 @@
 
 module Main (rec7,rec3,rec2,rec8,rec7Test1,rec7Test2,main,ds,rec7Test0,rec0,rec1) where
 
+import GHC.Base
 import GHC.Classes
 import GHC.List
 import GHC.Num
@@ -23,7 +25,7 @@ ds = 2
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (((:) 1) (((:) 1) (((:) 1) [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
 
-rec7Test2 = ((GHC.List.take (GHC.Types.I# 3#)) (_8(# (), (_5(# _9, _9, _9 #)) #)))
+rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_8(# (), (_5(# _9, _9, _9 #)) #)))
 
 rec0 = (\f -> (_0(# f #)))
 

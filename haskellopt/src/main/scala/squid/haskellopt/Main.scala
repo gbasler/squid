@@ -49,7 +49,7 @@ object MainOpt extends App {
   println("--- Scheduled ---")
   println(sch)
   println("--- Generated ---")
-  println(sch.toHaskell(go.imports.toList))
+  println(sch.toHaskell(go.imports.toList, "?"))
   
   //val ls1 = pgrm.lets("ls1")
   //println(ls1.showGraph)

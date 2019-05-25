@@ -430,7 +430,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   }
   
   abstract class ScheduledModule {
-    def toHaskell(imports: List[String]): String
+    def toHaskell(imports: List[String], ghcVersion: String): String
     override def toString: String
   }
   
@@ -602,10 +602,12 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     softAssert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
     
     new ScheduledModule {
-      override def toHaskell(imports: List[String]) = s"""
+      def commentLines(str: String) = str.split("\n").map("--   "+_).mkString("\n")
+      override def toHaskell(imports: List[String], ghcVersion: String) = s"""
         |-- Generated Haskell code from Graph optimizer
+        |-- Core obtained from: $ghcVersion
         |-- Optimized after GHC phase:
-        |${mod.modPhase.split("\n").map("--   "+_).mkString("\n")}
+        |${mod.modPhase |> commentLines}
         |
         |{-# LANGUAGE UnboxedTuples #-}
         |{-# LANGUAGE MagicHash #-}
@@ -617,6 +619,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         |${topLevelRepsOrdered.map(_.toHs).mkString("\n\n")}
         |""".tail.stripMargin
         //|${topLevelReps.sortBy{case(sr,d) => (!isExported(sr.rep),d.name)}.map(_._2.toHs).mkString("\n\n")}
+        //|-- Optimized graph view:
+        //|${mod.show |> commentLines}
       
       override def toString: String = showStr
       

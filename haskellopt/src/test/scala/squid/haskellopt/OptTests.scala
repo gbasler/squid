@@ -47,8 +47,8 @@ class OptTests extends FunSuite {
   }
   
   test("HigherOrderRec2") {
-    TestHarness("HigherOrderRec2")
-    //TestHarness("HigherOrderRec2", "0000"::Nil)
+    TestHarness("HigherOrderRec2", dumpGraph = true)
+    //TestHarness("HigherOrderRec2", dumpGraph = true, "0000"::Nil)
   }
   
   test("HigherOrderRec3") {
@@ -58,7 +58,7 @@ class OptTests extends FunSuite {
   }
   
   test("HigherOrderRec4") {
-    TestHarness("HigherOrderRec4")
+    TestHarness("HigherOrderRec4", dumpGraph = true)
   }
   
   test("HigherOrderRec5") {
@@ -69,16 +69,16 @@ class OptTests extends FunSuite {
   
   test("BuildFoldr") {
     
-    TestHarness("BuildFoldr")
+    TestHarness("BuildFoldr", dumpGraph = true)
     
   }
   
   test("IterCont") {
     
-    //TestHarness("IterCont")
-    TestHarness("IterCont", "0000"::Nil, compileResult = false) // FIXME
-    //TestHarness("IterCont", "0001"::Nil, opt = true)
-    //TestHarness("IterCont", "0001"::Nil)
+    //TestHarness("IterCont", dumpGraph = true)
+    TestHarness("IterCont", "0000"::Nil, dumpGraph = true, compileResult = false) // FIXME
+    //TestHarness("IterCont", "0001"::Nil, dumpGraph = true, opt = true)
+    //TestHarness("IterCont", "0001"::Nil, dumpGraph = true)
     
   }
   

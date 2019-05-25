@@ -1,4 +1,5 @@
 -- Generated Haskell code from Graph optimizer
+-- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   Simplifier: Max iterations = 4
 --               SimplMode {Phase = 0 [Non-opt simplification],
@@ -32,7 +33,7 @@ ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
 ls1 = ((GHC.Base.map (\ds -> (((GHC.Num.+) ds) (_0(# 11, 22 #))))) ls0)
 
-main = (System.IO.print (Data.Foldable.sum ls1))
+main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 
 mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
