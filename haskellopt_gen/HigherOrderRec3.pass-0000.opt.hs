@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 52; Boxes: 26; Branches: 20
--- Apps: 35; Lams: 6; Unreduced Redexes: 4
+-- Total nodes: 48; Boxes: 21; Branches: 16
+-- Apps: 30; Lams: 6; Unreduced Redexes: 2
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -13,36 +13,34 @@ module HigherOrderRec (rec7,rec7Test1,rec0_0,rec7Test0,rec0) where
 import GHC.Base
 import GHC.Num
 
-rec0 = (\f -> let { _1 = f } in (f (_0(# {-A-}\(x) -> (_1 (_0(# {-A-}\(x) -> (_2(# f, _1, (_3(# f #)) #)) #))) #))))
+rec0 = (\f -> (f (_0(# {-A-}\(x) -> (_1(# f, (_2(# f #)) #)) #))))
 
-_0(# f'14 #) = (\x -> ({-P-}(f'14(x)) x))
+_0(# f'13 #) = (\x -> ({-P-}(f'13(x)) x))
 
-_2(# f'11, f'12, f'13 #) = ((_3(# f'11 #)) (_0(# {-A-}\(x) -> (_2(# f'12, f'13, (_3(# f'11 #)) #)) #)))
+_1(# f'11, f'12 #) = ((_2(# f'11 #)) (_0(# {-A-}\(x) -> (_1(# f'12, (_2(# f'11 #)) #)) #)))
 
-_3(# f'10 #) = f'10
+_2(# f'10 #) = f'10
 
 rec0_0 = GHC.Base.id
 
-rec7 = (\f' -> (_4(# {-A-}\(ds') -> (_5(# f', f', f' #)) #)))
+rec7 = (\f' -> (_3(# {-A-}\(ds'2) -> (_4(# f', f' #)) #)))
 
-_4(# f'5 #) = (\ds' -> (_11(# {-P-}(f'5(ds')), ds' #)))
+_3(# f'4 #) = (\ds'2 -> (_6(# {-P-}(f'4(ds'2)), ds'2 #)))
 
-_5(# f'7, f'8, f'9 #) = (f'8 (_8(# f'9, f'7 #)))
+_4(# f'6, f'7 #) = (f'7 (_10(# f'6 #)))
 
-rec7Test0 = (_4(# {-A-}\(ds') -> (_5(# _6, _6, _6 #)) #))
+rec7Test0(# f' #) = (_3(# {-A-}\(ds'2) -> (_4(# f', f' #)) #))
 
-_6 = ((GHC.Num.+) 1)
+rec7Test1 = (_3(# {-A-}\(ds'2) -> (_5(# (_6(# (_7(# (_8(# (\ds -> (_5(# ds #))) #)), (\ds -> (_5(# ds #))) #)), _9 #)) #)) #))
 
-rec7Test1 = (_4(# {-A-}\(ds') -> (_7(# (_8(# _9, _9 #)) #)) #))
+_5(# ds'3 #) = (((GHC.Num.*) ds'3) 2)
 
-_7(# ds'2 #) = (((GHC.Num.*) ds'2) 2)
+_6(# f'3, ds' #) = (case ds' of {() -> f'3})
 
-_8(# f'2, f'3 #) = (_11(# ((_12(# f'2 #)) (_8(# f'3, (_12(# f'2 #)) #))), () #))
+_7(# f'8, f'9 #) = ((_8(# f'9 #)) (_10(# f'8 #)))
 
-_9 = (\ds'3 -> (_7(# ds'3 #)))
+_8(# f'5 #) = f'5
 
-_10 = (\k -> GHC.Base.id)
+_9 = ()
 
-_11(# f'4, ds #) = (case ds of {() -> f'4})
-
-_12(# f'6 #) = f'6
+_10(# f'2 #) = (_6(# (_7(# (_8(# f'2 #)), f'2 #)), _9 #))

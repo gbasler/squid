@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 51; Boxes: 27; Branches: 22
--- Apps: 37; Lams: 7; Unreduced Redexes: 6
+-- Total nodes: 117; Boxes: 56; Branches: 71
+-- Apps: 83; Lams: 7; Unreduced Redexes: 6
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -16,28 +16,18 @@ import GHC.TopHandler
 
 main = (GHC.TopHandler.runMainIO (GHC.Base.return ()))
 
-rec0 = (\f -> let { _1 = f } in (f (_0(# {-A-}\(x) -> ((_1 (_0(# {-A-}\(x) -> (_2(# x, (_3(# f #)), f, _1 #)) #))) x) #))))
+rec0 = (\f -> let { _0 = (f _3) } in _0)
 
-_0(# f' #) = (\x -> {-P-}(f'(x)))
-
-_2(# x, f'3, f'4, f'5 #) = (((_3(# f'4 #)) (_0(# {-A-}\(x) -> (_2(# x, (_3(# f'4 #)), f'5, f'3 #)) #))) x)
-
-_3(# f'2 #) = f'2
+_3 = (\x -> (_0 x))
 
 rec0_0 = GHC.Base.id
 
-rec0_0_ = _4
+rec0_0_ = _1
 
-_4 = (\s -> s)
+_1 = (\s -> s)
 
-rec0_1 = _5
+rec0_1 = _2
 
-_5 = (\s'2 -> (_8(# s'2 #)))
+_2 = (\s'2 -> (_4(# s'2 #)))
 
-_6 = (\k -> GHC.Base.id)
-
-_7 = (\k' -> _4)
-
-_8(# s' #) = (((GHC.Num.+) s') 1)
-
-_9 = (\k'2 -> _5)
+_4(# s' #) = (((GHC.Num.+) s') 1)

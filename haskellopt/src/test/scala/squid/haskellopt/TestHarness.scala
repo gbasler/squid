@@ -25,9 +25,14 @@ object TestHarness {
       /*
       println(s"--- Graph ${ite} ---")
       println(mod.show)
+      println(s"--- / ---")
       */
+      
       //println(go.Graph.scheduleRec(mod))
       ite += 1
+      
+      //Thread.sleep(200)
+      
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
     println(s"--- Final Graph (${ite}) ---")

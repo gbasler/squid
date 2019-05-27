@@ -381,16 +381,21 @@ trait GraphRewriting extends AST { graph: Graph =>
      followed by branches...
    
   */
+  val betaReduced = mutable.Set.empty[(List[(CallId,Bool,Rep)],Abs)]
+  
   def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
   {
     var changed = false
     val traversed = mutable.Set.empty[CCtx->Rep]
     
-    // TODO use or rm
     val reachableSets = // TODO improve; this is a bit wasteful, as we could share computations
       mutable.Map.empty[Rep, collection.Set[Rep]].withDefault(_.directlyReachable)
     def directlyLeadsBackTo(from: Rep, to: Rep) = reachableSets(from)(to)
+    def directlyLeadsBackTo2(from: Rep, to0: Rep, to1: Rep) = {
+      val rs = reachableSets(from)
+      rs(to0) || rs(to1)
+    }
     
     // We need to look through both legs of branches appearing under the lhs of applications, to figure out whether
     // they lead to lambda expressions...
@@ -431,19 +436,18 @@ trait GraphRewriting extends AST { graph: Graph =>
             case Some(true) => rep rewireTo thn; again()
             case Some(false) => rep rewireTo els; again()
             case None =>
-              if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) //else rec(els)
-              rec(els)
-              // ^ This whacky conditional recursion into 'thn' is all but a lucky heuristic that happens not to lead to
+              //if (hasCid_!(ctrl,cid,allowUnrelated=true)) rec(thn) //else rec(els)
+              //rec(els)
+              // ^ This whacky conditional recursion into 'thn' was all but a lucky heuristic that happens not to lead to
               //   infinite rewriting...
               // But it does miss opportunities that sohuld have been discovered by following the 'thn' branch more
               // often, leading to non-totally reduced graphs, and in particular, making unrelated definitions not
               // reduce completely when put together in the same graph!
               // In principle, we should do something more deterministic based on always traversing both branches, but
               // try to push boxes only into branches that don't have a path that cycle back to us (cf. the case for box/branch).
-              // However, currently that leads to less reduced graphs, because we need to generalize beta reduction too...
-              // I have commented it because the current scheduling algo fails on graphs that are not reduced enough...
+              // This used to lead to less reduced graphs, because we needed to generalize beta reduction too, which is now done.
               
-              //rec(thn); rec(els)
+              rec(thn); rec(els)
           }
           
         //case Box(Id,body) => // Nothing to do here... rewiring would reinsert the same Box(Id,_) wrapper!
@@ -456,8 +460,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           rep.node.assertNotVal
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again()
-        case Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els)))
-          //if !directlyLeadsBackTo(thn,rep) // TODO!
+        case Box(ctrl0, br @ Rep(Branch(ctrl1,cid,thn,els))) // TODO try without doing this; perhaps the graphs are cleaner?
+          if !directlyLeadsBackTo2(thn,rep,br)
         =>
           rep.node.assertNotVal
           rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
@@ -471,7 +475,10 @@ trait GraphRewriting extends AST { graph: Graph =>
           rep.node.assertNotVal
           rep.node = betaRed((Nil, Id, fun), arg)
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
-          again()
+          
+          // Strangely, it seems that some tests break when we use again() for beta-reduction cases; this might be totally incidental
+          //again()
+          changed=true
           
         // TODO try alternative form of beta reduction across push controls (i.e., move the controls up and put drops on top of arg)
           
@@ -481,33 +488,59 @@ trait GraphRewriting extends AST { graph: Graph =>
           rep.node.assertNotVal
           rep.node = betaRed((Nil, ctrl, fun), arg)
           println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
-          again()
+          
+          //again()
+          changed=true
         
+        //// TODO try
+        //case ConcreteNode(Apply(rep @ Rep(Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els)))), arg)) =>
+        //  rep.node.assertNotVal
+        //  rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
+        //  again()
+          
         // Beta reduction through branches and possibly a box!
-        case ConcreteNode(Apply(br @ Rep(_: Branch), arg)) =>
+        case ConcreteNode(Apply(br @ Rep(_: Branch | _: Box), arg)) =>
           // see if this branch leads to potentially other branches that lead to a beta redex
-          def go(rep: Rep): List[AbsPath] = leadsToAbs.getOrElseUpdate(rep, rep.node match {
+          
+          val trav = mutable.Set.empty[Rep]
+          // TODO prune impossible conditions!
+          def go(rep: Rep): List[AbsPath] = trav.setAndIfUnset(rep, leadsToAbs.getOrElseUpdate(rep, rep.node match {
             case Branch(ctrl,cid,thn,els) =>
               def upd(isLHS: Bool)(ap: AbsPath) = ((ctrl, cid, isLHS, if (isLHS) els else thn) :: ap._1, ap._2, ap._3) 
               go(thn).map(upd(true)) ++ go(els).map(upd(false)) : List[AbsPath]
-            case Box(ctrl,Rep(ConcreteNode(fun: Abs))) => (Nil,ctrl,fun) :: Nil
+            //case Box(ctrl,Rep(ConcreteNode(fun: Abs))) => (Nil,ctrl,fun) :: Nil
+            case Box(c,bod) =>
+              go(bod).map{case(conds,ctrl,abs) => (conds.map{case(c2,cid,side,b) => (c `;` c2,cid,side,b)}, c `;` ctrl, abs)}
+            case ConcreteNode(fun: Abs) => (Nil,Id,fun) :: Nil
             case _ => Nil
-          })
+          }) alsoDo (trav -= rep), Nil)
+          
           val gone = go(br)
-          gone.headOption // TODO(maybe) do the tail too? would it work out? (maybe not since we destructively make modifications)
+          //println(s"G: ${gone}")
+          //betaReduced.foreach(b => println("\t"+b))
+          
+          //gone.headOption 
+          gone.find { case g @ (conds, ctrl, abs) =>
+            val k = (conds.map { case (c2, cid, side, b) => (cid, side, b) }, abs)
+            !betaReduced(k) && { betaReduced(k) = true; true }
+          } // TODO(maybe) do the res too? would it work out? (maybe not since we destructively make modifications)
           match {
             case Some(path @ (conds,ctrl,fun)) =>
-              assert(conds.nonEmpty)
+              //assert(conds.nonEmpty) // we can now traverse several boxes and no branches
               println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${conds.map(_._2).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
               rep.node = betaRed(path, arg)
               println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
               leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
-              again()
+              
+              //Thread.sleep(200)
+              
+              //again()
+              changed=true
+              
             case None =>
               rec(br); rec(arg)
           }
-          
           
         case ConcreteNode(d) => d.children.foreach(rec)
       })
