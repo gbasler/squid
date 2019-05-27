@@ -521,12 +521,13 @@ trait GraphRewriting extends AST { graph: Graph =>
           
           //gone.headOption 
           gone.find { case g @ (conds, ctrl, abs) =>
-            val k = (conds.map { case (c2, cid, side, b) => (cid, side, b) }, abs)
-            !betaReduced(k) && { betaReduced(k) = true; true }
+            conds.nonEmpty && { // if 'conds' is empty, it means we have several boxes; it's better to let the other rwr reduce them first
+              val k = (conds.map { case (c2, cid, side, b) => (cid, side, b) }, abs)
+              !betaReduced(k) && { betaReduced(k) = true; true }}
           } // TODO(maybe) do the res too? would it work out? (maybe not since we destructively make modifications)
           match {
             case Some(path @ (conds,ctrl,fun)) =>
-              //assert(conds.nonEmpty) // we can now traverse several boxes and no branches
+              assert(conds.nonEmpty) // we avoid cases where we traversed only boxes
               println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${conds.map(_._2).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
               rep.node = betaRed(path, arg)
