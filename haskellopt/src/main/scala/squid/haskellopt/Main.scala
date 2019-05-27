@@ -40,7 +40,7 @@ object MainAll extends App {
 
 object MainOpt extends App {
   
-  val go = new GraphOpt
+  val go = new GraphLoader
   val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Basics.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")

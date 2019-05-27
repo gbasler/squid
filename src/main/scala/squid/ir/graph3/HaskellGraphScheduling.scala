@@ -20,29 +20,9 @@ import squid.utils._
 import scala.collection.mutable
 import squid.ir.graph.SimpleASTBackend
 
-private final class UnboxedMarker // for Haskell gen purposes
-
-/** Dummy class for encoding Haskell pat-mat in the graph. */
-private class HaskellADT {
-  def `case`(cases: (String -> Any)*): Any = ???
-  def get(ctorName: String, fieldIdx: Int): Any = ???
-}
-
 /** New scheduling algorithm that supports recursive definitions and Haskell output. */
-trait HaskellGraphScheduling extends AST { graph: Graph =>
+trait HaskellGraphScheduling { graph: HaskellGraph =>
   /* Notes.
-  
-  Problems with exporting Haskell from GHC-Core:
-   - After rewrite rules, we get code that refers to functions not exported from modules,
-     such as `GHC.Base.mapFB`, `GHC.List.takeFB`
-   - After some point (phase Specialise), we start getting fictive symbols,
-     such as `GHC.Show.$w$cshowsPrec4`
-   - The _simplifier_ itself creates direct references to type class instance methods, such as
-     `GHC.Show.$fShowInteger_$cshowsPrec`, and I didn't find a way to disable that behavior... 
-  So the Haskell export really only works kind-of-consistently right after the desugar phase OR after some
-  simplification with optimization turned off, but no further...
-  Yet, the -O flag is useful, as it makes list literals be represented as build.
-  So it's probably best to selectively disable optimizations, such as the application of rewrite rules (a shame, really).
   
   Problems with fixed-point scheduling of recursive graphs:
    – Branch duplicity: sometimes, we end up scheduling to mutually-recursive branches that should really be the same:
@@ -69,51 +49,8 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
   object HaskellScheduleDebug extends PublicTraceDebug
   import HaskellScheduleDebug.{debug=>Sdebug}
   
-  // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
-  //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
-  
-  // Otherwise creates a stack overflow while LUB-ing to infinity
-  override def branchType(lhs: => TypeRep, rhs: => TypeRep): TypeRep = Any
-  
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
-  
-  val Any = Predef.implicitType[Any].rep
-  val UnboxedMarker = Predef.implicitType[UnboxedMarker].rep
-  
-  val HaskellADT = loadTypSymbol("squid.ir.graph3.HaskellADT")
-  val CaseMtd = loadMtdSymbol(HaskellADT, "case")
-  val GetMtd = loadMtdSymbol(HaskellADT, "get")
-  
-  var ctorArities = mutable.Map.empty[String, Int]
-  def mkCase(scrut: Rep, alts: Seq[(String, Int, () => Rep)]): Rep = {
-    methodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(),Args(alts.map{case(con,arity,rhs) =>
-      ctorArities.get(con) match {
-        case Some(a2) => assert(a2 === arity)
-        case None => ctorArities += con -> arity
-      }
-      Tuple2(con |> staticModule, rhs())
-    }:_*))::Nil, Any)
-  }
-  
-  object Tuple2 {
-    //val TypSymbol = loadTypSymbol("scala.Tuple2")
-    val ModTypSymbol = loadTypSymbol("scala.Tuple2$")
-    val Mod = staticModule("scala.Tuple2")
-    val ApplySymbol = loadMtdSymbol(ModTypSymbol, "apply")
-    def apply(x0: Rep, x1: Rep): Rep = methodApp(Mod, ApplySymbol, Nil, Args(x0,x1)::Nil, Any)
-  }
-  
-  
-  case class PgrmModule(modName: String, modPhase: String, lets: Map[String, Rep]) {
-    val letReps = lets.valuesIterator.toList
-    lazy val toplvlRep = {
-      val mv = bindVal(modName, Any, Nil)
-      Rep.withVal(mv, Imperative(letReps.init, letReps.last, allowEmptyEffects = true))
-    }
-    def showGraph = toplvlRep.showGraph
-    def show = "module " + showGraph
-  }
   
   class RecScheduler(nb: squid.lang.Base) {
     /** Left: propagated argument; Right: provided argument */
@@ -134,9 +71,6 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
         case n => nme+"'"+n
       }
     })
-    
-    /** Stringification context: current scope, association between sub-scopes to what to bind in them */
-    type StrfyCtx = (Set[Val], List[Set[Val] -> SchDef])
     
     sealed abstract class Sch {
       def scope: Set[Val]
@@ -574,6 +508,7 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     var nestedCount = 0
     
     import sch._
+    /** defs: association between sub-scopes to what to bind in them */
     def nestDefs(sd: SchExp, defs: List[Set[Val] -> SchDef]): Unit = sd match {
       case lam @ SchLam(p, _, b) =>
         import squid.utils.CollectionUtils.TraversableOnceHelper
@@ -628,16 +563,6 @@ trait HaskellGraphScheduling extends AST { graph: Graph =>
     
   }
   
-  
-  
-  override def prettyPrint(d: Def) = (new HaskellDefPrettyPrinter)(d)
-  class HaskellDefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends graph.DefPrettyPrinter(showInlineNames, showInlineCF) {
-    override def apply(d: Def): String = d match {
-      case Apply(lhs,rhs) => s"${apply(lhs)} @ ${apply(rhs)}" // FIXME?
-      case _ => super.apply(d)
-    }
-  }
-  override def printNode(n: Node) = (new HaskellDefPrettyPrinter)(n)
   
 }
 

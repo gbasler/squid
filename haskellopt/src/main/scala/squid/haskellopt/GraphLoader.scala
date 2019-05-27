@@ -8,8 +8,24 @@ import squid.haskellopt.ghcdump.Interpreter
 
 import scala.collection.mutable
 
-class GraphOpt {
-  object Graph extends Graph with HaskellGraphScheduling {
+class GraphLoader {
+  /* Notes.
+  
+  Problems with exporting Haskell from GHC-Core:
+   - After rewrite rules, we get code that refers to functions not exported from modules,
+     such as `GHC.Base.mapFB`, `GHC.List.takeFB`
+   - After some point (phase Specialise), we start getting fictive symbols,
+     such as `GHC.Show.$w$cshowsPrec4`
+   - The _simplifier_ itself creates direct references to type class instance methods, such as
+     `GHC.Show.$fShowInteger_$cshowsPrec`, and I didn't find a way to disable that behavior... 
+  So the Haskell export really only works kind-of-consistently right after the desugar phase OR after some
+  simplification with optimization turned off, but no further...
+  Yet, the -O flag is useful, as it makes list literals be represented as build.
+  So it's probably best to selectively disable optimizations, such as the application of rewrite rules (a shame, really).
+  
+  */
+  
+  object Graph extends HaskellGraph {
     val DummyTyp = Any
     override def staticModuleType(name: String): TypeRep = DummyTyp
     def mkName(base: String, idDomain: String) =

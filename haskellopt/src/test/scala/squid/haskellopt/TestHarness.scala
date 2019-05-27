@@ -16,7 +16,7 @@ object TestHarness {
     val writePath_graph = genFolder/RelPath(filePath.baseName+".opt.graph")
     if (exists(writePath_graph)) rm(writePath_graph)
     
-    val go = new GraphOpt
+    val go = new GraphLoader
     val mod = go.loadFromDump(filePath)
     println(s"=== PHASE ${mod.modPhase} ===")
     
