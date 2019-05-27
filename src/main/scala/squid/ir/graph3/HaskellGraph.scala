@@ -30,6 +30,8 @@ private class HaskellADT {
 
 abstract class HaskellGraph extends Graph with HaskellGraphScheduling {
   
+  override val strictCallIdChecking = true
+  
   // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
   //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
   

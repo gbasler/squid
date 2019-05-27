@@ -39,13 +39,15 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   override def showVal(v: BoundVal): String = v.toString
   
+  val strictCallIdChecking = false
+  
   object CallId {
     private var curId = 0; def reset(): Unit = curId = 0
   }
   class CallId(val v: Val) {
     val uid: Int = CallId.curId alsoDo (CallId.curId += 1)
     //def uidstr: String = s"${v.name}$uid"
-    def uidstr: String = s"$v$uid"
+    def uidstr: String = s"$v:$uid"
     override def toString: String = uidstr
   }
   
@@ -166,8 +168,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case (Id, _) => that
       case (Push(cid, pl, rest), t: TransitiveControl) => Push(cid, pl, rest `;` t)
       case (Push(cid, pl, rest0), rest1) => Push(cid, pl, rest0 `;` rest1)
-      case (Pop(rest0), rest1) => Pop(rest0 `;` rest1)
-      case (Drop(rest0), rest1) => Drop(rest0 `;` rest1)
+      case (p @ Pop(rest0), rest1) => Pop(rest0 `;` rest1)(p.originalVal)
+      case (d @ Drop(rest0), rest1) => Drop(rest0 `;` rest1)(d.originalCid)
     }
     //) also ("= (" + _ + ")" also println)
     
@@ -181,9 +183,9 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def push(cid: CallId) = this `;` Push(cid,Id,Id)
     
-    //def throughLambda: Control = this `;` Push(DummyCallId,Pop(Id),Id)
-    def throughLambda: Control = Push(DummyCallId,this `;` Pop(Id),Id)
-    // ^ TODO use in matcher? – it did not seem sufficient, though.... we probably have to create a new variable and propoer substitution.
+    ////def throughLambda: Control = this `;` Push(DummyCallId,Pop(Id),Id)
+    //def throughLambda: Control = Push(DummyCallId,this `;` Pop(Id),Id)
+    //// ^ TODO use in matcher? – it did not seem sufficient, though.... we probably have to create a new variable and propoer substitution.
     
     override def toString = (new DefPrettyPrinter)(this).mkString(";")
   }
@@ -192,18 +194,24 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   object Push {
     def apply(cid: CallId, payload: Control, rest: TransitiveControl): TransitiveControl = new Push(cid, payload, rest){}
     def apply(cid: CallId, payload: Control, rest: Control): Control = rest match {
-      case Pop(rest2) => payload `;` rest2
-      case Drop(rest2) => rest2
+      case p @ Pop(rest2) =>
+        assert(!strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVal, s"${cid.v} === ${p.originalVal} in Push($cid, $payload, $rest)")
+        payload `;` rest2
+      case d @ Drop(rest2) =>
+        // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
+        // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible.
+        assert(!strictCallIdChecking || cid === DummyCallId || cid === d.originalCid, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)")
+        rest2
       case rest: TransitiveControl => apply(cid, payload, rest)
     }
   }
-  case class Pop(rest: Control) extends Control {
+  case class Pop(rest: Control)(val originalVal: Val) extends Control {
   }
-  object Pop { val it = Pop(Id) }
+  object Pop { def it(originalVal: Val) = Pop(Id)(originalVal) }
   
-  case class Drop(rest: Control) extends Control {
+  case class Drop(rest: Control)(val originalCid: CallId) extends Control {
   }
-  object Drop { val it = Drop(Id) }
+  object Drop { def it(originalCid: CallId) = Drop(Id)(originalCid) }
   
   sealed abstract class TransitiveControl extends Control {
     def `;` (that: TransitiveControl): TransitiveControl = (this,that) match {
@@ -271,7 +279,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     }
     val old = reificationContext
     try {
-      reificationContext = reificationContext.map{case(k,v) => (k,Box(Pop.it,v).mkRep)}
+      reificationContext = reificationContext.map{case(k,v) => (k,Box(Pop.it(param),v).mkRep)}
       letinImpl(param, occ, super.abs(param, mkBody) also {lambdaVariableBindings.put(param,_)})
     } finally reificationContext = old
   }
@@ -307,12 +315,34 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     val arg = mkArg
     //val bran = Branch(None, cid, Box(End(cid),arg).mkRep, newOcc)
-    val bran = Branch(Id, cid, Box(Drop.it,arg).mkRep, newOcc)
+    val bran = Branch(Id, cid, Box(Drop.it(cid),arg).mkRep, newOcc)
     occ.node = bran
     
     //println(s". $v . $occ . $newOcc . $lam . $abs . ${abs.body.showGraph}")
     
     Box(Push(cid,payload,Id), r).mkRep
+  }
+  
+  def sanityCheck(rep: Rep, depth: Int)(implicit cctx: CCtx): Opt[Int] = if (depth < 0) None else try {
+    rep.node match {
+      case Box(ctrl,res) => sanityCheck(res, depth-1)(withCtrl_!(ctrl)) // FIXME probably
+      case Branch(ctrl, cid, thn, els) =>
+        if (hasCid_!(ctrl, cid))
+             sanityCheck(thn, depth-1) 
+        else sanityCheck(els, depth-1)
+      case ConcreteNode(d) =>
+        val newCtx = d match {
+          case abs: Abs => // When traversing a lambda, we need to assume a token, even if just the dummy token!
+            cctx push DummyCallId
+            //cctx push new CallId(abs.param)
+          case _ => cctx
+        }
+        (Iterator(None) ++ d.children.map{c => sanityCheck(c, depth-1)(newCtx)}).min // minimum on options: None is minimal
+    }
+  } catch {
+    case e: AssertionError =>
+      println(s"${Console.RED}Sanity check failed${Console.RESET} at [${cctx}] ${rep}")
+      throw e
   }
   
   
@@ -376,6 +406,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         s"$col$cid↑[${apply(payload).mkString(";")}$col]$curCol" :: apply(rest)
       case Pop(rest) => s"↓" :: apply(rest)
       case Drop(rest) => s"🚫" :: apply(rest)
+      //case p @ Pop(rest) => s"↓${Debug.GREY}(${p.originalVal})$curCol" :: apply(rest)
+      //case d @ Drop(rest) => s"🚫${Debug.GREY}(${d.originalCid})$curCol" :: apply(rest)
     }
     def apply(n: Node): String = n match {
       case Box(ctrl, res) =>

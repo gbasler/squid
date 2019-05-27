@@ -12,7 +12,7 @@ object MyTests2 extends App {
   // FIXedME the Pop is lost after we postpone the branch, so the branch is misinterpreted
   // FIXME now the 42.toString is duplicated, because of the duplication of continuation arguments bug
   
-  val shd0 = Code[Int,Any](Box.rep(Pop(Id), Branch(Id, c0, code"???".rep, code"42.toString".rep).mkRep))
+  val shd0 = Code[Int,Any](Box.rep(Pop(Id)(bindVal("???",typeRepOf[Any],Nil)), Branch(Id, c0, code"???".rep, code"42.toString".rep).mkRep))
   val shd1 = code"identity($shd0)"
   //val g = Branch(Id, c0, code"$shd1 + $shd1".rep, code"???".rep).mkRep
   val g = Box.rep(Push(c0,Id,Id), code"$shd1 + $shd1".rep)

@@ -22,13 +22,17 @@ object TestHarness {
     
     var ite = 0
     do {
+      
       /*
       println(s"--- Graph ${ite} ---")
       println(mod.show)
       println(s"--- / ---")
       */
       
+      softAssert(go.Graph.sanityCheck(mod.toplvlRep, 100)(go.Graph.CCtx.empty).isEmpty, "Sanity check did not finish")
+      
       //println(go.Graph.scheduleRec(mod))
+      
       ite += 1
       
       //Thread.sleep(200)

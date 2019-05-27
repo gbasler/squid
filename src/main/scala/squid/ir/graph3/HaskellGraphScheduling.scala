@@ -387,7 +387,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       dbg(s"Working set: [${sr.rep.bound}], ${workingSet.map(_.rep.bound).mkString(", ")}")
       //println(sr, sr.branches)
       sr.backEdges.foreach { case (backCtrl, sr2) =>
-        dbg(s"  Back Edge: $backCtrl ${sr2.rep.bound}")
+        dbg(s"  Back Edge: $backCtrl ${sr2.rep.bound} \t \t \t \t = ${sr2.rep.node}")
         sr.branches.valuesIterator.foreach {
         case (Left(cb0 @ (c0,b)), v, xvs) =>
           val c = backCtrl `;` c0
@@ -396,6 +396,8 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             val (lambdaBound, nde) = sr2.rep.node match {
               case ConcreteNode(abs: Abs) if ByName.unapply(abs).isEmpty =>
                 (Some(abs.param), Box(Push(DummyCallId, Id, Id),abs.body))
+                // It may be better for sanity checking to use a non-dummy CID here...:
+                //(Some(abs.param), Box(Push(new CallId(abs.param), Id, Id),abs.body))
               case n => (None, n)
             }
             def addBranch(cb2: sch.TrBranch) = {
@@ -409,10 +411,11 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
               case _: Branch => // can't bubble up to a branch!
               case Box(ctrl, _) =>
                 val newCtrl = ctrl `;` c
-                dbg(s"    Consider: $newCtrl")
+                dbg(s"    Consider: $ctrl ; $backCtrl ; $c0 == $newCtrl")
                 mayHaveCid(newCtrl `;` b.ctrl, b.cid)(Id) match {
                   case Some(cnd) =>
                     val r3 = sch.scheduledReps(if (cnd) b.lhs else b.rhs)
+                    dbg(s"    Add '${b.cid}==$cnd' Edge: ${r3.rep.bound} -[$c]-> ${sr2.rep.bound}")
                     r3.backEdges += c -> sr2 // Important: not newCtrl, as the `ctrl` part will be picked up later
                     workingSet ::= r3
                     addBranch(Right(r3))

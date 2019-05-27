@@ -387,7 +387,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   //scala.util.control.Breaks tryBreakable(
   {
     var changed = false
-    val traversed = mutable.Set.empty[CCtx->Rep]
+    val traversed = mutable.Set.empty[Rep]
     
     val reachableSets = // TODO improve; this is a bit wasteful, as we could share computations
       mutable.Map.empty[Rep, collection.Set[Rep]].withDefault(_.directlyReachable)
@@ -400,10 +400,10 @@ trait GraphRewriting extends AST { graph: Graph =>
     // We need to look through both legs of branches appearing under the lhs of applications, to figure out whether
     // they lead to lambda expressions...
     // To avoid combinatory explosion of recursive exploration, we memoize the results here:
-    type AbsPath = (List[(Control,CallId,Bool,Rep)],Control,Abs)
+    type AbsPath = (List[(Control,Control,CallId,Bool,Rep)],Control,Abs)
     val leadsToAbs = mutable.Map.empty[Rep,List[AbsPath]]
     
-    def rec(rep: Rep)(implicit cctx: CCtx): Unit = {
+    def rec(rep: Rep): Unit = {
       //println(s"$cctx\n${rep}")
       
       // TODO try without duplicating the applications? instead, couldn't we just go back to a reconstituted version of the original application?!
@@ -413,22 +413,22 @@ trait GraphRewriting extends AST { graph: Graph =>
           substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
             .assertNotVal
         }) {
-          case ((ctrl,cid,isLHS,other0), nde) =>
+          case ((viaCtrl,ctrl,cid,isLHS,other0), nde) =>
             // Reconstruct the application nodes of all branches
             val r = nde.mkRep
-            val other = ConcreteNode(Apply(other0, arg, rep.typ)).mkRep
+            val other = ConcreteNode(Apply(Box.rep(viaCtrl, other0), arg, rep.typ)).mkRep
             val (thn,els) = if (isLHS) (r, other) else (other, r)
             Branch(ctrl,cid,thn,els)
         }
       }
-      val key = if (recurse) cctx->rep else Id->rep
       def again(): Unit = {
         changed = true
+        reachableSets.clear() // ugh! TODO rm? is it necessary?
         //scala.util.control.Breaks.break()
         // Note: commenting the following (or worse, uncommenting the above) will make some tests slow as they will print many more steps
-        traversed -= key; rec(rep)
+        traversed -= rep; rec(rep)
       }
-      traversed.setAndIfUnset(key, rep.node match {
+      traversed.setAndIfUnset(rep, rep.node match {
           
         case Branch(ctrl,cid,thn,els) =>
           mayHaveCid(Id,cid)(ctrl) // NOTE that we're testing the branch condition ALONE (not within cctx, which would obviously be unsound)
@@ -464,10 +464,16 @@ trait GraphRewriting extends AST { graph: Graph =>
           if !directlyLeadsBackTo2(thn,rep,br)
         =>
           rep.node.assertNotVal
-          rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
+          // We now _have_ to check whether the box resolves the branch or not;
+          // otherwise, we could trigger the sanity-check assertion of `;` that a Drop only drops a specific cid...
+          mayHaveCid(ctrl1,cid)(ctrl0) match {
+            case Some(cnd) =>
+              rep.node = Box(ctrl0, if (cnd) thn else els)
+            case None =>
+              rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
+          }
           again()
-        case Box(ctrl,res) =>
-          rec(res)(withCtrl_!(ctrl))
+        case Box(ctrl,res) => rec(res)
           
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
@@ -506,11 +512,11 @@ trait GraphRewriting extends AST { graph: Graph =>
           // TODO prune impossible conditions!
           def go(rep: Rep): List[AbsPath] = trav.setAndIfUnset(rep, leadsToAbs.getOrElseUpdate(rep, rep.node match {
             case Branch(ctrl,cid,thn,els) =>
-              def upd(isLHS: Bool)(ap: AbsPath) = ((ctrl, cid, isLHS, if (isLHS) els else thn) :: ap._1, ap._2, ap._3) 
+              def upd(isLHS: Bool)(ap: AbsPath): AbsPath = ((Id, ctrl, cid, isLHS, if (isLHS) els else thn) :: ap._1, ap._2, ap._3) 
               go(thn).map(upd(true)) ++ go(els).map(upd(false)) : List[AbsPath]
             //case Box(ctrl,Rep(ConcreteNode(fun: Abs))) => (Nil,ctrl,fun) :: Nil
             case Box(c,bod) =>
-              go(bod).map{case(conds,ctrl,abs) => (conds.map{case(c2,cid,side,b) => (c `;` c2,cid,side,b)}, c `;` ctrl, abs)}
+              go(bod).map{case(conds,ctrl,abs) => (conds.map{case(vc,c2,cid,side,b) => (c `;` vc, c `;` c2, cid, side, b)}, c `;` ctrl, abs)}
             case ConcreteNode(fun: Abs) => (Nil,Id,fun) :: Nil
             case _ => Nil
           }) alsoDo (trav -= rep), Nil)
@@ -522,13 +528,14 @@ trait GraphRewriting extends AST { graph: Graph =>
           //gone.headOption 
           gone.find { case g @ (conds, ctrl, abs) =>
             conds.nonEmpty && { // if 'conds' is empty, it means we have several boxes; it's better to let the other rwr reduce them first
-              val k = (conds.map { case (c2, cid, side, b) => (cid, side, b) }, abs)
+              val k = (conds.map { case (vc, c2, cid, side, b) => (cid, side, b) }, abs)
               !betaReduced(k) && { betaReduced(k) = true; true }}
           } // TODO(maybe) do the res too? would it work out? (maybe not since we destructively make modifications)
           match {
             case Some(path @ (conds,ctrl,fun)) =>
               assert(conds.nonEmpty) // we avoid cases where we traversed only boxes
-              println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${conds.map(_._2).mkString(",")} in ${fun.body.showGraph}")
+              println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${
+                conds.map(c => (if(c._4)"" else "!")+c._3).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
               rep.node = betaRed(path, arg)
               println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
@@ -546,7 +553,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         case ConcreteNode(d) => d.children.foreach(rec)
       })
     }
-    rec(rep)(CCtx.empty)
+    rec(rep)
     changed
   }
   //) catchBreak true
