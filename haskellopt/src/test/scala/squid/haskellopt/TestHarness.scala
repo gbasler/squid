@@ -8,6 +8,8 @@ object TestHarness {
   val dumpFolder = pwd/'haskellopt/'target/'dump
   val genFolder = pwd/'haskellopt_gen
   
+  val sanityCheckFuel = 20
+  
   def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
@@ -29,7 +31,8 @@ object TestHarness {
       println(s"--- / ---")
       */
       
-      softAssert(go.Graph.sanityCheck(mod.toplvlRep, 100)(go.Graph.CCtx.empty).isEmpty, "Sanity check did not finish")
+      if (go.Graph.sanityCheck(mod.toplvlRep, sanityCheckFuel)(go.Graph.CCtx.empty).isEmpty)
+        println(s"Note: sanity check stopped early given fuel = $sanityCheckFuel")
       
       //println(go.Graph.scheduleRec(mod))
       

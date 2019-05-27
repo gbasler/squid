@@ -323,21 +323,21 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     Box(Push(cid,payload,Id), r).mkRep
   }
   
-  def sanityCheck(rep: Rep, depth: Int)(implicit cctx: CCtx): Opt[Int] = if (depth < 0) None else try {
+  def sanityCheck(rep: Rep, fuel: Int)(implicit cctx: CCtx): Opt[Int] = if (fuel < 0) None else try {
     rep.node match {
-      case Box(ctrl,res) => sanityCheck(res, depth-1)(withCtrl_!(ctrl)) // FIXME probably
+      case Box(ctrl,res) => sanityCheck(res, fuel-1)(withCtrl_!(ctrl)) // FIXME probably
       case Branch(ctrl, cid, thn, els) =>
         if (hasCid_!(ctrl, cid))
-             sanityCheck(thn, depth-1) 
-        else sanityCheck(els, depth-1)
+             sanityCheck(thn, fuel/2)
+        else sanityCheck(els, fuel/2)
       case ConcreteNode(d) =>
-        val newCtx = d match {
+        val (newCtx, newFuel) = d match {
           case abs: Abs => // When traversing a lambda, we need to assume a token, even if just the dummy token!
-            cctx push DummyCallId
+            (cctx push DummyCallId, fuel/2)
             //cctx push new CallId(abs.param)
-          case _ => cctx
+          case _ => (cctx, fuel)
         }
-        (Iterator(None) ++ d.children.map{c => sanityCheck(c, depth-1)(newCtx)}).min // minimum on options: None is minimal
+        (Iterator(Some(fuel)) ++ d.children.map{ c => sanityCheck(c, newFuel)(newCtx)}).min // minimum on options: None is minimal
     }
   } catch {
     case e: AssertionError =>

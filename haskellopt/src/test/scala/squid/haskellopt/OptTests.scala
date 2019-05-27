@@ -40,7 +40,7 @@ class OptTests extends FunSuite {
   test("HigherOrderRec") {
     
     //TestHarness("HigherOrderRec")
-    //TestHarness("HigherOrderRec", exec = true) // FIXME never finishes
+    TestHarness("HigherOrderRec", exec = true)
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
     
