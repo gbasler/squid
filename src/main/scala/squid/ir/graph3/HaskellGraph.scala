@@ -16,6 +16,7 @@ package squid.ir
 package graph3
 
 import squid.utils._
+import squid.utils.CollectionUtils._
 
 import scala.collection.mutable
 
@@ -69,6 +70,44 @@ abstract class HaskellGraph extends Graph with HaskellGraphScheduling {
     }
     def showGraph = toplvlRep.showGraph
     def show = "module " + showGraph
+    
+    object Stats {
+      val (tot, lams, apps, boxes, brans) = {
+        var tot, lams, apps, boxes, brans = 0
+        toplvlRep.allChildren.iterator.map(_.node).foreach {
+          case ConcreteNode(_: Abs) =>
+            tot += 1
+            lams += 1
+          case ConcreteNode(Apply(_, _)) =>
+            tot += 1
+            apps += 1
+          case Box(_, _) =>
+            boxes += 1
+            apps += 1
+          case Branch(_, _, _, _) =>
+            tot += 1
+            brans += 1
+          case _ =>
+            tot += 1
+        }
+        (tot, lams, apps, boxes, brans)
+      }
+      val unreducedRedexes = {
+        val traversed = mutable.Set.empty[Rep]
+        def rec(rep: Rep): Int = traversed.setAndIfUnset(rep, rep.node match {
+          case ConcreteNode(Apply(fun, arg)) =>
+            def findLambdas(rep: Rep): Int = traversed.setAndIfUnset(rep, (rep.node match {
+              case Box(_, body) => findLambdas(body)
+              case Branch(_, _, lhs, rhs) => findLambdas(lhs) + findLambdas(rhs)
+              case ConcreteNode(_: Abs) => 1
+              case ConcreteNode(_) => 0
+            }) alsoDo (traversed -= rep), 0)
+            findLambdas(fun)
+          case nde => nde.children.map(rec).sum
+        }, 0)
+        rec(toplvlRep)
+      }
+    }
   }
   
   

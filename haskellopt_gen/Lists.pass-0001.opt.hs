@@ -7,6 +7,8 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
+-- Total nodes: 80; Boxes: 25; Branches: 2
+-- Apps: 60; Lams: 3; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}

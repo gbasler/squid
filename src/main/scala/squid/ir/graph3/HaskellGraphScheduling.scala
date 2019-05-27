@@ -543,6 +543,8 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         |-- Core obtained from: $ghcVersion
         |-- Optimized after GHC phase:
         |${mod.modPhase |> commentLines}
+        |-- Total nodes: ${mod.Stats.tot}; Boxes: ${mod.Stats.boxes}; Branches: ${mod.Stats.brans}
+        |-- Apps: ${mod.Stats.apps}; Lams: ${mod.Stats.lams}; Unreduced Redexes: ${mod.Stats.unreducedRedexes}
         |
         |{-# LANGUAGE UnboxedTuples #-}
         |{-# LANGUAGE MagicHash #-}
