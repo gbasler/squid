@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 129; Boxes: 50; Branches: 23
--- Apps: 88; Lams: 14; Unreduced Redexes: 1
+-- Total nodes: 179; Boxes: 50; Branches: 23
+-- Apps: 38; Lams: 14; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}

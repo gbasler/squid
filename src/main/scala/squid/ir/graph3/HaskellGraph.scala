@@ -76,21 +76,16 @@ abstract class HaskellGraph extends Graph with HaskellGraphScheduling {
     object Stats {
       val (tot, lams, apps, boxes, brans) = {
         var tot, lams, apps, boxes, brans = 0
-        toplvlRep.allChildren.iterator.map(_.node).foreach {
+        toplvlRep.allChildren.iterator.map(_.node alsoDo {tot += 1}).foreach {
           case ConcreteNode(_: Abs) =>
-            tot += 1
             lams += 1
           case ConcreteNode(Apply(_, _)) =>
-            tot += 1
             apps += 1
           case Box(_, _) =>
             boxes += 1
-            apps += 1
           case Branch(_, _, _, _) =>
-            tot += 1
             brans += 1
           case _ =>
-            tot += 1
         }
         (tot, lams, apps, boxes, brans)
       }
