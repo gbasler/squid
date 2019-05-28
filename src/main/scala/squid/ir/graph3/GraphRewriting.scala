@@ -389,6 +389,7 @@ trait GraphRewriting extends AST { graph: Graph =>
     var changed = false
     val traversed = mutable.Set.empty[Rep]
     
+    // Note that this is currently never used (as aggressive box pushing is not performed for recursive graphs)
     val reachableSets = // TODO improve; this is a bit wasteful, as we could share computations
       mutable.Map.empty[Rep, collection.Set[Rep]].withDefault(_.directlyReachable)
     def directlyLeadsBackTo(from: Rep, to: Rep) = reachableSets(from)(to)
@@ -460,9 +461,16 @@ trait GraphRewriting extends AST { graph: Graph =>
           rep.node.assertNotVal
           rep.node = Box(ctrl0 `;` ctrl1, body)
           again()
-        case Box(ctrl0, br @ Rep(Branch(ctrl1,cid,thn,els))) // TODO try without doing this; perhaps the graphs are cleaner?
-          if !directlyLeadsBackTo2(thn,rep,br)
-        =>
+          
+          
+        // This used to be necessary when we could not perform beta reduction across arbitrary sequences of branches and boxes;
+        // but now that we can, it becomes mostly superfluous, and it seems to make graphs more complicated for no gain.
+        // However, it seems needed to make the original GraphRewritingTests tests pass, so it does seem to have an enabling
+        // effect for constant folding, though it's most likely just due to a current limitation in the pattern rewriter. 
+        case Box(ctrl0, br @ Rep(Branch(ctrl1,cid,thn,els)))
+          if aggressiveBoxPushing
+          && (!supportDirectRecursion || !directlyLeadsBackTo2(thn,rep,br)) // This check is only necessary for graphs with direct recursion
+        => // Push boxes into branches aggressively
           rep.node.assertNotVal
           // We now _have_ to check whether the box resolves the branch or not;
           // otherwise, we could trigger the sanity-check assertion of `;` that a Drop only drops a specific cid...
@@ -473,6 +481,7 @@ trait GraphRewriting extends AST { graph: Graph =>
               rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
           }
           again()
+          
         case Box(ctrl,res) => rec(res)
           
         // Simple beta reduction
@@ -498,11 +507,14 @@ trait GraphRewriting extends AST { graph: Graph =>
           //again()
           changed=true
         
-        //// TODO try
-        //case ConcreteNode(Apply(rep @ Rep(Box(ctrl0, Rep(Branch(ctrl1,cid,thn,els)))), arg)) =>
-        //  rep.node.assertNotVal
-        //  rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
-        //  again()
+        // Doesn't seem to change anything
+        /*
+        // Try to push boxes down branches on the way from applications 
+        case ConcreteNode(Apply(rep @ Rep(Box(ctrl0, br@Rep(Branch(ctrl1,cid,thn,els)))), arg)) if !directlyLeadsBackTo(rep,br) =>
+          rep.node.assertNotVal
+          rep.node = Branch(ctrl0 `;` ctrl1, cid, Box.rep(ctrl0,thn), Box.rep(ctrl0,els))
+          again()
+        */
           
         // Beta reduction through branches and possibly a box!
         case ConcreteNode(Apply(br @ Rep(_: Branch | _: Box), arg)) =>

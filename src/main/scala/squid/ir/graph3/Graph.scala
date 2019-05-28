@@ -39,7 +39,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   override def showVal(v: BoundVal): String = v.toString
   
+  /** Whether to check call identifiers for Pop and Drop. */
   val strictCallIdChecking = false
+  
+  /** Whether to always push boxes into branches, though it may lead to more complicated graphs. */
+  val aggressiveBoxPushing = false
+  
+  /** Whether to support direct recursion in the graph, which corresponds to the lifted form of recursive functions. */
+  val supportDirectRecursion = false
   
   object CallId {
     private var curId = 0; def reset(): Unit = curId = 0

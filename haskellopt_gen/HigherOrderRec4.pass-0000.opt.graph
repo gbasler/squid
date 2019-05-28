@@ -1,8 +1,8 @@
 module Main = {
   main
   rec0$f
-  GHC.Base.id
-  [34mf$11:4↑[30m$34
+  [32mf$11:2↑[30m$19
+  [34mf$11:4↑[30m$19
 } where:
 	main = GHC.TopHandler.runMainIO @ main;
 	main = GHC.Base.return @ ();
@@ -14,6 +14,6 @@ module Main = {
 	$21 = {k$1d => GHC.Base.id};
 	$2d = ([34mf$11:4 ? GHC.Base.id ¿ [30mf$11);
 	$18 = {x$13 => $17};
-	$17 = [31mf$11:1↑[30m$36 @ x$13;
+	$17 = [31mf$11:1↑[30m$19 @ x$13;
 	$35 = ([32mf$11:2 ? GHC.Base.id ¿ [30m$34);
 	$34 = $2d @ $18;

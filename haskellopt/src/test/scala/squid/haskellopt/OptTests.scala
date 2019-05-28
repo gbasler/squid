@@ -31,7 +31,7 @@ class OptTests extends FunSuite {
   
   test("HigherOrderHard") {
     
-    TestHarness("HigherOrderHard", compileResult = false) // FIXME error in hs
+    TestHarness("HigherOrderHard")
     //TestHarness("HigherOrderHard", "0000"::Nil)
     //TestHarness("HigherOrderHard", "0001"::Nil)
     

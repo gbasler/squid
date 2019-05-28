@@ -22,7 +22,9 @@ import squid.lib.matching._
 import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
-object GraphRewritingTests extends Graph
+object GraphRewritingTests extends Graph {
+  override val aggressiveBoxPushing = true
+}
 
 import GraphRewritingTests._
 
