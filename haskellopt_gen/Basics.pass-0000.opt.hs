@@ -45,7 +45,9 @@ gTest3 = (_2(# (GHC.Types.I# 4#), (_2(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #))
 
 gTest4 = (_2(# (_2(# (GHC.Types.I# 5#), (GHC.Types.I# 4#) #)), (_2(# (GHC.Types.I# 3#), (GHC.Types.I# 2#) #)) #))
 
-gTest5 = (((GHC.Num.+) (_2(# (_3(# (GHC.Types.I# 30#) #)), (_4(# (GHC.Types.I# 30#) #)) #))) (_2(# (_3(# (GHC.Types.I# 40#) #)), (_4(# (GHC.Types.I# 40#) #)) #)))
+gTest5_sub = (GHC.Types.I# 30#)
+gTest5_sub' = (GHC.Types.I# 40#)
+gTest5 = (((GHC.Num.+) (_2(# (_3(# gTest5_sub #)), (_4(# gTest5_sub #)) #))) (_2(# (_3(# gTest5_sub' #)), (_4(# gTest5_sub' #)) #)))
 
 _3(# z' #) = (_2(# (GHC.Types.I# 22#), z' #))
 

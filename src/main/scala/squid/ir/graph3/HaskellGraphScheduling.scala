@@ -72,41 +72,71 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       }
     })
     
-    sealed abstract class Sch {
-      def scope: Set[Val]
-    }
-    
-    case class SchDef(sr: SchedulableRep, branchParams: List[Val], body: SchExp) extends Sch {
-      def scope = Set.empty
+    abstract case class SchDef(sr: SchedulableRep, branchParams: List[Val], subBindings: List[Val->SchShareable], body: SchExp) {
+      private implicit def scope: Set[Val] = Set.empty
       val name = sr.rep.bound |> printVal
-      def freeVars: Set[Val] = body.freeVars
+      def freeVars: Set[Val] = body.freeVars -- subBindings.map(_._1)
+      def allChildren = subBindings.flatMap(_._2.allChildren) ++ body.allChildren
       lazy val nestingScope: Set[Val] = freeVars & sr.maximalSharedScope.get
       lazy val valParams: List[Val] = (freeVars -- sr.maximalSharedScope.get).toList.sortBy(printVal)
       lazy val params = valParams ++ branchParams
+      
+      val (topSubBindings,nestedSubBindings) =
+        subBindings.partition(_._2.localRefs.isEmpty)
+      
+      subBindings.foreach(sb => assert(sb._2.localRefs.forall(branchParams.contains)))
       def toHs: String = {
         val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
-        s"$name$paramList = ${body.toHs}"
+        s"${topSubBindings.map(sb => s"${sb._1|>printVal} = ${sb._2.toHs}\n").mkString}$name$paramList = ${
+          if (nestedSubBindings.isEmpty) "" else {
+            s"let ${nestedSubBindings.map(sb => s"\n    ${sb._1|>printVal} = ${sb._2.toHs}").mkString("")}\n  in "
+          }
+        }${body.toHs}"
       }
-      body.setParent_!(this)
     }
     object SchDef {
+      def apply(sr: SchedulableRep, branchParams: List[Val], body: SchExp): SchDef = {
+        val (bod,sharedExps) = share(body, sr.rep.bound.name+"_sub")
+        new SchDef(sr, branchParams, sharedExps.sortBy(_._1.name), bod){}
+      }
     }
     
-    sealed abstract class SchExp extends Sch {
-      private var parent: Option[Sch] = None
-      def setParent_!(p: Sch): Unit = { assert(parent.isEmpty); parent = Some(p) }
-      children.foreach(_.setParent_!(this))
+    sealed abstract class SchShareable extends SchExp
+    sealed abstract class SchExp {
       
-      def toHs: String
+      // TODO maintain scope for 'case' and let bindings!(?)
+      def toHs(implicit scope: Set[Val]): String
       
-      // TODO handle case and bindings!
-      lazy val scope: Set[Val] = this match {
-        case SchLam(p, _, _) => parent.get.scope + p
-        case _ => parent.get.scope
+      def subExps: List[SchShareable] = this match {
+        case sl: SchLam => sl :: Nil
+        case SchArg(arg,Nil) => arg.subExps
+        case SchCall(sr,Nil) => Nil
+        case s: SchShareable => s :: children.flatMap(_.subExps).toList  
+        case  _: SchVar | _: SchConst | _: SchParam => Nil
+      }
+      // FIXME order of f applications..?
+      def mapSubExprs(f: SchShareable => SchExp): SchExp = {this match {
+        case _: SchVar | _: SchConst | _: SchParam => this
+        case SchApp(lhs, rhs) => f(SchApp(lhs.mapSubExprs(f), rhs.mapSubExprs(f)))
+        case SchCase(scrut, arms) => f(SchCase(scrut.mapSubExprs(f), arms.map{case(a,b,c)=>(a,b,c.mapSubExprs(f))}))
+        case SchCall(sr, args) => f(SchCall(sr, args.map(_.mapSubExprs(f))))
+        case lam: SchLam => f(lam)
+        case SchArg(b, xvs) => f(SchArg(b.mapSubExprs(f), xvs))
+      }}
+      
+      lazy val localRefs: Set[Val] = this match {
+        case SchLam(p, bs0, bs1, b) =>
+          b.localRefs ++ bs1.flatMap(_._2.localRefs) -- bs0.map(_.sr.rep.bound) -- bs1.map(_._1)
+        case SchParam(v, possiblyExtruded) =>
+          possiblyExtruded.toSet + v // FIXME use extruded instead?
+        case _ => children.flatMap(_.localRefs).toSet
       }
       lazy val freeVars: Set[Val] = this match {
         case SchVar(v) => Set.empty + v
-        case SchLam(p, _, b) => b.freeVars - p
+        case SchLam(p, _, bs, b) =>
+          //b.freeVars - p
+          //b.freeVars ++ bs.flatMap(_._2.freeVars) - p
+          b.freeVars ++ bs.flatMap(_._2.freeVars) - p -- bs.iterator.map(_._1)
         case SchCase(e, es) => e.freeVars ++ es.flatMap(c => c._3.freeVars -- c._2)
           
         case SchArg(b, xvs) => b.freeVars -- xvs
@@ -121,7 +151,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case SchApp(lhs, rhs) => Iterator(lhs, rhs)
         case SchCase(scrut, arms) => Iterator(scrut) ++ arms.iterator.map(_._3)
         case SchCall(sr, args) => args.iterator
-        case SchLam(p, bs, b) => Iterator(b) ++ bs.iterator.map(_.body) // Q: really include the bindings here?
+        case SchLam(p, bs0, bs1, b) => Iterator(b) ++ bs0.iterator.map(_.body) ++ bs1.iterator.map(_._2) // Q: really include the bindings here?
         case SchArg(b, _) => Iterator(b)
       }
       def allChildren: Iterator[SchExp] = Iterator(this) ++ children.flatMap(_.allChildren)
@@ -130,45 +160,66 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
     }
     /** `value` can be a Constant, a CrossStageValue, or a StaticModule */
     case class SchConst(value: Any) extends SchExp {
-      def toHs = value match {
+      def toHs(implicit scope: Set[Val]) = value match {
         case Constant(n: Int) => n.toString
         case Constant(s: String) => '"'+s+'"'
         case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
         case sm: StaticModule => sm.fullName
       }
     }
-    case class SchApp(lhs: SchExp, rhs: SchExp) extends SchExp {
-      def toHs: String = s"(${lhs.toHs} ${rhs.toHs})"
+    case class SchApp(lhs: SchExp, rhs: SchExp) extends SchShareable {
+      def toHs(implicit scope: Set[Val]) = s"(${lhs.toHs} ${rhs.toHs})"
     }
-    case class SchLam(param: Val, var bindings: List[SchDef], body: SchExp) extends SchExp {
-      def toHs = {
+    abstract case class SchLam(param: Val, var bindings: List[SchDef], subBindings: List[Val->SchShareable], body: SchExp) extends SchShareable {
+      def toHs(implicit scope: Set[Val]) = (scope + param) |> { implicit scope =>
+        /* Note that some of the subBindings will not even reference the lambda's parameter, because we only learn about
+           actual continuation parameters later on. It would be best to do lambda lifting separately, in a later
+           phase... or just trust the backend (GHC) to do it by itself. */
         s"(\\${param |> printVal} -> ${
-          if (bindings.isEmpty) "" else
-          s"let { ${bindings.map(_.toHs).mkString("; ")} } in "
+          if (bindings.isEmpty && subBindings.isEmpty) "" else
+          s"let { ${(bindings.map(_.toHs) ++ subBindings.map(sb => s"${sb._1 |> printVal} = ${sb._2.toHs}")).mkString("; ")} } in "
         }${body.toHs})"
       }
     }
+    object SchLam {
+      def apply(param: Val, bindings: List[SchDef], body: SchExp): SchLam = {
+        val (bod,sharedExps) = share(body, "x")
+        new SchLam(param, bindings, sharedExps, bod){}
+      }
+    }
+    def share(sche: SchExp, nameBase: String): (SchExp, List[Val->SchShareable]) = {
+      val sharedExps = mutable.Map.empty[SchShareable, Opt[Val]]
+      sche.subExps.foreach(se => sharedExps.get(se) match {
+        case Some(Some(_)) =>
+        case Some(None) => sharedExps(se) = Some(bindVal(nameBase+freshName,Any,Nil))
+        case None =>  sharedExps(se) = None
+      })
+      //println(s"SharedExps[$nameBase]: ${sharedExps}")
+      (sche.mapSubExprs(s => sharedExps.get(s).flatten.fold[SchExp](s)(SchVar)),
+        sharedExps.iterator.collect { case (se, Some(v)) => v -> se }.toList)
+    }
     case class SchVar(v: Val) extends SchExp {
-      val toHs = v |> printVal
+      val vStr = v |> printVal
+      def toHs(implicit scope: Set[Val]) = vStr
     }
     case class SchParam(v: Val, possiblyExtruded: List[Val]) extends SchExp {
       // TODO use proper unboxed tuple arguments for the continuations
-      def toHs = {
+      def toHs(implicit scope: Set[Val]) = {
         val extruded = possiblyExtruded.filter(scope)
         if (extruded.isEmpty) printVal(v) else
         "{-P-}("+printVal(v)+extruded.map(printVal).mkString("(",",",")")+")"
       }
     }
-    case class SchArg(body: SchExp, possiblyExtruded: List[Val]) extends SchExp {
-      def toHs = {
+    case class SchArg(body: SchExp, possiblyExtruded: List[Val]) extends SchShareable {
+      def toHs(implicit scope: Set[Val]) = {
         val extruded = possiblyExtruded.filterNot(scope)
         if (extruded.isEmpty) body.toHs else
         s"{-A-}\\(${extruded.map(printVal).mkString(",")}) -> " + body.toHs
       }
     }
-    case class SchCall(sr: SchedulableRep, args: List[SchExp]) extends SchExp {
+    case class SchCall(sr: SchedulableRep, args: List[SchExp]) extends SchShareable {
       val name = sr.rep.bound |> printVal
-      def toHs = {
+      def toHs(implicit scope: Set[Val]) = {
         val argStrs = args.map(_.toHs)
         val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
         val allArgStrs = valArgs ++ argStrs
@@ -176,8 +227,8 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         s"($name(# ${allArgStrs.mkString(", ")} #))"
       }
     }
-    case class SchCase(scrut: SchExp, arms: List[(String,List[Val],SchExp)]) extends SchExp {
-      def toHs = s"(case ${scrut.toHs} of {${arms.map { case (con, vars, rhs) =>
+    case class SchCase(scrut: SchExp, arms: List[(String,List[Val],SchExp)]) extends SchShareable {
+      def toHs(implicit scope: Set[Val]) = s"(case ${scrut.toHs} of {${arms.map { case (con, vars, rhs) =>
           (if (con.head.isLetter || con === "[]" || con.head === '(') con else s"($con)") +
             vars.map(printVal).map{" "+_}.mkString + s" -> ${rhs.toHs}"
       }.mkString("; ")}})"
@@ -449,14 +500,18 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
     
     val sreps = sch.scheduledReps.valuesIterator.toList.sortBy(sr => (!isExported(sr.rep), sr.rep.bound.name))
     
-    sreps.foreach { sr =>
-      if (sr.shouldBeScheduled) {
-        sr.subReps.foreach(_.usages += 1)
+    /** Set the usage counts of each nodes using a flood-fill algorithm. */
+    def count(sr: sch.SchedulableRep): Unit = if (!sr.rep.node.isInstanceOf[Branch]) {
+      sr.usages += 1
+      if (sr.usages === 1) sr.subReps.foreach { sr2 =>
+        //println(s"${sr.rep} -> ${sr2.rep.bound}")
+        count(sr2)
       }
     }
-    // Note: the root will probably always have 0 usage
+    count(root)
+    
     /*
-    reps.foreach { sr =>
+    sreps.foreach { sr =>
       if (sr.shouldBeScheduled) {
         println(s"[${sr.usages}] $sr")
         //println(sr.args.map(_.rep.bound).toList)
@@ -513,7 +568,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
     import sch._
     /** defs: association between sub-scopes to what to bind in them */
     def nestDefs(sd: SchExp, defs: List[Set[Val] -> SchDef]): Unit = sd match {
-      case lam @ SchLam(p, _, b) =>
+      case lam @ SchLam(p, _, bs, b) =>
         import squid.utils.CollectionUtils.TraversableOnceHelper
         val (toScheduleNow,toPostpone) = defs.mapSplit {
           case fvs -> sd =>
@@ -521,6 +576,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
         }
         toScheduleNow.foreach { d => nestedCount += 1; nestDefs(d.body, toPostpone); lam.bindings ::= d }
+        bs.foreach(b => nestDefs(b._2, toPostpone))
         nestDefs(b, toPostpone)
       case _ => sd.children.foreach(nestDefs(_, defs)) // FIXME variables bound by `case`?!
     }
@@ -532,7 +588,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       val topLevels = topLevelReps.iterator.map { case(sr,d) => sr.rep -> d }.toMap
       val done = mutable.Set.empty[Rep]
       topLevelReps.flatMap { case(sr,d) =>
-        (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(d) }) ++ d.body.allChildren.collect {
+        (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(d) }) ++ d.allChildren.collect {
           case SchCall(sr, args) if !done(sr.rep) && topLevels.contains(sr.rep) =>
             done += sr.rep; topLevels(sr.rep) }
       }

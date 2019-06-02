@@ -12,10 +12,8 @@ module IterCont (loop,dont) where
 
 import GHC.Num
 
-dont = (_0(# 0 #))
+dont = (((GHC.Num.+) 0) 1)
 
-_0(# s #) = (((GHC.Num.+) s) 1)
+loop = (\f -> (\state -> ((f (_0(# {-A-}\(new_state) -> f #))) state)))
 
-loop = (\f -> (\state -> ((f (_1(# {-A-}\(new_state) -> f #))) state)))
-
-_1(# f' #) = (\new_state -> (({-P-}(f'(new_state)) (_1(# {-P-}(f'(new_state)) #))) new_state))
+_0(# f' #) = (\new_state -> (({-P-}(f'(new_state)) (_0(# {-P-}(f'(new_state)) #))) new_state))

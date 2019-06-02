@@ -18,7 +18,8 @@ import GHC.TopHandler
 import GHC.Types
 import System.Exit
 
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (((:) 1) (((:) 1) (((:) 1) [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
+main_sub = ((:) 1)
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (main_sub (main_sub (main_sub [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
 
 rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_7(# (), (_5(# _11, _11 #)) #)))
 
@@ -36,17 +37,21 @@ _2(# f'8, x'4 #) = (((:) x'4) (f'8 (_2(# f'8, x'4 #))))
 
 rec3 = (\f'3 -> (\x' -> (\y -> (_3(# f'3, x', y #)))))
 
-_3(# f'10, x'5, y' #) = (((:) ((_13(# f'10 #)) x'5)) (_3(# f'10, ((_13(# f'10 #)) y'), x'5 #)))
+_3(# f'10, x'5, y' #) = let 
+    _14 = (_13(# f'10 #))
+  in (((:) (_14 x'5)) (_3(# f'10, (_14 y'), x'5 #)))
 
 rec7 = (\f'4 -> (_4(# {-A-}\(ds'2) -> (_5(# f'4, f'4 #)) #)))
 
 _4(# f'14 #) = (\ds'2 -> (_7(# ds'2, {-P-}(f'14(ds'2)) #)))
 
-_5(# f'18, f'19 #) = (f'19 (_14(# f'18, f'18 #)))
+_5(# f'18, f'19 #) = (f'19 (_15(# f'18, f'18 #)))
 
-rec7Test0 = (_4(# {-A-}\(ds'2) -> (_5(# ((GHC.Num.+) 1), ((GHC.Num.+) 1) #)) #))
+rec7Test0_sub = ((GHC.Num.+) 1)
+rec7Test0 = (_4(# {-A-}\(ds'2) -> (_5(# rec7Test0_sub, rec7Test0_sub #)) #))
 
-rec7Test1 = (_4(# {-A-}\(ds'2) -> (_6(# (_7(# _8, (_9(# (_10(# (\ds -> (_6(# ds #))) #)), (\ds -> (_6(# ds #))) #)) #)) #)) #))
+rec7Test1_sub = (\ds -> (_6(# ds #)))
+rec7Test1 = (_4(# {-A-}\(ds'2) -> (_6(# (_7(# _8, (_9(# (_10(# rec7Test1_sub #)), rec7Test1_sub #)) #)) #)) #))
 
 _6(# ds'3 #) = (((GHC.Num.*) ds'3) 2)
 
@@ -54,7 +59,7 @@ _7(# ds', f'13 #) = (case ds' of {() -> f'13})
 
 _8 = ()
 
-_9(# f'20, f'21 #) = (f'21 (_14(# f'20, f'20 #)))
+_9(# f'20, f'21 #) = (f'21 (_15(# f'20, f'20 #)))
 
 _10(# f'17 #) = f'17
 
@@ -62,12 +67,15 @@ _11 = ((:) 1)
 
 rec8 = (\f'5 -> (\x'2 -> (_12(# f'5, x'2 #))))
 
-_12(# f'16, x'6 #) = (((GHC.Num.-) (sx(# x'6 #))) (((GHC.Num.*) ((_15(# f'16 #)) (_12(# f'16, (sx(# x'6 #)) #)))) ((_15(# f'16 #)) (_12(# f'16, (sx(# x'6 #)) #)))))
+_12(# f'16, x'6 #) = let 
+    _17 = (sx(# x'6 #))
+    _18 = (_16(# f'16 #))
+  in (((GHC.Num.-) _17) (((GHC.Num.*) (_18 (_12(# f'16, _17 #)))) (_18 (_12(# f'16, _17 #)))))
 
 _13(# f'9 #) = f'9
 
-_14(# f'11, f'12 #) = (_7(# _8, (_9(# (_10(# f'12 #)), f'11 #)) #))
+_15(# f'11, f'12 #) = (_7(# _8, (_9(# (_10(# f'12 #)), f'11 #)) #))
 
-_15(# f'15 #) = f'15
+_16(# f'15 #) = f'15
 
 sx(# x'7 #) = (((GHC.Num.+) x'7) (GHC.Num.fromInteger 1))
