@@ -376,10 +376,19 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
         else EmptyExtract
       extr -> Hole(newName)(typ, Some(this), Some(model))
     }
-    override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false }
-    //override def hashCode(): Int = name.hashCode // should be inherited
+    
+    //override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false } // not necessary since this is no longer a case class
+    override def hashCode(): Int = name.hashCode // override CachedHashCode#hashCode
     
     def copy(name: String = self.name)(typ: TypeRep = self.typ, annots: List[Annot] = self.annots) = new BoundVal(name)(typ, annots)
+    
+    // Members declared in scala.Equals
+    def canEqual(that: Any): Boolean = that.isInstanceOf[BoundVal]
+    
+    // Members declared in scala.Product
+    def productArity: Int = 1
+    def productElement(n: Int): Any = (name :: Nil)(n)
+    
   }
   object BoundVal {
     def apply(name: String)(typ: TypeRep, annots: List[Annot]) = new BoundVal(name)(typ, annots)
@@ -517,7 +526,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
     }
   }
   sealed trait NonTrivialDef extends Def { override def isTrivial: Bool = false }
-  sealed trait Def extends CachedHashCode { // Q: why not make it a class with typ as param?
+  sealed trait Def extends CachedHashCode with Product { // Q: why not make it a class with typ as param?
     val typ: TypeRep
     def isTrivial = true
     
