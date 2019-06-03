@@ -59,7 +59,9 @@ class OptTests extends FunSuite {
     //TestHarness("IterCont", "0001"::Nil, opt = true)
   }
   test("IterContLocal") {
-    //TestHarness("IterContLocal") // FIXME generate additional case
+    // TODO simplify case expressions
+    // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
+    TestHarness("IterContLocal")
   }
   
 }

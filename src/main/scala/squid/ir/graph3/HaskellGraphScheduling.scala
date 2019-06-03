@@ -60,7 +60,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
     
     private val nameCounts = mutable.Map.empty[String, Int]
     private val nameAliases = mutable.Map.empty[Val, String]
-    def printVal(v: Val): String = nameAliases.getOrElseUpdate(v, {
+    def printVal(v: Val): String = if (v === WildcardVal) "_" else nameAliases.getOrElseUpdate(v, {
       val nme = v.name takeWhile (_ =/= '$')
       val cnt = nameCounts.getOrElse(nme, 0)
       nameCounts(nme) = cnt+1
@@ -378,8 +378,13 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             case MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_) =>
               (con,idx) |>! {
                 case (Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx: Int)))) =>
-                  // TODO if no corresponding enclosing case, do a patmat right here
-                  SchVar(enclosingCases(scrut->con)(idx))
+                  enclosingCases.get(scrut->con) match {
+                    case Some(c) => SchVar(c(idx))
+                    case None => // If no corresponding enclosing case is found, do a pat-mat right here
+                      val boundVals = List.tabulate(ctorArities(con))(i =>
+                        if (i == idx) bindVal(s"arg", Any, Nil) else WildcardVal)
+                      SchCase(mkSubRep(scrut), (con, boundVals, SchVar(boundVals(idx))) :: Nil)
+                  }
               }
             case Abs(p,b) => SchLam(p, Nil, mkSubRep(b))  
           }

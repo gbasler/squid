@@ -46,6 +46,8 @@ abstract class HaskellGraph extends Graph with HaskellGraphScheduling {
   val CaseMtd = loadMtdSymbol(HaskellADT, "case")
   val GetMtd = loadMtdSymbol(HaskellADT, "get")
   
+  val WildcardVal = bindVal("", Any, Nil)
+  
   var ctorArities = mutable.Map.empty[String, Int]
   def mkCase(scrut: Rep, alts: Seq[(String, Int, () => Rep)]): Rep = {
     methodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(),Args(alts.map{case(con,arity,rhs) =>
