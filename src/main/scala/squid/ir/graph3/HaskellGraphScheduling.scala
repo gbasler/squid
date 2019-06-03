@@ -111,7 +111,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case sl: SchLam => sl :: Nil
         case SchArg(arg,Nil) => arg.subExps
         case SchArg(arg,xvs) => arg.subExps.filterNot(xvs exists _.localRefs)
-        case SchCall(sr,Nil) => Nil
+        case SchCall(sr,Nil,_) => Nil
         case s: SchShareable => s :: children.flatMap(_.subExps).toList  
         case  _: SchVar | _: SchConst | _: SchParam => Nil
       }
@@ -120,7 +120,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case _: SchVar | _: SchConst | _: SchParam => this
         case SchApp(lhs, rhs) => f(SchApp(lhs.mapSubExprs(f), rhs.mapSubExprs(f)))
         case SchCase(scrut, arms) => f(SchCase(scrut.mapSubExprs(f), arms.map{case(a,b,c)=>(a,b,c.mapSubExprs(f))}))
-        case SchCall(sr, args) => f(SchCall(sr, args.map(a => a._1.mapSubExprs(f) -> a._2)))
+        case SchCall(sr, args, rec) => f(SchCall(sr, args.map(a => a._1.mapSubExprs(f) -> a._2), rec))
         case lam: SchLam => f(lam)
         case SchArg(b, xvs) => f(SchArg(b.mapSubExprs(f), xvs))
       }}
@@ -150,13 +150,15 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
            Indeed, in both SchParam and SchArg cases, we filter xvs based on the current actual scope. */
         // case SchParam(v, xvs) => xvs.toSet
           
+        case c @ SchCall(_, _, rec) => c.children.flatMap(_.freeVars).toSet -- rec
+          
         case _ => children.flatMap(_.freeVars).toSet
       }
       def children: Iterator[SchExp] = this match {
         case _: SchVar | _: SchConst | _: SchParam => Iterator.empty
         case SchApp(lhs, rhs) => Iterator(lhs, rhs)
         case SchCase(scrut, arms) => Iterator(scrut) ++ arms.iterator.map(_._3)
-        case SchCall(sr, args) => args.iterator.map(_._1)
+        case SchCall(_, args, _) => args.iterator.map(_._1)
         case SchLam(p, bs0, bs1, b) => Iterator(b) ++ bs0.iterator.map(_.body) ++ bs1.iterator.map(_._2) // Q: really include the bindings here?
         case SchArg(b, _) => Iterator(b)
       }
@@ -227,14 +229,16 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       *       and _which variables were extruded on the way from these arguments' branch occurrences_, which is
       *       important in order to determine which variables in the current scope the argument is supposed to be
       *       referring to directly, as opposed to via a continuation (for those extruded). */
-    case class SchCall(sr: SchedulableRep, args: List[SchExp -> List[Val]]) extends SchShareable {
+    case class SchCall(sr: SchedulableRep, args: List[SchExp -> List[Val]], rec: Opt[Val]) extends SchShareable {
       val name = sr.rep.bound |> printVal
       def toHs(implicit scope: Set[Val]) = {
         val argStrs = args.map(a => a._1.toHs(scope -- a._2))
         val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
         val allArgStrs = valArgs ++ argStrs
-        if (allArgStrs.isEmpty) name else
-        s"($name(# ${allArgStrs.mkString(", ")} #))"
+        val body =
+          if (allArgStrs.isEmpty) name else
+          s"($name(# ${allArgStrs.mkString(", ")} #))"
+        rec.fold(body) { v => val vstr = printVal(v); s"(let{-rec-} $vstr = $body in $vstr)" }
       }
     }
     case class SchCase(scrut: SchExp, arms: List[(String,List[Val],SchExp)]) extends SchShareable {
@@ -288,38 +292,45 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
           case bc -> ((Left(cb2),v,xvs)) => bc -> brc(cb2)
           case r => r
         }
+      type CallCtx = Map[SchedulableRep -> BranchCtx, Lazy[Val]]
       
-      def printDef(dbg: Bool): String = printDefWith(dbg)(branches.toMap)
-      def printDefWith(dbg: Bool)(implicit brc: BranchCtx): String = rep.node match {
+      def printDef(dbg: Bool): String = printDefWith(dbg)(branches.toMap, Map.empty)
+      def printDefWith(dbg: Bool)(implicit brc: BranchCtx, curCalls: CallCtx): String = rep.node match {
       case _: Branch => rep.bound.toString // really?
       case _ =>
-        if (brc.nonEmpty) Sdebug(s"? ${rep}"+
+        if (brc.nonEmpty) Sdebug(s"! ${rep}"+
           s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
-          s"\n\t${brc.map(kv => s"[${kv._2._2}] ${kv._1} >> ${kv._2._1}").mkString(s"\n\t")}"
-        ) else Sdebug(s"? ${rep}")
+          s"\n\t${brc.map(kv => s"[${kv._2._2}] ${kv._1}  >->  ${kv._2._1}").mkString(s"\n\t")}"
+        ) else Sdebug(s"! ${rep}")
         val res = HaskellScheduleDebug.nestDbg(new HaskellDefPrettyPrinter(showInlineCF = false) {
           override def apply(n: Node): String = if (dbg) super.apply(n) else n match {
-            case Box(_, body) => apply(body)
+            case Box(_, body) => apply2(body)
             case ConcreteNode(d) => apply(d)
             case _: Branch => die
           }
-          override def apply(r: Rep): String = {
+          override def apply(r: Rep): String = apply2(r)
+          def apply2(r: Rep)(implicit brc: BranchCtx, curCalls: Map[SchedulableRep->BranchCtx,Lazy[Val]]): String = {
             Sdebug(s"? ${r}")
             val sr = scheduledReps(r)
-            def printArg(cb: (Control, Branch), pre: String): String = brc.get(cb).map {
-                case (Left(_),v,xvs) => v.toString + (if (xvs.isEmpty) "" else xvs.mkString("(",",",")"))
-                case (Right(r),v,xvs) => pre + (if (xvs.isEmpty) "" else s"\\(${xvs.mkString(",")}) -> ") + apply(r.rep)
+            def printArg(cb: (Control, Branch), pre: String)(implicit curCalls: Map[SchedulableRep->BranchCtx,Lazy[Val]]): String = brc.get(cb).map {
+                case (Left(_),v,xvs) =>
+                  Sdebug(s"Propagating parameter ${v}")
+                  v.toString + (if (xvs.isEmpty) "" else xvs.mkString("(",",",")"))
+                case (Right(r),v,xvs) =>
+                  Sdebug(s"Making argument ${v} = ${r}")
+                  pre + (if (xvs.isEmpty) "" else s"\\(${xvs.mkString(",")}) -> ") + apply2(r.rep)
               }.getOrElse {
                 if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
                 s"${Console.RED}???${Console.RESET}"
               }
             val res = HaskellScheduleDebug.nestDbg (sr.rep.node match {
               case ConcreteNode(d) if d.isSimple => super.apply(d)
-              case ConcreteNode(ByName(body)) /*if !dbg*/ => apply(body)
-              case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) /*if !dbg*/ =>
-                s"{${apply(lhs)} -> ${apply(rhs)}}"
-              case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx))))::Nil,_)) if !dbg =>
-                s"${apply(scrut)}!$con#$idx"
+              case ConcreteNode(ByName(body)) /*if !dbg*/ => apply2(body)
+              case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) /*if !dbg*/ if sr.usages <= 1 =>
+                s"{${apply2(lhs)} -> ${apply2(rhs)}}"
+              case ConcreteNode(MethodApp(scrut,GetMtd,Nil,Args(Rep(ConcreteNode(StaticModule(con))),Rep(ConcreteNode(Constant(idx))))::Nil,_))
+              if !dbg && sr.usages <= 1 =>
+                s"${apply2(scrut)}!$con#$idx"
               case b: Branch =>
                 assert(sr.branches.size === 1)
                 assert(sr.branches.head._1._1 === Id)
@@ -327,11 +338,21 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
                 printArg((Id,b),"") // FIXME??
               case _ if !dbg && (sr.usages <= 1) =>
                 assert(sr.usages === 1)
-                sr.printDefWith(dbg)(xtendBranchCtx(sr))
+                Sdebug(s"Inlining ${sr}")
+                sr.printDefWith(dbg)(xtendBranchCtx(sr),curCalls)
               case _ =>
-                s"${sr.rep.bound}(${sr.branches.valuesIterator.collect{
-                  case (Left(cb),v,_) => printArg(cb,s"$v=")
-                }.mkString(",")})"
+                Sdebug(s"Calling ${sr}; curCalls \n\t${curCalls.mkString("\n\t")}")
+                val k = sr->brc
+                curCalls.get(k) match {
+                  case Some(lv) =>
+                    Sdebug(s"This is a recursive call to ${lv.value}; curCalls \n\t${curCalls.mkString("\n\t")}")
+                    s"[RECURSIVE ${lv.value}]"
+                  case None =>
+                    s"${sr.rep.bound}(${sr.branches.valuesIterator.collect[String] {
+                      case (Left(cb),v,_) =>
+                        printArg(cb,s"$v=")(curCalls + (k->Lazy(sr.rep.bound)))
+                    }.mkString(",")})"
+                }
             })
             Sdebug(s"= ${res}")
             res
@@ -340,10 +361,12 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         Sdebug(s"= ${res}")
         res
       }
-      def mkHaskellDef: SchExp = mkHaskellDefWith(branches.toMap, Map.empty)
+      
       type CaseCtx = Map[(Rep,String), List[Val]]
-      def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx): SchExp = {
-        def mkDef(d: Def)(implicit enclosingCases: CaseCtx): SchExp = d match {
+      
+      def mkHaskellDef: SchExp = mkHaskellDefWith(branches.toMap, Map.empty, Map.empty)
+      def mkHaskellDefWith(implicit brc: BranchCtx, enclosingCases: CaseCtx, curCalls: CallCtx): SchExp = {
+        def mkDef(d: Def)(implicit enclosingCases: CaseCtx, curCalls: CallCtx): SchExp = d match {
             case v: Val => SchVar(v)
             case c: Constant => SchConst(c)
             case cs: CrossStageValue => SchConst(cs)
@@ -365,12 +388,12 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             lhs.node |>! {
               case ConcreteNode(StaticModule(con)) =>
                 val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
-                (con,boundVals,mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals)))
+                (con,boundVals,mkSubRep(rhs)(enclosingCases + ((scrut,con) -> boundVals), curCalls))
             }
         }
-        def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx): SchExp = {
+        def mkSubRep(r: Rep)(implicit enclosingCases: CaseCtx, curCalls: CallCtx): SchExp = {
           val sr = scheduledReps(r)
-          def mkArg(cb: (Control,Branch), pre: String): SchExp = brc(cb) match {
+          def mkArg(cb: (Control,Branch), pre: String)(implicit curCalls: CallCtx): SchExp = brc(cb) match {
             case (Left((_,_)),v,xvs) => SchParam(v, xvs)
             case (Right(r),v,xvs) => SchArg(mkSubRep(r.rep), xvs)
           }
@@ -383,11 +406,17 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             case _ if sr.usages <= 1 =>
               //assert(sr.usages === 1)
               //assert(!sr.shouldBeScheduled)
-              sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
+              sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases, curCalls)
             case _ =>
               sr.rep.bound |> printVal
-              val args = sr.mkParamsRest.map(p => (mkArg(p._1,""), p._3))
-              SchCall(sr, args)
+              val k = sr->brc
+              curCalls.get(k) match {
+                case Some(lv) => SchVar(lv.value)
+                case None =>
+                  val lv = Lazy.mk(sr.rep.bound.renew, computeWhenShow = false)
+                  val args = sr.mkParamsRest.map(p => (mkArg(p._1,"")(curCalls + (k->lv)), p._3))
+                  SchCall(sr, args, lv.value optionIf lv.isComputed)
+              }
           }
         }
         //if (brc.nonEmpty)
@@ -599,7 +628,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       val done = mutable.Set.empty[Rep]
       topLevelReps.flatMap { case(sr,d) =>
         (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(d) }) ++ d.allChildren.collect {
-          case SchCall(sr, args) if !done(sr.rep) && topLevels.contains(sr.rep) =>
+          case SchCall(sr, _, _) if !done(sr.rep) && topLevels.contains(sr.rep) =>
             done += sr.rep; topLevels(sr.rep) }
       }
     }

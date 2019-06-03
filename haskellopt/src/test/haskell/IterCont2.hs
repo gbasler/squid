@@ -1,12 +1,12 @@
--- Like IterCont, but with usages
+-- Like IterCont, but with more usages
 module IterCont where
 
 loop f state =
-  f (\new_state -> loop f new_state) state  --(\res -> res)
+  f (\new_state -> loop f new_state) state
 
 -- dont = loop (\k s -> s + 1) 0
 
--- count = loop (\k s -> k (s + 1)) 0 -- FIXME SOF when enabled...
+count = loop (\k s -> k (s + 1)) 0
 
 nats = loop (\k s -> s : k (s + 1)) 0
 

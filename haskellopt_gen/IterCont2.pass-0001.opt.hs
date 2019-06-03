@@ -7,29 +7,28 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 48; Boxes: 14; Branches: 9
--- Apps: 9; Lams: 5; Unreduced Redexes: 0
+-- Total nodes: 92; Boxes: 31; Branches: 24
+-- Apps: 14; Lams: 7; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module IterCont (loop,nats) where
+module IterCont (loop,count,nats) where
 
 import GHC.Num
 
-loop = (\f -> (\state -> ((f (_0(# {-A-}\(new_state) -> f #))) state)))
+count = (let{-rec-} _2 = (_0(# (\k -> (\s -> (k (_1(# s #))))), {-A-}\(new_state') -> _2, (_3(# (_1(# (let{-rec-} _4 = (_3(# (_1(# _4 #)) #)) in _4) #)) #)) #)) in _2)
 
-_0(# f' #) = (\new_state -> (_2(# (_3(# new_state #)), {-P-}(f'(new_state)), {-A-}\(new_state) -> (_5(# {-P-}(f'(new_state)) #)) #)))
+_0(# f'2, f'3, state' #) = ((f'2 (_5(# f'3 #))) state')
 
-nats_sub = (\k -> (\s -> (_1(# (k (_4(# s #))), s #))))
-nats = (_1(# (_2(# (_3(# (_4(# 0 #)) #)), nats_sub, {-A-}\(new_state) -> (_5(# nats_sub #)) #)), 0 #))
+_1(# s'2 #) = (((GHC.Num.+) s'2) 1)
 
-_1(# k', s'2 #) = (((:) s'2) k')
+_3(# new_state #) = new_state
 
-_4(# s' #) = (((GHC.Num.+) s') 1)
+loop = (\f -> (\state -> ((f (let{-rec-} _6 = (_5(# {-A-}\(new_state') -> ((f _6) state) #)) in _6)) state)))
 
-_2(# state', f'3, f'4 #) = ((f'3 (_0(# f'4 #))) state')
+_5(# f' #) = (\new_state' -> {-P-}(f'(new_state')))
 
-_3(# new_state' #) = new_state'
+nats = (_7(# (_7(# (let{-rec-} _8 = (_0(# (\k' -> (\s' -> (_7(# (k' (((GHC.Num.+) s') 1)), s' #)))), {-A-}\(new_state') -> _8, 0 #)) in _8), 0 #)), 0 #))
 
-_5(# f'2 #) = f'2
+_7(# k'2, s'3 #) = (((:) s'3) k'2)
