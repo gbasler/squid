@@ -59,6 +59,7 @@ class OptTests extends FunSuite {
   
   test("HigherOrderRec4") {
     TestHarness("HigherOrderRec4", dumpGraph = true)
+    //TestHarness("HigherOrderRec4", "0000"::Nil, dumpGraph = true)
   }
   
   test("HigherOrderRec5") {

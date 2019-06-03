@@ -110,6 +110,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       def subExps: List[SchShareable] = this match {
         case sl: SchLam => sl :: Nil
         case SchArg(arg,Nil) => arg.subExps
+        case SchArg(arg,xvs) => arg.subExps.filterNot(xvs exists _.localRefs)
         case SchCall(sr,Nil) => Nil
         case s: SchShareable => s :: children.flatMap(_.subExps).toList  
         case  _: SchVar | _: SchConst | _: SchParam => Nil
@@ -128,7 +129,12 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case SchLam(p, bs0, bs1, b) =>
           b.localRefs ++ bs1.flatMap(_._2.localRefs) -- bs0.map(_.sr.rep.bound) -- bs1.map(_._1)
         case SchParam(v, possiblyExtruded) =>
-          possiblyExtruded.toSet + v // FIXME use extruded instead?
+          possiblyExtruded.toSet + v
+          // ^ Note: there might be false positives... only way to know is to compute the actual 'extruded' variables as
+          //   in SchParam#toHs, but that can only be done after we have fixed the scopes of everything, and we're
+          //   currently using localRefs before that, from subExps...
+        case SchArg(b, xvs) =>
+          b.localRefs -- xvs // only seems to make sense, since we consider the variable references in SchParam
         case _ => children.flatMap(_.localRefs).toSet
       }
       lazy val freeVars: Set[Val] = this match {
