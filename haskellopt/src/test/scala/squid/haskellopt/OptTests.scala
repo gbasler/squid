@@ -53,19 +53,12 @@ class OptTests extends FunSuite {
   
   test("HigherOrderRec3") {
     //TestHarness("HigherOrderRec3")
-    //TestHarness("HigherOrderRec3", compileResult = false)
-    TestHarness("HigherOrderRec3", "0000"::Nil, compileResult = false) // FIXME error in hs
+    TestHarness("HigherOrderRec3", "0000"::Nil)
     //TestHarness("HigherOrderRec3", "0001"::Nil) // FIXME stack overflow
-    
-    // FIXME in old minimized version, get error in hs
-    // We get:
-    //_0(# f'2 #) = (\x -> ((_1(# {-P-}(f'2(x)) #)) (_0(# (_1(# {-P-}(f'2(x)) #)) #))))
-    // We should get:
-    //_0(# f'2 #) = (\x -> ((_1(# {-P-}(f'2(x)) #)) (_0(# (_1(# {-P-}(f'2) #)) #))))
   }
   
   test("HigherOrderRec4") {
-    TestHarness("HigherOrderRec4", dumpGraph = true, compileResult = false) // FIXME error in hs
+    TestHarness("HigherOrderRec4", dumpGraph = true)
   }
   
   test("HigherOrderRec5") {
@@ -82,8 +75,7 @@ class OptTests extends FunSuite {
   
   test("IterCont") {
     
-    //TestHarness("IterCont", dumpGraph = true)
-    TestHarness("IterCont", "0000"::Nil, dumpGraph = true, compileResult = false) // FIXME error in hs
+    TestHarness("IterCont", dumpGraph = true)
     //TestHarness("IterCont", "0001"::Nil, dumpGraph = true, opt = true)
     //TestHarness("IterCont", "0001"::Nil, dumpGraph = true)
     

@@ -205,9 +205,13 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         assert(!strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVal, s"${cid.v} === ${p.originalVal} in Push($cid, $payload, $rest)")
         payload `;` rest2
       case d @ Drop(rest2) =>
-        // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
-        // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible.
-        assert(!strictCallIdChecking || cid === DummyCallId || cid === d.originalCid, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)")
+        assert(!strictCallIdChecking || cid === DummyCallId ||
+          // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
+          // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible. 
+          cid === d.originalCid, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)"
+          // A less drastic version:
+          //cid.v === d.originalCid.v, s"${cid.v} === ${d.originalCid.v} in Push($cid, $payload, $rest)"
+        )
         rest2
       case rest: TransitiveControl => apply(cid, payload, rest)
     }

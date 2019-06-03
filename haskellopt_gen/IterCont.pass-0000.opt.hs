@@ -16,4 +16,4 @@ dont = (((GHC.Num.+) 0) 1)
 
 loop = (\f -> (\state -> ((f (_0(# {-A-}\(new_state) -> f #))) state)))
 
-_0(# f' #) = (\new_state -> (({-P-}(f'(new_state)) (_0(# {-P-}(f'(new_state)) #))) new_state))
+_0(# f' #) = (\new_state -> (({-P-}(f'(new_state)) (_0(# {-A-}\(new_state) -> {-P-}(f'(new_state)) #))) new_state))

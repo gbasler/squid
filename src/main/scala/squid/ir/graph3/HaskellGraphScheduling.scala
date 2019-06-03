@@ -119,7 +119,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case _: SchVar | _: SchConst | _: SchParam => this
         case SchApp(lhs, rhs) => f(SchApp(lhs.mapSubExprs(f), rhs.mapSubExprs(f)))
         case SchCase(scrut, arms) => f(SchCase(scrut.mapSubExprs(f), arms.map{case(a,b,c)=>(a,b,c.mapSubExprs(f))}))
-        case SchCall(sr, args) => f(SchCall(sr, args.map(_.mapSubExprs(f))))
+        case SchCall(sr, args) => f(SchCall(sr, args.map(a => a._1.mapSubExprs(f) -> a._2)))
         case lam: SchLam => f(lam)
         case SchArg(b, xvs) => f(SchArg(b.mapSubExprs(f), xvs))
       }}
@@ -150,7 +150,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         case _: SchVar | _: SchConst | _: SchParam => Iterator.empty
         case SchApp(lhs, rhs) => Iterator(lhs, rhs)
         case SchCase(scrut, arms) => Iterator(scrut) ++ arms.iterator.map(_._3)
-        case SchCall(sr, args) => args.iterator
+        case SchCall(sr, args) => args.iterator.map(_._1)
         case SchLam(p, bs0, bs1, b) => Iterator(b) ++ bs0.iterator.map(_.body) ++ bs1.iterator.map(_._2) // Q: really include the bindings here?
         case SchArg(b, _) => Iterator(b)
       }
@@ -214,13 +214,17 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       def toHs(implicit scope: Set[Val]) = {
         val extruded = possiblyExtruded.filterNot(scope)
         if (extruded.isEmpty) body.toHs else
-        s"{-A-}\\(${extruded.map(printVal).mkString(",")}) -> " + body.toHs
+        s"{-A-}\\(${extruded.map(printVal).mkString(",")}) -> " + body.toHs(scope ++ extruded)
       }
     }
-    case class SchCall(sr: SchedulableRep, args: List[SchExp]) extends SchShareable {
+    /** @args lists the arguments passed in the call,
+      *       and _which variables were extruded on the way from these arguments' branch occurrences_, which is
+      *       important in order to determine which variables in the current scope the argument is supposed to be
+      *       referring to directly, as opposed to via a continuation (for those extruded). */
+    case class SchCall(sr: SchedulableRep, args: List[SchExp -> List[Val]]) extends SchShareable {
       val name = sr.rep.bound |> printVal
       def toHs(implicit scope: Set[Val]) = {
-        val argStrs = args.map(_.toHs)
+        val argStrs = args.map(a => a._1.toHs(scope -- a._2))
         val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
         val allArgStrs = valArgs ++ argStrs
         if (allArgStrs.isEmpty) name else
@@ -376,7 +380,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
               sr.mkHaskellDefWith(xtendBranchCtx(sr), enclosingCases)
             case _ =>
               sr.rep.bound |> printVal
-              val args = sr.mkParamsRest.map(_._1 |> (mkArg(_,"")))
+              val args = sr.mkParamsRest.map(p => (mkArg(p._1,""), p._3))
               SchCall(sr, args)
           }
         }
@@ -393,15 +397,15 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         mkParamsRest.foreach(_._2 |> printVal) // This is done just to get the `printVal`-generated names in the 'right' order.
         mkParamsRest.groupBy(_._2).valuesIterator.foreach {
           case Nil | _ :: Nil =>
-          case (_,v) :: _ => lastWords(s"Duplicated param: $v (i.e., ${v |> printVal})")
+          case (_,v,_) :: _ => lastWords(s"Duplicated param: $v (i.e., ${v |> printVal})")
         }
         SchDef(this, mkParamsRest.map(_._2), mkHaskellDef)
       }
       
       def params = valParams.get ++ mkParamsRest.map(_._2)
       def paramRestVals = branches.valuesIterator.collect{case (Left(cb),v,xvs) => v}
-      lazy val mkParamsRest: List[(Control,Branch)->Val] =
-        branches.valuesIterator.collect{case (Left(cb),v,xvs) => cb->v}.toList
+      lazy val mkParamsRest: List[((Control,Branch),Val,List[Val])] =
+        branches.valuesIterator.collect{case (Left(cb),v,xvs) => (cb,v,xvs)}.toList
       
       def subReps =
         children ++ branches.valuesIterator.collect{case (Right(r),v,xvs) => r}.filter(_.shouldBeScheduled)
@@ -488,10 +492,10 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       dbg(s">> Results <<")
       for (sr <- sch.scheduledReps.valuesIterator; if sr.branches.nonEmpty) {
         dbg(sr.rep.toString)
-        dbg(s"\t${sr.branches.map(kv => s"${kv._1}>>${kv._2._1 match {
+        dbg(sr.branches.map(kv => s"\t[${kv._2._2}] ${kv._1}  >->  ${kv._2._1 match {
           case Left(cb) => "L:"+cb
           case Right(sr) => "R:("+sr.rep+")"
-        }}[${kv._2._2}] ").mkString(" ")}")
+        }}").mkString("\n"))
       }
       s">> Done! <<"
     }
