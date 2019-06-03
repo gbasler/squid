@@ -29,6 +29,11 @@ f0 = \f -> f 11 + f 22
 iTest2 = i f0 (i f0 77)
 
 
+ls1 = (lol 11 22 +)
+
+{-# NOINLINE lol #-}
+lol x y = x + y
+
 
 ---- TODO
 ----h' :: (forall ...) -> ...

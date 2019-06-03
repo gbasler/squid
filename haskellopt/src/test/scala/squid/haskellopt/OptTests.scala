@@ -76,8 +76,14 @@ class OptTests extends FunSuite {
   test("IterCont") {
     
     TestHarness("IterCont", dumpGraph = true)
-    //TestHarness("IterCont", "0001"::Nil, dumpGraph = true, opt = true)
-    //TestHarness("IterCont", "0001"::Nil, dumpGraph = true)
+    
+  }
+  
+  test("IterCont2") {
+    
+    TestHarness("IterCont2") // FIXME SOF when other defs uncommented
+    //TestHarness("IterCont", "0001"::Nil, opt = true)
+    //TestHarness("IterCont", "0001"::Nil)
     
   }
   
