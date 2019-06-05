@@ -22,17 +22,23 @@ object TestHarness {
     val mod = go.loadFromDump(filePath)
     println(s"=== PHASE ${mod.modPhase} ===")
     
+    //go.Graph.debugFor
+    {
+    
     var ite = 0
     do {
       
-      /*
-      println(s"--- Graph ${ite} ---")
-      println(mod.show)
-      println(s"--- / ---")
-      */
+      if (go.Graph.isDebugEnabled) {
+        println(s"--- Graph ${ite} ---")
+        println(mod.show)
+        println(s"--- / ---")
+      }
       
-      if (go.Graph.sanityCheck(mod.toplvlRep, sanityCheckFuel)(go.Graph.CCtx.empty).isEmpty)
+      val sanRes = go.Graph.sanityCheck(mod.toplvlRep, sanityCheckFuel)(go.Graph.CCtx.empty)
+      if (sanRes.isEmpty)
         println(s"Note: sanity check stopped early given fuel = $sanityCheckFuel")
+      else if (go.Graph.isDebugEnabled)
+        println(s"Sanity check stopped with remaining fuel = $sanityCheckFuel")
       
       //println(go.Graph.scheduleRec(mod))
       
@@ -42,7 +48,14 @@ object TestHarness {
       
     } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
     
+    /* Tries reducing some more...: */
+    //go.Graph.betaReduced.clear()
+    //while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false))) ite += 1
+    
     println(s"--- Final Graph (${ite}) ---")
+    
+    }
+    
     val graphStr = mod.show
     println(graphStr)
     if (dumpGraph) write(writePath_graph, graphStr, createFolders = true)

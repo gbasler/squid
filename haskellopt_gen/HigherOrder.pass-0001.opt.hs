@@ -22,7 +22,7 @@ ds = 1
 
 f = (\x -> (_0(# x #)))
 
-_0(# x'3 #) = let 
+_0(# x'3 #) = let
     _19 = ((GHC.Num.-) x'3)
   in (((GHC.Num.*) x'3) (((GHC.Num.*) (_19 (GHC.Types.I# 2#))) (_19 (GHC.Types.I# 3#))))
 

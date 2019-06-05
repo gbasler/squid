@@ -79,7 +79,7 @@ trait GraphScheduling extends AST { graph: Graph =>
         case bd: BasicDef =>
           val (reps,bound) = bd.reps.map(r => r -> freshBoundVal(r.typ)).unzip
           val curried = bound.foldRight(bd.rebuild(
-            bound.map(readVal)
+            bound.map(mkValRep)
             //bound.map(new MirrorVal(_).toRep)
           ).toRep)(abs(_,_))
           //println("! "+curried.showGraph)

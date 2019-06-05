@@ -19,7 +19,7 @@ trait TraceDebug {
   private var debugEnabled = false
   private var indent: Int = 0
   
-  protected def isDebugEnabled = debugEnabled
+  /*protected*/ def isDebugEnabled = debugEnabled
   
   protected def debug(x: => Any) = if (debugEnabled) {
     val lines = x.toString.splitSane('\n')

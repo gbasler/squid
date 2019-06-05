@@ -53,10 +53,9 @@ class GraphLoader {
       type Alt = (AltCon, () => Expr, Graph.Rep => Map[BinderId, Graph.Rep])
       
       val bindings = mutable.Map.empty[BinderId, Either[Graph.Val, Graph.Rep]] // Left for lambda-bound; Right for let-bound
-      val ignoredBindings = mutable.Set.empty[Graph.Val]
       
-      val typeBinding = Graph.bindVal("ty", dt, Nil)
-      ignoredBindings += typeBinding
+      val TypeBinding = Graph.bindVal("ty", dt, Nil)
+      val DummyRead = TypeBinding |> Graph.mkValRep
       
       def EVar(b: BinderId): Expr = bindings(b).fold(_ |> Graph.readVal, id)
       def EVarGlobal(ExternalName: ExternalName): Expr =
@@ -80,7 +79,9 @@ class GraphLoader {
         }
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)
       def EApp(e0: Expr, e1: Expr): Expr = e1.node match {
-        case Graph.ConcreteNode(v: Graph.Val) if ignoredBindings(v) => e0
+        //case Graph.ConcreteNode(v: Graph.Val) if ignoredBindings(v) => e0
+        case Graph.ConcreteNode(TypeBinding) => e0
+        case Graph.Box(_,Graph.Rep(Graph.ConcreteNode(TypeBinding))) => e0 // the reification context may wrap up occurrences in a box!
         case Graph.ConcreteNode(Graph.StaticModule(nme)) if nme.contains("$f") => // TODO more robust?
           // ^ such as '$fNumInteger' in '$27.apply(GHC.Num.$fNumInteger)'
           e0
@@ -91,23 +92,33 @@ class GraphLoader {
       def ELam(bndr: Binder, e0: => Expr): Expr = {
         val v = Graph.bindVal(Graph.mkName(bndr.binderName, bndr.binderId.name), dt, Nil)
         bindings += bndr.binderId -> Left(v)
-        if (bndr.binderName.startsWith("$")) { ignoredBindings += v; e0 } // ignore type and type class lambdas
+        if (bndr.binderName.startsWith("$")) Graph.letinImpl(v, DummyRead, e0) // ignore type and type class lambdas
         else Graph.abs(v, e0)
       }
       def ELet(lets: Seq[(Binder, () => Expr)], e0: => Expr): Expr = {
+        //println(s"LETS ${lets}")
+        
+        import Graph.reificationContext
+        val old = reificationContext
+        try
         lets.foldRight(() => e0){
           case ((bndr, rhs), body) =>
             val name = Graph.mkName(bndr.binderName, bndr.binderId.name)
+            //println(s"LET ${name}")
             val v = Graph.bindVal(name+"$", dt, Nil)
             val rv = Graph.Rep.withVal(v,v)
-            bindings += bndr.binderId -> Right(rv)
+            require(!reificationContext.contains(v))
+            reificationContext += v -> rv
+            bindings += bndr.binderId -> Left(v)
             () => {
+              //println(s"LET' ${name} ${Graph.reificationContext}")
               val bod = rhs()
               Graph.setMeaningfulName(bod.bound, name)
               rv.rewireTo(bod)
               body()
             }
         }()
+        finally reificationContext = old
       }
       def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr =
         // TODO handle special case where the only alt is AltDefault?
@@ -124,7 +135,7 @@ class GraphLoader {
           rhs)
         })
       }
-      def EType(ty: Type): Expr = typeBinding |> Graph.readVal
+      def EType(ty: Type): Expr = DummyRead
       
       def Alt(altCon: AltCon, altBinders: Seq[Binder], altRHS: => Expr): Alt = {
         (altCon, () => altRHS, r => altBinders.zipWithIndex.map(b => b._1.binderId -> Graph.methodApp(r, Graph.GetMtd, Nil,

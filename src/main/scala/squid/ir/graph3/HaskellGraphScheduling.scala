@@ -89,7 +89,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
         val paramList = if (params.isEmpty) "" else s"(# ${params.map(printVal).mkString(", ")} #)"
         s"${topSubBindings.map(sb => s"${sb._1|>printVal} = ${sb._2.toHs}\n").mkString}$name$paramList = ${
           if (nestedSubBindings.isEmpty) "" else {
-            s"let ${nestedSubBindings.map(sb => s"\n    ${sb._1|>printVal} = ${sb._2.toHs}").mkString("")}\n  in "
+            s"let${nestedSubBindings.map(sb => s"\n    ${sb._1|>printVal} = ${sb._2.toHs}").mkString("")}\n  in "
           }
         }${body.toHs}"
       }
@@ -299,7 +299,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       case _: Branch => rep.bound.toString // really?
       case _ =>
         if (brc.nonEmpty) Sdebug(s"! ${rep}"+
-          s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
+          //s"\n\t${branches.map(kv => s"${kv._1}>>${kv._2._1}[${kv._2._2}]").mkString}"+
           s"\n\t${brc.map(kv => s"[${kv._2._2}] ${kv._1}  >->  ${kv._2._1}").mkString(s"\n\t")}"
         ) else Sdebug(s"! ${rep}")
         val res = HaskellScheduleDebug.nestDbg(new HaskellDefPrettyPrinter(showInlineCF = false) {
@@ -309,10 +309,10 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
             case _: Branch => die
           }
           override def apply(r: Rep): String = apply2(r)
-          def apply2(r: Rep)(implicit brc: BranchCtx, curCalls: Map[SchedulableRep->BranchCtx,Lazy[Val]]): String = {
+          def apply2(r: Rep)(implicit brc: BranchCtx, curCalls: CallCtx): String = {
             Sdebug(s"? ${r}")
             val sr = scheduledReps(r)
-            def printArg(cb: (Control, Branch), pre: String)(implicit curCalls: Map[SchedulableRep->BranchCtx,Lazy[Val]]): String = brc.get(cb).map {
+            def printArg(cb: (Control, Branch), pre: String)(implicit curCalls: CallCtx): String = brc.get(cb).map {
                 case (Left(_),v,xvs) =>
                   Sdebug(s"Propagating parameter ${v}")
                   v.toString + (if (xvs.isEmpty) "" else xvs.mkString("(",",",")"))
@@ -320,7 +320,9 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
                   Sdebug(s"Making argument ${v} = ${r}")
                   pre + (if (xvs.isEmpty) "" else s"\\(${xvs.mkString(",")}) -> ") + apply2(r.rep)
               }.getOrElse {
-                if (!dbg) /*System.err.*/println(s"/!!!\\ ERROR: at ${r.bound}: could not find cb $cb in:\n\t${brc}")
+                if (!dbg) /*System.err.*/println(s"${Console.RED}/!!!\\ ERROR:${Console.RESET} at ${r.bound}: could not find cb $cb in:${
+                  s"\n\t${brc.map(kv => s"[${kv._2._2}] ${kv._1}  >->  ${kv._2._1}").mkString(s"\n\t")}"
+                }")
                 s"${Console.RED}???${Console.RESET}"
               }
             val res = HaskellScheduleDebug.nestDbg (sr.rep.node match {
@@ -341,11 +343,11 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
                 Sdebug(s"Inlining ${sr}")
                 sr.printDefWith(dbg)(xtendBranchCtx(sr),curCalls)
               case _ =>
-                Sdebug(s"Calling ${sr}; curCalls \n\t${curCalls.mkString("\n\t")}")
+                Sdebug(s"Calling ${sr}")
                 val k = sr->brc
                 curCalls.get(k) match {
                   case Some(lv) =>
-                    Sdebug(s"This is a recursive call to ${lv.value}; curCalls \n\t${curCalls.mkString("\n\t")}")
+                    Sdebug(s"This is a recursive call to ${lv.value}"/*+s"; curCalls \n\t${curCalls.mkString("\n\t")}"*/)
                     s"[RECURSIVE ${lv.value}]"
                   case None =>
                     s"${sr.rep.bound}(${sr.branches.valuesIterator.collect[String] {
@@ -496,11 +498,12 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
               case n => (None, n)
             }
             def addBranch(cb2: sch.TrBranch) = {
-              dbg(s"    Add Branch: $cb2")
+              val v2 = v.renew
+              dbg(s"    Add Branch[${v2}] $cb2")
               if (cb2.isLeft) workingSet ::= sr2
               if (!nde.isInstanceOf[Branch] && lambdaBound.nonEmpty && cb2.isLeft)
                 dbg(s"      !!! Extruded variable! ${lambdaBound}")
-              sr2.branches += cb0 -> (cb2, v.renew, if (cb2.isRight) xvs else lambdaBound.toList ::: xvs)
+              sr2.branches += cb0 -> (cb2, v2, if (cb2.isRight) xvs else lambdaBound.toList ::: xvs)
             }
             nde match {
               case _: Branch => // can't bubble up to a branch!
@@ -529,7 +532,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
       }
     }
     dbg {
-      dbg(s">> Results <<")
+      dbg(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Results <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
       for (sr <- sch.scheduledReps.valuesIterator; if sr.branches.nonEmpty) {
         dbg(sr.rep.toString)
         dbg(sr.branches.map(kv => s"\t[${kv._2._2}] ${kv._1}  >->  ${kv._2._1 match {
@@ -556,10 +559,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
     
     /*
     sreps.foreach { sr =>
-      if (sr.shouldBeScheduled) {
-        println(s"[${sr.usages}] $sr")
-        //println(sr.args.map(_.rep.bound).toList)
-      }
+      println(s"[${if (sr.shouldBeScheduled) sr.usages else " "}] $sr  <--  ${sr.backEdges.map(b => b._1+""+b._2.rep.bound).mkString(", ")}")
     }
     */
     

@@ -35,6 +35,8 @@ Possible improvements:
 */
 class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncoding { graph =>
   
+  val showPopDropOrigins = false
+  
   override protected def freshNameImpl(n: Int) = "$"+n.toHexString
   
   override def showVal(v: BoundVal): String = v.toString
@@ -243,11 +245,16 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   //def rep(dfn: Def) = new Rep(dfn, dfn.children.toList)
   def rep(dfn: Def) = dfn match {
     case v: Val if reificationContext.contains(v) => reificationContext(v)
+    case v: Val => lastWords(s"$v not in ${reificationContext}")
     case _ => new Rep(ConcreteNode(dfn))
   }
   //def simpleRep(dfn: Def): Rep = rep(dfn)
   def repType(r: Rep) = r.typ
   
+  def mkValRep(v: Val) = {
+    assert(!reificationContext.contains(v))
+    new Rep(ConcreteNode(v))
+  }
   
   
   var reificationContext = Map.empty[Val,Rep]
@@ -283,14 +290,14 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   
   // TODO make more robust? check for illegal occurrences in non-fresh inserted capturing lambdas...?
   override def abs(param: BoundVal, mkBody: => Rep): Rep = {
-    val occ = param.toRep
+    val occ = mkValRep(param)
     if (!ignoreValBindings) {
       assert(!lambdaVariableOccurrences.containsKey(param))
       lambdaVariableOccurrences.put(param, occ)
     }
     val old = reificationContext
     try {
-      reificationContext = reificationContext.map{case(k,v) => (k,Box(Pop.it(param),v).mkRep)}
+      reificationContext = reificationContext.map{case(k,v) => (k,Box.rep(Pop.it(param),v))}
       letinImpl(param, occ, super.abs(param, mkBody) also {lambdaVariableBindings.put(param,_)})
     } finally reificationContext = old
   }
@@ -306,7 +313,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     val cid = new CallId(v)
     
     val occ = Option(lambdaVariableOccurrences.get(v)).getOrElse(???) // TODO B/E
-    val newOcc = v.toRep
+    val newOcc = mkValRep(v)
     lambdaVariableOccurrences.put(v,newOcc)
     
     //val abs = Option(lambdaVariableBindings.get(v)).getOrElse(???).node.asInstanceOf[ConcreteNode].asInstanceOf[Abs] // TODO B/E
@@ -344,8 +351,8 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case ConcreteNode(d) =>
         val (newCtx, newFuel) = d match {
           case abs: Abs => // When traversing a lambda, we need to assume a token, even if just the dummy token!
-            (cctx push DummyCallId, fuel/2)
-            //cctx push new CallId(abs.param)
+            //(cctx push DummyCallId, fuel/2)
+            (cctx push new CallId(abs.param), fuel/2)
           case _ => (cctx, fuel)
         }
         (Iterator(Some(fuel)) ++ d.children.map{ c => sanityCheck(c, newFuel)(newCtx)}).min // minimum on options: None is minimal
@@ -415,10 +422,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
       case Push(cid, payload, rest) =>
         val col = colorOf(cid)
         s"$col$cid↑[${apply(payload).mkString(";")}$col]$curCol" :: apply(rest)
+      case p @ Pop(rest) if showPopDropOrigins => s"↓${Debug.GREY}(${p.originalVal})$curCol" :: apply(rest)
+      case d @ Drop(rest) if showPopDropOrigins => s"🚫${Debug.GREY}(${d.originalCid})$curCol" :: apply(rest)
       case Pop(rest) => s"↓" :: apply(rest)
       case Drop(rest) => s"🚫" :: apply(rest)
-      //case p @ Pop(rest) => s"↓${Debug.GREY}(${p.originalVal})$curCol" :: apply(rest)
-      //case d @ Drop(rest) => s"🚫${Debug.GREY}(${d.originalCid})$curCol" :: apply(rest)
     }
     def apply(n: Node): String = n match {
       case Box(ctrl, res) =>

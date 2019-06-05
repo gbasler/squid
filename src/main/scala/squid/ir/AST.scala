@@ -377,8 +377,9 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       extr -> Hole(newName)(typ, Some(this), Some(model))
     }
     
-    //override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false } // not necessary since this is no longer a case class
-    override def hashCode(): Int = name.hashCode // override CachedHashCode#hashCode
+    // Don't use the val name for equals/hashCode, as it can change.
+    override def equals(that: Any) = that match { case that: AnyRef => this eq that  case _ => false } // just making sure reference equality is used
+    override def hashCode(): Int = System.identityHashCode(this) // overrides CachedHashCode#hashCode
     
     def copy(name: String = self.name)(typ: TypeRep = self.typ, annots: List[Annot] = self.annots) = new BoundVal(name)(typ, annots)
     

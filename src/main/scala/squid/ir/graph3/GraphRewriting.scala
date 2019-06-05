@@ -486,10 +486,10 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
-          println(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
+          debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
           rep.node.assertNotVal
           rep.node = betaRed((Nil, Id, fun), arg)
-          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           // Strangely, it seems that some tests break when we use again() for beta-reduction cases; this might be totally incidental
           //again()
@@ -499,10 +499,10 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         // Beta reduction across a box
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
-          println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
+          debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
           rep.node.assertNotVal
           rep.node = betaRed((Nil, ctrl, fun), arg)
-          println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           //again()
           changed=true
@@ -534,8 +534,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           }) alsoDo (trav -= rep), Nil)
           
           val gone = go(br)
-          //println(s"G: ${gone}")
-          //betaReduced.foreach(b => println("\t"+b))
+          //debug(s"G: ${gone}")
+          //betaReduced.foreach(b => debug("\t"+b))
           
           //gone.headOption 
           gone.find { case g @ (conds, ctrl, abs) =>
@@ -546,11 +546,11 @@ trait GraphRewriting extends AST { graph: Graph =>
           match {
             case Some(path @ (conds,ctrl,fun)) =>
               assert(conds.nonEmpty) // we avoid cases where we traversed only boxes
-              println(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${
+              debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${
                 conds.map(c => (if(c._4)"" else "!")+c._3).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
               rep.node = betaRed(path, arg)
-              println(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+              debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
               leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
               
               //Thread.sleep(200)
@@ -584,7 +584,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       tr.rules.iterator.flatMap(rule => rewriteRepCtx(rule._1,r,rule._2) also_? {
         case Some(res) =>
           if (r.bound =/= oldBound) println(s"!!! ${r.bound} =/= ${oldBound}")
-          println(s" ${r}  =>  $res")
+          debug(s" ${r}  =>  $res")
           //assert(!res.boundTo.isInstanceOf[ConcreteNode] || !res.boundTo.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs])
           assert(!r.node.isInstanceOf[ConcreteNode] || !r.node.asInstanceOf[ConcreteNode].dfn.isInstanceOf[Abs]) // not sure this is useful/correct(?)
           
@@ -633,7 +633,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       
     }
     
-    def rec(r: Rep,tried:Bool=false)(implicit cctx: CCtx): Option[Rep] = //println(s"Rec $r $cctx") thenReturn
+    def rec(r: Rep,tried:Bool=false)(implicit cctx: CCtx): Option[Rep] = //debug(s"Rec $r $cctx") thenReturn
     //r.boundTo match {
     r.node match {
         

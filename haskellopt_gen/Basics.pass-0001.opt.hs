@@ -34,19 +34,19 @@ fTest2 = (((GHC.Num.+) (((GHC.Num.*) x'4) x'4)) (((GHC.Num.*) x'5) x'5))
 
 x'4 = (GHC.Types.I# 44#)
 
-x'5 = (((GHC.Num.*) x'13) x'13)
+x'5 = (((GHC.Num.*) x'16) x'16)
 
 fTest3 = (((GHC.Num.*) (((GHC.Num.*) x'6) x'6)) (((GHC.Num.*) x'7) x'7))
 
-x'6 = (((GHC.Num.*) x'14) x'14)
+x'6 = (((GHC.Num.*) x'17) x'17)
 
-x'7 = (((GHC.Num.*) x'15) x'15)
+x'7 = (((GHC.Num.*) x'13) x'13)
 
 fTest4 = (((GHC.Num.+) (((GHC.Num.*) x'8) x'8)) (((GHC.Num.*) x'9) x'9))
 
-x'8 = (((GHC.Num.*) x'16) x'16)
+x'8 = (((GHC.Num.*) x'14) x'14)
 
-x'9 = (((GHC.Num.*) x'17) x'17)
+x'9 = (((GHC.Num.*) x'15) x'15)
 
 foo = (\x'12 -> let { tmp = (((GHC.Num.*) x'12) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
 
@@ -72,12 +72,12 @@ k = (\z -> (_0(# z #)))
 
 x'11 = (GHC.Types.I# 33#)
 
-x'13 = (GHC.Types.I# 55#)
+x'13 = (GHC.Types.I# 77#)
 
 x'14 = (GHC.Types.I# 66#)
 
 x'15 = (GHC.Types.I# 77#)
 
-x'16 = (GHC.Types.I# 66#)
+x'16 = (GHC.Types.I# 55#)
 
-x'17 = (GHC.Types.I# 77#)
+x'17 = (GHC.Types.I# 66#)
