@@ -10,9 +10,12 @@ class OptTests extends FunSuite {
     //pipeline("haskellopt/target/dump/Lists.pass-0001.cbor")
     //for (i <- 2 to 9) pipeline(s"haskellopt/target/dump/Lists.pass-000$i.cbor")
     TestHarness("Lists")
+    // FIXMEnot does not reduce at all!
+    // FIXMEnot generates extra params!
   }
   test("Basics") {
     TestHarness("Basics")
+    //TestHarness("Basics", exec = true)
     //TestHarness("Basics", "0000"::Nil)
   }
   test("HigherOrder") {
@@ -25,8 +28,8 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderHard", "0001"::Nil)
   }
   test("HigherOrderRec") {
-    TestHarness("HigherOrderRec")
-    //TestHarness("HigherOrderRec", exec = true)
+    TestHarness("HigherOrderRec", exec = true)
+    //TestHarness("HigherOrderRec")
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
   }
@@ -54,7 +57,7 @@ class OptTests extends FunSuite {
     TestHarness("IterCont", dumpGraph = true)
   }
   test("IterCont2") {
-    TestHarness("IterCont2")
+    TestHarness("IterCont2"/*, exec = true*/) // FIXME result [0,0,0]
     //TestHarness("IterCont", "0001"::Nil)
     //TestHarness("IterCont", "0001"::Nil, opt = true)
   }
@@ -62,6 +65,20 @@ class OptTests extends FunSuite {
     // TODO simplify case expressions
     // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
     //TestHarness("IterContLocal") // FIXME SOF
+    
+    // FIXME SOF
+    
+    // FIXME looks like not totally reduced: see lambdas and application of k in nats -- it should have been counted in the stats!!
+    //    $95 = ↓;🚫;↓;↓$73 @ $11;
+    //    $73 = (f$6:6 ? 🚫;↓;↓$7 ¿ f$6);
+    //    $7 = (f$6:1 ? 🚫$27 ¿ $73);
+    //    $27 = {k$16 => $26};
+    
+    //TestHarness("IterContLocal")
+    TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/) // FIXME result [0,0,0]
+    //TestHarness("IterContLocal", exec = true) // FIXME result [0,0,0]
+    //TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
+    
   }
   
 }

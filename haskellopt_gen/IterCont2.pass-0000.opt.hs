@@ -2,28 +2,37 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 92; Boxes: 31; Branches: 24
--- Apps: 14; Lams: 7; Unreduced Redexes: 0
+-- Total nodes: 121; Boxes: 26; Branches: 18
+-- Apps: 32; Lams: 6; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module IterCont (loop,count,nats) where
+module Main (loop,count,nats,main) where
 
+import GHC.Base
+import GHC.Classes
+import GHC.List
 import GHC.Num
+import GHC.Show
+import GHC.TopHandler
+import GHC.Types
+import System.Exit
+import System.IO
 
-count = (let{-rec-} _2 = (_0(# (\k -> (\s -> (k (_1(# s #))))), {-A-}\(new_state') -> _2, (_3(# (_1(# (let{-rec-} _4 = (_3(# (_1(# _4 #)) #)) in _4) #)) #)) #)) in _2)
+count = (GHC.Base.id 0)
 
-_0(# f'2, f'3, state' #) = ((f'2 (_5(# f'3 #))) state')
+loop = (\f -> (\state -> ((f (let{-rec-} _1 = (_0(# {-A-}\(new_state) -> ((f _1) state) #)) in _1)) state)))
 
-_1(# s'2 #) = (((GHC.Num.+) s'2) 1)
+_0(# f' #) = (\new_state -> {-P-}(f'(new_state)))
 
-_3(# new_state #) = new_state
+main_sub' = ((GHC.List.take (GHC.Types.I# 3#)) nats)
+main_sub'2 = (GHC.List.take (GHC.Types.I# 3#))
+main_sub = (GHC.Types.I# 3#)
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) ((GHC.List.take main_sub) nats)) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (((GHC.Base.$) System.IO.print) ((GHC.List.take main_sub) nats))) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
-loop = (\f -> (\state -> ((f (let{-rec-} _6 = (_5(# {-A-}\(new_state') -> ((f _6) state) #)) in _6)) state)))
+nats = (_2(# 0, (_2(# 0, (let{-rec-} _4 = (_3(# {-A-}\(new_state) -> _4, (\k -> (\s -> (_2(# s, (k (((GHC.Num.+) s) 1)) #)))), 0 #)) in _4) #)) #))
 
-_5(# f' #) = (\new_state' -> {-P-}(f'(new_state')))
+_2(# s', k' #) = (((:) s') k')
 
-nats = (_7(# (_7(# (let{-rec-} _8 = (_0(# (\k' -> (\s' -> (_7(# (k' (((GHC.Num.+) s') 1)), s' #)))), {-A-}\(new_state') -> _8, 0 #)) in _8), 0 #)), 0 #))
-
-_7(# k'2, s'3 #) = (((:) s'3) k'2)
+_3(# f'2, f'3, state' #) = ((f'3 (_0(# f'2 #))) state')

@@ -9,8 +9,9 @@ object TestHarness {
   val genFolder = pwd/'haskellopt_gen
   
   val sanityCheckFuel = 20
+  //val sanityCheckFuel = 100
   
-  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool): Unit = {
+  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, interpret: Bool): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath_hs)) rm(writePath_hs)
@@ -59,6 +60,16 @@ object TestHarness {
     val graphStr = mod.show
     println(graphStr)
     if (dumpGraph) write(writePath_graph, graphStr, createFolders = true)
+    
+    if (interpret) {
+      println("--- Interpreted ---")
+      val res =
+        go.Graph.HaskellInterpDebug debugFor
+        go.Graph.interpretHaskell(mod.lets("main"))
+      //println(res.value)
+      println(res)
+      assert(res.isInstanceOf[scala.util.Success[_]], res)
+    }
     
     //println(mod.show)
     val sch = go.Graph.scheduleRec(mod)
@@ -111,7 +122,7 @@ object TestHarness {
     for (idxStr <- passes) {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
-      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult, dumpGraph && (idxStr === "0000"))
+      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult, dumpGraph && (idxStr === "0000"), interpret = exec)
       if (exec) %%(execPath)(pwd)
     }
     
