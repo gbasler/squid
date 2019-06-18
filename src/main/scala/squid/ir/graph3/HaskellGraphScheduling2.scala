@@ -29,6 +29,15 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
   the old algorithm computed an approximate usage count to know which definitions to inline during program reconstruction,
   but this turned out to fail when inlined defs (that were considered used once) were supposed to become recursive definitions,
   as could happen for definitions associated with boxes...
+  Make beta reduction not duplicate apps, to avoid unrolling recursions
+  
+  Still, it turned out this was not enough, because
+  we used to duplicate applications all over the place, and that caused
+  very strange structures with unrolled recursions, which the scheduler
+  simply could not handle (it created cycles in the arguments passed to
+  calls and calls themselves).
+  Now, we use a more 'respectful' implementation of beta reduction that
+  reconstructs more involved branch structures to avoid that.
   
   */
   

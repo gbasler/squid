@@ -19,7 +19,7 @@ class OptTests extends FunSuite {
     //TestHarness("Basics", "0000"::Nil)
   }
   test("HigherOrder") {
-    TestHarness("HigherOrder")
+    TestHarness("HigherOrder") // FIXME iTest0, iTest1
     //TestHarness("HigherOrder", "0000"::Nil)
   }
   test("HigherOrderHard") {
@@ -29,20 +29,20 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderHard", "0001"::Nil)
   }
   test("HigherOrderRec") {
-    //TestHarness("HigherOrderRec", exec = true) // FIXME [?]
-    TestHarness("HigherOrderRec", compileResult = false)
+    TestHarness("HigherOrderRec", exec = true)
+    //TestHarness("HigherOrderRec", compileResult = false)
     //TestHarness("HigherOrderRec")
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
   }
   test("HigherOrderRec2") {
-    //TestHarness("HigherOrderRec2", dumpGraph = true) // FIXME scope extrusion
-    TestHarness("HigherOrderRec2", dumpGraph = true, compileResult = false)
+    TestHarness("HigherOrderRec2", dumpGraph = true)
+    //TestHarness("HigherOrderRec2", dumpGraph = true, compileResult = false)
     //TestHarness("HigherOrderRec2", dumpGraph = true, "0000"::Nil)
   }
   test("HigherOrderRec3") {
-    // FIXME not fully reduced: see k app
-    //TestHarness("HigherOrderRec3") // FIXME scheduling diverges?!
+    // FIXME not fully reduced?: see k app
+    //TestHarness("HigherOrderRec3") // FIXME assertion failed: f_9:216 === f_9:201 in Push(f_9:216, , 🚫(f_9:201);↓(x_c))
     
     //TestHarness("HigherOrderRec3", "0000"::Nil)
     //TestHarness("HigherOrderRec3", "0001"::Nil)
@@ -52,21 +52,21 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec4", "0000"::Nil, dumpGraph = true)
   }
   test("HigherOrderRec5") {
-    // FIXME not fully reduced: see k app
-    //TestHarness("HigherOrderRec5") // FIXME scheduling diverges?!
-    
-    //TestHarness("HigherOrderRec5", "0000"::Nil) // FIXME perhaps if we didn't unroll the recursion, we wouldn't get into problems...
+    // Note: it looks like the thing is not fully reduced (see k app), but I think it happens on an impossible branch...
+    TestHarness("HigherOrderRec5") // FIXME assertion failed with commented example
   }
   test("BuildFoldr") {
-    //TestHarness("BuildFoldr", dumpGraph = true) // FIXME [?]
-    TestHarness("BuildFoldr", dumpGraph = true, compileResult = false)
+    TestHarness("BuildFoldr", dumpGraph = true)
+    //TestHarness("BuildFoldr", dumpGraph = true, compileResult = false)
   }
   test("IterCont") {
     TestHarness("IterCont", dumpGraph = true)
   }
   test("IterCont2") {
-    //TestHarness("IterCont2"/*, exec = true*/) // FIXME result [0,0,0] // FIXME scheduling diverges?!
-    //TestHarness("IterCont2", "0000"::Nil) // FIXME
+    // Note: used to yield incorrect result [0,0,0]
+    
+    //TestHarness("IterCont2"/*, exec = true*/)
+    TestHarness("IterCont2", "0000"::Nil, compileResult = false) // FIXME error in hs
     
     //TestHarness("IterCont2", "0000"::Nil, exec = true)
     //TestHarness("IterCont2", "0000"::Nil)
@@ -87,9 +87,9 @@ class OptTests extends FunSuite {
     //    $27 = {k$16 => $26};
     
     //TestHarness("IterContLocal")
-    //TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/) // FIXME result [0,0,0] // FIXME scheduling diverges?!
-    //TestHarness("IterContLocal", exec = true) // FIXME result [0,0,0]
-    //TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
+    //TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/) // FIXME scheduling diverges?!
+    //TestHarness("IterContLocal", exec = true)
+    TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
     
   }
   

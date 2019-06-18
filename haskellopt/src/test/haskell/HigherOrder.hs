@@ -23,8 +23,8 @@ gTest1 = g p1 (g p1 2)
 i :: ((Int -> Int) -> Int) -> Int -> Int
 i f x = f (+1) + f (*2)
 
-iTest0 = i (\f -> f 11 + f 22)
-iTest1 = i (\f -> f 11 + f 22) 66
+-- iTest0 = i (\f -> f 11 + f 22) -- FIXME
+-- iTest1 = i (\f -> f 11 + f 22) 66 -- FIXME
 f0 = \f -> f 11 + f 22
 iTest2 = i f0 (i f0 77)
 

@@ -30,13 +30,13 @@ private class HaskellADT {
 
 abstract class HaskellGraph extends Graph {
   
-  //override val showPopDropOrigins = true
+  override val showPopDropOrigins = true
   
   override val strictCallIdChecking = true
   override val supportDirectRecursion = true
   
   // Uncomment for nicer names in the graph, but mapped directly to the Haskell version (which becomes less stable):
-  //override protected def freshNameImpl(n: Int) = "_"+n.toHexString
+  override protected def freshNameImpl(n: Int) = "_"+n.toHexString
   
   // Otherwise creates a stack overflow while LUB-ing to infinity
   override def branchType(lhs: => TypeRep, rhs: => TypeRep): TypeRep = Any

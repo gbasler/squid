@@ -49,6 +49,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
     }
     printCheckEval(DSL.treeInSimpleASTBackend(cde.rep))
     var mod = false
+    //do RewriteDebug.debugFor {
     do {
       //val ite = DSL.rewriteSteps(Tr)(cde.rep)
       val ite = DSL.rewriteSteps(Tr)(cde.rep).iterator
@@ -68,6 +69,13 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
         //Thread.sleep(50)
       }
     } while (mod)
+    
+    // for debugging, just in case it changes anything...
+    assert(!DSL.simplifyGraph(cde.rep, recurse = true))
+    assert(!DSL.simplifyGraph(cde.rep, recurse = false))
+    
+    //while (RewriteDebug debugFor DSL.simplifyGraph(cde.rep, recurse = false)) {}
+    
     assert(cde.rep.size <= expectedSize, s"for ${cde.rep}")
     printSep()
     cde.rep
@@ -235,6 +243,13 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
   }
   
+  test("Higer-Order Functions 2") {
+    
+    val h0 = code"val h = (f: Int => Int) => f(2) - f(3) + f(4); h"
+    
+    doTest(code"$h0(x => x * 2)")(6) // FIXME not fully-reduced
+    
+  }
   test("Higer-Order Functions") {
     
     val h0 = code"val h = (f: Int => Int) => f(2) + f(3); h"

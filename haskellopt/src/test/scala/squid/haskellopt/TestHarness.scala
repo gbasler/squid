@@ -24,12 +24,13 @@ object TestHarness {
     println(s"=== PHASE ${mod.modPhase} ===")
     
     //go.Graph.debugFor
+    //go.Graph.RewriteDebug.debugFor
     {
     
     var ite = 0
     do {
       
-      if (go.Graph.isDebugEnabled) {
+      if (go.Graph.RewriteDebug.isDebugEnabled) {
         println(s"--- Graph ${ite} ---")
         println(mod.show)
         println(s"--- / ---")
@@ -38,7 +39,7 @@ object TestHarness {
       val sanRes = go.Graph.sanityCheck(mod.toplvlRep, sanityCheckFuel)(go.Graph.CCtx.empty)
       if (sanRes.isEmpty)
         println(s"Note: sanity check stopped early given fuel = $sanityCheckFuel")
-      else if (go.Graph.isDebugEnabled)
+      else if (go.Graph.RewriteDebug.isDebugEnabled)
         println(s"Sanity check stopped with remaining fuel = $sanityCheckFuel")
       
       //println(go.Graph.scheduleRec(mod))

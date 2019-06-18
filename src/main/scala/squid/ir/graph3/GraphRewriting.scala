@@ -41,6 +41,9 @@ Note:
 */
 trait GraphRewriting extends AST { graph: Graph =>
   
+  object RewriteDebug extends PublicTraceDebug
+  import RewriteDebug.{debug=>Rdebug}
+  
   /*
   override def extractVal(r: Rep): Option[Val] = r.boundTo |>? {
     case ConcreteNode(MirrorVal(v)) => v
@@ -407,8 +410,8 @@ trait GraphRewriting extends AST { graph: Graph =>
     def rec(rep: Rep): Unit = {
       //println(s"$cctx\n${rep}")
       
-      // TODO try without duplicating the applications? instead, couldn't we just go back to a reconstituted version of the original application?!
-      def betaRed(absPath: AbsPath, arg: Rep): Node = {
+      /** This version of beta-red duplicates the application all over the place in case there is more than one branch... */
+      def betaRed_duplicating(absPath: AbsPath, arg: Rep): Node = {
         val (conds,ctrl,fun) = absPath
         conds.foldRight ({
           substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
@@ -420,6 +423,36 @@ trait GraphRewriting extends AST { graph: Graph =>
             val other = ConcreteNode(Apply(Box.rep(viaCtrl, other0), arg, rep.typ)).mkRep
             val (thn,els) = if (isLHS) (r, other) else (other, r)
             Branch(ctrl,cid,thn,els)
+        }
+      }
+      /** This version of beta-red does the same as betaRed_duplicating if there is at most one branch;
+        * otherwise, it simply rewires failing branches to the _original_ reconstituted application, which does often
+        * create kind of dumb structures that could often be simplified (which we do not currently try to do).
+        * Invariant: the original 'rep' is overwritten with the result of this call! */
+      def betaRed(absPath: AbsPath, arg: Rep): Node = {
+        val (conds,ctrl,fun) = absPath
+        val newBody =
+          substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
+            .assertNotVal
+        conds match {
+          case Nil => newBody
+          case (viaCtrl0,ctrl0,cid0,isLHS0,other0) :: Nil =>
+            // Reconstruct the application nodes of the branch, if single
+            val other = ConcreteNode(Apply(Box.rep(viaCtrl0, other0), arg, rep.typ)).mkRep
+            //Rdebug(s"Other $other")
+            val r = newBody.mkRep
+            val (thn,els) = if (isLHS0) (r, other) else (other, r)
+            Branch(ctrl0,cid0,thn,els)
+          case (viaCtrl0,ctrl0,cid0,isLHS0,other0) :: condsRest =>
+            // Reconstruct the application nodes of the top-level branch, if any
+            val other = rep.node.mkRep // NOTE: this is only okay because we know the original rep will be overwritten with a new node!
+            //Rdebug(s"Other $other")
+            condsRest.foldRight(newBody) {
+              case ((viaCtrl1,ctrl1,cid1,isLHS1,other1), nde) =>
+                val r = nde.mkRep
+                val (thn,els) = if (isLHS1) (r, other) else (other, r)
+                Branch(ctrl1,cid1,thn,els)
+            }
         }
       }
       def again(): Unit = {
@@ -487,10 +520,10 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         // Simple beta reduction
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
-          debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} in ${fun.body.showGraph}")
+          Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} in ${fun.body.showGraph}")
           rep.node.assertNotVal
           rep.node = betaRed((Nil, Id, fun), arg)
-          debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           // Strangely, it seems that some tests break when we use again() for beta-reduction cases; this might be totally incidental
           //again()
@@ -500,10 +533,10 @@ trait GraphRewriting extends AST { graph: Graph =>
           
         // Beta reduction across a box
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
-          debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
+          Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
           rep.node.assertNotVal
           rep.node = betaRed((Nil, ctrl, fun), arg)
-          debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+          Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           //again()
           changed=true
@@ -535,8 +568,8 @@ trait GraphRewriting extends AST { graph: Graph =>
           }) alsoDo (trav -= rep), Nil)
           
           val gone = go(br)
-          //debug(s"G: ${gone}")
-          //betaReduced.foreach(b => debug("\t"+b))
+          //Rdebug(s"G: ${gone}")
+          //betaReduced.foreach(b => Rdebug("\t"+b))
           
           //gone.headOption 
           gone.find { case g @ (conds, ctrl, abs) =>
@@ -547,11 +580,11 @@ trait GraphRewriting extends AST { graph: Graph =>
           match {
             case Some(path @ (conds,ctrl,fun)) =>
               assert(conds.nonEmpty) // we avoid cases where we traversed only boxes
-              debug(s"!>> SUBSTITUTE ${fun.param} with ${arg} over $ctrl and ${
-                conds.map(c => (if(c._4)"" else "!")+c._3).mkString(",")} in ${fun.body.showGraph}")
+              Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} over $ctrl and ${
+                conds.map(c => (if (c._2 === Id) "" else s"[${c._2}]")+(if(c._4)"" else "!")+c._3).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
               rep.node = betaRed(path, arg)
-              debug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
+              Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
               leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
               
               //Thread.sleep(200)
