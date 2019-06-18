@@ -42,7 +42,7 @@ class OptTests extends FunSuite {
   }
   test("HigherOrderRec3") {
     // FIXME not fully reduced?: see k app
-    //TestHarness("HigherOrderRec3") // FIXME scheduling diverges!
+    TestHarness("HigherOrderRec3")
     
     //TestHarness("HigherOrderRec3", "0000"::Nil)
     //TestHarness("HigherOrderRec3", "0001"::Nil)
@@ -53,7 +53,7 @@ class OptTests extends FunSuite {
   }
   test("HigherOrderRec5") {
     // Note: it looks like the thing is not fully reduced (see k app), but I think it happens on an impossible branch...
-    //TestHarness("HigherOrderRec5") // FIXME scheduling diverges!
+    TestHarness("HigherOrderRec5")
   }
   test("BuildFoldr") {
     TestHarness("BuildFoldr", dumpGraph = true)

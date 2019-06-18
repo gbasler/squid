@@ -256,7 +256,7 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     doTest(code"$h0(x => x * 2)", 13)(10)
     
-    doTest(code"$h0(x => x + 1)", 13)(7)
+    doTest(code"$h0(x => x + 1)", /*13*/23)(7)
     
      // FIXME stopped working at some point with Haskell graph
     /*

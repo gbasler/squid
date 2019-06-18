@@ -330,7 +330,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
           case c: Constant => SchConst(c)
           case cs: CrossStageValue => SchConst(cs)
           case sm: StaticModule => SchConst(sm)
-          case Abs(p,b) => SchLam(p,call(b))
+          case Abs(p,b) =>
+            SchLam(p,call(b))
+            // Another way to handle lambdas is to introduce a box here and remove the push from 'baseCtrl'
+            //SchLam(p,call(Box.rep(Push(new CallId(p,dummy = true),Id,Id),b)))
           case MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _) =>
             //SchCase(scrut: SchExp, arms: List[(String,List[Val],SchExp)])
             SchCase(call(scrut), alts.map(mkAlt(scrut,_)).toList)

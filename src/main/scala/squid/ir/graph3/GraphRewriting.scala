@@ -436,6 +436,9 @@ trait GraphRewriting extends AST { graph: Graph =>
             .assertNotVal
         conds match {
           case Nil => newBody
+            
+          // It seems that even this seemingly inoffensive version of the previous beta-red causes problems with the scheduler later on...
+          /*
           case (viaCtrl0,ctrl0,cid0,isLHS0,other0) :: Nil =>
             // Reconstruct the application nodes of the branch, if single
             val other = ConcreteNode(Apply(Box.rep(viaCtrl0, other0), arg, rep.typ)).mkRep
@@ -443,6 +446,8 @@ trait GraphRewriting extends AST { graph: Graph =>
             val r = newBody.mkRep
             val (thn,els) = if (isLHS0) (r, other) else (other, r)
             Branch(ctrl0,cid0,thn,els)
+          */
+            
           case condsRest =>
             // Reconstruct the application nodes of the top-level branch, if any
             val other = rep.node.mkRep // NOTE: this is only okay because we know the original rep will be overwritten with a new node!
