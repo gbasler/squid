@@ -101,7 +101,7 @@ object TestHarness {
             exec: Bool = false,
            ): Unit = {
     import ghcdump._
-    if (exec) require(compileResult)
+    //if (exec) require(compileResult) // In fact, we may want to execute the interpreter only, and not any compiled code
     
     val srcPath = pwd/'haskellopt/'src/'test/'haskell/(testName+".hs")
     val md5Path = dumpFolder/(testName+".md5")
@@ -126,7 +126,7 @@ object TestHarness {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult, dumpGraph && (idxStr === "0000"), interpret = exec)
-      if (exec) %%(execPath)(pwd)
+      if (compileResult && exec) %%(execPath)(pwd)
     }
     
   }

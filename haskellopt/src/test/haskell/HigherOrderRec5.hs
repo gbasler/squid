@@ -16,12 +16,12 @@ rec0 f = f (rec0 f)
 rec0_0 = rec0 (\k0 -> id)
 rec0_1 = rec0 (\k1 -> id)
 
--- FIXME assertion failure
+-- FIXME scheduling diverges!
 -- The graph used to duplicate (unroll) recursion with every new usage of the function!
--- rec1 f1 = f1 (rec1 f1)
--- rec1_0 = rec1 (\k0 -> id)
--- rec1_1 = rec1 (\k1 -> id)
--- rec1_2 = rec1 (\k2 -> id)
--- rec1_3 = rec1 (\k3 -> id)
+rec1 f1 = f1 (rec1 f1)
+rec1_0 = rec1 (\k0 -> id)
+rec1_1 = rec1 (\k1 -> id)
+rec1_2 = rec1 (\k2 -> id)
+rec1_3 = rec1 (\k3 -> id)
 -- rec1_4 = rec1 (\k4 -> id)
 
