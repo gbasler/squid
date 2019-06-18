@@ -94,15 +94,17 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       assert(sr.directChildren.isComputed) //sr.init()
       workList = workList.tail
       Sdebug(s"Work list: [${sr.rep.bound}], ${workList.map(_.rep.bound).mkString(", ")}")
+      if (HaskellScheduleDebug.isDebugEnabled)
+        Thread.sleep(100)
       HaskellScheduleDebug nestDbg sr.usages.foreach { c =>
         Sdebug(s"Call ${c}")
+        val old = if (HaskellScheduleDebug.isDebugEnabled) s"${c}" else ""
         
         val psr = c.parent
         assert(psr.directChildren.isComputed) //psr.init()
         val pctrl = psr.baseCtrl
         Sdebug(s"Parent [$pctrl] ${psr}")
         HaskellScheduleDebug nestDbg sr.params.foreach { case (br, param) =>
-          lazy val old = s"${c}"
           //Sdebug(s"Param ${param}")
           if (!c.args.contains(param)) {
             Sdebug(s"Param $br${param} not yet in call ${c}")
@@ -180,13 +182,13 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               
             }
           }
-          
-          if (HaskellScheduleDebug.isDebugEnabled) {
-            val newCall = s"$c"
-            if (newCall =/= old) Sdebug(s"Updated call: $old ~~> $newCall")
-          }
-          
         }
+          
+        if (HaskellScheduleDebug.isDebugEnabled) {
+          val newCall = s"$c"
+          if (newCall =/= old) Sdebug(s"Updated call: $old ~~> $newCall")
+        }
+        
       }
     }
     
@@ -444,7 +446,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         assignedTo.mkHs
       }
       
-      override def toString = s"[$ctrl]$branchVal"
+      override def toString = s"${if (ctrl === Id) "" else s"[$ctrl]"}$branchVal"
     }
     
     
@@ -481,11 +483,12 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
           })))
         }
       }
-  
-      override def toString = s"{$ctrl}${sr.rep.bound}(${args.map(a => s"[${a._1.ctrl}]${a._1.branchVal}=${a._2 match {
-        case br: SchParam => br.branchVal
-        case _ => a._2.toString
-      }
+      
+      override def toString = s"${sr.rep.bound}${if (ctrl === Id) "" else s"{$ctrl}"}(${args.map(a => 
+        s"${if (a._1.ctrl === Id) "" else s"[${a._1.ctrl}]"}${a._1.branchVal}=${a._2 match {
+          case br: SchParam => br.branchVal
+          case _ => a._2.toString
+        }
       }").mkString(", ")})"
       //}").mkString(", ")})<$ctrl>"
     }

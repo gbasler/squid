@@ -393,7 +393,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     //Console.BLACK,
     Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
     //Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B
-  )
+  ) ++ (for { i <- 90 to 96 } yield s"\u001b[$i;1m") // Some alternative color versions (https://misc.flogisoft.com/bash/tip_colors_and_formatting#colors)
   private def colorOf(cid: CallId) = colors((cid.uid + colors.size - 1) % colors.size)
   
   override def prettyPrint(d: Def) = (new DefPrettyPrinter)(d)

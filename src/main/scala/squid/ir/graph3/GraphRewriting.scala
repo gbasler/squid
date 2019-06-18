@@ -470,6 +470,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         case Box(ctrl0, br @ Rep(Branch(ctrl1,cid,thn,els)))
           if aggressiveBoxPushing
           && (!supportDirectRecursion || !directlyLeadsBackTo2(thn,rep,br)) // This check is only necessary for graphs with direct recursion
+          // TODO 'directlyLeadsBackTo2' condition seems too restrictive: sometimes we can simplify to thn without it actually looping back! cf. HOR5
         => // Push boxes into branches aggressively
           rep.node.assertNotVal
           // We now _have_ to check whether the box resolves the branch or not;

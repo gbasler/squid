@@ -41,6 +41,7 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec2", dumpGraph = true, "0000"::Nil)
   }
   test("HigherOrderRec3") {
+    // FIXME not fully reduced: see k app
     //TestHarness("HigherOrderRec3") // FIXME scheduling diverges?!
     
     //TestHarness("HigherOrderRec3", "0000"::Nil)
@@ -51,9 +52,10 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec4", "0000"::Nil, dumpGraph = true)
   }
   test("HigherOrderRec5") {
+    // FIXME not fully reduced: see k app
     //TestHarness("HigherOrderRec5") // FIXME scheduling diverges?!
     
-    //TestHarness("HigherOrderRec5", "0000"::Nil)
+    //TestHarness("HigherOrderRec5", "0000"::Nil) // FIXME perhaps if we didn't unroll the recursion, we wouldn't get into problems...
   }
   test("BuildFoldr") {
     //TestHarness("BuildFoldr", dumpGraph = true) // FIXME [?]
@@ -64,9 +66,12 @@ class OptTests extends FunSuite {
   }
   test("IterCont2") {
     //TestHarness("IterCont2"/*, exec = true*/) // FIXME result [0,0,0] // FIXME scheduling diverges?!
+    //TestHarness("IterCont2", "0000"::Nil) // FIXME
     
-    //TestHarness("IterCont", "0001"::Nil)
-    //TestHarness("IterCont", "0001"::Nil, opt = true)
+    //TestHarness("IterCont2", "0000"::Nil, exec = true)
+    //TestHarness("IterCont2", "0000"::Nil)
+    //TestHarness("IterCont2", "0001"::Nil)
+    //TestHarness("IterCont2", "0001"::Nil, opt = true)
   }
   test("IterContLocal") {
     // TODO simplify case expressions
