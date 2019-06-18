@@ -44,8 +44,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
   object HaskellScheduleDebug extends PublicTraceDebug
   import HaskellScheduleDebug.{debug=>Sdebug}
   
-  //import mutable.{Map => M}
-  import mutable.{ListMap => M}
+  import mutable.{Map => M}
+  //import mutable.{ListMap => M}
   
   
   def scheduleRec(rep: Rep): RecScheduler = scheduleRec(PgrmModule("<module>", "?", Map("main" -> rep)))
@@ -369,7 +369,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       val name = rep.bound |> printVal
       def toHs: String = {
         implicit val Hstx: HsCtx = HsCtx.empty
-        val paramList = if (params.isEmpty) "" else s"(# ${params.map(_._2.branchVal |> printVal).mkString(", ")} #)"
+        val paramList = if (params.isEmpty) "" else
+          s"(# ${params.toList.sortBy(_._2.branchVal.name).map(_._2.branchVal |> printVal).mkString(", ")} #)"
         s"${topSubBindings.map(sb => s"${sb._1|>printVal} = ${sb._2.toHs}\n").mkString}$name$paramList = ${
           if (nestedSubBindings.isEmpty) "" else {
             s"let${nestedSubBindings.map(sb => s"\n    ${sb._1|>printVal} = ${sb._2.toHs}").mkString("")}\n  in "
@@ -479,7 +480,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         //Sdebug(s"Call $this   with  {${ctx.params.mkString(",")}}")
         
         if (sr.usageCount > 1) {
-          val argStrs = args.map(_._2.toHs)
+          val argStrs = args.toList.sortBy(_._1.branchVal.name).map(_._2.toHs)
           //val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
           val valArgs = List.empty[Val->String]
           val allArgStrs = valArgs.map(_._2) ++ argStrs

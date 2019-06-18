@@ -76,6 +76,8 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
             case "GHC.Types.I#" => CBNFun[Top](id)
             case "(GHC.Num.+)" => CBNFun[Int](x => CBNFun[Int](x + _))
             case "(GHC.Num.*)" => CBNFun[Int](x => CBNFun[Int](x * _))
+            case "(GHC.Num.-)" => CBNFun[Int](x => CBNFun[Int](x - _))
+            case "(GHC.Real.^)" => CBNFun[Int](x => CBNFun[Int](y => Math.pow(x,y).toInt))
             case "(:)" => CBNFun[Top](x => CBNFun[Stream[Top]](xs => x #:: xs))
             case "[]" => L(Stream.empty)
             case "()" => L(Data("()", Nil))

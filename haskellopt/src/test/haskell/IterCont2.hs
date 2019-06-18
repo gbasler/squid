@@ -4,9 +4,10 @@ module Main where
 import System.Exit
 
 main =
-  if (take 3 nats) == [0,1,2]
+  let n3 = take 3 nats in
+  if n3 == [0,1,2]
   -- then exitSuccess else exitFailure
-  then exitSuccess else do { print $ take 3 nats; exitFailure }
+  then exitSuccess else do { print n3; exitFailure }
 
 loop f state =
   f (\new_state -> loop f new_state) state

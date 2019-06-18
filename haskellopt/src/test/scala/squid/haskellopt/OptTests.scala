@@ -19,7 +19,8 @@ class OptTests extends FunSuite {
     //TestHarness("Basics", "0000"::Nil)
   }
   test("HigherOrder") {
-    TestHarness("HigherOrder") // FIXME iTest0, iTest1
+    // FIXME iTest0, iTest1 are not fully-reduced
+    TestHarness("HigherOrder")
     //TestHarness("HigherOrder", "0000"::Nil)
   }
   test("HigherOrderHard") {
@@ -63,11 +64,13 @@ class OptTests extends FunSuite {
     TestHarness("IterCont", dumpGraph = true)
   }
   test("IterCont2") {
-    // Note: used to yield incorrect result [0,0,0]
+    // Note: used to yield incorrect result [0,0,0] when we used the erroneous recursive call/arg kludge in the old scheduler
     
-    //TestHarness("IterCont2"/*, exec = true*/)
-    TestHarness("IterCont2", "0000"::Nil, exec = true, compileResult = false) // FIXME error in hs
+    // FIXME not fully reduced: nats still constructs lambdas
     
+    TestHarness("IterCont2", exec = true)
+    
+    //TestHarness("IterCont2", "0000"::Nil, exec = true, compileResult = false)
     //TestHarness("IterCont2", "0000"::Nil, exec = true)
     //TestHarness("IterCont2", "0000"::Nil)
     //TestHarness("IterCont2", "0001"::Nil)
