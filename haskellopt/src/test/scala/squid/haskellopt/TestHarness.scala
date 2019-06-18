@@ -64,7 +64,7 @@ object TestHarness {
     if (interpret) {
       println("--- Interpreted ---")
       val res =
-        go.Graph.HaskellInterpDebug debugFor
+        //go.Graph.HaskellInterpDebug debugFor
         go.Graph.interpretHaskell(mod.lets("main"))
       //println(res.value)
       println(res)
@@ -72,7 +72,9 @@ object TestHarness {
     }
     
     //println(mod.show)
-    val sch = go.Graph.scheduleRec(mod)
+    val sch = 
+      //go.Graph.HaskellScheduleDebug debugFor
+      go.Graph.scheduleRec(mod)
     println("--- Scheduled ---")
     
     //go.Graph.HaskellScheduleDebug debugFor

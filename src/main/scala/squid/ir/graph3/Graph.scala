@@ -53,10 +53,10 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   object CallId {
     private var curId = 0; def reset(): Unit = curId = 0
   }
-  class CallId(val v: Val) {
+  class CallId(val v: Val, dummy: Bool = false) {
     val uid: Int = CallId.curId alsoDo (CallId.curId += 1)
     //def uidstr: String = s"${v.name}$uid"
-    def uidstr: String = s"$v:$uid"
+    def uidstr: String = if (dummy) s"~$v:$uid~" else s"$v:$uid"
     override def toString: String = uidstr
   }
   

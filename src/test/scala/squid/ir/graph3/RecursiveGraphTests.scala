@@ -7,7 +7,21 @@ import squid.lib.matching._
 import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
-object RecursiveGraphTests extends HaskellGraph
+object RecursiveGraphTests extends HaskellGraph with HaskellGraphScheduling2 {
+  val DummyTyp = Any
+  override def staticModuleType(name: String): TypeRep = DummyTyp
+  override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep) = mtd match {
+    case Apply.Symbol => super.methodApp(self, mtd, targs, argss, tp)
+    case _ =>
+      val mod = StaticModule(mtd.name.toString).toRep
+      val base = self.node match {
+        case ConcreteNode(StaticModule("squid.lib.package")) => mod
+        case _ => Apply(mod, self, tp).toRep
+      }
+      argss.flatMap(_.reps).foldLeft(base) { case (cur,r) => Apply(cur,r,tp).toRep }
+  }
+  override def byName(arg: => Rep) = arg
+}
 
 class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewritingTester[RecursiveGraphTests.type] {
   import DSL.Predef._
@@ -25,11 +39,16 @@ class RecursiveGraphTests extends MyFunSuite(RecursiveGraphTests) with GraphRewr
     // does not work: (capture does not happen because val bindings are not supposed to be recursive)
     //code"val $rec = $body; $rec".unsafe_asClosedCode
     */
+    import RecursiveGraphTests._
+    val v = rec.`internal bound`
+    val rv = mkValRep(v)
+    reificationContext += v -> rv
     val recCde = rec.toCode
     val body = f(recCde)
-    import RecursiveGraphTests._
-    val cde = letin(rec.`internal bound`, body.rep, rec.rep, rec.toCode.Typ.rep)
+    val cde = body.rep
+    if (cde.bound.name.contains('$')) cde.bound.name_! = "rec"
     recCde.rep.rewireTo(cde)
+    reificationContext -= v
     Code(cde)
   }
   

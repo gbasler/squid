@@ -25,7 +25,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
   /* Notes.
   
   Problems with fixed-point scheduling of recursive graphs:
-   – Branch duplicity: sometimes, we end up scheduling to mutually-recursive branches that should really be the same:
+   – Branch duplicity: sometimes, we end up scheduling two mutually-recursive branches that should really be the same:
      they simply recurse into each other, and could be simplified to the same node, as in for example $8 and $5 in the
      graph of `rec7 f () = f (rec7 f ())`, which is:
         rec7 = {f_a$4 => $11};
@@ -52,7 +52,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
   //import mutable.{Map => M}
   import mutable.{ListMap => M}
   
-  class RecScheduler(nb: squid.lang.Base) {
+  class RecScheduler {
     /** Left: propagated argument; Right: provided argument */
     type TrBranch = Either[(Control,Branch),SchedulableRep]
     
@@ -467,7 +467,7 @@ trait HaskellGraphScheduling { graph: HaskellGraph =>
   
   def scheduleRec(rep: Rep): ScheduledModule = scheduleRec(PgrmModule("<module>", "?", Map("main" -> rep)))
   def scheduleRec(mod: PgrmModule): ScheduledModule = {
-    val sch = new RecScheduler(SimpleASTBackend)
+    val sch = new RecScheduler
     mod.letReps.foreach(r => sch.printVal(r.bound))
     // ^ reserves non-disambiguated names for all (non-ambiguous) top-level defs
     val root = sch.SchedulableRep(mod.toplvlRep)

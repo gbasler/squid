@@ -28,7 +28,9 @@ private class HaskellADT {
   def get(ctorName: String, fieldIdx: Int): Any = ???
 }
 
-abstract class HaskellGraph extends Graph with HaskellGraphScheduling {
+abstract class HaskellGraph extends Graph {
+  
+  //override val showPopDropOrigins = true
   
   override val strictCallIdChecking = true
   override val supportDirectRecursion = true
