@@ -401,7 +401,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         }
       }
       
+      /** This is used to traverse the unscheduled graph of implementations. */
       def allChildren = exp.directCalls.flatMap(_.allChildren)
+      
+      /** This is used to traverse the program once it will be unscheduled, with calls potentially inlined. */
       def scheduledChildren = exp.directCalls.flatMap(_.allScheduledCalls)
       
       /** The most specific scope under which all references to this def appear. Top-level defs have the emtpy set. */
@@ -536,8 +539,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep) extends SchArg {
       lazy val sr = getSR(r) also { sr => sr.init(); sr.usages ::= this }
       
-      def freeVars: Set[Val] = if (sr.willBeInlined) sr.freeVars else
-        args.valuesIterator.collect{ case e: SchCall => e.freeVars }.flatten.toSet
+      def freeVars: Set[Val] =
+        // We should look at the arguments even if the def is inlined; see allScheduledCalls
+        (if (sr.willBeInlined) sr.freeVars else Set.empty) ++
+          args.valuesIterator.collect{ case e: SchCall => e.freeVars }.flatten.toSet
       
       val args: M[SchParam,SchArg] = M.empty
       def orderedArgs = args.toList.sortBy(_._1.branchVal.name)
@@ -546,7 +551,9 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         this :: args.valuesIterator.collect{ case c: SchCall => c }.toList.flatMap(_.allChildren)
       
       def allScheduledCalls: List[SchCall] =
-        // Note that we should look at the arguments even if the def is inlined, as these arguments will be propagated inside the inlined calls
+        // Note that we should look at the arguments even if the def is inlined,
+        // as these arguments will be propagated inside the inlined calls
+        // and used to resolve branch parameters!
         (if (sr.willBeInlined) sr.scheduledChildren else this :: Nil) :::
           orderedArgs.collect{ case (_, c: SchCall) => c.allScheduledCalls }.flatten
       
