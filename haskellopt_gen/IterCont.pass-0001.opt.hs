@@ -7,8 +7,8 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 38; Boxes: 11; Branches: 7
--- Apps: 6; Lams: 5; Unreduced Redexes: 0
+-- Total nodes: 38; Boxes: 11; Branches: 9
+-- Apps: 4; Lams: 5; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -19,6 +19,8 @@ import GHC.Num
 
 dont = (((GHC.Num.+) 0) 1)
 
-loop = (\f -> (\state -> ((f (_0(# {-A-}\(new_state) -> f #))) state)))
+loop = (\f -> (\state -> (_0(# state, (_1(# f #)) #))))
 
-_0(# f' #) = (\new_state -> (({-P-}(f'(new_state)) (_0(# {-A-}\(new_state) -> {-P-}(f'(new_state)) #))) new_state))
+_0(# state', f'2 #) = (f'2 state')
+
+_1(# f' #) = (f' (\new_state -> (_0(# new_state, (_1(# f' #)) #))))

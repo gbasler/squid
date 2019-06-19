@@ -7,8 +7,8 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 180; Boxes: 50; Branches: 22
--- Apps: 38; Lams: 14; Unreduced Redexes: 1
+-- Total nodes: 178; Boxes: 49; Branches: 22
+-- Apps: 37; Lams: 14; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -28,7 +28,7 @@ ds = 2
 main_sub = ((:) 1)
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (main_sub (main_sub (main_sub [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
 
-rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_7(# (), (_5(# _11, _11 #)) #)))
+rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_7(# (), (_5(# ((:) 1) #)) #)))
 
 rec0 = (\f -> (_0(# f #)))
 
@@ -45,44 +45,36 @@ _2(# f'7, x'3 #) = (((:) x'3) (f'7 (_2(# f'7, x'3 #))))
 rec3 = (\f'3 -> (\x' -> (\y -> (_3(# f'3, x', y #)))))
 
 _3(# f'9, x'4, y' #) = let
-    _14 = (_13(# f'9 #))
-  in (((:) (_14 x'4)) (_3(# f'9, (_14 y'), x'4 #)))
+    _12 = (_11(# f'9 #))
+  in (((:) (_12 x'4)) (_3(# f'9, (_12 y'), x'4 #)))
 
-rec7 = (\f'4 -> (_4(# {-A-}\(ds'3) -> (_5(# f'4, f'4 #)) #)))
+rec7 = (\f'4 -> (_4(# {-A-}\(ds'3) -> (_5(# f'4 #)) #)))
 
-_4(# f'13 #) = (\ds'3 -> (_7(# ds'3, {-P-}(f'13(ds'3)) #)))
+_4(# f'11 #) = (\ds'3 -> (_7(# ds'3, {-P-}(f'11(ds'3)) #)))
 
-_5(# f'17, f'18 #) = (f'18 (_15(# f'17, f'17 #)))
+_5(# f'15 #) = (f'15 (_7(# _8, (_5(# (_9(# f'15 #)) #)) #)))
 
-rec7Test0_sub = ((GHC.Num.+) 1)
-rec7Test0 = (_4(# {-A-}\(ds'3) -> (_5(# rec7Test0_sub, rec7Test0_sub #)) #))
+rec7Test0 = (_4(# {-A-}\(ds'3) -> (_5(# ((GHC.Num.+) 1) #)) #))
 
-rec7Test1_sub = (\ds' -> (_6(# ds' #)))
-rec7Test1 = (_4(# {-A-}\(ds'3) -> (_6(# (_7(# _8, (_9(# (_10(# rec7Test1_sub #)), rec7Test1_sub #)) #)) #)) #))
+rec7Test1 = (_4(# {-A-}\(ds'3) -> (_6(# (_7(# _8, (_5(# (_9(# (\ds' -> (_6(# ds' #))) #)) #)) #)) #)) #))
 
 _6(# ds'4 #) = (((GHC.Num.*) ds'4) ds)
 
-_7(# ds'2, f'12 #) = (case ds'2 of {() -> f'12})
+_7(# ds'2, f'10 #) = (case ds'2 of {() -> f'10})
 
 _8 = ()
 
-_9(# f'19, f'20 #) = (f'20 (_15(# f'19, f'19 #)))
+_9(# f'14 #) = f'14
 
-_10(# f'16 #) = f'16
+rec8 = (\eta -> (\eta' -> (_10(# eta, eta' #))))
 
-_11 = ((:) 1)
+_10(# f'13, x'5 #) = let
+    _14 = (sx(# x'5 #))
+    _15 = (_13(# f'13 #))
+  in (((GHC.Num.-) _14) (((GHC.Num.*) (_15 (_10(# f'13, _14 #)))) (_15 (_10(# f'13, _14 #)))))
 
-rec8 = (\eta -> (\eta' -> (_12(# eta, eta' #))))
+_11(# f'8 #) = f'8
 
-_12(# f'15, x'5 #) = let
-    _17 = (sx(# x'5 #))
-    _18 = (_16(# f'15 #))
-  in (((GHC.Num.-) _17) (((GHC.Num.*) (_18 (_12(# f'15, _17 #)))) (_18 (_12(# f'15, _17 #)))))
-
-_13(# f'8 #) = f'8
-
-_15(# f'10, f'11 #) = (_7(# _8, (_9(# (_10(# f'11 #)), f'10 #)) #))
-
-_16(# f'14 #) = f'14
+_13(# f'12 #) = f'12
 
 sx(# x'6 #) = (((GHC.Num.+) x'6) (GHC.Num.fromInteger 1))

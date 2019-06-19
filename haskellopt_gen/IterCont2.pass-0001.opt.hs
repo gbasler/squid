@@ -7,13 +7,13 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 121; Boxes: 26; Branches: 18
--- Apps: 32; Lams: 6; Unreduced Redexes: 0
+-- Total nodes: 103; Boxes: 22; Branches: 18
+-- Apps: 22; Lams: 6; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Main (loop,count,nats,main) where
+module Main (count,loop,main,nats,n3) where
 
 import GHC.Base
 import GHC.Classes
@@ -25,19 +25,24 @@ import GHC.Types
 import System.Exit
 import System.IO
 
-count = (GHC.Base.id 0)
+count = (_0(# 0, GHC.Base.id #))
 
-loop = (\f -> (\state -> ((f (let{-rec-} _1 = (_0(# {-A-}\(new_state) -> ((f _1) state) #)) in _1)) state)))
+_0(# state', f'3 #) = (f'3 state')
 
-_0(# f' #) = (\new_state -> {-P-}(f'(new_state)))
+loop = (\f -> (\state -> (_0(# state, (_1(# f #)) #))))
 
-main_sub' = ((GHC.List.take (GHC.Types.I# 3#)) nats)
-main_sub'2 = (GHC.List.take (GHC.Types.I# 3#))
-main_sub = (GHC.Types.I# 3#)
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) ((GHC.List.take main_sub) nats)) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (((GHC.Base.$) System.IO.print) ((GHC.List.take main_sub) nats))) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+_1(# f'2 #) = (f'2 (\new_state' -> (_0(# (_3(# new_state' #)), (_1(# (_6(# f'2 #)) #)) #))))
 
-nats = (_2(# 0, (_2(# 0, (let{-rec-} _4 = (_3(# {-A-}\(new_state) -> _4, (\k -> (\s -> (_2(# s, (k (((GHC.Num.+) s) 1)) #)))), 0 #)) in _4) #)) #))
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
-_2(# s', k' #) = (((:) s') k')
+n3 = ((GHC.List.take (GHC.Types.I# 3#)) nats)
 
-_3(# f'2, f'3, state' #) = ((f'3 (_0(# f'2 #))) state')
+nats = (_2(# 0, (_0(# (_3(# (_4(# (let{-rec-} _5 = (_3(# (_4(# _5 #)) #)) in _5) #)) #)), (_1(# (let{-rec-} _7 = (_6(# _7 #)) in _7) #)) #)) #))
+
+_2(# s', k #) = (((:) s') k)
+
+_3(# new_state #) = new_state
+
+_4(# s #) = (((GHC.Num.+) s) 1)
+
+_6(# f' #) = f'

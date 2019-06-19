@@ -2,34 +2,34 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 110; Boxes: 42; Branches: 34
--- Apps: 15; Lams: 7; Unreduced Redexes: 5
+-- Total nodes: 81; Boxes: 27; Branches: 32
+-- Apps: 2; Lams: 9; Unreduced Redexes: 7
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Main (rec0_1,main,rec0_0,rec0_0_,rec0) where
+module HOR5 (rec1_2,rec0_1,rec1_1,rec0_0,rec1_4,rec0,rec1_0,rec1_3,rec1) where
 
 import GHC.Base
-import GHC.Num
-import GHC.TopHandler
 
-main = (GHC.TopHandler.runMainIO (GHC.Base.return ()))
+rec0 = (\f -> (_0(# f #)))
 
-rec0 = (\f -> (_0(# {-A-}\(x) -> (let{-rec-} _3 = (_1(# x, (_2(# {-A-}\(x) -> _3, f #)) #)) in _3), f #)))
-
-_0(# f'4, f'5 #) = (f'5 (_6(# f'4 #)))
-
-_1(# x, f'6 #) = (f'6 x)
-
-_2(# f'2, f'3 #) = (f'3 (_6(# f'2 #)))
+_0(# f' #) = (f' (_0(# f' #)))
 
 rec0_0 = GHC.Base.id
 
-rec0_0_ = (_0(# {-A-}\(x) -> (let{-rec-} _4 = (_1(# x, (_2(# {-A-}\(x) -> _4, _5 #)) #)) in _4), _5 #))
+rec0_1 = GHC.Base.id
 
-_5 = (\k -> (\s' -> s'))
+rec1 = (\f1 -> (_1(# f1 #)))
 
-rec0_1 = (\s -> (((GHC.Num.+) s) 1))
+_1(# f1' #) = (f1' (_1(# f1' #)))
 
-_6(# f' #) = (\x -> {-P-}(f'(x)))
+rec1_0 = GHC.Base.id
+
+rec1_1 = GHC.Base.id
+
+rec1_2 = GHC.Base.id
+
+rec1_3 = GHC.Base.id
+
+rec1_4 = GHC.Base.id

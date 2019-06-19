@@ -34,6 +34,7 @@ main = exitSuccess
 --         loop f state =
 --             f (\new_state -> loop f new_state) state
 
+-- Simpler version, to debug
 nats =
     -- loop (\k s -> s : k s) 0 where
     loop (\k s -> s : k (s + 1)) 0 where

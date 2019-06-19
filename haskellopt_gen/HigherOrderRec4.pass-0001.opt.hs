@@ -7,8 +7,8 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 32; Boxes: 10; Branches: 5
--- Apps: 5; Lams: 3; Unreduced Redexes: 1
+-- Total nodes: 31; Boxes: 10; Branches: 5
+-- Apps: 4; Lams: 3; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -20,14 +20,10 @@ import GHC.TopHandler
 
 main = (GHC.TopHandler.runMainIO (GHC.Base.return ()))
 
-rec0 = (\f -> (_0(# {-A-}\(x) -> f, f #)))
+rec0 = (\f -> (_0(# f #)))
 
-_0(# f'3, f'4 #) = (f'4 (_1(# f'3 #)))
+_0(# f' #) = (f' (\x -> ((_0(# f' #)) x)))
 
-rec0' = (_0(# {-A-}\(x) -> GHC.Base.id, GHC.Base.id #))
+rec0' = (_0(# GHC.Base.id #))
 
 rec0_0 = GHC.Base.id
-
-_1(# f' #) = (\x -> (((_2(# {-P-}(f'(x)) #)) (_1(# {-A-}\(x) -> (_2(# {-P-}(f'(x)) #)) #))) x))
-
-_2(# f'2 #) = f'2

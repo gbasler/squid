@@ -208,11 +208,11 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       //case SchBox(_, c) if (c.sr.rep.node match {case ConcreteNode(_:Branch)=>true case _ => false }) => count(b.sr)
       //case SchBox(_, b) => count(b.sr)
       //case SchBox(_, c) if (c.sr.rep.node match {case ConcreteNode(_:Branch)=>false case _ => true }) => count(c.sr)
-        /*
+      /* // Seems to cause code duplication:
       case SchBox(_, c) if !c.sr.rep.node.isInstanceOf[Branch] =>
         Sdebug(s"IGNORE COUNT ${sr}")
         count(c.sr)
-        */
+      */
       case _ =>
       //assert(!sr.exp.isInstanceOf[SchBranch], sr)
       sr.usageCount += 1

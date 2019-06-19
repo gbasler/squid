@@ -7,8 +7,8 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 64; Boxes: 21; Branches: 12
--- Apps: 8; Lams: 6; Unreduced Redexes: 2
+-- Total nodes: 57; Boxes: 18; Branches: 10
+-- Apps: 6; Lams: 6; Unreduced Redexes: 2
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -20,33 +20,26 @@ import GHC.Num
 
 ds = 2
 
-rec0 = (\f -> (f (let{-rec-} _1 = (_0(# {-A-}\(x) -> (f _1) #)) in _1)))
+rec0 = (\f -> (_0(# f #)))
 
-_0(# f'2 #) = (\x -> ({-P-}(f'2(x)) x))
+_0(# f' #) = (f' (\x -> ((_0(# f' #)) x)))
 
 rec0_0 = GHC.Base.id
 
-rec7 = (\f' -> (_2(# {-A-}\(ds'3) -> (_3(# f', f' #)) #)))
+rec7 = (\g -> (_1(# {-A-}\(ds'3) -> (_2(# g #)) #)))
 
-_2(# f'6 #) = (\ds'3 -> (_6(# {-P-}(f'6(ds'3)), ds'3 #)))
+_1(# g'2 #) = (\ds'3 -> (_4(# {-P-}(g'2(ds'3)), ds'3 #)))
 
-_3(# f'8, f'9 #) = (f'8 (_10(# f'9, f'9 #)))
+_2(# g'4 #) = (g'4 (_4(# (_2(# (_5(# g'4 #)) #)), _6 #)))
 
-rec7Test0 = (_2(# {-A-}\(ds'3) -> (_3(# _4, _4 #)) #))
+rec7Test0 = (_1(# {-A-}\(ds'3) -> (_2(# ((GHC.Num.+) 1) #)) #))
 
-_4 = ((GHC.Num.+) 1)
+rec7Test1 = (_1(# {-A-}\(ds'3) -> (_3(# (_4(# (_2(# (_5(# (\ds' -> (_3(# ds' #))) #)) #)), _6 #)) #)) #))
 
-rec7Test1_sub = (\ds' -> (_5(# ds' #)))
-rec7Test1 = (_2(# {-A-}\(ds'3) -> (_5(# (_6(# (_7(# (_8(# rec7Test1_sub #)), rec7Test1_sub #)), _9 #)) #)) #))
+_3(# ds'4 #) = (((GHC.Num.*) ds'4) ds)
 
-_5(# ds'4 #) = (((GHC.Num.*) ds'4) ds)
+_4(# g', ds'2 #) = (case ds'2 of {() -> g'})
 
-_6(# f'5, ds'2 #) = (case ds'2 of {() -> f'5})
+_5(# g'3 #) = g'3
 
-_7(# f'10, f'11 #) = (f'11 (_10(# f'10, f'10 #)))
-
-_8(# f'7 #) = f'7
-
-_9 = ()
-
-_10(# f'3, f'4 #) = (_6(# (_7(# (_8(# f'3 #)), f'4 #)), _9 #))
+_6 = ()

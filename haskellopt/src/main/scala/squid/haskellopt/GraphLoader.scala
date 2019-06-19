@@ -25,7 +25,8 @@ class GraphLoader {
   
   */
   
-  object Graph extends HaskellGraphInterpreter with HaskellGraphScheduling2 {
+  object Graph extends HaskellGraphInterpreter with HaskellGraphScheduling {
+  //object Graph extends HaskellGraphInterpreter with HaskellGraphScheduling2 {
     val DummyTyp = Any
     override def staticModuleType(name: String): TypeRep = DummyTyp
     def mkName(base: String, idDomain: String) =
