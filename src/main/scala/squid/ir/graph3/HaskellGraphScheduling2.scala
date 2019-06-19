@@ -45,7 +45,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
   import HaskellScheduleDebug.{debug=>Sdebug}
   
   import mutable.{Map => M}
-  //import mutable.{ListMap => M}
+  //import mutable.{ListMap => M} // used to use this to avoid flaky ordering; now we sort things explicitly, which is more reliable
   
   
   def scheduleRec(rep: Rep): RecScheduler = scheduleRec(PgrmModule("<module>", "?", Map("main" -> rep)))
@@ -540,6 +540,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         args.valuesIterator.collect{ case e: SchCall => e.freeVars }.flatten.toSet
       
       val args: M[SchParam,SchArg] = M.empty
+      def orderedArgs = args.toList.sortBy(_._1.branchVal.name)
       
       def allChildren: List[SchCall] =
         this :: args.valuesIterator.collect{ case c: SchCall => c }.toList.flatMap(_.allChildren)
@@ -547,7 +548,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       def allScheduledCalls: List[SchCall] =
         // Note that we should look at the arguments even if the def is inlined, as these arguments will be propagated inside the inlined calls
         (if (sr.willBeInlined) sr.scheduledChildren else this :: Nil) :::
-          args.valuesIterator.collect{ case c: SchCall => c.allScheduledCalls }.flatten.toList
+          orderedArgs.collect{ case (_, c: SchCall) => c.allScheduledCalls }.flatten
       
       lazy val name = sr.rep.bound |> printVal
       
@@ -558,7 +559,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         //Sdebug(s"Call $this   with  {${ctx.params.mkString(",")}}")
         
         if (!sr.willBeInlined) {
-          val argStrs = args.toList.sortBy(_._1.branchVal.name).map(_._2.toHs)
+          val argStrs = orderedArgs.map(_._2.toHs)
           //val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
           val valArgs = List.empty[Val->String]
           val allArgStrs = valArgs.map(_._2) ++ argStrs

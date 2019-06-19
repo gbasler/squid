@@ -35,10 +35,10 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
   }
-  test("HigherOrderRec2") {
+  test("HigherOrderRec2") { // FIXME the minimized minimization problem: due to passing f through each recursive call...
     TestHarness("HigherOrderRec2", dumpGraph = true)
     //TestHarness("HigherOrderRec2", dumpGraph = true, compileResult = false)
-    //TestHarness("HigherOrderRec2", dumpGraph = true, "0000"::Nil)
+    //TestHarness("HigherOrderRec2", "0000"::Nil, dumpGraph = true)
   }
   test("HigherOrderRec3") {
     // FIXME not fully reduced?: see k app
