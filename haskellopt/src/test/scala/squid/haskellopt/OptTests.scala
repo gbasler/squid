@@ -23,8 +23,8 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrder", "0000"::Nil)
   }
   test("HigherOrderHard") {
-    TestHarness("HigherOrderHard") // FIXME scope extrusion
-    //TestHarness("HigherOrderHard", compileResult = false)
+    //TestHarness("HigherOrderHard") // FIXME scope extrusion
+    TestHarness("HigherOrderHard", compileResult = false)
     //TestHarness("HigherOrderHard", "0000"::Nil)
     //TestHarness("HigherOrderHard", "0001"::Nil)
   }
@@ -91,10 +91,10 @@ class OptTests extends FunSuite {
     
     // FIXME scheduling diverges?! (new scheduler, with 0000; and old one just inserts wront {-rec-} defs)
     
-    TestHarness("IterContLocal", exec = true)
+    //TestHarness("IterContLocal", exec = true)
     //TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/)
     //TestHarness("IterContLocal", exec = true)
-    //TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
+    TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
     
   }
   

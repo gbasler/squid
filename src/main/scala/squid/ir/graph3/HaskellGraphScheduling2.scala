@@ -71,6 +71,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       }
     })
     
+    var countingDone = false
+    
     val scheduledReps = M.empty[Rep,SchedulableRep]
     def getSR(r: Rep): SchedulableRep = {
       scheduledReps.getOrElseUpdate(r, new SchedulableRep(r))
@@ -223,12 +225,51 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     })
     Sdebug(s"\n\n\n=== Counting ===")
     moduleDefs.foreach(count)
-    /*
+    ///*
     sreps.foreach { sr =>
       Sdebug(s"[${if (sr.shouldBeScheduled) sr.usageCount else " "}] $sr")
     }
-    */
+    //*/
+    countingDone = true
     
+    def propagateScp(sr: SchedulableRep, scp: Set[Val]): Unit = {
+      if (sr.registerScope_!(scp)) sr.allChildren.map(_.sr).foreach(propagateScp(_, sr.rep.node match {
+        case ConcreteNode(abs: Abs) => scp + abs.param
+        case _ => scp
+      }))
+    }
+    moduleDefs.iterator.filter(_.rep |> isExported).foreach(propagateScp(_, Set.empty))
+    
+    val haskellDefs = mkSReps().filterNot(_.willBeInlined)
+    
+    Sdebug(s"\n\n\n=== Nesting ===")
+    
+    val (topLevelReps, nestedReps) =
+      haskellDefs.partition{ case r => isExported(r.rep) || r.nestingScope.isEmpty }
+    
+    Sdebug(s"Nested & Shared: ${nestedReps.filter(_.usageCount > 1).map(n => n.rep.bound -> n.freeVars)}")
+    
+    var nestedCount = 0
+    
+    /** defs: association between sub-scopes to what to bind in them */
+    def nestDefs(sd: SchExp, defs: List[Set[Val] -> SchedulableRep]): Unit = sd match {
+      //case lam @ SchLam(p, _, bs, b) =>
+      case lam @ SchLam(p, b) =>
+        val (toScheduleNow,toPostpone) = CollectionUtils.TraversableOnceHelper(defs).mapSplit {
+          case fvs -> sd =>
+            val fvs2 = fvs - p
+            if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
+        }
+        toScheduleNow.foreach { d => nestedCount += 1; nestDefs(d.exp, toPostpone); lam.bindings ::= d }
+        //bs.foreach(b => nestDefs(b._2, toPostpone))
+        nestDefs(b.sr.exp, toPostpone)
+      case _ => sd.directCalls.filter(_.sr.willBeInlined).map(_.sr.exp).foreach(nestDefs(_, defs)) // FIXME variables bound by `case`?!
+    }
+    val toNest = nestedReps.map { case r => r.nestingScope -> r }
+    topLevelReps.map(_.exp).foreach(nestDefs(_, toNest))
+    softAssert(nestedCount === toNest.size, s"${nestedCount} === ${toNest.size}")
+    
+    Sdebug(s"\n\n\n=== Done. ===\n")
     
     // TODO
     //val topLevelRepsOrdered: List[SchedulableRep] = {
@@ -244,7 +285,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     
     //val topLevelRepsOrdered = sreps
     //val topLevelRepsOrdered = moduleDefs
-    val topLevelRepsOrdered = mkSReps().filter(sr => isExported(sr.rep) || sr.usageCount > 1)
+    //val topLevelRepsOrdered = mkSReps().filter(sr => isExported(sr.rep) || sr.usageCount > 1)
+    val topLevelRepsOrdered = topLevelReps.filterNot(_.willBeInlined)
     
     def toHaskell(imports: List[String], ghcVersion: String): String = {
       def commentLines(str: String) = str.split("\n").map("--   "+_).mkString("\n")
@@ -284,6 +326,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       var usageCount: Int = 0
       var usages: List[SchCall] = Nil
+      
+      def willBeInlined = assert(countingDone) thenReturn !isExported(rep) && usageCount <= 1
       
       val params: M[Branch,Param] = M.empty
       
@@ -364,6 +408,26 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       def allChildren = exp.directCalls.flatMap(_.allChildren)
       
+      /** The most specific scope under which all references to this def appear. Top-level defs have the emtpy set. */
+      var maximalSharedScope = Option.empty[Set[Val]]
+      
+      /** Add a scope from which this definition is referenced; returns whether the maximalSharedScope changed. */
+      def registerScope_!(scp: Set[Val]): Bool = maximalSharedScope match {
+        case Some(scp0) =>
+          val inter = scp0 & scp
+          maximalSharedScope = Some(inter)
+          inter =/= scp0
+        case None =>
+          maximalSharedScope = Some(scp)
+          true
+      }
+      
+      var valParams = Option.empty[List[Val]]
+      
+      def subBindings = List.empty[Val->SchShareable] // Maybe later reimplement CSE (cf. old sch)
+      def freeVars: Set[Val] = exp.freeVars -- subBindings.map(_._1)
+      lazy val nestingScope: Set[Val] = exp.freeVars & maximalSharedScope.get
+      
       val (topSubBindings,nestedSubBindings) = (List.empty[Val->SchShareable],List.empty[Val->SchShareable])
       
       val name = rep.bound |> printVal
@@ -388,6 +452,15 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     
     sealed abstract class SchShareable extends SchExp // TODO use for CSE or rm
     sealed abstract class SchExp {
+      lazy val freeVars: Set[Val] = this match {
+        case SchVar(v) => Set.empty + v
+        //case SchLam(p, _, bs, b) => // Note: used to consider CSE with subBindigns bs
+        case SchLam(p, b) =>
+          b.freeVars - p
+          //b.freeVars ++ bs.flatMap(_._2.freeVars) - p -- bs.iterator.map(_._1)
+        case SchCase(e, es) => e.freeVars ++ es.flatMap(c => c._3.freeVars -- c._2)
+        case _ => directCalls.flatMap(_.freeVars).toSet
+      }
       def directCalls: List[SchCall]
       def toHs(implicit ctx: HsCtx): String
     }
@@ -415,9 +488,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       override def toString = s"(${lhs} @ ${rhs})"
     }
     case class SchLam(param: Val, body: SchCall) extends SchShareable {
+      var bindings: List[SchedulableRep] = Nil
       def directCalls: List[SchCall] = body :: Nil
       def toHs(implicit ctx: HsCtx) = {
-        val bindings = List.empty[SchExp]
+        //val bindings = List.empty[SchExp]
         val subBindings = List.empty[Val->SchShareable]
         s"(\\${param |> printVal} -> ${
           if (bindings.isEmpty && subBindings.isEmpty) "" else
@@ -466,6 +540,9 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep) extends SchArg {
       lazy val sr = getSR(r) also { sr => sr.init(); sr.usages ::= this }
       
+      def freeVars: Set[Val] = if (sr.willBeInlined) sr.freeVars else
+        args.valuesIterator.collect{ case e: SchCall => e.freeVars }.flatten.toSet
+      
       val args: M[SchParam,SchArg] = M.empty
       
       def allChildren: List[SchCall] =
@@ -479,7 +556,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         Sdebug(s"Call $this")
         //Sdebug(s"Call $this   with  {${ctx.params.mkString(",")}}")
         
-        if (sr.usageCount > 1) {
+        if (!sr.willBeInlined) {
           val argStrs = args.toList.sortBy(_._1.branchVal.name).map(_._2.toHs)
           //val valArgs = sr.valParams.fold("??"::Nil)(_.map(printVal))
           val valArgs = List.empty[Val->String]
