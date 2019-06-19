@@ -21,6 +21,14 @@ object CollectionUtils {
   
   /** Works, but not AnyVal */
   implicit class TraversableOnceHelper[A,Repr](private val repr: Repr)(implicit isTrav: Repr => TraversableOnce[A]) {
+    
+    def collectSome[B,NewRepr](pf: PartialFunction[A, Option[B]])
+    (implicit bf: CanBuildFrom[Repr, B, NewRepr]): NewRepr =
+      (bf() ++= isTrav(repr).toIterator.collect(pf).collect{ case Some(res) => res }).result()
+    
+    def collectFirstSome[B](pf: PartialFunction[A, Option[B]]): Option[B] =
+      isTrav(repr).toIterator.collect(pf).collectFirst{ case Some(res) => res }
+    
     def collectPartition[B,Left](pf: PartialFunction[A, B])
     (implicit bfLeft: CanBuildFrom[Repr, B, Left], bfRight: CanBuildFrom[Repr, A, Repr]): (Left, Repr) = {
       val left = bfLeft(repr)

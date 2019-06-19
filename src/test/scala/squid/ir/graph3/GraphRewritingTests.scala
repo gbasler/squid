@@ -35,6 +35,7 @@ trait GraphRewritingTester[DSL <: Graph] extends MyFunSuite[DSL] {
   
   val Tr: SimpleRuleBasedTransformer with DSL.SelfTransformer
   
+  // TODO due to the new betared strategy, computing the term size doesn't make much sense anymore; we should compute the _reachable_ size
   def doTest[A](cde: ClosedCode[A], expectedSize: Int = Int.MaxValue)
       (expectedResult: Any = null, preprocess: A => Any = id[A], doEval: Bool = true): DSL.Rep = {
     val cdes = cde.show
@@ -247,18 +248,29 @@ class GraphRewritingTests extends MyFunSuite(GraphRewritingTests) with GraphRewr
     
     val h0 = code"val h = (f: Int => Int) => f(2) - f(3) + f(4); h"
     
-    doTest(code"$h0(x => x * 2)")(6) // FIXME not fully-reduced
+    doTest(code"$h0(x => x * 2)")(6)
+    
+    val h1 = code"val h = (f: Int => Int) => f(2) ^ f(3); h"
+    
+    doTest(code"$h1(x => x * 2)")()
+    //~> {
+    //  val x134_1 = ((x132_0: Int) => x132_0.*(2));
+    //  x134_1(2).^(x134_1(3))
+    //}
+    
+    doTest(code"$h1(x => x + 1)")()
+    // ~> (3).^(4)
     
   }
   test("Higer-Order Functions") {
     
     val h0 = code"val h = (f: Int => Int) => f(2) + f(3); h"
     
-    doTest(code"$h0(x => x * 2)", 13)(10)
+    doTest(code"$h0(x => x * 2)", 15)(10)
     
     doTest(code"$h0(x => x + 1)", /*13*/23)(7)
     
-     // FIXME stopped working at some point with Haskell graph
+    // FIXME stopped working at some point with Haskell graph
     /*
     doTest(code"$h0(x => x + x)", 1)(10)
     

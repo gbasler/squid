@@ -19,6 +19,17 @@ import org.scalatest.FunSuite
 class CollectionUtilsTest extends FunSuite {
   import CollectionUtils._
   
+  test("Collect Some") {
+    
+    val ls = List(Left(0),Right('a),Left(1),Left(2),Right('b))
+    val even = ls.collectSome { case Left(n) => n optionIf (_ % 2 == 0) }
+    assert(even == List(0,2))
+    
+    val firstEven = ls.collectFirstSome { case Left(n) => n optionIf (_ % 2 == 0) }
+    assert(firstEven == Some(0))
+    
+  }
+  
   test("List Test") {
     
     val (even,odd) = List(1,2,3,4,5) collectPartition {

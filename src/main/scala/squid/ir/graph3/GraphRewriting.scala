@@ -384,7 +384,8 @@ trait GraphRewriting extends AST { graph: Graph =>
      followed by branches...
    
   */
-  val betaReduced = mutable.Set.empty[(List[(CallId,Bool,Rep)],Abs)]
+  type BetaRedKey = (List[(CallId,Bool,Rep)],Abs)
+  val betaReduced = mutable.Map.empty[Rep,mutable.Set[BetaRedKey]].withDefault(_ => mutable.Set.empty)
   
   def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
@@ -429,13 +430,15 @@ trait GraphRewriting extends AST { graph: Graph =>
         * otherwise, it simply rewires failing branches to the _original_ reconstituted application, which does often
         * create kind of dumb structures that could often be simplified (which we do not currently try to do).
         * Invariant: the original 'rep' is overwritten with the result of this call! */
-      def betaRed(absPath: AbsPath, arg: Rep): Node = {
+      def betaRed(absPath: AbsPath, arg: Rep, key: Option[BetaRedKey]): Node = {
         val (conds,ctrl,fun) = absPath
         val newBody =
           substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
             .assertNotVal
         conds match {
-          case Nil => newBody
+          case Nil =>
+            betaReduced(rep) ++= key
+            newBody
             
           // It seems that even this seemingly inoffensive version of the previous beta-red causes problems with the scheduler later on...
           /*
@@ -451,6 +454,14 @@ trait GraphRewriting extends AST { graph: Graph =>
           case condsRest =>
             // Reconstruct the application nodes of the top-level branch, if any
             val other = rep.node.mkRep // NOTE: this is only okay because we know the original rep will be overwritten with a new node!
+            assert(key.isDefined)
+            //val actualKey = key.map()
+            key.foreach { key =>
+              val reds = betaReduced(rep)
+              betaReduced -= rep
+              reds += key
+              betaReduced += other -> reds
+            }
             //Rdebug(s"Other $other")
             condsRest.foldRight(newBody) {
               case ((viaCtrl1,ctrl1,cid1,isLHS1,other1), nde) =>
@@ -527,7 +538,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         case ConcreteNode(Apply(Rep(ConcreteNode(fun: Abs)), arg)) =>
           Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} in ${fun.body.showGraph}")
           rep.node.assertNotVal
-          rep.node = betaRed((Nil, Id, fun), arg)
+          rep.node = betaRed((Nil, Id, fun), arg, None)
           Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           // Strangely, it seems that some tests break when we use again() for beta-reduction cases; this might be totally incidental
@@ -540,7 +551,7 @@ trait GraphRewriting extends AST { graph: Graph =>
         case ConcreteNode(Apply(Rep(Box(ctrl,Rep(ConcreteNode(fun: Abs)))), arg)) =>
           Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} over $ctrl in ${fun.body.showGraph}")
           rep.node.assertNotVal
-          rep.node = betaRed((Nil, ctrl, fun), arg)
+          rep.node = betaRed((Nil, ctrl, fun), arg, None)
           Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
           
           //again()
@@ -577,18 +588,22 @@ trait GraphRewriting extends AST { graph: Graph =>
           //betaReduced.foreach(b => Rdebug("\t"+b))
           
           //gone.headOption 
-          gone.find { case g @ (conds, ctrl, abs) =>
-            conds.nonEmpty && { // if 'conds' is empty, it means we have several boxes; it's better to let the other rwr reduce them first
-              val k = (conds.map { case (vc, c2, cid, side, b) => (cid, side, b) }, abs)
-              !betaReduced(k) && { betaReduced(k) = true; true }}
+          CollectionUtils.TraversableOnceHelper(gone).collectFirstSome {
+            case g @ (conds, ctrl, abs)
+              if conds.nonEmpty
+              // ^ if 'conds' is empty, it means we have several boxes; it's better to let the other rwr reduce them first
+            =>
+              val k: BetaRedKey = (conds.map { case (vc, c2, cid, side, b) => (cid, side, b) }, abs)
+              Rdebug(s"Consider [${rep.bound}]\t ${if (!betaReduced(rep)(k)) "√ " else "✗ "} ${g}  keyed on  $k")
+              k optionUnless betaReduced(rep) map (g -> _)
           } // TODO(maybe) do the res too? would it work out? (maybe not since we destructively make modifications)
           match {
-            case Some(path @ (conds,ctrl,fun)) =>
+            case Some((path @ (conds,ctrl,fun), k)) =>
               assert(conds.nonEmpty) // we avoid cases where we traversed only boxes
               Rdebug(s"!>> SUBSTITUTE [${rep.bound}] ${fun.param} with ${arg} over $ctrl and ${
                 conds.map(c => (if (c._2 === Id) "" else s"[${c._2}]")+(if(c._4)"" else "!")+c._3).mkString(",")} in ${fun.body.showGraph}")
               rep.node.assertNotVal
-              rep.node = betaRed(path, arg)
+              rep.node = betaRed(path, arg, Some(k))
               Rdebug(s"!<< SUBSTITUTE'd ${rep.showGraph}")
               leadsToAbs.clear() // TODO can we avoid clearing the entire 'leadsToAbs'?
               
@@ -605,6 +620,7 @@ trait GraphRewriting extends AST { graph: Graph =>
       })
     }
     rec(rep)
+    //rep.allChildren.foreach(rec)
     changed
   }
   //) catchBreak true

@@ -19,7 +19,6 @@ class OptTests extends FunSuite {
     //TestHarness("Basics", "0000"::Nil)
   }
   test("HigherOrder") {
-    // FIXME iTest0, iTest1 are not fully-reduced
     TestHarness("HigherOrder")
     //TestHarness("HigherOrder", "0000"::Nil)
   }
