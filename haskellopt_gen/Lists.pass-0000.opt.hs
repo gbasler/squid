@@ -32,14 +32,12 @@ mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
 a = (((:) 1) (((:) 2) a))
 
-mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case ds' of {(,) arg0 arg1 -> arg0}) 0))
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case (((,) (\x'2 -> _1)) (\y'2 -> _2)) of {(,) arg0 arg1 -> arg0}) 0))
 
-ds' = (((,) (\x'2 -> _2)) (\y'2 -> _1))
+_1 = (((:) (GHC.Num.fromInteger 1)) _2)
+
+_2 = (((:) (GHC.Num.fromInteger 2)) _1)
 
 rec0 = rec0'
 
 rec0' = (((:) 1) rec0')
-
-_1 = (((:) (GHC.Num.fromInteger 2)) _2)
-
-_2 = (((:) (GHC.Num.fromInteger 1)) _1)

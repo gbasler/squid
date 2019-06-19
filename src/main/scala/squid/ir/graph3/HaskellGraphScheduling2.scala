@@ -271,22 +271,17 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     
     Sdebug(s"\n\n\n=== Done. ===\n")
     
-    // TODO
-    //val topLevelRepsOrdered: List[SchedulableRep] = {
-    //  val topLevels = topLevelReps.iterator.map { case(sr,d) => sr.rep -> d }.toMap
-    //  val done = mutable.Set.empty[Rep]
-    //  topLevelReps.flatMap { case(sr,d) =>
-    //    (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(d) }) ++ d.allChildren.collect {
-    //      case SchCall(sr, _, _) if !done(sr.rep) && topLevels.contains(sr.rep) =>
-    //        done += sr.rep; topLevels(sr.rep) }
-    //  }
-    //}
-    //softAssert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
-    
-    //val topLevelRepsOrdered = sreps
-    //val topLevelRepsOrdered = moduleDefs
-    //val topLevelRepsOrdered = mkSReps().filter(sr => isExported(sr.rep) || sr.usageCount > 1)
-    val topLevelRepsOrdered = topLevelReps.filterNot(_.willBeInlined)
+    // Order definitions topologically so as to make them more stable and easier to diff
+    val topLevelRepsOrdered: List[SchedulableRep] = {
+      val topLevels = topLevelReps.iterator.map { case sr => sr.rep -> sr }.toMap
+      val done = mutable.Set.empty[Rep]
+      topLevelReps.flatMap { case sr =>
+        (if (done(sr.rep)) Iterator.empty else { done += sr.rep; Iterator(sr) }) ++ sr.scheduledChildren.collect {
+          case c: SchCall if !done(c.sr.rep) && topLevels.contains(c.sr.rep) =>
+            done += c.sr.rep; topLevels(c.sr.rep) }
+      }
+    }
+    softAssert(topLevelRepsOrdered.size === topLevelReps.size, s"${topLevelRepsOrdered.size} === ${topLevelReps.size}")
     
     def toHaskell(imports: List[String], ghcVersion: String): String = {
       def commentLines(str: String) = str.split("\n").map("--   "+_).mkString("\n")
@@ -407,6 +402,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       }
       
       def allChildren = exp.directCalls.flatMap(_.allChildren)
+      def scheduledChildren = exp.directCalls.flatMap(_.allScheduledCalls)
       
       /** The most specific scope under which all references to this def appear. Top-level defs have the emtpy set. */
       var maximalSharedScope = Option.empty[Set[Val]]
@@ -430,7 +426,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       val (topSubBindings,nestedSubBindings) = (List.empty[Val->SchShareable],List.empty[Val->SchShareable])
       
-      val name = rep.bound |> printVal
+      lazy val name = rep.bound |> printVal
       def toHs: String = {
         implicit val Hstx: HsCtx = HsCtx.empty
         val paramList = if (params.isEmpty) "" else
@@ -478,7 +474,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     }
     case class SchVar(v: Val) extends SchExp {
       def directCalls: List[SchCall] = Nil
-      val vStr = v |> printVal
+      lazy val vStr = v |> printVal
       def toHs(implicit ctx: HsCtx) = vStr
       override def toString = vStr
     }
@@ -546,7 +542,12 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       val args: M[SchParam,SchArg] = M.empty
       
       def allChildren: List[SchCall] =
-        this :: args.valuesIterator.collect { case c: SchCall => c }.toList.flatMap(_.allChildren)
+        this :: args.valuesIterator.collect{ case c: SchCall => c }.toList.flatMap(_.allChildren)
+      
+      def allScheduledCalls: List[SchCall] =
+        // Note that we should look at the arguments even if the def is inlined, as these arguments will be propagated inside the inlined calls
+        (if (sr.willBeInlined) sr.scheduledChildren else this :: Nil) :::
+          args.valuesIterator.collect{ case c: SchCall => c.allScheduledCalls }.flatten.toList
       
       lazy val name = sr.rep.bound |> printVal
       

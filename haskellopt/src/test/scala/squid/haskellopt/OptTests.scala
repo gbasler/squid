@@ -67,13 +67,13 @@ class OptTests extends FunSuite {
     
     // FIXME not fully reduced: nats still constructs lambdas
     
-    //TestHarness("IterCont2", exec = true)
-    TestHarness("IterCont2", "0000"::Nil, exec = true) // Note: for pass 0001, the old scheduler generates a program that never terminates...
+    TestHarness("IterCont2", exec = true)
     
+    //TestHarness("IterCont2", "0000"::Nil, exec = true) // Note: for pass 0001, the old scheduler generates a program that never terminates...
     //TestHarness("IterCont2", "0000"::Nil, exec = true, compileResult = false)
     //TestHarness("IterCont2", "0000"::Nil, exec = true)
     //TestHarness("IterCont2", "0000"::Nil)
-    TestHarness("IterCont2", "0001"::Nil)
+    //TestHarness("IterCont2", "0001"::Nil)
     //TestHarness("IterCont2", "0001"::Nil, opt = true)
   }
   test("IterContLocal") {

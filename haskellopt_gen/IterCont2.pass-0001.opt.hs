@@ -25,24 +25,26 @@ import GHC.Types
 import System.Exit
 import System.IO
 
-count = (_0(# 0, GHC.Base.id #))
+count = (_0(# GHC.Base.id, 0 #))
 
-_0(# state', f'3 #) = (f'3 state')
+_0(# f, state #) = (f state)
 
-loop = (\f -> (\state -> (_0(# state, (_1(# f #)) #))))
+loop = (\f' -> (\state' -> (_0(# (_1(# f' #)), state' #))))
 
-_1(# f'2 #) = (f'2 (\new_state' -> (_0(# (_3(# new_state' #)), (_1(# (_6(# f'2 #)) #)) #))))
+_1(# f'2 #) = (f'2 (\new_state -> (_0(# (_1(# (_2(# f'2 #)) #)), (_3(# new_state #)) #))))
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
 n3 = ((GHC.List.take (GHC.Types.I# 3#)) nats)
 
-nats = (_2(# 0, (_0(# (_3(# (_4(# (let{-rec-} _5 = (_3(# (_4(# _5 #)) #)) in _5) #)) #)), (_1(# (let{-rec-} _7 = (_6(# _7 #)) in _7) #)) #)) #))
+nats = (_5(# (_0(# (_1(# (_2(# (\k -> (\s -> (_5(# (k (_4(# s #))), s #)))) #)) #)), (_3(# (_4(# (_6(# 0 #)) #)) #)) #)), (_6(# 0 #)) #))
 
-_2(# s', k #) = (((:) s') k)
+_5(# k', s' #) = (((:) s') k')
 
-_3(# new_state #) = new_state
+_2(# f'3 #) = f'3
 
-_4(# s #) = (((GHC.Num.+) s) 1)
+_3(# new_state' #) = new_state'
 
-_6(# f' #) = f'
+_4(# s'2 #) = (((GHC.Num.+) s'2) 1)
+
+_6(# state'2 #) = state'2

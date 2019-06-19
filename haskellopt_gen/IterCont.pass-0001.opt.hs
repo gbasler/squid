@@ -19,8 +19,8 @@ import GHC.Num
 
 dont = (((GHC.Num.+) 0) 1)
 
-loop = (\f -> (\state -> (_0(# state, (_1(# f #)) #))))
+loop = (\f -> (\state -> (_1(# (_0(# f #)), state #))))
 
-_0(# state', f'2 #) = (f'2 state')
+_1(# f', state' #) = (f' state')
 
-_1(# f' #) = (f' (\new_state -> (_0(# new_state, (_1(# f' #)) #))))
+_0(# f'2 #) = (f'2 (\new_state -> (_1(# (_0(# f'2 #)), new_state #))))

@@ -23,6 +23,6 @@ main = (GHC.TopHandler.runMainIO System.Exit.exitSuccess)
 
 nats = (_0(# 0 #))
 
-_0(# st' #) = (((:) st') (_0(# (((GHC.Num.+) st') 1) #)))
+_0(# st #) = (((:) st) (_0(# (((GHC.Num.+) st) 1) #)))
 
-rec = (\st -> (_0(# st #)))
+rec = (\st' -> (_0(# st' #)))
