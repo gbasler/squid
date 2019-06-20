@@ -99,6 +99,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     ///** Contains all defs with new params, so whose calls may be missing arguments */
     //var workList = scheduledReps.valuesIterator.filter(_.params.nonEmpty).toList
     
+    /** Each parameter whose argument, in the given context, expanded into an outer call recursively,
+      * so we moved it into its own Rep to avoid divergence. */
+    val rewireParams = mutable.Map.empty[(SchedulableRep,Control,Param),Rep]
+    
     Sdebug(s">>>> Starting fixed point... <<<<")
     while (workList.nonEmpty) {
       val sr = workList.head
@@ -122,10 +126,13 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
             //Sdebug(s"Param $br${param} not yet in call ${c}  [param.ctrl:${param.ctrl} c.ctrl:${c.ctrl}]")
             //assert(c.ctrl === param.ctrl, s"${c.ctrl} ${param.ctrl}") // nope
             
+            val originCtrl = c.ctrl`;`br.ctrl
+            
             //val ctrl = pctrl `;` br.ctrl
             //Sdebug(s"? ${pctrl} ; ${br.ctrl} ? ${br.cid}")
             //mayHaveCid(br.ctrl, br.cid)(pctrl) match {
             Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${br.ctrl} ? ${br.cid}")
+            //Sdebug(s"(With) ${c.ctrl} ; ${br.ctrl}  ==  ${c.ctrl`;`br.ctrl}")
             //Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${br.ctrl} == ${pctrl `;` c.ctrl `;` br.ctrl}")
             mayHaveCid(br.ctrl, br.cid)(pctrl`;`c.ctrl) match {
             //Sdebug(s"? ${pctrl} ; ${param.ctrl} ; ${br.ctrl} ? ${br.cid}")
@@ -138,18 +145,49 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               // What if new branch?!
               //val schCall = psr.call(if (cnd) br.lhs else br.rhs)
               //val schCall = new SchCall(if (cnd) br.lhs else br.rhs, param.ctrl, psr) // FIXME?
-              val schCall = new SchCall(if (cnd) br.lhs else br.rhs, c.ctrl`;`param.ctrl, psr) // FIXME?
+              val resRep = if (cnd) br.lhs else br.rhs
+              
               //schCall.sr.init()
               //val schCall = new SchCall(getSR(if (cnd) br.lhs else br.rhs), c.ctrl`;`param.ctrl, psr) // FIXME?
               //val schCall = new SchCall(if (cnd) br.lhs else br.rhs, psr)
               
-              Sdebug(s"Resolved ${pctrl} ; ${br}  ($cnd) -->  ${schCall}")
+              Sdebug(s"Resolved  ${br}  ($cnd) -->  ${resRep}")
+              
+              // FIXME: this only detects directly-recursive arguments... we need detection across several nestings of calls...
+              // TODO enhance this process to also factor out the first recursive iteration, which is currently unrolled
+              val schCall = if ((c.sr.rep,c.originCtrl) === (resRep,originCtrl)) {
+                
+                Sdebug(s"Oops! Looks like ${c} is recursive!")
+                
+                val newRep = Box(Id,c.sr.rep).mkRep // create a new Rep to contain the recursion
+                
+                // Next time we try expanding the argument in the same context, we'll have to point to the newly-introduced recursive Rep
+                rewireParams += (getSR(newRep),originCtrl,param) -> newRep
+                Sdebug(s"rewiredCalls += (${newRep.bound},${originCtrl},${param}) -> ${newRep}")
+                
+                new SchCall(newRep, c.ctrl`;`param.ctrl, psr, Id)
+                // ^ We have to place the call in its nested context c.ctrl`;`param.ctrl; when we didn't do so, we used
+                //   to redo the first recursive iteration.
+                
+              } else {
+                
+                new SchCall(resRep, c.ctrl`;`param.ctrl, psr, originCtrl)
+                
+              }
               
               c.args += param -> schCall
-              //workList ::= schCall.sr
+              addWork_!(schCall.sr)
+              
+            // Handle case of rewired parameter
+            case None if rewireParams.isDefinedAt(psr,originCtrl,param) =>
+              val rwRep = rewireParams(psr,originCtrl,param)
+              val schCall = new SchCall(rwRep, c.ctrl`;`param.ctrl, psr, originCtrl) // FIXME? originCtrl
+              c.args += param -> schCall
               addWork_!(schCall.sr)
               
             case None =>
+              
+              //Sdebug(s"Not in rewiredCalls: (${psr.bound},${originCtrl},${param})")
               
               /* Because of tricky recursion patterns (like the one in HOR2), it doesn't seem possible to propagate a
                  branch as is even when it looks like it would not have changed... */
@@ -226,7 +264,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     Sdebug(s"\n\n\n=== Counting ===")
     moduleDefs.foreach(count)
     ///*
-    sreps.foreach { sr =>
+    mkSReps().foreach { sr =>
       Sdebug(s"[${if (sr.shouldBeScheduled) sr.usageCount else " "}] $sr")
     }
     //*/
@@ -342,7 +380,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       private[this] 
       //def call(r: Rep) = new SchCall(r, this)
-      def call(r: Rep) = new SchCall(r, Id, this)
+      def call(r: Rep) = new SchCall(r, Id, this, Id)
       //def call(r: Rep) = new SchCall(getSR(r), Id, this)
       //def call(r: Rep) = new SchCall(r, baseCtrl, this)
       
@@ -536,7 +574,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     }
     
     
-    class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep) extends SchArg {
+    /** `originCtrl` remembers in which context this call was made, so that if we encounter the same context later
+      * while filling in this call's arguments, we stop and factor out the recursion, instead of expanding the argument
+      * ad infinitum... */
+    class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep, val originCtrl: Control) extends SchArg {
       lazy val sr = getSR(r) also { sr => sr.init(); sr.usages ::= this }
       
       def freeVars: Set[Val] =
@@ -586,7 +627,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       override def toString = s"${sr.rep.bound}${if (ctrl === Id) "" else s"{$ctrl}"}(${args.map(a => 
         s"${if (a._1.ctrl === Id) "" else s"[${a._1.ctrl}]"}${a._1.branchVal}=${a._2 match {
           case br: SchParam => br.branchVal
-          case _ => a._2.toString
+          case c: SchCall => c.toString
         }
       }").mkString(", ")})"
       //}").mkString(", ")})<$ctrl>"

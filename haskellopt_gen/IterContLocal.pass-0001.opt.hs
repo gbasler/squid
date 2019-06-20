@@ -7,19 +7,27 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 23; Boxes: 6; Branches: 2
--- Apps: 5; Lams: 1; Unreduced Redexes: 0
+-- Total nodes: 59; Boxes: 8; Branches: 2
+-- Apps: 19; Lams: 1; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Main (main,rec,nats) where
+module Main (rec,nats,n3,main) where
 
+import GHC.Base
+import GHC.Classes
+import GHC.List
 import GHC.Num
+import GHC.Show
 import GHC.TopHandler
+import GHC.Types
 import System.Exit
+import System.IO
 
-main = (GHC.TopHandler.runMainIO System.Exit.exitSuccess)
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+
+n3 = ((GHC.List.take (GHC.Types.I# 3#)) nats)
 
 nats = (_0(# 0 #))
 

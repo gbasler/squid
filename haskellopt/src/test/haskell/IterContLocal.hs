@@ -4,11 +4,12 @@ module Main where
 
 import System.Exit
 
-main = exitSuccess
--- main =
---     if (take 3 nats) == [0,1,2]
---     -- then exitSuccess else exitFailure
---     then exitSuccess else do { print $ take 3 nats; exitFailure }
+-- main = exitSuccess
+main =
+    let n3 = take 3 nats in
+    if n3 == [0,1,2]
+    -- then exitSuccess else exitFailure
+    then exitSuccess else do { print n3; exitFailure }
 
 -- TODO:
 -- (count, nats) =

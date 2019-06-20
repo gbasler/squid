@@ -24,8 +24,12 @@ rec1_1 = rec1 (\k -> k) -- FIXME not reduced
 -- rec1_1 s0 = rec1 (\k s -> k s) s0 -- FIXME even less reduced!
 
 
--- FIXME diverges cf {-rec-}
--- rec2 f = rec where
---   rec = f (\x -> rec x)
--- rec2_0 = rec2 (\k -> k)
+-- I move the problematic example with local recursion to HigherOrderRecLocal.hs
+
+
+-- -- This seems to reduce and work, but it currently suffers from scope extrusion:
+-- rec3 f x = x : f (x + 1)
+-- rec3_0 = rec3 rec3_0
+-- -- take 3 (rec3_0 1) == [1,2,3]
+
 

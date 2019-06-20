@@ -35,7 +35,7 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
   }
-  test("HigherOrderRec2") { // FIXME the minimized minimization problem: due to passing f through each recursive call...
+  test("HigherOrderRec2") { // FIXME the minimized lack of reduction problem: due to passing f through each recursive call...
     TestHarness("HigherOrderRec2", dumpGraph = true)
     //TestHarness("HigherOrderRec2", dumpGraph = true, compileResult = false)
     //TestHarness("HigherOrderRec2", "0000"::Nil, dumpGraph = true)
@@ -54,6 +54,9 @@ class OptTests extends FunSuite {
   test("HigherOrderRec5") {
     // Note: it looks like the thing is not fully reduced (see k app), but I think it happens on an impossible branch...
     TestHarness("HigherOrderRec5")
+  }
+  test("HigherOrderRecLocal") {
+    TestHarness("HigherOrderRecLocal")
   }
   test("BuildFoldr") {
     TestHarness("BuildFoldr", dumpGraph = true)
@@ -79,7 +82,6 @@ class OptTests extends FunSuite {
   test("IterContLocal") {
     // TODO simplify case expressions
     // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
-    //TestHarness("IterContLocal") // FIXME SOF
     
     // FIXME SOF
     
@@ -91,10 +93,10 @@ class OptTests extends FunSuite {
     
     // FIXME scheduling diverges?! (new scheduler, with 0000; and old one just inserts wront {-rec-} defs)
     
-    //TestHarness("IterContLocal", exec = true)
+    TestHarness("IterContLocal", exec = true)
     //TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/)
     //TestHarness("IterContLocal", exec = true)
-    TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
+    //TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
     
   }
   
