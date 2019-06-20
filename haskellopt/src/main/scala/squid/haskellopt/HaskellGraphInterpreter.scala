@@ -78,8 +78,14 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
             case "(GHC.Num.*)" => CBNFun[Int](x => CBNFun[Int](x * _))
             case "(GHC.Num.-)" => CBNFun[Int](x => CBNFun[Int](x - _))
             case "(GHC.Real.^)" => CBNFun[Int](x => CBNFun[Int](y => Math.pow(x,y).toInt))
+            case "(GHC.Classes.>)" => CBNFun[Int](x => CBNFun[Int](y => conv(x > y)))
+            case "(GHC.Classes.&&)" => CBNFun[Data](x => CBNFun[Data](y => Data((x.ctor,y.ctor) match {
+              case ("True", "True") => "True"
+              case ("True", "False") | ("False", "True") | ("False", "False") => "False"
+            }, Nil)))
             case "(:)" => CBNFun[Top](x => CBNFun[Stream[Top]](xs => x #:: xs))
             case "[]" => L(Stream.empty)
+            case "(,)" => CBNFun[Top](x => CBNFun[Top](y => Data("(,)", x :: y :: Nil)))
             case "()" => L(Data("()", Nil))
             case "(GHC.Base.$)" => CBNFun[Top](id)
             case "System.IO.print" => CBNFun[Top](x => Idebug(s"System.IO.print(${x match {
@@ -99,6 +105,13 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
             case Rep(ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_))) =>
               lhs.node |>! { case ConcreteNode(StaticModule(con)) => (con,rhs) }
           }.collectFirst{ case (`c`, r2) => rec(r2) }.get
+        case MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_) =>
+          val Data(c,es) = get[Data](rec(scrut))
+          val Rep(ConcreteNode(StaticModule(conStr))) = con
+          require(conStr === c)
+          val Rep(ConcreteNode(Constant(i:Int))) = idx
+          val v = es(i)
+          L(v)
         case c: ConstantLike => L(c.value match {
           case b: Bool => conv(b)
           case v => v.asInstanceOf[Top]

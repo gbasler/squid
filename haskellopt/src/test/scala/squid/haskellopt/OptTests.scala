@@ -68,7 +68,7 @@ class OptTests extends FunSuite {
   test("IterCont2") {
     // Note: used to yield incorrect result [0,0,0] when we used the erroneous recursive call/arg kludge in the old scheduler
     
-    // FIXME not fully reduced: nats still constructs lambdas
+    // FIXME not fully reduced: nats still constructs k/s lambdas
     
     TestHarness("IterCont2", exec = true)
     
@@ -80,24 +80,16 @@ class OptTests extends FunSuite {
     //TestHarness("IterCont2", "0001"::Nil, opt = true)
   }
   test("IterContLocal") {
-    // TODO simplify case expressions
-    // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
-    
-    // FIXME SOF
-    
-    // FIXME looks like not totally reduced: see lambdas and application of k in nats -- it should have been counted in the stats!!
-    //    $95 = ↓;🚫;↓;↓$73 @ $11;
-    //    $73 = (f$6:6 ? 🚫;↓;↓$7 ¿ f$6);
-    //    $7 = (f$6:1 ? 🚫$27 ¿ $73);
-    //    $27 = {k$16 => $26};
-    
-    // FIXME scheduling diverges?! (new scheduler, with 0000; and old one just inserts wront {-rec-} defs)
-    
     TestHarness("IterContLocal", exec = true)
     //TestHarness("IterContLocal", "0000"::Nil/*, exec = true*/)
     //TestHarness("IterContLocal", exec = true)
     //TestHarness("IterContLocal", "0001"::Nil, exec = true) // works now!
-    
+  }
+  test("IterContLocal2") {
+    // TODO simplify case expressions
+    // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
+    // FIXME not fully-reduced! we still have k/s lambdas around -- why?
+    TestHarness("IterContLocal2", exec = true)
   }
   
 }

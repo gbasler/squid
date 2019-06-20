@@ -6,28 +6,9 @@ import System.Exit
 
 -- main = exitSuccess
 main =
-    let n3 = take 3 nats in
-    if n3 == [0,1,2]
-    -- then exitSuccess else exitFailure
+    let n3 = take 5 nats in
+    if n3 == [0,1,2,3,4]
     then exitSuccess else do { print n3; exitFailure }
-
--- TODO:
--- (count, nats) =
---     ( loop (\k s -> k (s + 1)) 0
---     , loop (\k s -> s : k (s + 1)) 0
---     ) where
---         loop f state =
---             f (\new_state -> loop f new_state) state
-
--- TODO:
--- (count, nats) =
---     ( loop (\k s -> k (s + 1)) 0
---     , loop (\k s -> s : k (s + 1)) 0
---     ) where
---     -- loop f state =
---     --     f (\new_state -> loop f new_state) state
---     loop f state = rec state where
---         rec state = (\new_state -> loop f new_state) state
 
 -- FIXME generates inf (+1) loop
 -- nats =
@@ -35,7 +16,7 @@ main =
 --         loop f state =
 --             f (\new_state -> loop f new_state) state
 
--- Simpler version, to debug
+-- Simpler version, to debug:
 nats =
     -- loop (\k s -> s : k s) 0 where
     loop (\k s -> s : k (s + 1)) 0 where

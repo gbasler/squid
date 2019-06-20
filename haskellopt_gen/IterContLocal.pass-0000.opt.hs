@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 86; Boxes: 17; Branches: 10
--- Apps: 22; Lams: 3; Unreduced Redexes: 1
+-- Total nodes: 94; Boxes: 17; Branches: 10
+-- Apps: 26; Lams: 3; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -20,9 +20,9 @@ import GHC.Types
 import System.Exit
 import System.IO
 
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) [])))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
-n3 = ((GHC.List.take (GHC.Types.I# 3#)) nats)
+n3 = ((GHC.List.take (GHC.Types.I# 5#)) nats)
 
 nats = (_6(# (_5(# (_4(# (_3(# (_2(# (_1(# _0 #)) #)) #)) #)) #)), (_1(# _0 #)) #))
 
