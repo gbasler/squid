@@ -66,7 +66,7 @@ class OptTests extends FunSuite {
     // FIXME scheduling diverges
     //TestHarness("IterCont", dumpGraph = true, exec = true)
     //TestHarness("IterCont", "0000"::Nil, dumpGraph = true, compileResult = false, exec = true) // FIXME now infinite type error in hs
-    //TestHarness("IterCont", "0001"::Nil, exec = true)
+    TestHarness("IterCont", "0001"::Nil, exec = true)
   }
   test("IterCont2") {
     // Note: used to yield incorrect result [0,0,0] when we used the erroneous recursive call/arg kludge in the old scheduler

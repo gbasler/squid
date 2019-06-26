@@ -156,15 +156,19 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               // FIXME: this only detects directly-recursive arguments... we need detection across several nestings of calls...
               // TODO enhance this process to also factor out the first recursive iteration, which is currently unrolled
               val schCall = if ((c.sr.rep,c.originCtrl) === (resRep,originCtrl)) {
+              //val schCall = if (psr.allChildren.exists(c => (c.sr.rep,c.originCtrl) === (resRep,originCtrl))) {
+                // ^ FIXME need better recursive call detection: this triggers even for sibling calls (not only NESTED ones), which messes things up!
                 
                 Sdebug(s"Oops! Looks like ${c} is recursive!")
                 
                 val newRep = Box(Id,c.sr.rep).mkRep // create a new Rep to contain the recursion
                 
                 // Next time we try expanding the argument in the same context, we'll have to point to the newly-introduced recursive Rep
-                rewireParams += (getSR(newRep),originCtrl,param) -> newRep
-                Sdebug(s"rewiredCalls += (${newRep.bound},${originCtrl},${param}) -> ${newRep}")
-                
+                //rewireParams += (getSR(newRep),originCtrl,param) -> newRep
+                rewireParams += (getSR(newRep),Id,param) -> newRep // Note: Id here probably fine as there is no nesting
+                //Sdebug(s"rewiredCalls += (${newRep.bound},${originCtrl},${param}) -> ${newRep}")
+                Sdebug(s"rewiredCalls += (${newRep.bound},${c.ctrl},${param}) -> ${newRep}")
+                assert(c.ctrl === Id)
                 new SchCall(newRep, c.ctrl`;`param.ctrl, psr, Id)
                 // ^ We have to place the call in its nested context c.ctrl`;`param.ctrl; when we didn't do so, we used
                 //   to redo the first recursive iteration.
@@ -178,9 +182,14 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               c.args += param -> schCall
               addWork_!(schCall.sr)
               
-            // Handle case of rewired parameter
-            case None if rewireParams.isDefinedAt(psr,originCtrl,param) =>
-              val rwRep = rewireParams(psr,originCtrl,param)
+            //case None if rewireParams.isDefinedAt(psr,originCtrl,param) =>
+            //  val rwRep = rewireParams(psr,originCtrl,param)
+            case None if rewireParams.isDefinedAt(psr,c.ctrl,param) =>
+              // Handle case of rewired parameter
+              
+              Sdebug(s"Found in rewiredCalls: (${psr.bound},${c.ctrl},${param})")
+              
+              val rwRep = rewireParams(psr,c.ctrl,param)
               val schCall = new SchCall(rwRep, c.ctrl`;`param.ctrl, psr, originCtrl) // FIXME? originCtrl
               c.args += param -> schCall
               addWork_!(schCall.sr)
@@ -188,6 +197,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
             case None =>
               
               //Sdebug(s"Not in rewiredCalls: (${psr.bound},${originCtrl},${param})")
+              Sdebug(s"Not in rewiredCalls: (${psr.bound},${c.ctrl},${param})")
+              Sdebug(s"Not: (${param.ctrl}")
               
               /* Because of tricky recursion patterns (like the one in HOR2), it doesn't seem possible to propagate a
                  branch as is even when it looks like it would not have changed... */
@@ -290,7 +301,9 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     var nestedCount = 0
     
     /** defs: association between sub-scopes to what to bind in them */
-    def nestDefs(sd: SchExp, defs: List[Set[Val] -> SchedulableRep]): Unit = sd match {
+    def nestDefs(sd: SchedulableRep, defs: List[Set[Val] -> SchedulableRep]): Unit =
+    //Sdebug(s"Nest $sd") thenReturn HaskellScheduleDebug.nestDbg
+    { sd.exp match {
       //case lam @ SchLam(p, _, bs, b) =>
       case lam @ SchLam(p, b) =>
         val (toScheduleNow,toPostpone) = CollectionUtils.TraversableOnceHelper(defs).mapSplit {
@@ -298,13 +311,14 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
             val fvs2 = fvs - p
             if (fvs2.isEmpty) Left(sd) else Right(fvs2 -> sd)
         }
-        toScheduleNow.foreach { d => nestedCount += 1; nestDefs(d.exp, toPostpone); lam.bindings ::= d }
+        toScheduleNow.foreach { d => nestedCount += 1; nestDefs(d , toPostpone); lam.bindings ::= d }
         //bs.foreach(b => nestDefs(b._2, toPostpone))
-        nestDefs(b.sr.exp, toPostpone)
-      case _ => sd.directCalls.filter(_.sr.willBeInlined).map(_.sr.exp).foreach(nestDefs(_, defs)) // FIXME variables bound by `case`?!
-    }
+        if (b.sr.willBeInlined)
+          nestDefs(b.sr, toPostpone)
+      case _ => sd.exp.directCalls.filter(_.sr.willBeInlined).map(_.sr).foreach(nestDefs(_, defs)) // FIXME variables bound by `case`?!
+    }}
     val toNest = nestedReps.map { case r => r.nestingScope -> r }
-    topLevelReps.map(_.exp).foreach(nestDefs(_, toNest))
+    topLevelReps.foreach(nestDefs(_, toNest))
     softAssert(nestedCount === toNest.size, s"${nestedCount} === ${toNest.size}")
     
     Sdebug(s"\n\n\n=== Done. ===\n")

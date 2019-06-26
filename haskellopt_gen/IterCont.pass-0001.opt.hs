@@ -7,20 +7,36 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 38; Boxes: 11; Branches: 9
--- Apps: 4; Lams: 5; Unreduced Redexes: 1
+-- Total nodes: 108; Boxes: 17; Branches: 5
+-- Apps: 32; Lams: 4; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module IterCont (loop,dont) where
+module Main (count,loop,main,rec,nats,n3) where
 
+import GHC.Base
+import GHC.Classes
+import GHC.List
 import GHC.Num
+import GHC.Show
+import GHC.TopHandler
+import GHC.Types
+import System.Exit
+import System.IO
 
-dont = (((GHC.Num.+) 0) 1)
+count = (_0(# 5 #))
 
-loop = (\f -> (\state -> (_1(# (_0(# f #)), state #))))
+_0(# s #) = (case (((GHC.Classes.>) s) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) s) 1) #))) (GHC.Types.I# 1#))})
 
-_1(# f', state' #) = (f' state')
+loop = (\f -> let { _1(# s' #) = ((f (\s'2 -> (_1(# s'2 #)))) s') } in (\state -> (_1(# state #))))
 
-_0(# f'2 #) = (f'2 (\new_state -> (_1(# (_0(# f'2 #)), new_state #))))
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+
+n3 = ((GHC.List.take count) nats)
+
+nats = (_2(# 0 #))
+
+_2(# s'3 #) = (((:) s'3) (_2(# (((GHC.Num.+) s'3) 1) #)))
+
+rec = (\s'4 -> (_2(# s'4 #)))
