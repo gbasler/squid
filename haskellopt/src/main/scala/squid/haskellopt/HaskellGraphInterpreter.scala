@@ -66,6 +66,7 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
           Idebug(s"Module $modName")
           modName match {
             case "GHC.TopHandler.runMainIO" => CBNFun[Top](get[Top](_))
+            case "GHC.Base.id" => CBNFun[Top](e => e)
             case "(GHC.Base.>>)" => CBNFun[Top](e => {get(e);id})
             case "(GHC.Classes.==)" => CBNFun((x:Top) => CBNFun((y:Top) => {
               val lhs = get[Top](x)

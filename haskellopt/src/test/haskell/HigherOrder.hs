@@ -28,6 +28,11 @@ iTest1 = i (\f -> f 11 + f 22) 66
 f0 = \f -> f 11 + f 22
 iTest2 = i f0 (i f0 77)
 
+-- minimized version of abve that exposes two sibling calls to the same def:
+-- -- i f = f (+1) + f (*2)
+-- i f = f (1+) + f (2*)
+-- iTest0 = i (\f -> 0)
+
 
 ls1 = (lol 11 22 +)
 
