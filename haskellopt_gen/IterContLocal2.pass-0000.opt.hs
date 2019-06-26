@@ -2,7 +2,7 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 186; Boxes: 31; Branches: 22
+-- Total nodes: 181; Boxes: 29; Branches: 20
 -- Apps: 49; Lams: 5; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -22,29 +22,29 @@ import System.IO
 
 count = (case ds of {(,) arg0 arg1 -> arg0})
 
-ds = (((,) (_1(# (_7(# (_3(# (_2(# (\k -> (\s -> (_1(# (k (_0(# s #))), s #)))) #)) #)), (_4(# (_6(# (_0(# (_5(# (_4(# 3 #)) #)) #)) #)) #)) #)), (_5(# (_4(# 3 #)) #)) #))) (_9(# (_7(# (_3(# (_2(# (\k' -> (\s' -> (_9(# (k' (_8(# s' #))), s' #)))) #)) #)), (_4(# (_6(# (_8(# (_10(# (_4(# (GHC.Types.I# 0#) #)) #)) #)) #)) #)) #)), (_10(# (_4(# (GHC.Types.I# 0#) #)) #)) #)))
+ds = (((,) (_5(# (_4(# (_3(# (_2(# (_1(# _0 #)) #)) #)) #)), (_1(# _0 #)) #))) (_10(# (_9(# (_8(# (_7(# (_1(# _6 #)) #)) #)) #)), (_1(# _6 #)) #)))
 
-_1(# k'2, s'2 #) = (case (((GHC.Classes.>) s'2) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) k'2) (GHC.Types.I# 1#))})
+_5(# f, state #) = (case (((GHC.Classes.>) (_2(# state #))) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) f) (GHC.Types.I# 1#))})
 
-_7(# f, state #) = (f state)
+_4(# state' #) = (_5(# (_4(# (_3(# (_2(# state' #)) #)) #)), state' #))
 
-_3(# f' #) = (f' (\new_state -> (_7(# (_3(# (_2(# f' #)) #)), (_4(# (_6(# new_state #)) #)) #))))
+_3(# s #) = (((GHC.Num.-) s) 1)
 
-_2(# f'2 #) = f'2
+_2(# state'2 #) = state'2
 
-_4(# state' #) = state'
+_1(# state'3 #) = state'3
 
-_6(# new_state' #) = new_state'
+_0 = 3
 
-_0(# s'3 #) = (((GHC.Num.-) s'3) 1)
+_10(# f', state'4 #) = (((:) (_7(# state'4 #))) f')
 
-_5(# state'2 #) = state'2
+_9(# state'5 #) = (_10(# (_9(# (_8(# (_7(# state'5 #)) #)) #)), state'5 #))
 
-_9(# k'3, s'4 #) = (((:) s'4) k'3)
+_8(# s' #) = (((GHC.Num.+) s') (GHC.Types.I# 1#))
 
-_8(# s'5 #) = (((GHC.Num.+) s'5) (GHC.Types.I# 1#))
+_7(# state'6 #) = state'6
 
-_10(# state'3 #) = state'3
+_6 = (GHC.Types.I# 0#)
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.&&) (((GHC.Classes.==) n3) (((:) (GHC.Types.I# 0#)) (((:) (GHC.Types.I# 1#)) (((:) (GHC.Types.I# 2#)) (((:) (GHC.Types.I# 3#)) (((:) (GHC.Types.I# 4#)) []))))))) (((GHC.Classes.==) count) (GHC.Types.I# 3#))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 

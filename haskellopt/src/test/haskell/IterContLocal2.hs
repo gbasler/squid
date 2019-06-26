@@ -1,4 +1,4 @@
--- Like IterContLocal2, but with `loop` used twice to make two recursive defs
+-- Like IterContLocal, but with `loop` used twice to make two recursive defs
 -- module IterCont where
 module Main where
 
@@ -22,8 +22,8 @@ nats :: [Int]
     --     f (\new_state -> loop f new_state) state
     -- A version of loop that reduces fully:
     loop f state = rec state where
-        rec state = f (\new_state -> loop f new_state) state  -- FIXME later divergence when we remove outer `f` call
-        -- rec state = f rec state -- FIXME sch diverges when using this version
+        -- rec state = f (\new_state -> loop f new_state) state  -- FIXME-later: divergence when we remove outer `f` call
+        rec state = f rec state -- FIXME sch diverges when using this version
 
 
 

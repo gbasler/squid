@@ -35,13 +35,13 @@ class OptTests extends FunSuite {
     //TestHarness("HigherOrderRec", "0000"::Nil)
     //TestHarness("HigherOrderRec", "0001"::Nil)
   }
-  test("HigherOrderRec2") { // FIXME the minimized lack of reduction problem: due to passing f through each recursive call...
+  test("HigherOrderRec2") { // FIXME-later: the minimized lack of reduction problem: due to passing f through each recursive call...
     TestHarness("HigherOrderRec2", dumpGraph = true)
     //TestHarness("HigherOrderRec2", dumpGraph = true, compileResult = false)
     //TestHarness("HigherOrderRec2", "0000"::Nil, dumpGraph = true)
   }
   test("HigherOrderRec3") {
-    // FIXME not fully reduced?: see k app
+    // FIXME-later: not fully reduced?: see k app -- probably same reason as HigherOrderRec2
     TestHarness("HigherOrderRec3")
     
     //TestHarness("HigherOrderRec3", "0000"::Nil)
@@ -62,19 +62,15 @@ class OptTests extends FunSuite {
     TestHarness("BuildFoldr", dumpGraph = true)
     //TestHarness("BuildFoldr", dumpGraph = true, compileResult = false)
   }
-  test("IterCont") {
-    // FIXME scheduling diverges
-    //TestHarness("IterCont", dumpGraph = true, exec = true)
-    //TestHarness("IterCont", "0000"::Nil, dumpGraph = true, compileResult = false, exec = true) // FIXME now infinite type error in hs
-    TestHarness("IterCont", "0001"::Nil, exec = true)
+  test("IterCont") { // used to have dumpGraph = true, but now that I added code in this test, the graph has become pretty big
+    TestHarness("IterCont", exec = true)
+    //TestHarness("IterCont", "0000"::Nil, compileResult = false, exec = true)
+    //TestHarness("IterCont", "0001"::Nil, exec = true)
   }
   test("IterCont2") {
     // Note: used to yield incorrect result [0,0,0] when we used the erroneous recursive call/arg kludge in the old scheduler
-    
-    // FIXME not fully reduced: nats still constructs k/s lambdas, because of the threading of `f` hrough recursive calls...
-    
+    // FIXME-later: not fully reduced: nats still constructs k/s lambdas, because of the threading of `f` hrough recursive calls...
     TestHarness("IterCont2", exec = true)
-    
     //TestHarness("IterCont2", "0000"::Nil, exec = true) // Note: for pass 0001, the old scheduler generates a program that never terminates...
     //TestHarness("IterCont2", "0000"::Nil, exec = true, compileResult = false)
     //TestHarness("IterCont2", "0000"::Nil, exec = true)
@@ -90,11 +86,11 @@ class OptTests extends FunSuite {
   }
   test("IterContLocal2") {
     // TODO simplify case expressions
-    // TODO simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
-    // FIXME not fully-reduced! we still have k/s lambdas around -- why?
+    // TODOlater: simplify control-flow by some limited duplication, to avoid mostly useless and complicated sharing structures
+    //             [Note: after fixing many problems, it's not that complicated anymore, though]
     TestHarness("IterContLocal2", exec = true)
     //TestHarness("IterContLocal2", "0000"::Nil, exec = true)
-    //TestHarness("IterContLocal2", "0001"::Nil, exec = true) // FIXME not reduced: _4 = (\k -> k) in nats
+    //TestHarness("IterContLocal2", "0001"::Nil, exec = true)
   }
   
 }

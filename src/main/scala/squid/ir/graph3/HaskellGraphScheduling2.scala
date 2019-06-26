@@ -121,12 +121,17 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         Sdebug(s"Parent [$pctrl] ${psr}")
         HaskellScheduleDebug nestDbg sr.params.foreach { case (br, param) =>
           //Sdebug(s"Param ${param}")
+          val outerCalls = c -> param :: c.outerCalls
+          Sdebug(s"Outer:${outerCalls.map(oc => "\n\t"+oc._1.sr.bound+"::"+oc._2.branchVal+"="+oc._1.originCtrl).mkString(" ")}")
+          
           if (!c.args.contains(param)) {
             Sdebug(s"Param $br${param} not yet in call ${c}")
             //Sdebug(s"Param $br${param} not yet in call ${c}  [param.ctrl:${param.ctrl} c.ctrl:${c.ctrl}]")
             //assert(c.ctrl === param.ctrl, s"${c.ctrl} ${param.ctrl}") // nope
             
-            val originCtrl = c.ctrl`;`br.ctrl
+            //val originCtrl = c.ctrl`;`br.ctrl
+            val originCtrl = pctrl`;`c.ctrl`;`br.ctrl // no reason not to include pctrl after all...
+            Sdebug(s"originCtrl = $originCtrl")
             
             //val ctrl = pctrl `;` br.ctrl
             //Sdebug(s"? ${pctrl} ; ${br.ctrl} ? ${br.cid}")
@@ -153,11 +158,37 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               
               Sdebug(s"Resolved  ${br}  ($cnd) -->  ${resRep}")
               
-              // FIXME: this only detects directly-recursive arguments... we need detection across several nestings of calls...
-              // TODO enhance this process to also factor out the first recursive iteration, which is currently unrolled
-              val schCall = if ((c.sr.rep,c.originCtrl) === (resRep,originCtrl)) {
-              //val schCall = if (psr.allChildren.exists(c => (c.sr.rep,c.originCtrl) === (resRep,originCtrl))) {
-                // ^ FIXME need better recursive call detection: this triggers even for sibling calls (not only NESTED ones), which messes things up!
+              //val schCall = if ((c.sr.rep,c.originCtrl) === (resRep,originCtrl)) { // detected only direct recursion, not nested ones
+              val schCall = if (outerCalls.exists(oc => (oc._1.sr.rep === resRep) && oc._1.originCtrl === originCtrl)) {
+                
+                // FIXME should probably test that the originCtrl on every element of the repeated chain is the same as
+                //       the corresponding call; not just the last one
+                
+                // TODO Enhance this process to also factor out the first recursive iteration, which is currently unrolled.
+                //      To do this, refactor class SchCall(var call: Call); wipe out the var with a new call and
+                //      reconstruct the recursive part in the new def.
+                //      Technicality: how to deal with sibling parameters that were already added?
+                
+                // Note: I used to think that we needed to index things with the current param, but I'm not sure it's a
+                //       good idea anymore, because some calls do not actually arise from a param (such as the top-level
+                //       calls in expressions). Relatedly, notice that the parameter component in outerCalls corresponds
+                //       to the parameter _in the call_, which gives rise to the next call in the chain.
+                
+                /*
+                
+                Recursion Extrusion.
+                
+                This part of the algorithm is fairly tricky, and I'm not certain it's correct. It essentially relies on
+                Assumed property: given controls a,b,c, if a;b;c == a;b;b;c, then a;b;c == a;b^n;c for any n > 0...
+                  Here, a is the parent and outer controls, b is the repeated controls of the chain of calls, and c is
+                  the branch control
+                This is what allows us to conclude that if a chain of nested calls always resolves with the same result,
+                because when testing the branch, all the controls collapse to the same thing, then we assume it's an
+                infinite chain of nested calls and we manually extrude the recursion into its own recursive definition.
+                Note: including c in this test turns out to be crucial, as most of the time a;b^n itself only grows (with
+                      a repeated pattern) and never collapses until it's applied to c.
+                
+                */
                 
                 Sdebug(s"Oops! Looks like ${c} is recursive!")
                 
@@ -168,14 +199,13 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
                 rewireParams += (getSR(newRep),Id,param) -> newRep // Note: Id here probably fine as there is no nesting
                 //Sdebug(s"rewiredCalls += (${newRep.bound},${originCtrl},${param}) -> ${newRep}")
                 Sdebug(s"rewiredCalls += (${newRep.bound},${c.ctrl},${param}) -> ${newRep}")
-                assert(c.ctrl === Id)
-                new SchCall(newRep, c.ctrl`;`param.ctrl, psr, Id)
+                new SchCall(newRep, c.ctrl`;`param.ctrl, psr, outerCalls, Id)
                 // ^ We have to place the call in its nested context c.ctrl`;`param.ctrl; when we didn't do so, we used
                 //   to redo the first recursive iteration.
                 
               } else {
                 
-                new SchCall(resRep, c.ctrl`;`param.ctrl, psr, originCtrl)
+                new SchCall(resRep, c.ctrl`;`param.ctrl, psr, outerCalls, originCtrl)
                 
               }
               
@@ -190,7 +220,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               Sdebug(s"Found in rewiredCalls: (${psr.bound},${c.ctrl},${param})")
               
               val rwRep = rewireParams(psr,c.ctrl,param)
-              val schCall = new SchCall(rwRep, c.ctrl`;`param.ctrl, psr, originCtrl) // FIXME? originCtrl
+              val schCall = new SchCall(rwRep, c.ctrl`;`param.ctrl, psr, outerCalls, originCtrl) // FIXME? originCtrl
               c.args += param -> schCall
               addWork_!(schCall.sr)
               
@@ -218,7 +248,8 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
                   //param.ctrl`;`c.ctrl,
                   //param.ctrl`;`pctrl`;`c.ctrl,
                   c.ctrl`;`param.ctrl,
-                  param.branchVal.renew) // TODO don't create new param if not necessary
+                  param.branchVal.renew,
+                ) // TODOmaybe don't create new param if not necessary [though when I tried last time it didn't work -- see above]
                 Sdebug(s"New param ${newParam} for $newBranch")
                 //assert(!psr.params.contains(newBranch))
                 (newBranch,newParam)
@@ -394,7 +425,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       private[this] 
       //def call(r: Rep) = new SchCall(r, this)
-      def call(r: Rep) = new SchCall(r, Id, this, Id)
+      def call(r: Rep) = new SchCall(r, Id, this, Nil, Id)
       //def call(r: Rep) = new SchCall(getSR(r), Id, this)
       //def call(r: Rep) = new SchCall(r, baseCtrl, this)
       
@@ -588,11 +619,19 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     }
     
     
-    /** `originCtrl` remembers in which context this call was made, so that if we encounter the same context later
+    /** `ctrl` represents the accumulated controls of all parameters of the chain of calls inside of which this call is nested
+      * `originCtrl` is the ctrl of the call's parent PLUS the control of the branch of the param that was resolved yielding this call 
+      * Basically, `originCtrl` remembers in which context this call was made, so that if we encounter the same context later
       * while filling in this call's arguments, we stop and factor out the recursion, instead of expanding the argument
-      * ad infinitum... */
-    class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep, val originCtrl: Control) extends SchArg {
+      * ad infinitum...
+      * `outerCalls` is the (inside-out) chain of each outer call along with the parameter that led to the next call in the chain. */
+    class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep, val outerCalls: List[SchCall -> Param], val originCtrl: Control) extends SchArg {
       lazy val sr = getSR(r) also { sr => sr.init(); sr.usages ::= this }
+      
+      if (HaskellScheduleDebug.isDebugEnabled)
+        assert(ctrl === outerCalls.foldLeft(Id:Control){
+          case (cur,(p,c)) => p.ctrl `;` cur
+        })
       
       def freeVars: Set[Val] =
         // We should look at the arguments even if the def is inlined; see allScheduledCalls
@@ -638,7 +677,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         }
       }
       
-      override def toString = s"${sr.rep.bound}${if (ctrl === Id) "" else s"{$ctrl}"}(${args.map(a => 
+      override def toString = s"${sr.rep.bound}${
+        //if (ctrl === Id) "" else s"{$ctrl}"
+        "" // ctrl is pretty much redundant, and showing it greatly bloats debugging outputs
+      }(${args.map(a =>
         s"${if (a._1.ctrl === Id) "" else s"[${a._1.ctrl}]"}${a._1.branchVal}=${a._2 match {
           case br: SchParam => br.branchVal
           case c: SchCall => c.toString
