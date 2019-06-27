@@ -386,6 +386,7 @@ trait GraphRewriting extends AST { graph: Graph =>
   */
   type BetaRedKey = (List[(CallId,Bool,Rep)],Abs)
   val betaReduced = mutable.Map.empty[Rep,mutable.Set[BetaRedKey]].withDefault(_ => mutable.Set.empty)
+  // ^ TODO: instead of this awkward 'betaReduced' cache, use proper recursion markers and an unrolling limit
   
   def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
@@ -412,7 +413,12 @@ trait GraphRewriting extends AST { graph: Graph =>
       //println(s"$cctx\n${rep}")
       
       /** This version of beta-red duplicates the application all over the place in case there is more than one branch... */
-      def betaRed_duplicating(absPath: AbsPath, arg: Rep): Node = {
+      // This doesn't currently work with the 'betaReduced' cache, as it creates new application nodes that we don't keep track of
+      // Note: This previously worked when we didn't store the current 'rep' as a key in 'betaReduced', but that probably resulted
+      //       in a lack of reduction --- or at least, it does with the other betared version --- maybe it wouldn't with this one...?
+      // Note: still, for non-higher-order-recursive programs, this seemed to generate cleaner scheduled programs...
+      def betaRed_duplicating(absPath: AbsPath, arg: Rep, key: Option[BetaRedKey]): Node = {
+        //betaReduced(rep) ++= key  // does not actually work
         val (conds,ctrl,fun) = absPath
         conds.foldRight ({
           substituteVal(fun.body, fun.param, arg, ctrl).node // fine (no duplication) because substituteVal creates a fresh Rep...
@@ -441,6 +447,7 @@ trait GraphRewriting extends AST { graph: Graph =>
             newBody
             
           // It seems that even this seemingly inoffensive version of the previous beta-red causes problems with the scheduler later on...
+          // In fact, it also even seems to create cid mismatches, as in "Cannot compare unrelated call identifiers"
           /*
           case (viaCtrl0,ctrl0,cid0,isLHS0,other0) :: Nil =>
             // Reconstruct the application nodes of the branch, if single
