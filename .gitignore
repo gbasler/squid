@@ -25,6 +25,7 @@ haskellopt/src/test/haskell/*.dump-*
 haskellopt_gen/*.hi
 haskellopt_gen/*.o
 haskellopt_gen/*.opt
+haskellopt_gen/bench/*
 haskellopt/src/test/haskell/*.hi
 haskellopt/src/test/haskell/*.o
 

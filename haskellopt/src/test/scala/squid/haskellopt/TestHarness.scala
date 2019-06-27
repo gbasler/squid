@@ -3,7 +3,7 @@ package squid.haskellopt
 import squid.utils._
 import ammonite.ops._
 
-object TestHarness {
+class TestHarness {
   
   val dumpFolder = pwd/'haskellopt/'target/'dump
   val genFolder = pwd/'haskellopt_gen
@@ -133,6 +133,7 @@ object TestHarness {
   
 }
 object Clean extends App {
+  object TestHarness extends TestHarness
   println(s"Cleaning...")
   ls(TestHarness.dumpFolder) |? (_.ext === "md5") |! { p => println(s"Removing $p"); os.remove(p) }
 }

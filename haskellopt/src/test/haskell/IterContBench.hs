@@ -17,7 +17,7 @@ sumnats n = sum (take (count n) nats)
 
 main = defaultMain [
   bgroup "sumnats" [
-    bench "10"  $ whnf sumnats 10
+      bench "10"  $ whnf sumnats 10
     , bench "500"  $ whnf sumnats 500
     , bench "10000" $ whnf sumnats 10000
   ]]

@@ -4,6 +4,7 @@ import squid.utils._
 import org.scalatest.FunSuite
 
 class OptTests extends FunSuite {
+  object TestHarness extends TestHarness
   
   test("Lists") {
     //pipeline("haskellopt/target/dump/Lists.pass-0000.cbor")
