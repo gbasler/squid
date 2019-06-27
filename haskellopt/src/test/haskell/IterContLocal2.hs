@@ -23,6 +23,7 @@ nats :: [Int]
     -- A version of loop that reduces fully:
     loop f state = rec state where
         -- rec state = f (\new_state -> loop f new_state) state  -- FIXME-later: divergence when we remove outer `f` call
+        -- rec state = f (\new_state -> rec new_state) state  -- TODO try this eta-expanded version...
         rec state = f rec state -- FIXME sch diverges when using this version
 
 

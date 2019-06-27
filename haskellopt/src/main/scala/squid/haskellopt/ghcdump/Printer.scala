@@ -29,6 +29,6 @@ object Printer extends Interpreter {
   
   def LitInteger(n: Int): Lit = n.toString
   def MachInt(n: Int): Lit = n.toString
-  def LitString(s: String): Lit = '"' + s + '"'
+  def MachStr(s: String): Lit = '"' + s + '"'
   
 }

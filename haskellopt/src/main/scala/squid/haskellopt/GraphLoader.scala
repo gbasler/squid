@@ -149,7 +149,7 @@ class GraphLoader {
       
       def LitInteger(n: Int): Lit = Graph.Constant(n)
       def MachInt(n: Int): Lit = Graph.CrossStageValue(n, UnboxedMarker)
-      def LitString(s: String): Lit = Graph.Constant(s)
+      def MachStr(s: String): Lit = Graph.CrossStageValue(s, UnboxedMarker)
       
     }
     val mod = ghcdump.Reader(dump, GraphDumpInterpreter)

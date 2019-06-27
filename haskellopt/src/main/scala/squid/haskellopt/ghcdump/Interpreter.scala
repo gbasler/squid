@@ -65,14 +65,14 @@ abstract class Interpreter {
   
   def LitInteger(n: Int): Lit
   def MachInt(n: Int): Lit
-  def LitString(s: String): Lit
+  def MachStr(s: String): Lit
   
   def ExternalName(e: Element): ExternalName = e match {
     case Arr(IntElem(0), StringElem(externalModuleName), StringElem(externalName), BinderId(externalUnique)) =>
       ExternalName(externalModuleName, externalName, externalUnique)
   }
   def Lit(e: Element): Lit = e match {
-    case Arr(IntElem(1), ByteArrayElem(s)) => LitString(s.map(_.toChar).mkString)
+    case Arr(IntElem(1), ByteArrayElem(s)) => MachStr(s.map(_.toChar).mkString)
     case Arr(IntElem(3), IntElem(n)) => MachInt(n)
       
     // These come up in the context of data types and type classes:

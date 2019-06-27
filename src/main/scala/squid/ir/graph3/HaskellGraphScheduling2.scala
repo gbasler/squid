@@ -554,6 +554,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         case Constant(n: Int) => n.toString
         case Constant(s: String) => '"'+s+'"'
         case CrossStageValue(n: Int, UnboxedMarker) => s"$n#"
+        case CrossStageValue(str: String, UnboxedMarker) => "\""+str+"\"#"
         case sm: StaticModule => sm.fullName
       }
       override def toString = value.toString
