@@ -92,7 +92,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
     
     def allChildren: mutable.Set[Rep] = {
       val traversed = mutable.Set.empty[Rep]
-      var workList = List(this)
+      var workList = this :: Nil
       while (workList.nonEmpty) {
         val cur = workList.head
         workList = workList.tail
@@ -144,6 +144,11 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   }
   def printNode(n: Node) = (new DefPrettyPrinter)(n)
   
+  object ConcreteRep {
+    def unapply(arg: Rep): Opt[Def] = arg |>? {
+      case Rep(ConcreteNode(d)) => d
+    }
+  }
   case class ConcreteNode(dfn: Def) extends Node {
     def typ: TypeRep = dfn.typ
     def children = dfn.children

@@ -7,7 +7,7 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 57; Boxes: 18; Branches: 10
+-- Total nodes: 59; Boxes: 19; Branches: 11
 -- Apps: 6; Lams: 6; Unreduced Redexes: 2
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -28,18 +28,14 @@ rec0_0 = GHC.Base.id
 
 rec7 = (\g -> (_2(# (_1(# g #)) #)))
 
-_2(# g' #) = (\ds' -> (_3(# ds', g' #)))
+_2(# g' #) = (\ds' -> (case ds' of {() -> g'}))
 
-_1(# g'2 #) = (g'2 (_3(# _4, (_1(# (_5(# g'2 #)) #)) #)))
+_1(# g'2 #) = (g'2 (_1(# (_3(# g'2 #)) #)))
 
 rec7Test0 = (_2(# (_1(# ((GHC.Num.+) 1) #)) #))
 
-rec7Test1 = (_2(# (_6(# (_3(# _4, (_1(# (_5(# (\ds'2 -> (_6(# ds'2 #))) #)) #)) #)) #)) #))
+rec7Test1 = (_2(# (_4(# (_1(# (_3(# (\ds'2 -> (_4(# ds'2 #))) #)) #)) #)) #))
 
-_6(# ds'3 #) = (((GHC.Num.*) ds'3) ds)
+_4(# ds'3 #) = (((GHC.Num.*) ds'3) ds)
 
-_3(# ds'4, g'3 #) = (case ds'4 of {() -> g'3})
-
-_4 = ()
-
-_5(# g'4 #) = g'4
+_3(# g'3 #) = g'3

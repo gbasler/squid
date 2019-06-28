@@ -19,6 +19,11 @@ class OptTests extends FunSuite {
     //TestHarness("Basics", exec = true)
     //TestHarness("Basics", "0000"::Nil)
   }
+  test("PatMat") {
+    // -- TODO optimize across case branches
+    TestHarness("PatMat")
+    //TestHarness("PatMat", "0000"::Nil)
+  }
   test("HigherOrder") {
     TestHarness("HigherOrder")
     //TestHarness("HigherOrder", "0000"::Nil)

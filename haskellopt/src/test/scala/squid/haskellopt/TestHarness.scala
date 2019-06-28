@@ -48,7 +48,13 @@ class TestHarness {
       
       //Thread.sleep(200)
       
-    } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false)))
+    } while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false))
+      || go.Graph.simplifyHaskell(mod.toplvlRep).exists { r => // FIXME rewrite several in a row?
+        if (go.Graph.RewriteDebug.isDebugEnabled) {
+          println(s"Rewrote $r")
+        }
+        true
+      })
     
     /* Tries reducing some more...: */
     //go.Graph.betaReduced.clear()

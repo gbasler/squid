@@ -114,6 +114,118 @@ abstract class HaskellGraph extends Graph {
   
   
   
+  object Applies {
+    def unapply(rep: Rep): Some[Rep -> List[Rep]] = {
+      def go(rep: Rep): Rep -> List[Rep] = rep match {
+        case ConcreteRep(Apply(fun, arg)) => go(fun) ||> (_2 = arg :: _)
+        case r => r -> Nil
+      }
+      val (f, as) = go(rep)
+      Some(f -> as.reverse)
+    }
+  }
+  
+  type RedKey = (List[(CallId,Bool,Rep)],Rep)
+  val reduced = mutable.Map.empty[Rep,mutable.Set[RedKey]].withDefault(_ => mutable.Set.empty)
+  
+  // TODO use this simpler function to do beta reduction too, instead of the old simplifyGraph?
+  def simplifyHaskell(rep: Rep): Iterator[Rep] = {
+    import CollectionUtils.TraversableOnceHelper
+    
+    // TODO add capability to optimize through case branches...
+    type Path[+A] = (List[(Control,CallId,Bool,Rep)],Control,A)
+    
+    def findPath[A](rep: Rep)(select: PartialFunction[Rep,A]): List[Path[A]] = {
+      val trav = mutable.Set.empty[Rep]
+      
+      def go(rep: Rep, curCtrl: Control): List[Path[A]] = trav.setAndIfUnset(rep, rep.node match {
+        case Branch(ctrl,cid,thn,els) => mayHaveCid(ctrl,cid)(curCtrl) match {
+          case Some(true) => go(thn,curCtrl)
+          case Some(false) => go(els,curCtrl)
+          case None =>
+            def mp(rep: Rep, isLHS: Bool): List[Path[A]] =
+              go(rep, curCtrl).map { case (conds, c, r) =>
+                ((ctrl, cid, isLHS, if (isLHS) els else thn) :: conds, c, r) }
+            mp(thn, true) ++ mp(els, false)
+        }
+        case Box(c,bod) =>
+          go(bod, curCtrl `;` c).map { case (conds,ctrl,abs) =>
+            (conds.map { case (c2,cid,side,b) => (c `;` c2, cid, side, b) }, c `;` ctrl, abs) }
+        case _ =>
+          select.andThen(res => (Nil,Id,res) :: Nil).applyOrElse(rep, (_: Rep) => Nil)
+      }, Nil) alsoDo (trav -= rep)
+      
+      go(rep,Id)
+    }
+    
+    def tryRewrite(rep: Rep)(paths: List[Path[Rep]]): Option[Rep] = paths.collectFirstSome { case (conds, ctrl, arg) =>
+      val key: RedKey = (conds.map { case (c2, cid, side, b) => (cid, side, b) }, arg)
+      if (reduced(rep)(key)) None else Some {
+        val newBody = Box.rep(ctrl, arg)
+        rep.rewireTo(conds match {
+          case Nil => newBody
+          case _ =>
+            //println(s"$conds, $ctrl, $arg")
+            val other = rep.node.mkRep // NOTE: this is only okay because we know the original rep will be overwritten with a new node!
+            val reds = reduced(rep)
+            reduced -= rep
+            reds += key
+            reduced += other -> reds
+            conds.foldRight(newBody) {
+              case ((ctrl1,cid1,isLHS1,other1), nde) =>
+                val r = nde//.mkRep
+                val (thn,els) = if (isLHS1) (r, other) else (other, r)
+                Branch(ctrl1,cid1,thn,els).mkRep
+            }
+        })
+        rep
+      }
+    }
+    
+    rep.allChildren.iterator.collectSome {
+      
+      case rep @ ConcreteRep(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
+        def mkAlt(scrut: Rep, r: Rep): String -> Rep = r.node |>! {
+          case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
+            lhs.node |>! {
+              case ConcreteNode(StaticModule(con)) =>
+                val boundVals = List.tabulate(ctorArities(con))(idx => bindVal(s"arg$idx", Any, Nil))
+                con -> rhs
+            }
+        }
+        val altsList = alts.map(mkAlt(rep, _))
+        //println(scrut)
+        //println(altsList)
+        findPath(scrut) {
+          // TODO handle non-fully-applied ctors... (i.e., applied across control/branches)
+          case Applies(ConcreteRep(StaticModule(mod)),args)
+            if altsList.exists { case (con, _) => (mod endsWith con) || (con === "_") }
+          =>
+            altsList.find(mod endsWith _._1).getOrElse(
+              altsList.find(_._1 === "_").get
+            )._2
+        }.map { case (conds, ctrl, arg) =>
+          (conds, Id, arg)
+          // We should not place the control `ctrl` found while looking for the scrutinee's ctor, as the scrutinee is
+          // then discarded (we just directly redirect to the right branch, and don't use any of the `args`), and the
+          // `ctrl` will actually be rediscovered independently by the ctor argument accessor nodes.  
+        } |> tryRewrite(rep)
+        
+      case rep @ ConcreteRep(MethodApp(scrut,GetMtd,Nil,Args(con,idx)::Nil,_)) =>
+        val ConcreteRep(StaticModule(conStr)) = con
+        val ConcreteRep(Constant(idxInt: Int)) = idx
+        findPath(scrut) {
+          case Applies(ConcreteRep(StaticModule(mod)),args)
+            if mod endsWith conStr // e.g., "GHC.Types.True" endsWith "True"
+          =>
+            val arg = args(idxInt)
+            arg
+        } |> tryRewrite(rep)
+    }
+    
+  }
+  
+  
   
   override def prettyPrint(d: Def) = (new HaskellDefPrettyPrinter)(d)
   class HaskellDefPrettyPrinter(showInlineNames: Bool = false, showInlineCF:Bool = true) extends DefPrettyPrinter(showInlineNames, showInlineCF) {

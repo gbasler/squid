@@ -228,7 +228,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               
               //Sdebug(s"Not in rewiredCalls: (${psr.bound},${originCtrl},${param})")
               Sdebug(s"Not in rewiredCalls: (${psr.bound},${c.ctrl},${param})")
-              Sdebug(s"Not: (${param.ctrl}")
+              //Sdebug(s"Not: ${param.ctrl}")
               
               /* Because of tricky recursion patterns (like the one in HOR2), it doesn't seem possible to propagate a
                  branch as is even when it looks like it would not have changed... */

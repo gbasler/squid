@@ -130,8 +130,12 @@ class GraphLoader {
           bindings ++= rs.map(r => r._1 -> Right(r._2))
           (c, rs.size, r)
         }
-        Graph.mkCase(e0, altValues.map{case(con,arity,rhs) =>
-          (con.asInstanceOf[AltDataCon].name, // FIXME
+        Graph.mkCase(e0, altValues.map { case (con,arity,rhs) =>
+          (con match {
+            case AltDataCon(name) => name
+            case AltDefault => "_"
+            case AltLit(_) => ??? // TODO
+          },
           arity,
           rhs)
         })

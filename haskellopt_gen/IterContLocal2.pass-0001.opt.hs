@@ -7,7 +7,7 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 138; Boxes: 15; Branches: 4
+-- Total nodes: 126; Boxes: 15; Branches: 4
 -- Apps: 45; Lams: 1; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -25,18 +25,22 @@ import GHC.Types
 import System.Exit
 import System.IO
 
-count = (case ds of {(,) arg0 arg1 -> arg0})
+count = (_1(# _0 #))
 
-ds = (((,) (_0(# 3 #))) (_1(# (GHC.Types.I# 0#) #)))
+_1(# state #) = (case (((GHC.Classes.>) state) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_1(# (((GHC.Num.-) state) 1) #))) (GHC.Types.I# 1#))})
 
-_0(# state #) = (case (((GHC.Classes.>) state) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) state) 1) #))) (GHC.Types.I# 1#))})
+_0 = 3
 
-_1(# state' #) = (((:) state') (_1(# (((GHC.Num.+) state') (GHC.Types.I# 1#)) #)))
+ds = (((,) (_1(# _0 #))) (_3(# _2 #)))
+
+_3(# state' #) = (((:) state') (_3(# (((GHC.Num.+) state') (GHC.Types.I# 1#)) #)))
+
+_2 = (GHC.Types.I# 0#)
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.&&) (((GHC.Classes.==) n3) (((:) (GHC.Types.I# 0#)) (((:) (GHC.Types.I# 1#)) (((:) (GHC.Types.I# 2#)) (((:) (GHC.Types.I# 3#)) (((:) (GHC.Types.I# 4#)) []))))))) (((GHC.Classes.==) count) (GHC.Types.I# 3#))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
 n3 = ((GHC.List.take (GHC.Types.I# 5#)) nats)
 
-nats = (case ds of {(,) arg0' arg1' -> arg1'})
+nats = (_3(# _2 #))
 
-rec = (\state'2 -> (_1(# state'2 #)))
+rec = (\state'2 -> (_3(# state'2 #)))

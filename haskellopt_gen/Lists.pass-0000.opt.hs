@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 113; Boxes: 19; Branches: 2
--- Apps: 38; Lams: 5; Unreduced Redexes: 0
+-- Total nodes: 97; Boxes: 17; Branches: 2
+-- Apps: 35; Lams: 3; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -32,11 +32,9 @@ mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
 a = (((:) 1) (((:) 2) a))
 
-mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) ((case (((,) (\x'2 -> _1)) (\y'2 -> _2)) of {(,) arg0 arg1 -> arg0}) 0))
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _1)
 
-_1 = (((:) (GHC.Num.fromInteger 1)) _2)
-
-_2 = (((:) (GHC.Num.fromInteger 2)) _1)
+_1 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _1))
 
 rec0 = rec0'
 

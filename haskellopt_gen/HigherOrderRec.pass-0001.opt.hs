@@ -7,7 +7,7 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 178; Boxes: 49; Branches: 22
+-- Total nodes: 183; Boxes: 51; Branches: 25
 -- Apps: 37; Lams: 14; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -27,7 +27,7 @@ ds = 2
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (((:) 1) (((:) 1) (((:) 1) [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
 
-rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_1(# (), (_0(# ((:) 1) #)) #)))
+rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_1(# (_0(# ((:) 1) #)) #)))
 
 rec0 = (\f -> (_2(# f #)))
 
@@ -47,28 +47,26 @@ _5(# f'7, x'5, y' #) = (((:) ((_6(# f'7 #)) x'5)) (_5(# f'7, ((_6(# f'7 #)) y'),
 
 rec7 = (\f'8 -> (_7(# (_0(# f'8 #)) #)))
 
-_7(# f'9 #) = (\ds' -> (_1(# ds', f'9 #)))
+_7(# f'9 #) = (\ds' -> (_1(# (case ds' of {() -> f'9}) #)))
 
-_0(# f'10 #) = (f'10 (_1(# _8, (_0(# (_9(# f'10 #)) #)) #)))
+_0(# f'10 #) = (f'10 (_0(# (_8(# f'10 #)) #)))
 
 rec7Test0 = (_7(# (_0(# ((GHC.Num.+) 1) #)) #))
 
-rec7Test1 = (_7(# (_10(# (_1(# _8, (_0(# (_9(# (\ds'2 -> (_10(# ds'2 #))) #)) #)) #)) #)) #))
+rec7Test1 = (_7(# (_9(# (_0(# (_8(# (\ds'2 -> (_9(# ds'2 #))) #)) #)) #)) #))
 
-_10(# ds'3 #) = (((GHC.Num.*) ds'3) ds)
+_9(# ds'3 #) = (((GHC.Num.*) ds'3) ds)
 
-_1(# ds'4, f'11 #) = (case ds'4 of {() -> f'11})
+_8(# f'11 #) = f'11
 
-_8 = ()
+_1(# ds'4 #) = ds'4
 
-_9(# f'12 #) = f'12
+rec8 = (\eta -> (\eta' -> (_10(# eta, eta' #))))
 
-rec8 = (\eta -> (\eta' -> (_11(# eta, eta' #))))
+_10(# f'12, x'6 #) = (((GHC.Num.-) (sx(# x'6 #))) (((GHC.Num.*) ((_11(# f'12 #)) (_10(# f'12, (sx(# x'6 #)) #)))) ((_11(# f'12 #)) (_10(# f'12, (sx(# x'6 #)) #)))))
 
-_11(# f'13, x'6 #) = (((GHC.Num.-) (sx(# x'6 #))) (((GHC.Num.*) ((_12(# f'13 #)) (_11(# f'13, (sx(# x'6 #)) #)))) ((_12(# f'13 #)) (_11(# f'13, (sx(# x'6 #)) #)))))
+_6(# f'13 #) = f'13
 
-_6(# f'14 #) = f'14
-
-_12(# f'15 #) = f'15
+_11(# f'14 #) = f'14
 
 sx(# x'7 #) = (((GHC.Num.+) x'7) (GHC.Num.fromInteger 1))
