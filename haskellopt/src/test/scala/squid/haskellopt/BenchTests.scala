@@ -38,4 +38,7 @@ ghc -O3 IterContBench.pass-0000.opt.hs && ./IterContBench.pass-0000.opt
   mean                 182.9 μs   (182.4 μs .. 184.0 μs)
   std dev              2.602 μs   (1.704 μs .. 4.164 μs)
 
+TODO Q: is this because of an instance resolution defaulting to Int instead of Integer, or some other sort of trickery?
+
 */
+

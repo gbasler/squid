@@ -24,6 +24,12 @@ class OptTests extends FunSuite {
     TestHarness("PatMat")
     //TestHarness("PatMat", "0000"::Nil)
   }
+  test("Motiv") {
+    TestHarness("Motiv")
+  }
+  test("MotivLocal") {
+    TestHarness("MotivLocal")
+  }
   test("HigherOrder") {
     TestHarness("HigherOrder")
     //TestHarness("HigherOrder", "0000"::Nil)
