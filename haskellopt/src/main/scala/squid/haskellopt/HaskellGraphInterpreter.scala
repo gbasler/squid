@@ -74,12 +74,16 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
               Idebug(s"$lhs==$rhs ${lhs==rhs}") thenReturn (lhs == rhs |> conv)
             }))
             case "GHC.List.take" => CBNFun[Int](n => CBNFun[Stream[Top]](xs => xs.take(n)))
+            case "GHC.List.length" => CBNFun[Stream[Top]](x => x.length)
+            case "GHC.List.head" => CBNFun[Stream[Top]](x => x.head)
             case "GHC.Types.I#" => CBNFun[Top](id)
             case "(GHC.Num.+)" => CBNFun[Int](x => CBNFun[Int](x + _))
             case "(GHC.Num.*)" => CBNFun[Int](x => CBNFun[Int](x * _))
             case "(GHC.Num.-)" => CBNFun[Int](x => CBNFun[Int](x - _))
+            case "GHC.Num.fromInteger" => CBNFun[Top](id)
             case "(GHC.Real.^)" => CBNFun[Int](x => CBNFun[Int](y => Math.pow(x,y).toInt))
             case "(GHC.Classes.>)" => CBNFun[Int](x => CBNFun[Int](y => conv(x > y)))
+            case "(GHC.Classes.<)" => CBNFun[Int](x => CBNFun[Int](y => conv(x < y)))
             case "(GHC.Classes.&&)" => CBNFun[Data](x => CBNFun[Data](y => Data((x.ctor,y.ctor) match {
               case ("True", "True") => "True"
               case ("True", "False") | ("False", "True") | ("False", "False") => "False"
@@ -89,6 +93,8 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
             case "(,)" => CBNFun[Top](x => CBNFun[Top](y => Data("(,)", x :: y :: Nil)))
             case "()" => L(Data("()", Nil))
             case "(GHC.Base.$)" => CBNFun[Top](id)
+            case "GHC.Maybe.Just" => CBNFun[Top](x => Data("Just", x::Nil))
+            case "GHC.Maybe.Nothing" => L(Data("Nothing", Nil))
             case "System.IO.print" => CBNFun[Top](x => Idebug(s"System.IO.print(${x match {
               case s: Stream[_] => s.toList
               case _ => x

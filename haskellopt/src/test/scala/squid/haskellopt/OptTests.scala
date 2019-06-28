@@ -104,5 +104,10 @@ class OptTests extends FunSuite {
     //TestHarness("IterContLocal2", "0000"::Nil, exec = true)
     //TestHarness("IterContLocal2", "0001"::Nil, exec = true)
   }
+  test("IterMaybe") {
+    //TestHarness("IterMaybe", exec = true)
+    TestHarness("IterMaybe", "0000"::Nil, exec = false) // FIXME generated program does not terminate!
+    TestHarness("IterMaybe", "0001"::Nil, exec = true)
+  }
   
 }
