@@ -3,7 +3,6 @@ module Basics where
 
 -- Local shared work
 
--- FIXME nesting
 foo :: Int -> Int
 foo x =
   let tmp = x * 2

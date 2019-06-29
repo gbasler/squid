@@ -105,9 +105,16 @@ class OptTests extends FunSuite {
     //TestHarness("IterContLocal2", "0001"::Nil, exec = true)
   }
   test("IterMaybe") {
+    // Note: generated program used not to terminate! because a parameter was conflated due to mixing branch and control as param key
+    
     //TestHarness("IterMaybe", exec = true)
-    TestHarness("IterMaybe", "0000"::Nil, exec = false) // FIXME generated program does not terminate!
+    //TestHarness("IterMaybe", "0000"::Nil, exec = false) // FIXME cannot handle this case yet
     TestHarness("IterMaybe", "0001"::Nil, exec = true)
+  }
+  test("IterMaybeMin") {
+    //TestHarness("IterMaybeMin", exec = true)
+    //TestHarness("IterMaybeMin", "0000"::Nil, exec = true) // FIXME case reduction breaks this program!
+    TestHarness("IterMaybeMin", "0001"::Nil, exec = true)
   }
   
 }

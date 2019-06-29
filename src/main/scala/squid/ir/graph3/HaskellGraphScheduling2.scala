@@ -119,31 +119,28 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         assert(psr.directChildren.isComputed) //psr.init()
         val pctrl = psr.baseCtrl
         Sdebug(s"Parent [$pctrl] ${psr}")
-        HaskellScheduleDebug nestDbg sr.params.foreach { case (br, param) =>
+        HaskellScheduleDebug nestDbg sr.params.foreach { case (cbr, param) =>
+          assert(cbr._1 === param.ctrl, s"${cbr._1} === ${param.ctrl}") // !! param.ctrl now redundant!!
+          
           //Sdebug(s"Param ${param}")
           val outerCalls = c -> param :: c.outerCalls
           Sdebug(s"Outer:${outerCalls.map(oc => "\n\t"+oc._1.sr.bound+"::"+oc._2.branchVal+"="+oc._1.originCtrl).mkString(" ")}")
+          
+          val br = cbr._2
           
           if (!c.args.contains(param)) {
             Sdebug(s"Param $br${param} not yet in call ${c}")
             //Sdebug(s"Param $br${param} not yet in call ${c}  [param.ctrl:${param.ctrl} c.ctrl:${c.ctrl}]")
             //assert(c.ctrl === param.ctrl, s"${c.ctrl} ${param.ctrl}") // nope
             
-            //val originCtrl = c.ctrl`;`br.ctrl
-            val originCtrl = pctrl`;`c.ctrl`;`br.ctrl // no reason not to include pctrl after all...
+            val originCtrl = pctrl `;` c.ctrl `;` cbr._1 `;` br.ctrl // no reason not to include pctrl after all...
             Sdebug(s"originCtrl = $originCtrl")
             
-            //val ctrl = pctrl `;` br.ctrl
-            //Sdebug(s"? ${pctrl} ; ${br.ctrl} ? ${br.cid}")
-            //mayHaveCid(br.ctrl, br.cid)(pctrl) match {
-            Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${br.ctrl} ? ${br.cid}")
-            //Sdebug(s"(With) ${c.ctrl} ; ${br.ctrl}  ==  ${c.ctrl`;`br.ctrl}")
-            //Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${br.ctrl} == ${pctrl `;` c.ctrl `;` br.ctrl}")
-            mayHaveCid(br.ctrl, br.cid)(pctrl`;`c.ctrl) match {
-            //Sdebug(s"? ${pctrl} ; ${param.ctrl} ; ${br.ctrl} ? ${br.cid}")
-            //mayHaveCid(br.ctrl, br.cid)(pctrl`;`param.ctrl) match {
-            //Sdebug(s"? ${pctrl} ; ${br.ctrl} ? ${br.cid}")
-            //mayHaveCid(br.ctrl, br.cid)(param.ctrl) match {
+            Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${cbr._1} ; ${br.ctrl}")
+            Sdebug(s"... == ${pctrl `;` c.ctrl `;` cbr._1 `;` br.ctrl}  ? ${br.cid}")
+            
+            mayHaveCid(cbr._1`;`br.ctrl, br.cid)(pctrl`;`c.ctrl) match
+            {
             case Some(cnd) =>
               //Sdebug(s"Resolved ${pctrl} ; ${br}  -->  $cnd")
               
@@ -231,45 +228,64 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
               //Sdebug(s"Not: ${param.ctrl}")
               
               /* Because of tricky recursion patterns (like the one in HOR2), it doesn't seem possible to propagate a
-                 branch as is even when it looks like it would not have changed... */
-              val (propagatedBranch,propagatedParam) = if (/*(pctrl`;`c.ctrl) === Id*/false) { // the branch doesn't change
-              //val (propagatedBranch,propagatedParam) = if ((pctrl`;`c.ctrl`;`param.ctrl)===Id) { // the branch doesn't change
-              //val (propagatedBranch,propagatedParam) = if (((pctrl`;`c.ctrl)===Id) && ((pctrl`;`c.ctrl`;`param.ctrl)===Id)) { // the branch doesn't change
-                //???
-                Sdebug(s"Propagate param ${param} for $br")
-                (br,param)
-              } else {
-                //val newBranch = Branch(pctrl`;`br.ctrl,br.cid,br.lhs,br.rhs)
-                val newBranch = Branch(pctrl`;`c.ctrl`;`br.ctrl,br.cid,br.lhs,br.rhs)
-                //val newParam = SchParam(param.branchVal.renew)(psr)
-                val newParam = SchParam(pctrl`;`
-                  //param.ctrl,
-                  //c.ctrl,
-                  //param.ctrl`;`c.ctrl,
-                  //param.ctrl`;`pctrl`;`c.ctrl,
-                  c.ctrl`;`param.ctrl,
-                  param.branchVal.renew,
-                ) // TODOmaybe don't create new param if not necessary [though when I tried last time it didn't work -- see above]
-                Sdebug(s"New param ${newParam} for $newBranch")
-                //assert(!psr.params.contains(newBranch))
-                (newBranch,newParam)
-              }
-              /*
-              c.args += param -> propagatedParam
-              if (!psr.params.contains(propagatedBranch)) {
-                psr.params += propagatedBranch -> propagatedParam
-                workingSet ::= psr
-              } else Sdebug(s"Param ${propagatedParam} already in ${psr.params}")
-              */
-              c.args += param -> (psr.params.get(propagatedBranch) match {
+                 branch "as is" even when it looks like it would not have changed...
+                 We used to have this condition to do just that: */
+              //val (propagatedBranch,propagatedParam) = if ((pctrl`;`c.ctrl) === Id) { // the branch doesn't change
+              //  Sdebug(s"Propagate param ${param} for $br")
+              //  (br,param)
+              //} else {
+              
+              val propagatedBranch = (pctrl`;`c.ctrl`;`cbr._1,br)
+              
+              val propagatedParam = SchParam(
+                pctrl`;` c.ctrl `;` param.ctrl, // i.e., c.ctrl`;`cbr._1 
+                param.branchVal.renew,
+              ) // TODOmaybe don't create new param if not necessary [though when I tried last time it didn't work -- see above]
+              
+              psr.params.get(propagatedBranch) match {
                 case Some(a) =>
                   Sdebug(s"Param ${propagatedParam} already in ${psr.params} with value $a")
-                  a
+                  c.args += param -> a
                 case None =>
-                  psr.params += propagatedBranch -> propagatedParam
-                  addWork_!(psr)
-                  propagatedParam
-              })
+                  
+                  if (!psr.params.exists {
+                    
+                    case ((ct,b@Branch(ctrl,cid,lhs,rhs)),p)
+                      if propagatedParam.branchVal.name startsWith p.branchVal.name
+                      // ^ This indicates that we're probably in a pathological case of a parameter being propagated through
+                      //   recursive calls and never reduced; this can happen 
+                    =>
+                      // Not clear what to do in that case...
+                      // Intuitively, it seems that this parameter could be converted to a higher-order function, so that
+                      // the shared recursive function could incorporate bits of behaviors decided from the outside...
+                      // But that seems pretty hard to pull off with some kind of assurance that it will work in general.
+                      // See branch 'new-new-graph-ir-higher-order-sched' in which I starting trying doing that (did not finish).
+                      
+                      // These were true, in the IterMaybe cases:
+                      // In fact, it caused divergence in the _generated program_ because we used to index parameter
+                      // mappings only on the combined control-branch, and they happened to be the same!
+                      val newBranch = Branch(pctrl `;` c.ctrl `;` cbr._1 `;` br.ctrl, br.cid, br.lhs, br.rhs)
+                      assert(newBranch === Branch(ct `;` ctrl, cid, lhs, rhs))
+                      
+                      // One thing that actually fixes some examples (but obviously cannot work in general):
+                      /*
+                      val resRep = br.lhs // obviously unsound
+                      val schCall = new SchCall(resRep, c.ctrl`;`param.ctrl, psr, outerCalls, originCtrl)
+                      c.args += param -> schCall
+                      addWork_!(schCall.sr)
+                      */
+                      
+                      ???
+
+                    case _ => false
+                  }) {
+                    
+                    psr.params += propagatedBranch -> propagatedParam
+                    addWork_!(psr)
+                    c.args += param -> propagatedParam
+                    
+                  }
+              }
               
             }
           }
@@ -407,7 +423,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       def willBeInlined = assert(countingDone) thenReturn !isExported(rep) && usageCount <= 1
       
-      val params: M[Branch,Param] = M.empty
+      val params: M[(Control,Branch),Param] = M.empty
       
       def shouldBeScheduled = rep.node match {
         case _: Branch => false
@@ -440,10 +456,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
           //getSR(r)
           Sdebug(s"Initial param $sbr for $br")
           assert(baseCtrl===Id)
-          //makeArgument(Id,br->sbr)
-          params += br->sbr
-          //workingSet ::= this // FIXME rm?
-          //makeArgument(baseCtrl,br->sbr)
+          params += (Id,br) -> sbr
           sbr
         //case ConcreteNode(Apply(lhs, rhs)) => SchApp(call(lhs), call(rhs))(this)
         case ConcreteNode(d) => d match {
@@ -595,7 +608,10 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       def directCalls: List[SchCall] = Nil
       def toHs(implicit ctx: HsCtx) = s"${ctx.enclosingCases.get(scrut->ctor) match {
         case Some(vars) => printVal(vars(idx))
-        case None => ??? // TODO
+        case None =>
+          s"{- $scrut  $ctor  $idx -}undefined"
+          // FIXME maybe scrut should be a SRep... so we can actually reconstruct the patmat...
+          ??? // TODO
       }}"
     }
     
@@ -606,6 +622,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       
       override def toString = s"$ctrl ; $body"
     }
+    /** Note: it seems ctrl is redundant; will be with the branch in the key of the Map to parameters. */
     case class SchParam(ctrl: Control, branchVal: Val) extends SchExp with SchArg {
       def directCalls: List[SchCall] = Nil
       
@@ -616,7 +633,9 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
         assignedTo.mkHs
       }
       
-      override def toString = s"${if (ctrl === Id) "" else s"[$ctrl]"}$branchVal"
+      override def toString =
+        //s"${if (ctrl === Id) "" else s"[$ctrl]"}$branchVal"
+        s"$branchVal"
     }
     
     
@@ -629,10 +648,15 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     class SchCall(r: Rep, val ctrl: Control, val parent: SchedulableRep, val outerCalls: List[SchCall -> Param], val originCtrl: Control) extends SchArg {
       lazy val sr = getSR(r) also { sr => sr.init(); sr.usages ::= this }
       
-      if (HaskellScheduleDebug.isDebugEnabled)
-        assert(ctrl === outerCalls.foldLeft(Id:Control){
+      // This doesn't seem to be true anymore!...
+      /*
+      if (HaskellScheduleDebug.isDebugEnabled) {
+        val ctrl2 = outerCalls.foldLeft(Id:Control){
           case (cur,(p,c)) => p.ctrl `;` cur
-        })
+        }
+        assert(ctrl === ctrl2, s"?! $ctrl === $ctrl2  $originCtrl")
+      }
+      */
       
       def freeVars: Set[Val] =
         // We should look at the arguments even if the def is inlined; see allScheduledCalls

@@ -145,6 +145,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
   def printNode(n: Node) = (new DefPrettyPrinter)(n)
   
   object ConcreteRep {
+    def apply(d: Def): Rep = ConcreteNode(d).mkRep
     def unapply(arg: Rep): Opt[Def] = arg |>? {
       case Rep(ConcreteNode(d)) => d
     }
