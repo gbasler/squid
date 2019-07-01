@@ -7,8 +7,12 @@ import Criterion.Main
 loop f state = rec state where
   rec s = f rec s
 
+-- An explicit type signature will make the program much faster,
+-- and will also currently erase the difference between graph-optimized and normal...
+
 -- count :: Int -> Int
-count n = loop (\k s -> if s > 0 then k (s - 1) + 1 else 0) n
+-- count n = loop (\k s -> if s > 0 then k (s - 1) + 1 else 0) n
+count n = loop (\k s -> let x = k (s - 1) in if s > 0 then x + x + 1 else 0) n
 
 -- nats :: [Int]
 nats = loop (\k s -> s : k (s + 1)) 0
