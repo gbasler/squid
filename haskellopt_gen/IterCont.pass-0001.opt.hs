@@ -7,13 +7,13 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 108; Boxes: 17; Branches: 5
--- Apps: 32; Lams: 4; Unreduced Redexes: 0
+-- Total nodes: 118; Boxes: 20; Branches: 6
+-- Apps: 34; Lams: 5; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 
-module Main (count,loop,main,rec,nats,n3) where
+module Main (count,loop,n5,main,rec,nats) where
 
 import GHC.Base
 import GHC.Classes
@@ -21,22 +21,23 @@ import GHC.List
 import GHC.Num
 import GHC.Show
 import GHC.TopHandler
-import GHC.Types
 import System.Exit
 import System.IO
 
-count = (_0(# 5 #))
+count = (\n -> (_1(# (_0(# n #)) #)))
 
-_0(# s #) = (case (((GHC.Classes.>) s) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) s) 1) #))) (GHC.Types.I# 1#))})
+_1(# s #) = (case (((GHC.Classes.>) s) (GHC.Num.fromInteger 0)) of {False -> (GHC.Num.fromInteger 0); True -> (((GHC.Num.+) (_1(# (((GHC.Num.-) s) (GHC.Num.fromInteger 1)) #))) (GHC.Num.fromInteger 1))})
 
-loop = (\f -> let { _1(# s' #) = ((f (\s'2 -> (_1(# s'2 #)))) s') } in (\state -> (_1(# state #))))
+_0(# n' #) = n'
 
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+loop = (\f -> let { _2(# s' #) = ((f (\s'2 -> (_2(# s'2 #)))) s') } in (\state -> (_2(# state #))))
 
-n3 = ((GHC.List.take count) nats)
+main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n5) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n5)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
-nats = (_2(# 0 #))
+n5 = ((GHC.List.take (_1(# (_0(# 5 #)) #))) nats)
 
-_2(# s'3 #) = (((:) s'3) (_2(# (((GHC.Num.+) s'3) 1) #)))
+nats = (_3(# 0 #))
 
-rec = (\s'4 -> (_2(# s'4 #)))
+_3(# s'3 #) = (((:) s'3) (_3(# (((GHC.Num.+) s'3) 1) #)))
+
+rec = (\s'4 -> (_3(# s'4 #)))

@@ -82,6 +82,7 @@ abstract class HaskellGraphInterpreter extends HaskellGraph {
             case "(GHC.Num.-)" => CBNFun[Int](x => CBNFun[Int](x - _))
             case "GHC.Num.fromInteger" => CBNFun[Top](id)
             case "(GHC.Real.^)" => CBNFun[Int](x => CBNFun[Int](y => Math.pow(x,y).toInt))
+            case "GHC.Real.div" => CBNFun[Int](x => CBNFun[Int](y => x % y))
             case "GHC.Classes.not" => CBNFun[Data](x => conv(x.ctor === "False"))
             case "(GHC.Classes.>)" => CBNFun[Int](x => CBNFun[Int](y => conv(x > y)))
             case "(GHC.Classes.<)" => CBNFun[Int](x => CBNFun[Int](y => conv(x < y)))

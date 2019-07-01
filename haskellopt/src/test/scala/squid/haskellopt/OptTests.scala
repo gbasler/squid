@@ -79,6 +79,12 @@ class OptTests extends FunSuite {
     //TestHarness("IterCont", "0000"::Nil, compileResult = false, exec = true)
     //TestHarness("IterCont", "0001"::Nil, exec = true)
   }
+  test("IterContNonlinear") {
+    // FIXME commented count impl
+    //TestHarness("IterContNonlinear", exec = true)
+    TestHarness("IterCont", "0000"::Nil, exec = true)
+    //TestHarness("IterCont", "0001"::Nil, exec = true) // FIXME loops in rewriting
+  }
   test("IterCont2") {
     // Note: used to yield incorrect result [0,0,0] when we used the erroneous recursive call/arg kludge in the old scheduler
     // FIXME-later: not fully reduced: nats still constructs k/s lambdas, because of the threading of `f` hrough recursive calls...

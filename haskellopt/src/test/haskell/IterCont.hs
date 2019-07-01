@@ -3,10 +3,10 @@ module Main where
 import System.Exit
 
 main =
-  let n3 = take count nats in
-  if n3 == [0,1,2,3,4]
+  let n5 = take (count 5) nats in
+  if n5 == [0,1,2,3,4]
   -- then exitSuccess else exitFailure
-  then exitSuccess else do { print n3; exitFailure }
+  then exitSuccess else do { print n5; exitFailure }
 
 -- loop f state =
 --   f (\new_state -> loop f new_state) state
@@ -19,7 +19,7 @@ loop f state = rec state where
 
 -- dont = loop (\k s -> s + 1) 0
 
-count = loop (\k s -> if s > 0 then k (s - 1) + 1 else 0) 5 -- TODO move `3` to the call-site
+count n = loop (\k s -> if s > 0 then k (s - 1) + 1 else 0) n
 -- count = loop (\k s -> k (s + 1)) 0
 -- count = loop (\k s -> k s) 0
 -- count = loop (\k -> k) 0
