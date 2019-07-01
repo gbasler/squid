@@ -30,6 +30,10 @@ class OptTests extends FunSuite {
   test("MotivLocal") {
     TestHarness("MotivLocal")
   }
+  test("ListFusion") {
+    TestHarness("ListFusion")
+    //TestHarness("ListFusion", (for (i <- 2 to 9) yield s"000$i").toList, opt = true)
+  }
   test("HigherOrder") {
     TestHarness("HigherOrder")
     //TestHarness("HigherOrder", "0000"::Nil)

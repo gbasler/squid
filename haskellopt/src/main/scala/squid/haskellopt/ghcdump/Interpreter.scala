@@ -66,12 +66,14 @@ abstract class Interpreter {
   def LitInteger(n: Int): Lit
   def MachInt(n: Int): Lit
   def MachStr(s: String): Lit
+  //def MachChar(s: Char): Lit
   
   def ExternalName(e: Element): ExternalName = e match {
     case Arr(IntElem(0), StringElem(externalModuleName), StringElem(externalName), BinderId(externalUnique)) =>
       ExternalName(externalModuleName, externalName, externalUnique)
   }
   def Lit(e: Element): Lit = e match {
+    //case Arr(IntElem(0), ByteArrayElem(s)) => MachChar(s match { case Array(c) => c.toChar }) // TODO
     case Arr(IntElem(1), ByteArrayElem(s)) => MachStr(s.map(_.toChar).mkString)
     case Arr(IntElem(3), IntElem(n)) => MachInt(n)
       

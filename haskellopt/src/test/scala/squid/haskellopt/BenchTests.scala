@@ -18,6 +18,26 @@ class BenchTests extends FunSuite {
     TestHarness("IterContLocalBench")
   }
   
+  test("ListFusionBench") {
+    // TODO Need to impl local CSE (runtime work is duplicated)
+    // FIXME Even with manual CSE, our output is currently twice as slow... due to the use of tupled parameters! which probably gets in the way of fusion
+    TestHarness("ListFusionBench")
+    /*
+    Interesting things about this benchmark:
+    
+    - It shows an instance where we duplicate work unless we do local CSE
+    
+    - It shows that using tupled parameters can seriously harm performances (probably due to hampered fusion opportunities)
+      See manual exposition in haskellopt_gen/bench-doc/ListFusionBench.pass-0000.opt.hs
+    
+    - It shows that using top-level defs instead of local ones can also harm perfs, likely for the same reason
+    
+    - Last time I tried, with the old GIR impl, it seemed like GHC did not completely fuse its lists, and that we could
+      do a better job; TODO try and reproduce this finding
+    
+    */
+  }
+  
   
 }
 

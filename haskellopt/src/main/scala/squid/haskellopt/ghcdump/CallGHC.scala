@@ -51,6 +51,7 @@ object CallGHC {
         "-O",
         //"-fno-enable-rewrite-rules", // creates references to non-exported functions such as `GHC.Base.mapFB`; ALSO seems to disable encoding of list literals with build
         "-fno-specialise", // creates fictive functions with illegal names, such as `GHC.Show.$w$cshowsPrec4`
+        //"-fno-strictness",
       ) else Nil
     )
     println(s"Executing:\n\t${cmd.head.s.head} ${cmd.tail.map('"'+ _.s.mkString(" ") +'"').mkString(" ")}")
