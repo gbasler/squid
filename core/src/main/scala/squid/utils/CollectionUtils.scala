@@ -125,4 +125,21 @@ object CollectionUtils {
     def headOption = if (self.hasNext) Some(self.next) else None
   }
   
+  implicit class MapHelper[K,V](private val self: Map[K,V]) extends AnyVal {
+    def mergeValues[K0 >: K, V0 >: V](that: TraversableOnce[K0 -> V0])(f: (V,V0) => V0): Map[K0,V0] = {
+      val res = mutable.Map.empty[K0,V0]
+      res ++= self
+      that.foreach { case (k0,v0) =>
+        var found = true
+        val v = res.getOrElseUpdate(k0, { found = false; v0 })
+        if (found) res(k0) = f(v.asInstanceOf[V],v0)
+      }
+      val m = res.toMap
+      self match {
+        case wd: Map.WithDefault[K,V] => m.withDefault(k => wd(k.asInstanceOf[K]))
+        case _ => m
+      }
+    }
+  }
+  
 }

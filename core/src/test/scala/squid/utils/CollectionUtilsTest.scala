@@ -128,6 +128,18 @@ class CollectionUtilsTest extends FunSuite {
   }
   
   
+  test("Map Merging") {
+    
+    val m0 = Map(1 -> 2, 3 -> 4)
+    val m1 = Map(1 -> 5, 2 -> 6)
+    
+    assert((m0 mergeValues m1)(_ + _) == Map(1 -> (2+5), 2 -> 6, 3 -> 4))
+    
+    assert((m0.withDefaultValue(42) mergeValues m1)(_ + _)(666) == 42)
+    
+  }
+  
+  
 }
 
 
