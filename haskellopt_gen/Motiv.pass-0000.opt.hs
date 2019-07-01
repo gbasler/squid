@@ -16,34 +16,20 @@ import GHC.Types
 
 e0 = (\a -> a)
 
-e1 = (\ds -> (case ds of {(,) arg0 arg1 -> (_0(# arg0, arg1 #))}))
+e1 = (\ds -> (case ds of {(,) arg0 arg1 -> (((GHC.Num.*) (case ds of (,) arg _ -> arg)) (case ds of (,) _ arg -> arg))}))
 
-_0(# ds', ds'2 #) = (((GHC.Num.*) ds') ds'2)
+e2 = (\z -> (_0(# z #)))
 
-e2 = (\z -> (_1(# z #)))
+_0(# z' #) = (((GHC.Num.+) z') 1)
 
-_1(# z' #) = (((GHC.Num.+) z') 1)
+e3 = (\c -> (_1(# c #)))
 
-e3 = (\c -> (_3(# (_2(# c #)) #)))
+_1(# c' #) = (case c' of {False -> 0; True -> 1})
 
-_3(# c' #) = c'
+f = (\x -> (let x' = (_1(# (_2(# x #)) #)) in (case x of {Nothing -> (_0(# x' #)); Just arg0' -> (((GHC.Num.*) (case x of Just arg -> arg)) x')})))
 
-_2(# c'2 #) = (case c'2 of {False -> 0; True -> 1})
+_2(# ds' #) = (case ds' of {Nothing -> GHC.Types.False; Just arg0'2 -> GHC.Types.True})
 
-f = (\x -> (_9(# (_8(# (case x of {Nothing -> (_6(# (_3(# (_2(# (_5(# (_4(# x #)) #)) #)) #)) #)); Just arg0' -> (_7(# (_3(# (_2(# (_5(# (_4(# x #)) #)) #)) #)), arg0' #))}) #)) #)))
+isJust = (\ds'2 -> (_2(# ds'2 #)))
 
-_9(# x' #) = x'
-
-_8(# x'2 #) = x'2
-
-_6(# x'3 #) = (_1(# x'3 #))
-
-_7(# x'4, x'5 #) = (_0(# x'5, x'4 #))
-
-_5(# ds'3 #) = ds'3
-
-_4(# ds'4 #) = (case ds'4 of {Nothing -> GHC.Types.False; Just arg0'2 -> GHC.Types.True})
-
-isJust = (\ds'5 -> (_5(# (_4(# ds'5 #)) #)))
-
-pgrm = (((GHC.Num.+) (_9(# (_7(# 1, 2 #)) #))) (_9(# (_8(# (_6(# (_3(# 0 #)) #)) #)) #)))
+pgrm = (((GHC.Num.+) (((GHC.Num.*) 2) 1)) (_0(# 0 #)))

@@ -12,12 +12,8 @@ module HOR6 (rec2,rec2_0) where
 
 import GHC.Base
 
-rec2 = (\f -> (rec(# (_1(# (_0(# f #)), f #)) #)))
+rec2 = (\f -> (f (_0(# f #))))
 
-rec(# f' #) = f'
-
-_1(# f'2, f'3 #) = (f'3 (rec(# f'2 #)))
-
-_0(# f'4 #) = (_1(# (_0(# f'4 #)), f'4 #))
+_0(# f' #) = (f' (_0(# f' #)))
 
 rec2_0 = GHC.Base.id

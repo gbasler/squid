@@ -24,20 +24,18 @@ import GHC.TopHandler
 import System.Exit
 import System.IO
 
-count = (\n -> (_1(# (_0(# n #)) #)))
+count = (\n -> (_0(# n #)))
 
-_1(# s #) = (case (((GHC.Classes.>) s) (GHC.Num.fromInteger 0)) of {False -> (GHC.Num.fromInteger 0); True -> (((GHC.Num.+) (_1(# (((GHC.Num.-) s) (GHC.Num.fromInteger 1)) #))) (GHC.Num.fromInteger 1))})
+_0(# s #) = (case (((GHC.Classes.>) s) (GHC.Num.fromInteger 0)) of {False -> (GHC.Num.fromInteger 0); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) s) (GHC.Num.fromInteger 1)) #))) (GHC.Num.fromInteger 1))})
 
-_0(# n' #) = n'
-
-loop = (\f -> let { _2(# s' #) = ((f (\s'2 -> (_2(# s'2 #)))) s') } in (\state -> (_2(# state #))))
+loop = (\f -> let { _1(# s' #) = ((f (\s'2 -> (_1(# s'2 #)))) s') } in (\state -> (_1(# state #))))
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n5) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n5)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 
-n5 = ((GHC.List.take (_1(# (_0(# 5 #)) #))) nats)
+n5 = ((GHC.List.take (_0(# 5 #))) nats)
 
-nats = (_3(# 0 #))
+nats = (_2(# 0 #))
 
-_3(# s'3 #) = (((:) s'3) (_3(# (((GHC.Num.+) s'3) 1) #)))
+_2(# s'3 #) = (((:) s'3) (_2(# (((GHC.Num.+) s'3) 1) #)))
 
-rec = (\s'4 -> (_3(# s'4 #)))
+rec = (\s'4 -> (_2(# s'4 #)))

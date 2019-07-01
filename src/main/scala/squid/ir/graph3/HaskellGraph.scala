@@ -50,7 +50,8 @@ abstract class HaskellGraph extends Graph {
   
   val WildcardVal = bindVal("", Any, Nil)
   
-  var ctorArities = mutable.Map.empty[String, Int]
+  var ctorArities = mutable.Map.empty[String, Int] // FIXME ctor names can be shared among data types!
+  
   def mkCase(scrut: Rep, alts: Seq[(String, Int, () => Rep)]): Rep = {
     methodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(),Args(alts.map{case(con,arity,rhs) =>
       ctorArities.get(con) match {

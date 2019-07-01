@@ -13,38 +13,34 @@ module HigherOrderHard (gTest1,g''Test1,hTest0,g,g'',hTest1,g'Test0,h,gTest0,g')
 import GHC.Base
 import GHC.Num
 
-g = (\f -> (_1(# (f _0) #)))
+g = (\f -> (_0(# (f _1) #)))
 
-_1(# f' #) = (\x -> (GHC.Base.id f'))
+_0(# f' #) = (\x -> (GHC.Base.id f'))
 
-_0 = (GHC.Base.id x)
+_1 = (GHC.Base.id x)
 
-g' = (\f'2 -> (_3(# (f'2 _2) #)))
+g' = (\f'2 -> (_2(# (f'2 _3) #)))
 
-_3(# f'3 #) = (\x' -> (GHC.Base.id f'3))
+_2(# f'3 #) = (\x' -> (GHC.Base.id f'3))
 
-_2 = (GHC.Base.id x')
+_3 = (GHC.Base.id x')
 
 g'' = (\f'4 -> (\x'2 -> (GHC.Base.id (f'4 (GHC.Base.id x'2)))))
 
-g''Test1 = (\y -> (_1(# (((GHC.Num.+) _0) y) #)))
+g''Test1 = (\y -> (_0(# (((GHC.Num.+) _1) y) #)))
 
-g'Test0 = (_3(# (((GHC.Num.+) _2) 1) #))
+g'Test0 = (_2(# (((GHC.Num.+) _3) 1) #))
 
-gTest0 = (_1(# (((GHC.Num.+) _0) 1) #))
+gTest0 = (_0(# (((GHC.Num.+) _1) 1) #))
 
-gTest1 = (\y' -> (_1(# (((GHC.Num.+) _0) y') #)))
+gTest1 = (\y' -> (_0(# (((GHC.Num.+) _1) y') #)))
 
-h = (\f'5 -> (_6(# ((_4(# f'5 #)) (_5(# ((_4(# f'5 #)) x'3) #))) #)))
+h = (\f'5 -> (_4(# (f'5 (GHC.Base.id (f'5 x'3))) #)))
 
-_6(# f'6 #) = (\x'3 -> (GHC.Base.id f'6))
+_4(# f'6 #) = (\x'3 -> (GHC.Base.id f'6))
 
-_4(# f'7 #) = f'7
+hTest0 = (_4(# (_5(# (GHC.Base.id (_5(# x'3 #))) #)) #))
 
-_5(# f'8 #) = (GHC.Base.id f'8)
+_5(# ds #) = (((GHC.Num.+) ds) 1)
 
-hTest0 = (_6(# (_7(# (_5(# (_7(# x'3 #)) #)) #)) #))
-
-_7(# ds #) = (((GHC.Num.+) ds) 1)
-
-hTest1 = (\y'2 -> let { _8(# ds' #) = (((GHC.Num.+) ds') y'2) } in (_6(# (_8(# (_5(# (_8(# x'3 #)) #)) #)) #)))
+hTest1 = (\y'2 -> let { _6(# ds' #) = (((GHC.Num.+) ds') y'2) } in (_4(# (_6(# (GHC.Base.id (_6(# x'3 #))) #)) #)))

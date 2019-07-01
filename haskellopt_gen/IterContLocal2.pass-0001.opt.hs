@@ -25,15 +25,13 @@ import GHC.Types
 import System.Exit
 import System.IO
 
-count = (_1(# _0 #))
+count = (_0(# 3 #))
 
-_1(# state #) = (case (((GHC.Classes.>) state) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_1(# (((GHC.Num.-) state) 1) #))) (GHC.Types.I# 1#))})
+_0(# state #) = (case (((GHC.Classes.>) state) 0) of {False -> (GHC.Types.I# 0#); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) state) 1) #))) (GHC.Types.I# 1#))})
 
-_0 = 3
+ds = (((,) (_0(# 3 #))) (_1(# _2 #)))
 
-ds = (((,) (_1(# _0 #))) (_3(# _2 #)))
-
-_3(# state' #) = (((:) state') (_3(# (((GHC.Num.+) state') (GHC.Types.I# 1#)) #)))
+_1(# state' #) = (((:) state') (_1(# (((GHC.Num.+) state') (GHC.Types.I# 1#)) #)))
 
 _2 = (GHC.Types.I# 0#)
 
@@ -41,6 +39,6 @@ main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.&&) (((GHC.Classes.==) n3)
 
 n3 = ((GHC.List.take (GHC.Types.I# 5#)) nats)
 
-nats = (_3(# _2 #))
+nats = (_1(# _2 #))
 
-rec = (\state'2 -> (_3(# state'2 #)))
+rec = (\state'2 -> (_1(# state'2 #)))

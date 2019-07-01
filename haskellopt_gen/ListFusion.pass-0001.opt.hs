@@ -19,4 +19,4 @@ import GHC.Base
 import GHC.Prim
 import GHC.Types
 
-f0 = (\ls -> (GHC.Base.build (\c -> (\n -> (((GHC.Base.foldr ((GHC.Base.mapFB c) (\x -> (case (case x of {I# arg0 -> (GHC.Types.I# (((GHC.Prim.*#) 2#) arg0))}) of {I# arg0' -> (GHC.Types.I# (((GHC.Prim.+#) 1#) arg0'))})))) n) ls)))))
+f0 = (\ls -> (GHC.Base.build (\c -> (\n -> (((GHC.Base.foldr ((GHC.Base.mapFB c) (\x -> let { _0 = (case x of {I# arg0 -> (GHC.Types.I# (((GHC.Prim.*#) 2#) arg0))}) } in (case _0 of {I# arg0' -> (GHC.Types.I# (((GHC.Prim.+#) 1#) arg0'))})))) n) ls)))))

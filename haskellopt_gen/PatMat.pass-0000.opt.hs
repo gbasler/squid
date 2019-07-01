@@ -32,48 +32,32 @@ e1'0 = 0
 
 e1'1 = 0
 
-f0 = (\ds -> (_9(# (_8(# (_7(# (_6(# (_5(# (case ds of {Nothing -> _0; Just arg0 -> (_4(# (_3(# (_2(# (_1(# arg0 #)) #)) #)) #))}) #)) #)) #)) #)) #)))
-
-_9(# ds' #) = ds'
-
-_8(# ds'2 #) = ds'2
-
-_7(# ds'3 #) = ds'3
-
-_6(# ds'4 #) = ds'4
-
-_5(# ds'5 #) = ds'5
+f0 = (\ds -> (case ds of {Nothing -> _0; Just arg0 -> (_1(# (case ds of Just arg -> arg) #))}))
 
 _0 = (GHC.Maybe.Just 0)
 
-_4(# ds'6 #) = (GHC.Maybe.Just (_10(# ds'6 #)))
+_1(# ds' #) = (GHC.Maybe.Just (_2(# ds' #)))
 
-_3(# ds'7 #) = ds'7
-
-_2(# ds'8 #) = ds'8
-
-_1(# ds'9 #) = ds'9
-
-f0'0 = (_9(# (_4(# 2 #)) #))
+f0'0 = (_1(# 2 #))
 
 f0'1 = _0
 
-f0'2 = (_9(# (_8(# (_7(# (_4(# (_3(# (_2(# (_10(# (_3(# 3 #)) #)) #)) #)) #)) #)) #)) #))
+f0'2 = (_1(# (_2(# 3 #)) #))
 
-_10(# ds'10 #) = (((GHC.Num.+) ds'10) 1)
+_2(# ds'2 #) = (((GHC.Num.+) ds'2) 1)
 
-f0'3 = (_9(# (_8(# (_7(# (_6(# (_5(# (_4(# (_3(# (_2(# (_1(# 0 #)) #)) #)) #)) #)) #)) #)) #)) #))
+f0'3 = (_1(# 0 #))
 
-f1 = (\x -> (_11(# x #)))
+f1 = (\x -> (_3(# x #)))
 
-_11(# x' #) = (case (((GHC.Classes.>) x') 0) of {False -> GHC.Maybe.Nothing; True -> (GHC.Maybe.Just x')})
+_3(# x' #) = (case (((GHC.Classes.>) x') 0) of {False -> GHC.Maybe.Nothing; True -> (GHC.Maybe.Just x')})
 
-f1'0 = (_11(# 4 #))
+f1'0 = (_3(# 4 #))
 
-f1'1 = (case (_11(# 5 #)) of {Nothing -> GHC.Types.False; Just arg0' -> GHC.Types.True})
+f1'1 = (case (_3(# 5 #)) of {Nothing -> GHC.Types.False; Just arg0' -> GHC.Types.True})
 
-f1'2 = (_12(# (_11(# 5 #)) #))
+f1'2 = (_4(# (_3(# 5 #)) #))
 
-_12(# ds'11 #) = (case ds'11 of {Nothing -> 0; Just arg0'2 -> arg0'2})
+_4(# ds'3 #) = (case ds'3 of {Nothing -> 0; Just arg0'2 -> arg0'2})
 
-orZero = (\ds'12 -> (_12(# ds'12 #)))
+orZero = (\ds'4 -> (_4(# ds'4 #)))

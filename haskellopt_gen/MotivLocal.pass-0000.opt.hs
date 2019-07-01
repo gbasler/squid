@@ -16,6 +16,4 @@ import GHC.Types
 
 isJust = (\ds -> (case ds of {Nothing -> GHC.Types.False; Just arg0 -> GHC.Types.True}))
 
-pgrm = (((GHC.Num.+) (_0(# (((GHC.Num.*) 2) 1) #))) (_0(# (((GHC.Num.+) 0) 1) #)))
-
-_0(# x #) = x
+pgrm = (((GHC.Num.+) (((GHC.Num.*) 2) 1)) (((GHC.Num.+) 0) 1))

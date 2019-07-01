@@ -27,20 +27,18 @@ a = (((:) 1) b)
 
 b = (((:) 2) a)
 
-lol = (\x -> (\y -> (_0(# x, y #))))
-
-_0(# x', y' #) = (((GHC.Num.+) x') y')
+lol = (\x -> (\y -> (((GHC.Num.+) x) y)))
 
 ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-ls1 = ((GHC.Base.map (\ds -> (((GHC.Num.+) ds) (_0(# 11, 22 #))))) ls0)
+ls1 = ((GHC.Base.map (\ds -> (((GHC.Num.+) ds) (((GHC.Num.+) 11) 22)))) ls0)
 
 main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 
 mutrec0 = ((GHC.List.take (GHC.Types.I# 20#)) a)
 
-mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _1)
+mutrec1 = ((GHC.List.take (GHC.Types.I# 30#)) _0)
 
-_1 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _1))
+_0 = (((:) (GHC.Num.fromInteger 1)) (((:) (GHC.Num.fromInteger 2)) _0))
 
 rec0 = (((:) 1) rec0)

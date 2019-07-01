@@ -45,7 +45,7 @@ f0'1 = (GHC.Maybe.Just 0)
 
 f0'2 = (GHC.Maybe.Just (((GHC.Num.+) (((GHC.Num.+) 3) 1)) 1))
 
-f0'3 = (GHC.Maybe.Just (((GHC.Num.+) x) 1))
+f0'3 = (GHC.Maybe.Just (((GHC.Num.+) 0) 1))
 
 x = 0
 
