@@ -32,7 +32,7 @@ e1'0 = 0
 
 e1'1 = 0
 
-f0 = (\ds -> (case ds of {Nothing -> _0; Just arg0 -> (_1(# (case ds of Just arg -> arg) #))}))
+f0 = (\ds -> (case ds of {Nothing -> _0; Just arg0 -> (_1(# arg0 #))}))
 
 _0 = (GHC.Maybe.Just 0)
 

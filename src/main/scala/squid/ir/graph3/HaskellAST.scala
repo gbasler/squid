@@ -57,8 +57,16 @@ abstract class HaskellAST {
       val res = (params,args).zipped.foldRight(body) { case ((p,a),acc) => Let(p,a,acc) }
       res
     }
+    
+    lazy val simplifiedBody = body.simplify
+    
+    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]]) = {
+      val s = body.simplifyRec // TODO make simplifyRec eq-preserving in case of no changes
+      if (s eq body) this else new Defn(id, params, s)
+    }
+    
     def stringify: String = {
-      s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${body.stringify}"
+      s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${simplifiedBody.stringify}"
     }
   }
   
@@ -87,7 +95,7 @@ abstract class HaskellAST {
         s"(case ${scrut.stringify} of {${arms.map { case (con, vars, rhs) =>
             mkCtorStr(con) + vars.map(_.id |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify}"
         }.mkString("; ")}})"
-      case CtorField(sk, scrut, ctor, arity, idx) =>
+      case CtorField(scrut, ctor, arity, idx) =>
         s"(case ${scrut.stringify} of ${mkCtorStr(ctor)} ${List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")} -> arg)"
     }
     
@@ -104,7 +112,7 @@ abstract class HaskellAST {
       case Let(v, e, b) => (e.occurrences mergeValues (b.occurrences - v))(_ + _)
       case Case(scrut, arms) => arms.foldLeft(scrut.occurrences){ case (acc,(con,vals,e)) =>
         (acc mergeValues (e.occurrences -- vals))(_ + _)}
-      case CtorField(sk, scrut, ctor, arity, idx) => scrut.occurrences // Approximation... we may later resolve this expr to a variable!
+      case CtorField(scrut, ctor, arity, idx) => scrut.occurrences // Approximation... we may later resolve this expr to a variable!
     }
     def subs(v: Vari, e: Expr): Expr = this match {
       case c: Inline => c
@@ -116,7 +124,7 @@ abstract class HaskellAST {
       case Case(scrut, arms) => Case(scrut.subs(v, e), arms.map { case (con,vals,body) =>
         (con, vals, if (vals.contains(v)) body else body.subs(v, e))
       })
-      case CtorField(sk, scrut, ctor, arity, idx) => CtorField(sk, scrut.subs(v, e), ctor, arity, idx)
+      case CtorField(scrut, ctor, arity, idx) => CtorField(scrut.subs(v, e), ctor, arity, idx)
     }
     lazy val size: Int = this match {
       case c: Inline => 1
@@ -126,8 +134,24 @@ abstract class HaskellAST {
       case Call(d, as) => as.foldLeft(0)(_ + _.size) + 1
       case Let(p, e, b) => e.size + b.size
       case Case(scrut, arms) => scrut.size + arms.foldLeft(0)(_ + _._3.size + 1)
-      case CtorField(sk, scrut, ctor, arity, idx) =>
+      case CtorField(scrut, ctor, arity, idx) =>
         scrut.size // Note: could become a case, which is bigger... may also reduce to a variable, which is smaller!
+    }
+    
+    def simplify: Expr = simplifyRec(Map.empty)
+    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]]): Expr = this match {
+      case _: Inline | _: Vari => this
+      case App(lhs, rhs) => App(lhs.simplifyRec, rhs.simplifyRec)
+      case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.simplifyRec), b.simplifyRec)
+      case Call(d, as) => Call(d, as.map(_.simplifyRec))
+      case Let(p, e0, b) => Let(p, e0.simplifyRec, b.simplifyRec)
+      case Case(scrut, arms) => Case(scrut.simplifyRec, arms.map { case (con,vals,body) =>
+        (con, vals, body.simplifyRec(caseCtx + ((scrut -> con) -> vals)))
+      })
+      case CtorField(scrut, ctor, arity, idx) => caseCtx.get(scrut, ctor) match {
+        case Some(vals) => vals(idx)
+        case None => CtorField(scrut.simplifyRec, ctor, arity, idx)
+      }
     }
     
     //override def toString = stringify
@@ -137,8 +161,16 @@ abstract class HaskellAST {
   case class App(lhs: Expr, rhs: Expr) extends Expr
   sealed abstract case class Lam(param: Vari, subDefs: List[Defn], body: Expr) extends Expr
   object Lam {
-    def apply(param: Vari, subDefs: List[Defn], body: Expr): Lam =
+    def apply(param: Vari, subDefs: List[Defn], body: Expr): Lam = {
       new Lam(param, subDefs.filterNot(_.toBeInlined), body){}
+      /*
+      // TODO: convert no-params defs to let bindings (just needs a `map` implementation, on which `subs` could be based later:
+      val (letBindings,subDefs2) = subDefs.filterNot(_.toBeInlined).partition(_.params.isEmpty)
+      new Lam(param, subDefs2, letBindings.foldRight(body){ case (d,acc) =>
+        val v = Vari(d.id)
+        Let(v,d.body,acc.map{case Call(`d`,args) => assert(args.isEmpty); v}) }){}
+      */
+    }
   }
   sealed abstract case class Call(d: Lazy[Defn], args: List[Expr]) extends Expr
   object Call {
@@ -157,6 +189,6 @@ abstract class HaskellAST {
     }
   }
   case class Case(scrut: Expr, arms: List[(String,List[Vari],Expr)]) extends Expr
-  case class CtorField(scrutKey: AnyRef, scrut: Expr, ctor: String, arity: Int, idx: Int) extends Expr
+  case class CtorField(scrut: Expr, ctor: String, arity: Int, idx: Int) extends Expr
   
 }

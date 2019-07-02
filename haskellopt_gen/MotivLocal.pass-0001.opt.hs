@@ -19,7 +19,7 @@ import GHC.Maybe
 import GHC.Num
 import GHC.Types
 
-f = (\x -> (let x' = (case x of {Nothing -> 0; Just arg0 -> 1}) in (case x of {Nothing -> (_0(# x' #)); Just arg0' -> (((GHC.Num.*) (case x of Just arg -> arg)) x')})))
+f = (\x -> (let x' = (case x of {Nothing -> 0; Just arg0 -> 1}) in (case x of {Nothing -> (_0(# x' #)); Just arg0' -> (((GHC.Num.*) arg0') x')})))
 
 _0(# x'2 #) = (((GHC.Num.+) x'2) 1)
 

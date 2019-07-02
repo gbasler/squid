@@ -601,7 +601,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
           case SchCtorField(scrut, ctor, idx) =>
             ctx.enclosingCases.get(scrut.sr.rep->ctor) match {
               case Some(vars) => vars(idx) |> Vari
-              case None => CtorField(scrut, scrut.toHs, ctor, ctorArities(ctor), idx)
+              case None => CtorField(scrut.toHs, ctor, ctorArities(ctor), idx)
             }
         }
       }
