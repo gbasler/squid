@@ -7,6 +7,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module PatMat (f0'1,e0'2,f0'0,e1,f1'0,f1,e0'1,f0'2,e0,orZero,f0,f1'2,e1'1,f0'3,e0'0,f1'1,e1'0,e0'3) where
 

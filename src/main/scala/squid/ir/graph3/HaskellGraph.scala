@@ -44,6 +44,16 @@ abstract class HaskellGraph extends Graph {
   val Any = Predef.implicitType[Any].rep
   val UnboxedMarker = Predef.implicitType[UnboxedMarker].rep
   
+  val DummyTyp = Any
+  override def staticModuleType(name: String): TypeRep = DummyTyp
+  def mkName(base: String, idDomain: String) =
+    //base + "_" + idDomain + freshName  // gives names that are pretty cluttered...
+    base + freshName
+  def setMeaningfulName(v: Val, n: String): Unit = {
+    //println(s"Set $v -> $n")
+    if (v.name.contains('$')) v.name_! = n
+  }
+  
   val HaskellADT = loadTypSymbol("squid.ir.graph3.HaskellADT")
   val CaseMtd = loadMtdSymbol(HaskellADT, "case")
   val GetMtd = loadMtdSymbol(HaskellADT, "get")

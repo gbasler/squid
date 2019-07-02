@@ -12,6 +12,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module HOR5 (rec1_2,rec0_1,rec1_1,rec0_0,rec1_4,rec0,rec1_0,rec1_3,rec1) where
 

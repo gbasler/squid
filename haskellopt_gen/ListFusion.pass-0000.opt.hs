@@ -7,6 +7,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module ListFusion (f0) where
 

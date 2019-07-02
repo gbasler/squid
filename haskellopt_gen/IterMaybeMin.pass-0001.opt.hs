@@ -12,6 +12,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module Main (rec,main) where
 

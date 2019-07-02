@@ -18,26 +18,24 @@ package graph3
 import squid.utils._
 import squid.utils.CollectionUtils.MapHelper
 
-abstract class HaskellAST {
+abstract class ParameterPassingStrategy {
+  def mkParams(fun: String, params: List[String]): String
+  def mkArgs(fun: String, args: List[String]): String =
+    if (args.isEmpty) fun else "(" + mkParams(fun, args) + ")"
+}
+object UnboxedTupleParameters extends ParameterPassingStrategy {
+  def mkParams(fun: String, params: List[String]): String =
+    if (params.isEmpty) fun else params.mkString(s"$fun(# ", ", ", " #)")
+}
+object CurriedParameters extends ParameterPassingStrategy {
+  def mkParams(fun: String, params: List[String]): String =
+    (fun :: params).mkString(" ")
+}
+
+abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
   type Ident
   def printIdent(id: Ident): String
-  
-  val pp: ParameterPassingStrategy
-  
-  abstract class ParameterPassingStrategy {
-    def mkParams(fun: String, params: List[String]): String
-    def mkArgs(fun: String, args: List[String]): String =
-      if (args.isEmpty) fun else "(" + mkParams(fun, args) + ")"
-  }
-  object UnboxedTupleParameters extends ParameterPassingStrategy {
-    def mkParams(fun: String, params: List[String]): String =
-      if (params.isEmpty) fun else params.mkString(s"$fun(# ", ", ", " #)")
-  }
-  object CurriedParameters extends ParameterPassingStrategy {
-    def mkParams(fun: String, params: List[String]): String =
-      (fun :: params).mkString(" ")
-  }
   
   def mkCtorStr(ctor: String) =
     if (ctor.head.isLetter || ctor === "[]" || ctor.head === '(') ctor else s"($ctor)"

@@ -5,6 +5,7 @@ import squid.utils._
 import ghcdump.{CallGHC, Printer, Reader}
 import ammonite.ops._
 import squid.haskellopt.MainOpt.go
+import squid.ir.graph3.HaskellGraphScheduling2
 
 // TODO CLI for haskellopt
 object Main extends App {
@@ -40,7 +41,7 @@ object MainAll extends App {
 
 object MainOpt extends App {
   
-  val go = new GraphLoader
+  val go = new GraphLoader(new HaskellGraphInterpreter with HaskellGraphScheduling2)
   val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Basics.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0000.cbor")
   //val pgrm = go.loadFromDump(pwd/'haskellopt/'target/'dump/"Lists.pass-0001.cbor")

@@ -2,12 +2,20 @@ package squid.haskellopt
 
 import squid.utils._
 import org.scalatest.FunSuite
+import squid.ir.graph3.CurriedParameters
+import squid.ir.graph3.HaskellGraphScheduling2
+import squid.ir.graph3.ParameterPassingStrategy
 
 class BenchTests extends FunSuite {
   object TestHarness extends TestHarness {
     import ammonite.ops._
     override val genFolder = pwd/'haskellopt_gen/'bench
     override val sanityCheckFuel = 5
+    
+    override def mkGraph = new HaskellGraphInterpreter with HaskellGraphScheduling2 {
+      override val pp: ParameterPassingStrategy = CurriedParameters
+    }
+    
   }
   
   test("IterContBench") {

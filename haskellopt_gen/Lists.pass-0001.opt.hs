@@ -12,6 +12,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module Lists (lol,ls0,mutrec0,ls1,a,main,b,rec0,mutrec1) where
 

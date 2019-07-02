@@ -7,6 +7,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module Lists (lol,ls0,mutrec0,ls1,main,rec0,mutrec1) where
 

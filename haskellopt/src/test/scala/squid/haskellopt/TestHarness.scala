@@ -2,6 +2,7 @@ package squid.haskellopt
 
 import squid.utils._
 import ammonite.ops._
+import squid.ir.graph3.HaskellGraphScheduling2
 
 class TestHarness {
   
@@ -11,6 +12,9 @@ class TestHarness {
   val sanityCheckFuel = 20
   //val sanityCheckFuel = 100
   
+  def mkGraph =
+    new HaskellGraphInterpreter with HaskellGraphScheduling2
+  
   def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, interpret: Bool): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
@@ -19,7 +23,7 @@ class TestHarness {
     val writePath_graph = genFolder/RelPath(filePath.baseName+".opt.graph")
     if (exists(writePath_graph)) rm(writePath_graph)
     
-    val go = new GraphLoader
+    val go = new GraphLoader(mkGraph)
     val mod = go.loadFromDump(filePath)
     println(s"=== PHASE ${mod.modPhase} ===")
     

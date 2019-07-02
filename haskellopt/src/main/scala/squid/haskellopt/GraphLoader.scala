@@ -8,7 +8,7 @@ import squid.haskellopt.ghcdump.Interpreter
 
 import scala.collection.mutable
 
-class GraphLoader {
+class GraphLoader[G <: HaskellGraphInterpreter with HaskellGraphScheduling2](val Graph: G) {
   /* Notes.
   
   Problems with exporting Haskell from GHC-Core:
@@ -24,19 +24,6 @@ class GraphLoader {
   So it's probably best to selectively disable optimizations, such as the application of rewrite rules (a shame, really).
   
   */
-  
-  //object Graph extends HaskellGraphInterpreter with HaskellGraphScheduling {
-  object Graph extends HaskellGraphInterpreter with HaskellGraphScheduling2 {
-    val DummyTyp = Any
-    override def staticModuleType(name: String): TypeRep = DummyTyp
-    def mkName(base: String, idDomain: String) =
-      //base + "_" + idDomain + freshName  // gives names that are pretty cluttered...
-      base + freshName
-    def setMeaningfulName(v: Val, n: String): Unit = {
-      //println(s"Set $v -> $n")
-      if (v.name.contains('$')) v.name_! = n
-    }
-  }
   import Graph.PgrmModule
   
   val imports = mutable.Set.empty[String]

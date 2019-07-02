@@ -7,6 +7,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module HigherOrderRec (rec7,rec7Test1,rec0_0,rec7Test0,rec0) where
 

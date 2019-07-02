@@ -54,13 +54,15 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     new RecScheduler(mod)
   }
   
+  val pp: ParameterPassingStrategy =
+    UnboxedTupleParameters
+    //CurriedParameters
+  
   class RecScheduler(mod: PgrmModule) {
     
-    object AST extends HaskellAST {
+    object AST extends HaskellAST(pp) {
       type Ident = Val
       def printIdent(id: Ident): String = printVal(id)
-      val pp = UnboxedTupleParameters
-      //val pp = CurriedParameters
     }
     
     private val nameCounts = mutable.Map.empty[String, Int]
@@ -406,6 +408,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       |
       |{-# LANGUAGE UnboxedTuples #-}
       |{-# LANGUAGE MagicHash #-}
+      |{-# LANGUAGE NoMonomorphismRestriction  #-}
       |
       |module ${mod.modName} (${mod.letReps.map(_.bound).mkString(",")}) where
       |

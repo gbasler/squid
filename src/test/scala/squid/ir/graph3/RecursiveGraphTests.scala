@@ -8,8 +8,6 @@ import squid.lib
 import squid.ir.graph.{SimpleASTBackend => AST}
 
 object RecursiveGraphTests extends HaskellGraph with HaskellGraphScheduling2 {
-  val DummyTyp = Any
-  override def staticModuleType(name: String): TypeRep = DummyTyp
   override def methodApp(self: Rep, mtd: MtdSymbol, targs: List[TypeRep], argss: List[ArgList], tp: TypeRep) = mtd match {
     case Apply.Symbol => super.methodApp(self, mtd, targs, argss, tp)
     case _ =>

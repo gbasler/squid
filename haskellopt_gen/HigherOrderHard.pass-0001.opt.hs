@@ -12,6 +12,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module HigherOrderHard (gTest1,g''Test1,ds,hTest0,g,g'',hTest1,g'Test0,h,gTest0,g') where
 
