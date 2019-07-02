@@ -29,7 +29,7 @@ class BenchTests extends FunSuite {
   test("ListFusionBench") {
     // Note: if we use tuple parameters, our output is twice as slow... as it probably gets in the way of fusion
     
-    TestHarness("ListFusionBench") // FIXME the new sumnatsLocalTupled causes a sanity-check failure (probably bad pat-mat-red impl)
+    TestHarness("ListFusionBench")
     
     //TestHarness("ListFusionBench", "0000"::Nil)
     

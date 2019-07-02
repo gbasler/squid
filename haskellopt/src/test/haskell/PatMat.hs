@@ -35,3 +35,10 @@ f1'1 = case f1 5 of { Just x -> True; Nothing -> False }
 f1'2 = orZero (f1 5)
 -- f1'3 = f0 (f1 6)
 
+
+slt0 = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
+  bat (sf, arg) = let r = sf ((map (\c -> c + arg)) []) in r * r + 1
+
+slt1 = bat (id, 0) where
+  bat (sf, arg) = sf (map (\c -> arg)) . map (\c -> arg)
+

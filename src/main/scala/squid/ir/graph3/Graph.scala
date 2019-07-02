@@ -358,7 +358,7 @@ class Graph extends AST with GraphScheduling with GraphRewriting with CurryEncod
         val (newCtx, newFuel) = d match {
           case abs: Abs => // When traversing a lambda, we need to assume a token, even if just the dummy token!
             //(cctx push DummyCallId, fuel/2)
-            (cctx push new CallId(abs.param), fuel/2)
+            (cctx push new CallId(abs.param, dummy = true), fuel/2)
           case _ => (cctx, fuel)
         }
         (Iterator(Some(fuel)) ++ d.children.map{ c => sanityCheck(c, newFuel)(newCtx)}).min // minimum on options: None is minimal

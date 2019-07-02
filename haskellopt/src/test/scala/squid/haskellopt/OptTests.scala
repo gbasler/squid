@@ -118,8 +118,12 @@ class OptTests extends FunSuite {
     // Note: generated program used not to terminate! because a parameter was conflated due to mixing branch and control as param key
     
     //TestHarness("IterMaybe", exec = true)
+    
     //TestHarness("IterMaybe", "0000"::Nil, exec = false) // FIXME cannot handle this case yet
-    //TestHarness("IterMaybe", "0001"::Nil, exec = true) // FIXME current limitation in computation of maximalSharedScope
+    
+    //TestHarness("IterMaybe", "0001"::Nil, exec = true)
+    // ^ FIXME Current limitation in computation of maximalSharedScope, leading to scope extrusion
+    //         Note that the error's cause is now somehwat obscured because one of the two bindings gets inlined at AST phase
   }
   test("IterMaybeMin") {
     //TestHarness("IterMaybeMin", exec = true)

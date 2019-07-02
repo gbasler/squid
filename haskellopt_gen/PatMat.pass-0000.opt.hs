@@ -2,16 +2,18 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 175; Boxes: 46; Branches: 45
--- Apps: 16; Lams: 3; Unreduced Redexes: 0
+-- Total nodes: 294; Boxes: 68; Branches: 60
+-- Apps: 46; Lams: 8; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (f0'1,e0'2,f0'0,e1,f1'0,f1,e0'1,f0'2,e0,orZero,f0,f1'2,e1'1,f0'3,e0'0,f1'1,e1'0,e0'3) where
+module PatMat (f0'1,e0'2,f0'0,e1,f1'0,f1,e0'1,slt0,f0'2,e0,orZero,f0,f1'2,e1'1,f0'3,e0'0,f1'1,slt1,e1'0,e0'3) where
 
 import Control.Exception.Base
+import Data.Foldable
+import GHC.Base
 import GHC.Classes
 import GHC.Maybe
 import GHC.Num
@@ -62,3 +64,11 @@ f1'2 = (_4(# (_3(# 5 #)) #))
 _4(# ds'3 #) = (case ds'3 of {Nothing -> 0; Just arg0'2 -> arg0'2})
 
 orZero = (\ds'4 -> (_4(# ds'4 #)))
+
+slt0 = (\x'2 -> (((,) (_5(# Data.Foldable.sum, x'2 #))) (_5(# (((GHC.Base..) Data.Foldable.sum) (GHC.Base.map (\x'3 -> (((GHC.Num.*) x'3) 2)))), (((GHC.Num.+) x'2) 1) #))))
+
+_5(# ds'5, ds'6 #) = (let sh = (r(# ds'5, ds'6 #)) in (((GHC.Num.+) (((GHC.Num.*) sh) sh)) (GHC.Num.fromInteger 1)))
+
+slt1 = (((GHC.Base..) (GHC.Base.id (GHC.Base.map (\c -> 0)))) (GHC.Base.map (\c' -> 0)))
+
+r(# ds'7, ds'8 #) = (ds'7 ((GHC.Base.map (\c'2 -> (((GHC.Num.+) c'2) ds'8))) []))

@@ -70,6 +70,7 @@ class GraphLoader[G <: HaskellGraphInterpreter with HaskellGraphScheduling2](val
         //case Graph.ConcreteNode(v: Graph.Val) if ignoredBindings(v) => e0
         case Graph.ConcreteNode(TypeBinding) => e0
         case Graph.Box(_,Graph.Rep(Graph.ConcreteNode(TypeBinding))) => e0 // the reification context may wrap up occurrences in a box!
+        case Graph.Box(_,Graph.ConcreteRep(Graph.StaticModule(nme))) if nme.contains("$f") => e0
         case Graph.ConcreteNode(Graph.StaticModule(nme)) if nme.contains("$f") => // TODO more robust?
           // ^ such as '$fNumInteger' in '$27.apply(GHC.Num.$fNumInteger)'
           e0
@@ -111,21 +112,33 @@ class GraphLoader[G <: HaskellGraphInterpreter with HaskellGraphScheduling2](val
       def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr =
         // TODO handle special case where the only alt is AltDefault?
       {
-        bindings += bndr.binderId -> Right(e0)
-        val altValues = alts.map { case (c,r,f) =>
-          val rs = f(e0)
-          bindings ++= rs.map(r => r._1 -> Right(r._2))
-          (c, rs.size, r)
-        }
-        Graph.mkCase(e0, altValues.map { case (con,arity,rhs) =>
-          (con match {
-            case AltDataCon(name) => name
-            case AltDefault => "_"
-            case AltLit(_) => ??? // TODO
-          },
-          arity,
-          rhs)
-        })
+        import Graph.reificationContext
+        val old = reificationContext
+        try {
+          val v = e0.bound
+          
+          reificationContext += v -> e0
+          // ^ It looks like this is sometimes used; probably if the scrutinee variable is accessed directly (instead of the ctor-index-getters)
+          bindings += bndr.binderId -> Left(v)
+          
+          val altValues = alts.map { case (c,r,f) =>
+            val rs = f(e0)
+            
+            reificationContext ++= rs.map(r => r._2.bound -> r._2)
+            bindings ++= rs.map(r => r._1 -> Left(r._2.bound))
+            
+            (c, rs.size, r)
+          }
+          Graph.mkCase(e0, altValues.map { case (con,arity,rhs) =>
+            (con match {
+              case AltDataCon(name) => name
+              case AltDefault => "_"
+              case AltLit(_) => ??? // TODO
+            },
+            arity,
+            rhs)
+          })
+        } finally reificationContext = old
       }
       def EType(ty: Type): Expr = DummyRead
       
