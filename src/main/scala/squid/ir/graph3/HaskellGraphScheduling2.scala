@@ -60,6 +60,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
       type Ident = Val
       def printIdent(id: Ident): String = printVal(id)
       val pp = UnboxedTupleParameters
+      //val pp = CurriedParameters
     }
     
     private val nameCounts = mutable.Map.empty[String, Int]

@@ -49,6 +49,7 @@ abstract class HaskellAST {
         body.size <= params.size + 1 // makes sure to inline calls to trivial 'forwarding' defs like `_0(a, b) = a + b`
     
     def occurrences = body.occurrences -- params
+    //def shareableExprs = body.shareableExprs.filterKeys(k => !k.freeVars.exists(params.contains))
     
     def subs(v: Vari, e: Expr): Defn = if (params.contains(v)) this else new Defn(id, params, body.subs(v, e))
     
@@ -71,6 +72,7 @@ abstract class HaskellAST {
   }
   
   private[this] val noOccs: Map[Vari, Int] = Map.empty[Vari, Int].withDefaultValue(0)
+  private[this] val noSubExprs: Map[Expr, Int] = Map.empty[Expr, Int].withDefaultValue(0)
   
   sealed abstract class Expr {
     
@@ -114,6 +116,25 @@ abstract class HaskellAST {
         (acc mergeValues (e.occurrences -- vals))(_ + _)}
       case CtorField(scrut, ctor, arity, idx) => scrut.occurrences // Approximation... we may later resolve this expr to a variable!
     }
+    /*
+    // Maybe needed in the future? Though it does not seem like we need CSE anymore...
+    lazy val shareableExprs: Map[Expr, Int] = this match {
+      case Inline(str) => noSubExprs
+      case v: Vari => noSubExprs
+      case App(lhs, rhs) => (lhs.shareableExprs mergeValues rhs.shareableExprs)(_ + _) + (this -> 1)
+      case Lam(p, ds, b) =>
+        ds.foldLeft(b.shareableExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)}
+          .filterKeys(k => !k.freeVars(p)) + (this -> 1)
+      case Call(d, as) =>
+        as.iterator.foldLeft(noSubExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)} + (this -> 1)
+      case Let(v, e, b) =>
+        (e.shareableExprs mergeValues (b.shareableExprs - v))(_ + _) // Note: let's not try to share lets...
+      case Case(scrut, arms) => arms.foldLeft(scrut.shareableExprs){ case (acc,(con,vals,e)) =>
+        (acc mergeValues e.shareableExprs
+          .filterKeys(k => !k.freeVars.exists(vals.contains)))(_ + _)} // And let's not share cases, for perf reasons
+      case CtorField(scrut, ctor, arity, idx) => scrut.shareableExprs + (this -> 1)
+    }
+    */
     def subs(v: Vari, e: Expr): Expr = this match {
       case c: Inline => c
       case w: Vari => if (w == v) e else w
