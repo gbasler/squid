@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 21; Boxes: 1; Branches: 0
--- Apps: 8; Lams: 1; Unreduced Redexes: 0
+-- Total nodes: 29; Boxes: 1; Branches: 0
+-- Apps: 12; Lams: 1; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -15,4 +15,4 @@ import GHC.Base
 import GHC.Num
 import GHC.Types
 
-f0 = (\ls -> ((GHC.Base.map ((GHC.Num.+) (GHC.Types.I# 1#))) ((GHC.Base.map ((GHC.Num.*) (GHC.Types.I# 2#))) ls)))
+f0 = (\ls -> let sh = (GHC.Base.map ((GHC.Num.+) (GHC.Types.I# 1#))) in (sh (sh ((GHC.Base.map ((GHC.Num.*) (GHC.Types.I# 2#))) ls))))

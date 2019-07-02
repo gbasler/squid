@@ -2,13 +2,13 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   Simplifier: Max iterations = 4
---               SimplMode {Phase = InitialPhase [Gentle],
+--               SimplMode {Phase = 0 [Non-opt simplification],
 --                          inline,
---                          rules,
+--                          no rules,
 --                          eta-expand,
---                          no case-of-case}
--- Total nodes: 47; Boxes: 3; Branches: 0
--- Apps: 12; Lams: 4; Unreduced Redexes: 0
+--                          case-of-case}
+-- Total nodes: 29; Boxes: 1; Branches: 0
+-- Apps: 12; Lams: 1; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -17,7 +17,7 @@
 module ListFusion (f0) where
 
 import GHC.Base
-import GHC.Prim
+import GHC.Num
 import GHC.Types
 
-f0 = (\ls -> (GHC.Base.build (\c -> (\n -> (((GHC.Base.foldr ((GHC.Base.mapFB c) (\x -> let _0 = (case x of {I# arg0 -> (GHC.Types.I# (((GHC.Prim.*#) 2#) arg0))}) in (case _0 of {I# arg0' -> (GHC.Types.I# (((GHC.Prim.+#) 1#) arg0'))})))) n) ls)))))
+f0 = (\ls -> let sh = (GHC.Base.map ((GHC.Num.+) (GHC.Types.I# 1#))) in (sh (sh ((GHC.Base.map ((GHC.Num.*) (GHC.Types.I# 2#))) ls))))

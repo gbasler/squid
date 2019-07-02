@@ -60,6 +60,6 @@ _6(# ds'3 #) = (((GHC.Num.*) ds'3) 2)
 
 rec8 = (\eta -> (\eta' -> (_7(# eta, eta' #))))
 
-_7(# f'11, x'6 #) = (let sh' = (sx(# x'6 #)) in (((GHC.Num.-) sh') (((GHC.Num.*) (f'11 (_7(# f'11, sh' #)))) (f'11 (_7(# f'11, sh' #))))))
+_7(# f'11, x'6 #) = (let { sh' = (sx(# x'6 #)); sh'2 = (f'11 (_7(# f'11, sh' #))) } in (((GHC.Num.-) sh') (((GHC.Num.*) sh'2) sh'2)))
 
 sx(# x'7 #) = (((GHC.Num.+) x'7) (GHC.Num.fromInteger 1))

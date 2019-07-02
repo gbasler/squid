@@ -53,6 +53,6 @@ _6(# ds'2 #) = (((GHC.Num.*) ds'2) 2)
 
 rec8 = (\f'11 -> (\x'6 -> (_7(# f'11, x'6 #))))
 
-_7(# f'12, x'7 #) = (let sh' = (sx(# x'7 #)) in (((GHC.Num.-) sh') (((GHC.Num.*) (f'12 (_7(# f'12, sh' #)))) (f'12 (_7(# f'12, sh' #))))))
+_7(# f'12, x'7 #) = (let { sh' = (sx(# x'7 #)); sh'2 = (f'12 (_7(# f'12, sh' #))) } in (((GHC.Num.-) sh') (((GHC.Num.*) sh'2) sh'2)))
 
 sx(# x'8 #) = (((GHC.Num.+) x'8) (GHC.Num.fromInteger 1))

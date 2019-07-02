@@ -217,11 +217,20 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
           val v = Vari(mkIdent("sh"))
           mapping += (e -> v)
         }
-        //println(s"MAPPING:\n\t${mapping.map(kv=>kv._1.stringify->kv._2)}")
         assert(mapping.nonEmpty)
+        //println(s"MAPPING:\n\t${mapping.map(kv=>kv._1.stringify->kv._2)}")
+        /*
+        // doesn't work!
         mapping.foldRight(
           map(e => mapping.getOrElse(e, e))
         ){ case ((e,v),acc) => Let(v,e,acc) }
+        */
+        mapping.toList.sortBy(_._1.size).foldRight(this){ case ((e,v),acc) =>
+          //println(s"LET ${v.stringify} = ${e.stringify} IN ${acc.stringify}")
+          Let(v,e,acc.map(e0 => if (e0 === e) v else e0)) }
+        // ^ Note that we will let-bind small expressions last, so if they ended up "looking" shared only because they
+        //   were part of a big expression that was the one being shared, the let binding will be elided...
+        //   All in all, this process has horrendous time complexity, but at least it works well for now.
       }
     }
     
