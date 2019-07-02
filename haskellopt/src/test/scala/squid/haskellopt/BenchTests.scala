@@ -27,9 +27,12 @@ class BenchTests extends FunSuite {
   }
   
   test("ListFusionBench") {
-    // TODO Need to impl local CSE (runtime work is duplicated)
-    // FIXME Even with manual CSE, our output is currently twice as slow... due to the use of tupled parameters! which probably gets in the way of fusion
-    TestHarness("ListFusionBench")
+    // Note: if we use tuple parameters, our output is twice as slow... as it probably gets in the way of fusion
+    
+    TestHarness("ListFusionBench") // FIXME the new sumnatsLocalTupled causes a sanity-check failure (probably bad pat-mat-red impl)
+    
+    //TestHarness("ListFusionBench", "0000"::Nil)
+    
     /*
     Interesting things about this benchmark:
     
@@ -85,6 +88,16 @@ TODO Q: Is this because of an instance resolution defaulting to Int instead of I
         In fact, the rewritten program does have the same type
         Yet when I add explicit Int types, the two versions have the same speed (and are much faster)
         So it seems the gain was mainly in somehow convincing GHC to do more specialization for our version
+
+
+
+--- NOTES ---
+
+Run criterion with allocations measurement:
+  ghc -O3 ListFusionBench.hs && ./ListFusionBench --regress allocated:iters +RTS -T -RTS
+
+
+
 
 */
 

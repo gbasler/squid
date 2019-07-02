@@ -28,8 +28,11 @@ haskellopt_gen/*.opt
 haskellopt_gen/bench/*
 haskellopt_gen/bench-doc/*.hi
 haskellopt_gen/bench-doc/*.o
-haskellopt/src/test/haskell/*.hi
-haskellopt/src/test/haskell/*.o
+haskellopt_gen/bench-doc/*.opt
+
+# ignore everything in there but files with an extension -- this is to ignore executables compiled by me using GHC
+haskellopt/src/test/haskell/*
+haskellopt/src/test/haskell/!*.*
 
 lib_managed/
 src_managed/
