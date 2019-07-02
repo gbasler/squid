@@ -9,10 +9,13 @@ loremipsum :: [Int]
 loremipsum = concatMap (replicate 10) [0..666]
 
 -- Local version below is much faster (<1/3 of the time) in opt mode... is that due to more list fusion?
+-- Very strangely, when I switched from `nf` to `whnf` and (,) to (+), the toplvl version became super slow!
 
 bat sf arg = let res = sf ((map (\c -> c + arg)) loremipsum) in (res * res + 1)
 foo sf arg =
-  ((bat sf arg), (bat ( sf . (map (\x -> x * 2)) )) (arg + 1)) -- NOTE: amazingly, changing (arg + 1) to arg makes the program fuse like the local version!
+  -- ((bat sf arg), (bat ( sf . (map (\x -> x * 2)) )) (arg + 1))
+  ((bat sf arg) + (bat ( sf . (map (\x -> x * 2)) )) (arg + 1))
+  -- ^ NOTE: amazingly, changing (arg + 1) to arg made the program fuse like the local version!
 sumnats = foo sum
 -- -- The version below is as fast as the local one!
 -- bat sf arg = let res = sf ((map (\c -> c + arg)) loremipsum) in (res * res + 1)
@@ -21,10 +24,12 @@ sumnats = foo sum
 sumnatsLocal = foo sum where
   bat sf arg = let res = sf ((map (\c -> c + arg)) loremipsum) in (res * res + 1)
   foo sf arg =
-    ((bat sf arg), (bat ( sf . (map (\x -> x * 2)) )) (arg + 1))
+    -- ((bat sf arg), (bat ( sf . (map (\x -> x * 2)) )) (arg + 1))
+    ((bat sf arg) + (bat ( sf . (map (\x -> x * 2)) )) (arg + 1))
 
 -- -- Much slower due to the tuples
-sumnatsLocalTupled = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
+-- sumnatsLocalTupled = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
+sumnatsLocalTupled = (\x -> (bat (sum, x) + bat (sum . (map (\x -> x * 2)), x + 1))) where
   bat (sf, arg) = let r = sf ((map (\c -> c + arg)) loremipsum) in r * r + 1
 
 -- -- Weirdly, this one is just as fast, although it's the closest to the original regression I noted (in bench-doc)...
@@ -37,9 +42,9 @@ sumnatsLocalTupled = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1
 --   print (sumnats 42 == sumnatsLocal 42, sumnats 42 == sumnatsLocalTupled 42)
 
 main = defaultMain
-  [ bench "localTup" $ nf sumnatsLocalTupled 42
-  , bench "toplvl" $ nf sumnats 42
-  , bench "local" $ nf sumnatsLocal 42
+  [ bench "localTup" $ whnf sumnatsLocalTupled 42
+  , bench "toplvl" $ whnf sumnats 42
+  , bench "local" $ whnf sumnatsLocal 42
   ]
   -- [bench "localTup" $ nf sumnatsLocalTupled 42]
 

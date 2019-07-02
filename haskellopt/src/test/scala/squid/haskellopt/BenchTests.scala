@@ -46,6 +46,9 @@ class BenchTests extends FunSuite {
     - Last time I tried, with the old GIR impl, it seemed like GHC did not completely fuse its lists, and that we could
       do a better job; TODO try and reproduce this finding
     
+    - Super strangely, when I changed criterion's `nf` to `whnf` and used an addition instead of a pair, the performance
+      of the toplvl version of the benchmark (and only this version) more than doubled in running time!
+    
     */
   }
   
