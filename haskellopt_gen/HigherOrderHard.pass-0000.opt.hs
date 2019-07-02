@@ -44,4 +44,4 @@ hTest0 = (_4(# (_5(# (GHC.Base.id (_5(# x'3 #))) #)) #))
 
 _5(# ds #) = (((GHC.Num.+) ds) 1)
 
-hTest1 = (\y'2 -> let { _6(# ds' #) = (((GHC.Num.+) ds') y'2) } in (_4(# (_6(# (GHC.Base.id (_6(# x'3 #))) #)) #)))
+hTest1 = (\y'2 -> let _6(# ds' #) = (((GHC.Num.+) ds') y'2) in (_4(# (_6(# (GHC.Base.id (_6(# x'3 #))) #)) #)))

@@ -28,7 +28,7 @@ fTest3 = (((GHC.Num.*) (_0(# (_0(# (GHC.Types.I# 66#) #)) #))) (_0(# (_0(# (GHC.
 
 fTest4 = (((GHC.Num.+) (_0(# (_0(# (GHC.Types.I# 66#) #)) #))) (_0(# (_0(# (GHC.Types.I# 77#) #)) #)))
 
-foo = (\x'2 -> let { tmp = (((GHC.Num.*) x'2) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
+foo = (\x'2 -> let tmp = (((GHC.Num.*) x'2) (GHC.Types.I# 2#)) in (((GHC.Num.+) tmp) tmp))
 
 g = (\x'3 -> (_1(# x'3 #)))
 

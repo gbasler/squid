@@ -49,7 +49,7 @@ x'12 = (((GHC.Num.*) x'14) x'14)
 
 x'13 = (((GHC.Num.*) x'15) x'15)
 
-foo = (\x'16 -> let { tmp = (((GHC.Num.*) x'16) (GHC.Types.I# 2#)) } in (((GHC.Num.+) tmp) tmp))
+foo = (\x'16 -> let tmp = (((GHC.Num.*) x'16) (GHC.Types.I# 2#)) in (((GHC.Num.+) tmp) tmp))
 
 g = (\x'17 -> (\y -> (((GHC.Num.*) x'17) y)))
 

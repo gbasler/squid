@@ -140,6 +140,7 @@ object CollectionUtils {
         case _ => m
       }
     }
+    def mergeValue[K0 >: K, V0 >: V](kvs: (K0 -> V0)*): ((V,V0) => V0) => Map[K0,V0] = mergeValues(kvs)
   }
   
 }

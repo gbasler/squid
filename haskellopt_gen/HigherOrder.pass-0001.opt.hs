@@ -23,7 +23,7 @@ ds = 1
 
 f = (\x -> (_0(# x #)))
 
-_0(# x' #) = (((GHC.Num.*) x') (((GHC.Num.*) (((GHC.Num.-) x') (GHC.Types.I# 2#))) (((GHC.Num.-) x') (GHC.Types.I# 3#))))
+_0(# x' #) = (let sh = ((GHC.Num.-) x') in (((GHC.Num.*) x') (((GHC.Num.*) (sh (GHC.Types.I# 2#))) (sh (GHC.Types.I# 3#)))))
 
 f0 = (\f' -> (((GHC.Num.+) (f' _1)) (f' _2)))
 
@@ -47,7 +47,7 @@ _5(# f'4 #) = (((GHC.Num.*) (f'4 (GHC.Types.I# 2#))) (f'4 (GHC.Types.I# 3#)))
 
 hTest3 = (((GHC.Num.+) (_5(# ((GHC.Num.+) (GHC.Types.I# 1#)) #))) (_5(# ((GHC.Num.*) (GHC.Types.I# 2#)) #)))
 
-hTest4 = (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) (GHC.Types.I# 2#)) ds'2)) (((GHC.Num.+) (GHC.Types.I# 3#)) ds'2))) (((GHC.Num.*) (((GHC.Num.*) (GHC.Types.I# 2#)) ds'3)) (((GHC.Num.*) (GHC.Types.I# 3#)) ds'3)))
+hTest4 = (let { sh' = (GHC.Types.I# 3#); sh'2 = (GHC.Types.I# 2#) } in (((GHC.Num.+) (((GHC.Num.*) (((GHC.Num.+) sh'2) ds'2)) (((GHC.Num.+) sh') ds'2))) (((GHC.Num.*) (((GHC.Num.*) sh'2) ds'3)) (((GHC.Num.*) sh') ds'3))))
 
 ds'2 = (GHC.Types.I# 1#)
 

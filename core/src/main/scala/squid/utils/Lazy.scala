@@ -48,5 +48,6 @@ object Lazy {
   @transparencyPropagating
   def mk[A <: AnyRef](vl: => A, computeWhenShow: Bool) =
     new Lazy(() => vl, computeWhenShow)
+  def unapply[A <: AnyRef](self: Lazy[A]): Some[A] = Some(self.value)
 }
 

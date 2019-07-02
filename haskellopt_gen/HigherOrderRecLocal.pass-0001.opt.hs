@@ -18,6 +18,6 @@ module HOR6 (rec2,rec2_0) where
 
 import GHC.Base
 
-rec2 = (\f -> let { rec = (f rec) } in rec)
+rec2 = (\f -> let rec = (f rec) in rec)
 
 rec2_0 = GHC.Base.id

@@ -63,6 +63,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
     object AST extends HaskellAST(pp) {
       type Ident = Val
       def printIdent(id: Ident): String = printVal(id)
+      def mkIdent(nameHint: String): Ident = bindVal(mkName(nameHint, ""), DummyTyp, Nil)
     }
     
     private val nameCounts = mutable.Map.empty[String, Int]

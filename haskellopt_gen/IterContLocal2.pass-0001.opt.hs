@@ -36,7 +36,7 @@ _1(# state' #) = (((:) state') (_1(# (((GHC.Num.+) state') (GHC.Types.I# 1#)) #)
 
 _2 = (GHC.Types.I# 0#)
 
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.&&) (((GHC.Classes.==) n3) (((:) (GHC.Types.I# 0#)) (((:) (GHC.Types.I# 1#)) (((:) (GHC.Types.I# 2#)) (((:) (GHC.Types.I# 3#)) (((:) (GHC.Types.I# 4#)) []))))))) (((GHC.Classes.==) count) (GHC.Types.I# 3#))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
+main = (let sh = (GHC.Types.I# 3#) in (GHC.TopHandler.runMainIO (case (((GHC.Classes.&&) (((GHC.Classes.==) n3) (((:) (GHC.Types.I# 0#)) (((:) (GHC.Types.I# 1#)) (((:) (GHC.Types.I# 2#)) (((:) sh) (((:) (GHC.Types.I# 4#)) []))))))) (((GHC.Classes.==) count) sh)) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess})))
 
 n3 = ((GHC.List.take (GHC.Types.I# 5#)) nats)
 

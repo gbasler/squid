@@ -22,7 +22,7 @@ import System.IO
 
 count = (\n -> (_0(# (_1(# (_2(# n #)) #)), n #)))
 
-_0(# f, s #) = (case (((GHC.Classes.>) s) (GHC.Num.fromInteger 0)) of {False -> (GHC.Num.fromInteger 0); True -> (((GHC.Num.+) (((GHC.Num.+) f) f)) (GHC.Num.fromInteger 1))})
+_0(# f, s #) = (let sh = (GHC.Num.fromInteger 0) in (case (((GHC.Classes.>) s) sh) of {False -> sh; True -> (((GHC.Num.+) (((GHC.Num.+) f) f)) (GHC.Num.fromInteger 1))}))
 
 _1(# s' #) = (_0(# (_1(# (_2(# s' #)) #)), s' #))
 

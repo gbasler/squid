@@ -27,9 +27,9 @@ import System.IO
 
 count = (\n -> (_0(# n #)))
 
-_0(# s #) = (case (((GHC.Classes.>) s) (GHC.Num.fromInteger 0)) of {False -> (GHC.Num.fromInteger 0); True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) s) (GHC.Num.fromInteger 1)) #))) (GHC.Num.fromInteger 1))})
+_0(# s #) = (let { sh = (GHC.Num.fromInteger 1); sh' = (GHC.Num.fromInteger 0) } in (case (((GHC.Classes.>) s) sh') of {False -> sh'; True -> (((GHC.Num.+) (_0(# (((GHC.Num.-) s) sh) #))) sh)}))
 
-loop = (\f -> let { _1(# s' #) = ((f (\s'2 -> (_1(# s'2 #)))) s') } in (\state -> (_1(# state #))))
+loop = (\f -> let _1(# s' #) = ((f (\s'2 -> (_1(# s'2 #)))) s') in (\state -> (_1(# state #))))
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n5) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n5)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 

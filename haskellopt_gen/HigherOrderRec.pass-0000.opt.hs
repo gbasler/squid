@@ -19,7 +19,7 @@ import GHC.TopHandler
 import GHC.Types
 import System.Exit
 
-main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (((:) 1) (((:) 1) (((:) 1) [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess}))
+main = (let sh = ((:) 1) in (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) rec7Test2) (sh (sh (sh [])))) of {False -> System.Exit.exitFailure; True -> System.Exit.exitSuccess})))
 
 rec7Test2 = (((GHC.Base.$) (GHC.List.take (GHC.Types.I# 3#))) (_0(# ((:) 1) #)))
 
@@ -53,6 +53,6 @@ _6(# ds'2 #) = (((GHC.Num.*) ds'2) 2)
 
 rec8 = (\f'11 -> (\x'6 -> (_7(# f'11, x'6 #))))
 
-_7(# f'12, x'7 #) = (((GHC.Num.-) (sx(# x'7 #))) (((GHC.Num.*) (f'12 (_7(# f'12, (sx(# x'7 #)) #)))) (f'12 (_7(# f'12, (sx(# x'7 #)) #)))))
+_7(# f'12, x'7 #) = (let sh' = (sx(# x'7 #)) in (((GHC.Num.-) sh') (((GHC.Num.*) (f'12 (_7(# f'12, sh' #)))) (f'12 (_7(# f'12, sh' #))))))
 
 sx(# x'8 #) = (((GHC.Num.+) x'8) (GHC.Num.fromInteger 1))
