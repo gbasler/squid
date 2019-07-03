@@ -1,4 +1,3 @@
--- ghc -O3 ListFusionBench.hs && ./ListFusionBench --regress allocated:iters +RTS -T -RTS
 module Main where
 
 import Criterion.Main
@@ -13,8 +12,10 @@ values = [0..6660]
 bat sf arg = let res = sf (map (+arg) values) in (res * res + 1)
 foo sf arg = (bat sf arg) + (bat (\ls -> sf (map (\x -> x * 2) ls) )) (arg + 1)
   -- ^ NOTE: amazingly, changing (arg + 1) to arg made the program fuse like the local version!
-process = foo sum
+-- process = foo sum -- Note: this contracted form seems to have a huge impact on perf
+process a = foo sum a
 -- process a = (foo sum a + foo maximum a)
+
 -- -- The version below is as fast as the local one!
 -- bat sf arg = let res = sf (map (+arg) values) in (res * res + 1)
 -- process arg = ((bat sum arg), (bat ( sum . (map (\x -> x * 2)) )) (arg + 1))
