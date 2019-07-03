@@ -27,27 +27,46 @@ class BenchTests extends FunSuite {
   }
   
   test("ListFusionBench") {
-    // Note: if we use tuple parameters, our output is twice as slow... as it probably gets in the way of fusion
+    /*
     
-    TestHarness("ListFusionBench")
+    This benchmark keeps getting weirder. After implementing fusion in the graph, we get uniform times for all benchmarks,
+    but we do not get optimal perf (as that of the original version of `sumnatsLocal`) unless we refrain from expanding
+    `sum` into a `foldr`. It seems GHC does something _better_ for `sum` and I don't know what it is, but looking at the
+    Core dump, it produces a very tight, strict loop, whereas when we fuse `sum` normally into a `foldr`, GHC generates
+    a less efficient loop.
+    I can't get a sense of what's happening, as `sum` seems to be implemented in GHC as a `foldl` and `foldl` itself is
+    implemented as a `foldr`! (see https://hackage.haskell.org/package/base-4.12.0.0/docs/src/GHC.List.html)
     
-    //TestHarness("ListFusionBench", "0000"::Nil)
+    Note: Currently, `sum` in `sumnatsLocalTupled` is never fused in the graph because our `foldr` pattern currently only
+          matches it applied to exactly 3 args (and here the 3rd arg is given across function boundary); but as the times
+          show, it's applied later by GHC anyways.
+    
+    Note: used to be that when we used tuple parameters, our output was twice as slow... as it probably got in the way of GHC fusion
+    
+    */
+    
+    //TestHarness("ListFusionBench")
+    
+    TestHarness("ListFusionBench", "0000"::Nil)
     
     /*
+    
     Interesting things about this benchmark:
     
-    - It shows an instance where we duplicate work unless we do local CSE
+    - It shows an instance where we would duplicate work if we did not perform local CSE
     
     - It shows that using tupled parameters can seriously harm performances (probably due to hampered fusion opportunities)
-      See manual exposition in haskellopt_gen/bench-doc/ListFusionBench.pass-0000.opt.hs
+      See manual exposition in haskellopt_gen/bench-doc/ListFusionBench.pass-0000.opt.hs.
     
-    - It shows that using top-level defs instead of local ones can also harm perfs, likely for the same reason
+    - It shows that using top-level defs instead of local ones can woefully harm perfs, likely for the same reason.
     
     - Last time I tried, with the old GIR impl, it seemed like GHC did not completely fuse its lists, and that we could
-      do a better job; TODO try and reproduce this finding
+      do a better job; however, it now seems to do fuse completely for the local version.
     
     - Super strangely, when I changed criterion's `nf` to `whnf` and used an addition instead of a pair, the performance
       of the toplvl version of the benchmark (and only this version) more than doubled in running time!
+      This is probably because `nf` is aggressively desugared in terms of DeepSeq stuff (which is also why I switched to
+      not using it).
     
     */
   }

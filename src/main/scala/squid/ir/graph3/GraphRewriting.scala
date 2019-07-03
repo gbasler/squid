@@ -388,6 +388,9 @@ trait GraphRewriting extends AST { graph: Graph =>
   val betaReduced = mutable.Map.empty[Rep,mutable.Set[BetaRedKey]].withDefault(_ => mutable.Set.empty)
   // ^ TODO: instead of this awkward 'betaReduced' cache, use proper recursion markers and an unrolling limit
   
+  type RedKey = (List[(CallId,Bool,Rep)],Rep)
+  val reduced = mutable.Map.empty[Rep,mutable.Set[RedKey]].withDefault(_ => mutable.Set.empty)
+  
   def simplifyGraph(rep: Rep, recurse: Bool = true): Bool =
   //scala.util.control.Breaks tryBreakable(
   {
@@ -469,6 +472,10 @@ trait GraphRewriting extends AST { graph: Graph =>
               reds += key
               betaReduced += other -> reds
             }
+            val reds = reduced(rep)
+            reduced -= rep
+            reduced += other -> reds
+            
             //Rdebug(s"Other $other")
             condsRest.foldRight(newBody) {
               case ((viaCtrl1,ctrl1,cid1,isLHS1,other1), nde) =>

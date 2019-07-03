@@ -38,6 +38,7 @@ class TestHarness {
         println(s"--- Graph ${ite} ---")
         println(mod.show)
         println(s"--- / ---")
+        Thread.sleep(100)
       }
       
       val sanRes = go.Graph.sanityCheck(mod.toplvlRep, sanityCheckFuel)(go.Graph.CCtx.empty)

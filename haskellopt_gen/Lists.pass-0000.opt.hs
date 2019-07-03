@@ -2,8 +2,8 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 97; Boxes: 17; Branches: 2
--- Apps: 35; Lams: 3; Unreduced Redexes: 0
+-- Total nodes: 116; Boxes: 22; Branches: 4
+-- Apps: 39; Lams: 5; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -21,9 +21,11 @@ import System.IO
 
 lol = (\x -> (\y -> (((GHC.Num.+) x) y)))
 
-ls0 = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
+ls0 = ls0'
 
-ls1 = ((GHC.Base.map (\ds -> (((GHC.Num.+) ds) (((GHC.Num.+) 11) 22)))) ls0)
+ls0' = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
+
+ls1 = (GHC.Base.build (\c -> (\n -> (((GHC.Base.foldr (((GHC.Base..) c) (\ds -> (((GHC.Num.+) ds) (((GHC.Num.+) 11) 22))))) n) ls0'))))
 
 main = (((GHC.Base.$) System.IO.print) (Data.Foldable.sum ls1))
 

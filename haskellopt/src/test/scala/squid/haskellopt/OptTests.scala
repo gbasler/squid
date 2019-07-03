@@ -21,6 +21,7 @@ class OptTests extends FunSuite {
   }
   test("PatMat") {
     // -- TODO optimize across case branches
+    // -- FIXME order of cases
     TestHarness("PatMat")
     //TestHarness("PatMat", "0000"::Nil)
   }
@@ -32,7 +33,11 @@ class OptTests extends FunSuite {
   }
   test("ListFusion") {
     TestHarness("ListFusion")
+    //TestHarness("ListFusion", "0000"::Nil)
     //TestHarness("ListFusion", (for (i <- 2 to 9) yield s"000$i").toList, opt = true)
+  }
+  test("ListFusionBTest") {
+    TestHarness("ListFusionBench")
   }
   test("HigherOrder") {
     TestHarness("HigherOrder")
