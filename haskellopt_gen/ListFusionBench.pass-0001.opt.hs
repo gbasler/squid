@@ -7,14 +7,14 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 446; Boxes: 96; Branches: 48
--- Apps: 126; Lams: 28; Unreduced Redexes: 0
+-- Total nodes: 433; Boxes: 91; Branches: 45
+-- Apps: 125; Lams: 26; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module Main (sumnatsLocalTupled,bat,sumnats,sf,main,loremipsum,sumnatsLocal,foo) where
+module Main (bat,processLocalTupled,process,sf,main,processLocal,values,foo) where
 
 import Criterion.Main
 import Criterion.Measurement.Types
@@ -30,34 +30,34 @@ bat = (\ds -> (case ds of {(,) arg0 arg1 -> (_0(# arg0, arg1 #))}))
 
 _0(# ds', ds'2 #) = (let sh = (r(# ds', ds'2 #)) in (((GHC.Num.+) (((GHC.Num.*) sh) sh)) (GHC.Num.fromInteger 1)))
 
-foo = (\sf' -> (\arg -> (_1(# arg, sf' #))))
+foo = (\sf' -> (_1(# sf' #)))
 
-_1(# arg', sf'2 #) = (((GHC.Num.+) (_2(# (sf'2 (GHC.Base.build (\c -> (\n -> (_3(# c, (_4(# arg' #)), n, loremipsum' #)))))) #))) (_2(# (sf'2 (GHC.Base.build (\c' -> (\n' -> (_3(# (((GHC.Base..) c') (\x -> (((GHC.Num.*) x) (GHC.Types.I# 2#)))), (_4(# (((GHC.Num.+) arg') (GHC.Types.I# 1#)) #)), n', loremipsum' #)))))) #)))
+_1(# sf'2 #) = (\arg -> (((GHC.Num.+) (_2(# (sf'2 (GHC.Base.build (\c -> (\n -> (_3(# c, (_4(# arg #)), n, values' #)))))) #))) (_2(# (sf'2 (GHC.Base.build (\c' -> (\n' -> (_3(# (((GHC.Base..) c') (\x -> (((GHC.Num.*) x) (GHC.Types.I# 2#)))), (_4(# (((GHC.Num.+) arg) (GHC.Types.I# 1#)) #)), n', values' #)))))) #))))
 
-loremipsum = loremipsum'
+main = (let sh' = (GHC.Types.I# 42#) in (GHC.TopHandler.runMainIO (Criterion.Main.defaultMain (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "localTup"#))) ((Criterion.Measurement.Types.whnf processLocalTupled) sh'))) (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "toplvl"#))) ((Criterion.Measurement.Types.whnf process) sh'))) (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "local"#))) ((Criterion.Measurement.Types.whnf processLocal) sh'))) []))))))
 
-loremipsum' = ((GHC.Enum.enumFromTo (GHC.Types.I# 0#)) (GHC.Types.I# 6660#))
+processLocalTupled = (\x' -> (((GHC.Num.+) (_0(# Data.Foldable.sum, x' #))) (_0(# (((GHC.Base..) Data.Foldable.sum) (\xs -> (GHC.Base.build (\c'2 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'2) (\x'2 -> (((GHC.Num.*) x'2) (GHC.Types.I# 2#))))) n'2) xs)))))), (((GHC.Num.+) x') (GHC.Types.I# 1#)) #))))
 
-main = (let sh' = (GHC.Types.I# 42#) in (GHC.TopHandler.runMainIO (Criterion.Main.defaultMain (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "localTup"#))) ((Criterion.Measurement.Types.whnf sumnatsLocalTupled) sh'))) (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "toplvl"#))) ((Criterion.Measurement.Types.whnf sumnats) sh'))) (((:) (((GHC.Base.$) (Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "local"#))) ((Criterion.Measurement.Types.whnf sumnatsLocal) sh'))) []))))))
+process = (_1(# Data.Foldable.sum #))
 
-sumnatsLocalTupled = (\x' -> (((GHC.Num.+) (_0(# Data.Foldable.sum, x' #))) (_0(# (((GHC.Base..) Data.Foldable.sum) (\xs -> (GHC.Base.build (\c'2 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'2) (\x'2 -> (((GHC.Num.*) x'2) (GHC.Types.I# 2#))))) n'2) xs)))))), (((GHC.Num.+) x') (GHC.Types.I# 1#)) #))))
-
-sumnats = (\a -> (_1(# a, Data.Foldable.sum #)))
-
-sumnatsLocal = (\arg'2 -> (((GHC.Num.+) (_5(# (Data.Foldable.sum (GHC.Base.build (\c'3 -> (\n'3 -> (_6(# c'3, (_7(# arg'2 #)), n'3, loremipsum' #)))))) #))) (_5(# (Data.Foldable.sum (GHC.Base.build (\c'4 -> (\n'4 -> (_6(# (((GHC.Base..) c'4) (\x'3 -> (((GHC.Num.*) x'3) (GHC.Types.I# 2#)))), (_7(# (((GHC.Num.+) arg'2) (GHC.Types.I# 1#)) #)), n'4, loremipsum' #)))))) #))))
-
-sf = Data.Foldable.sum
+processLocal = (\arg' -> (((GHC.Num.+) (_5(# (Data.Foldable.sum (GHC.Base.build (\c'3 -> (\n'3 -> (_6(# c'3, (_7(# arg' #)), n'3, values' #)))))) #))) (_5(# (Data.Foldable.sum (GHC.Base.build (\c'4 -> (\n'4 -> (_6(# (((GHC.Base..) c'4) (\x'3 -> (((GHC.Num.*) x'3) (GHC.Types.I# 2#)))), (_7(# (((GHC.Num.+) arg') (GHC.Types.I# 1#)) #)), n'4, values' #)))))) #))))
 
 _5(# sf'3 #) = (((GHC.Num.+) (((GHC.Num.*) sf'3) sf'3)) (GHC.Num.fromInteger 1))
 
 _6(# c'5, f, n'5, xs' #) = (((GHC.Base.foldr (((GHC.Base..) c'5) f)) n'5) xs')
 
-_7(# arg'3 #) = (\c'6 -> (((GHC.Num.+) c'6) arg'3))
+_7(# arg'2 #) = (\ds'3 -> (((GHC.Num.+) ds'3) arg'2))
 
-_3(# c'7, f', n'6, xs'2 #) = (((GHC.Base.foldr (((GHC.Base..) c'7) f')) n'6) xs'2)
+sf = Data.Foldable.sum
 
-_4(# arg'4 #) = (\c'8 -> (((GHC.Num.+) c'8) arg'4))
+values = values'
+
+values' = ((GHC.Enum.enumFromTo (GHC.Types.I# 0#)) (GHC.Types.I# 6660#))
+
+_3(# c'6, f', n'6, xs'2 #) = (((GHC.Base.foldr (((GHC.Base..) c'6) f')) n'6) xs'2)
+
+_4(# arg'3 #) = (\ds'4 -> (((GHC.Num.+) ds'4) arg'3))
 
 _2(# sf'4 #) = (((GHC.Num.+) (((GHC.Num.*) sf'4) sf'4)) (GHC.Num.fromInteger 1))
 
-r(# ds'3, ds'4 #) = (ds'3 (GHC.Base.build (\c'9 -> (\n'7 -> (((GHC.Base.foldr (((GHC.Base..) c'9) (\c'10 -> (((GHC.Num.+) c'10) ds'4)))) n'7) loremipsum')))))
+r(# ds'5, ds'6 #) = (ds'5 (GHC.Base.build (\c'7 -> (\n'7 -> (((GHC.Base.foldr (((GHC.Base..) c'7) (\ds'7 -> (((GHC.Num.+) ds'7) ds'6)))) n'7) values')))))
