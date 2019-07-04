@@ -597,7 +597,9 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
           case lam @ SchLam(p, b) => Lam(p |> Vari, lam.bindings.map(_.defnIn), b.toHs)
           case SchBox(_, b) => b.toHs
           case SchCase(scrut, arms) =>
-            Case(scrut.toHs, arms.map {
+            val (arms0, armsD) = arms.partition(_._1 =/= "_")
+            assert(armsD.size <= 1, "there should not be more than one default case")
+            Case(scrut.toHs, (arms0 ::: armsD).map {
               case (ctor, vals, body) =>
                 (ctor, vals.map(Vari),
                   body.toHs(ctx.copy(enclosingCases = ctx.enclosingCases + ((scrut.sr.rep,ctor) -> vals)))

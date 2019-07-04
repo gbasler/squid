@@ -284,11 +284,10 @@ abstract class HaskellGraph extends Graph {
         
         
       case rep @ ConcreteRep(MethodApp(scrut, CaseMtd, Nil, ArgsVarargs(Args(), Args(alts @ _*))::Nil, _)) =>
-        def mkAlt(scrut: Rep, r: Rep): String -> Rep = r.node |>! {
-          case ConcreteNode(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
+        val altsList: Seq[String -> Rep] = alts.map {
+          case ConcreteRep(MethodApp(_,Tuple2.ApplySymbol,Nil,Args(lhs,rhs)::Nil,_)) =>
             lhs.node |>! { case ConcreteNode(StaticModule(con)) => con -> rhs }
         }
-        val altsList = alts.map(mkAlt(rep, _))
         findPath(scrut) {
           // TODO handle non-fully-applied ctors... (i.e., applied across control/branches)
           case Applies(ModuleDef(mod),args)

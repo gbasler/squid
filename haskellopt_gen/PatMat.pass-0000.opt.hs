@@ -72,7 +72,7 @@ _5(# ds'5, ds'6 #) = (let sh = (r(# ds'5, ds'6 #)) in (((GHC.Num.+) (((GHC.Num.*
 
 slt1 = (\ls -> (GHC.Base.build (\c' -> (\n' -> (((GHC.Base.foldr (((GHC.Base..) (((GHC.Base..) c') (\c'2 -> 0))) (\c'3 -> 0))) n') ls)))))
 
-tf = (\ds'7 -> (case ds'7 of {(_) -> _6; (:) arg0'3 arg1 -> (case arg1 of {(_) -> _6; (:) arg0'4 arg1' -> (case arg1' of {(_) -> _6; (:) arg0'5 arg1'2 -> (case arg1'2 of {(_) -> _6; (:) arg0'6 arg1'3 -> (case arg1'3 of {(_) -> _6; [] -> (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) arg0'3) arg0'4)) arg0'5)) arg0'6)})})})})}))
+tf = (\ds'7 -> (case ds'7 of {(:) arg0'3 arg1 -> (case arg1 of {(:) arg0'4 arg1' -> (case arg1' of {(:) arg0'5 arg1'2 -> (case arg1'2 of {(:) arg0'6 arg1'3 -> (case arg1'3 of {[] -> (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) arg0'3) arg0'4)) arg0'5)) arg0'6); (_) -> _6}); (_) -> _6}); (_) -> _6}); (_) -> _6}); (_) -> _6}))
 
 _6 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:48:1-22|function tf"#)
 
