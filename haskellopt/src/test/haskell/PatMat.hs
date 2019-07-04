@@ -46,9 +46,22 @@ slt1 = bat (\res -> res, 0) where
   bat (sf, arg) ls = sf (map (\c -> arg)) (map (\c -> arg) ls)
 
 
-tls = [1,2,3,4]
-tf [a,b,c,d] = a+b+c+d
-tlsf = tf tls
+t'ls = [1,2,3,4]
+
+t0 [a,b,c,d] = a+b+c+d
+t0'0 = t0 t'ls
+
+-- With one more use than t0:
+t1 [a,b,c,d] = a+b+c+d
+t1'0 = t1 t'ls
+t1'1 xs = t1 (5 : 6 : xs)
+
+
+t2 [a,b] = (a + b) : t2 [b,a] -- TODO why not reduce across the recursive call here?
+
+t3 [a,b] = (a + b) : t3 [b,a]
+t3'0 = t3 [11,22]
+
 
 
 usum [] = 0

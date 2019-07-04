@@ -7,14 +7,14 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 525; Boxes: 128; Branches: 44
--- Apps: 96; Lams: 22; Unreduced Redexes: 0
+-- Total nodes: 986; Boxes: 233; Branches: 222
+-- Apps: 131; Lams: 26; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (tf,x,f0'1,bat,e0'2,usum'0,f0'0,e1,f1'0,f2'0,f1,e0'1,a,slt0,f0'2,e0,orZero,f0,f1'2,tlsf,ds,tls,e1'1,b,f0'3,e0'0,c,f1'1,slt1,usum,e1'0,e0'3,f2) where
+module PatMat (t3'0,x,f0'1,t1'1,bat,t0,e0'2,usum'0,f0'0,e1,f1'0,f2'0,f1,e0'1,a,t3,slt0,f0'2,e0,orZero,f0,t0'0,f1'2,ds,e1'1,t2,b,f0'3,e0'0,t1'0,c,f1'1,slt1,t1,t'ls,usum,e1'0,e0'3,f2) where
 
 import Control.Exception.Base
 import Data.Foldable
@@ -87,22 +87,52 @@ slt0 = (\x'3 -> (((,) (_0(# Data.Foldable.sum, x'3 #))) (_0(# (((GHC.Base..) Dat
 
 slt1 = (\ls -> (GHC.Base.build (\c'2 -> (\n' -> (((GHC.Base.foldr (((GHC.Base..) (((GHC.Base..) c'2) (\c'3 -> 0))) (\c'4 -> 0))) n') ls)))))
 
-tf = (\ds'8 -> (case ds'8 of {[] -> _3; (:) arg0'5 arg1'2 -> (case arg1'2 of {[] -> _3; (:) arg0'6 arg1'3 -> (case arg1'3 of {[] -> _3; (:) arg0'7 arg1'4 -> (case arg1'4 of {[] -> _3; (:) arg0'8 arg1'5 -> (case arg1'5 of {[] -> (_4(# arg0'5, arg0'6, arg0'7, arg0'8 #)); (:) arg0'9 arg1'6 -> _3})})})})}))
+t'ls = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
 
-_3 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:50:1-22|function tf"#)
+t0 = (\ds'8 -> (case ds'8 of {[] -> _3; (:) arg0'5 arg1'2 -> (case arg1'2 of {[] -> _3; (:) arg0'6 arg1'3 -> (case arg1'3 of {[] -> _3; (:) arg0'7 arg1'4 -> (case arg1'4 of {[] -> _3; (:) arg0'8 arg1'5 -> (case arg1'5 of {[] -> (_4(# arg0'5, arg0'6, arg0'7, arg0'8 #)); (:) arg0'9 arg1'6 -> _3})})})})}))
+
+_3 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:51:1-22|function t0"#)
 
 _4(# ds'9, ds'10, ds'11, ds'12 #) = (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) ds'9) ds'10)) ds'11)) ds'12)
 
-tls = (((:) 1) (((:) 2) (((:) 3) (((:) 4) []))))
+t0'0 = (_4(# 1, 2, 3, 4 #))
 
-tlsf = (_4(# 1, 2, 3, 4 #))
+t1 = (\ds'13 -> (case ds'13 of {[] -> _5; (:) arg0'10 arg1'7 -> (case arg1'7 of {[] -> _5; (:) arg0'11 arg1'8 -> (_6(# arg1'8, (_7(# (case arg1'8 of (:) _ arg -> arg), (_8(# (case (case arg1'8 of (:) _ arg -> arg) of (:) _ arg -> arg), arg0'10, arg0'11, (case arg1'8 of (:) arg _ -> arg), (case (case arg1'8 of (:) _ arg -> arg) of (:) arg _ -> arg) #)) #)) #))})}))
 
-usum = (\eta -> (_5(# eta #)))
+_5 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:55:1-22|function t1"#)
 
-_5(# ds'13 #) = (case ds'13 of {[] -> _6; (:) arg0'10 arg1'7 -> (((GHC.Num.+) arg0'10) (_5(# arg1'7 #)))})
+_6(# ds'14, ds'15 #) = (case ds'14 of {[] -> _5; (:) arg0'12 arg1'9 -> ds'15})
 
-usum'0 = _6
+_7(# ds'16, ds'17 #) = (case ds'16 of {[] -> _5; (:) arg0'13 arg1'10 -> ds'17})
 
-_6 = (GHC.Num.fromInteger 0)
+_8(# ds'18, ds'19, ds'20, ds'21, ds'22 #) = (case ds'18 of {[] -> (_9(# ds'19, ds'20, ds'21, ds'22 #)); (:) arg0'14 arg1'11 -> _5})
 
-r(# ds'14, ds'15 #) = (ds'14 (GHC.Base.build (\c'5 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'5) (\c'6 -> (((GHC.Num.+) c'6) ds'15)))) n'2) [])))))
+t1'0 = (_9(# 1, 2, 3, 4 #))
+
+_9(# ds'23, ds'24, ds'25, ds'26 #) = (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) ds'23) ds'24)) ds'25)) ds'26)
+
+t1'1 = (\xs' -> let sh' = (case xs' of (:) _ arg -> arg) in (_6(# xs', (_7(# sh', (_8(# (case sh' of (:) _ arg -> arg), (GHC.Num.fromInteger 5), (GHC.Num.fromInteger 6), (case xs' of (:) arg _ -> arg), (case sh' of (:) arg _ -> arg) #)) #)) #)))
+
+t2 = (\eta -> (case eta of {[] -> _10; (:) arg0'15 arg1'12 -> (case arg1'12 of {[] -> _10; (:) arg0'16 arg1'13 -> (case arg1'13 of {[] -> (_11(# arg0'15, arg0'16 #)); (:) arg0'17 arg1'14 -> _10})})}))
+
+_10 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:60:1-29|function t2"#)
+
+_11(# ds'27, ds'28 #) = (((:) (((GHC.Num.+) ds'27) ds'28)) (_11(# ds'28, ds'27 #)))
+
+t3 = (\eta' -> (case eta' of {[] -> _12; (:) arg0'18 arg1'15 -> (case arg1'15 of {[] -> _12; (:) arg0'19 arg1'16 -> (case arg1'16 of {[] -> (_13(# arg0'18, arg0'19 #)); (:) arg0'20 arg1'17 -> _12})})}))
+
+_12 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:62:1-29|function t3"#)
+
+_13(# ds'29, ds'30 #) = (((:) (((GHC.Num.+) ds'29) ds'30)) (_13(# ds'30, ds'29 #)))
+
+t3'0 = (_13(# 11, 22 #))
+
+usum = (\eta'2 -> (_14(# eta'2 #)))
+
+_14(# ds'31 #) = (case ds'31 of {[] -> _15; (:) arg0'21 arg1'18 -> (((GHC.Num.+) arg0'21) (_14(# arg1'18 #)))})
+
+usum'0 = _15
+
+_15 = (GHC.Num.fromInteger 0)
+
+r(# ds'32, ds'33 #) = (ds'32 (GHC.Base.build (\c'5 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'5) (\c'6 -> (((GHC.Num.+) c'6) ds'33)))) n'2) [])))))
