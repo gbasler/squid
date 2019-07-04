@@ -22,6 +22,19 @@ class BenchTests extends FunSuite {
     TestHarness("IterContBench")
   }
   
+  test("IterContTupleBench") {
+    /*
+    
+    This benchmark is pretty disappointing: although it's quite intricate, GHC manages to optimize all the tuples and
+    all the higher-order functions away on its own – as we can see after ONE pass of simplifier –, so we're only
+    insignificantly faster (but that's likely because we unroll the loop once as a side effect of the scheduling
+    algorithm's loop detection algorithm).
+    Also, as of now it seems we're not getting rid of the tuple across recursive calls; not sure why.
+    
+    */
+    TestHarness("IterContTupleBench") // Note: we got "MAX PATH SIZE REACHED!" when we had `val MaxPathSize = 18`
+  }
+  
   test("IterContLocalBench") {
     TestHarness("IterContLocalBench")
   }

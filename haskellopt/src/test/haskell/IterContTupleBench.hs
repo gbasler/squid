@@ -22,11 +22,14 @@ count n = loop ((\(k, s) -> let x = k (s - 1) in if s > 0 then x + x + 1 else 0)
 -- nats :: [Int]
 
 -- nats = loop (\(k, s) -> s : k (s + 1)) 0
-nats = loop ((\(k, s) -> s : k (s + 1)), 0)
+-- nats = loop ((\(k, s) -> s : k (s + 1)), 0)
+nats = loop ((\(k, (s0,s1)) -> s0 : k (s1 + 1,s0)), (0,1))
 -- nats = loop (\k s -> s : k (s + 1)) 0
 
-sumnats n = sum (take (count n) nats)
+-- sumnats n = sum (take (count n) nats)
+sumnats n = sum (take n nats)
 
+-- main = print (take 15 nats)
 main = defaultMain [
   bgroup "sumnats" [
       bench "10"  $ whnf sumnats 10
