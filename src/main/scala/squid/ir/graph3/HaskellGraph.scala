@@ -139,6 +139,16 @@ abstract class HaskellGraph extends Graph {
     def apply(name: String): Rep = ConcreteRep(StaticModule(name))
     def unapply(arg: Rep): Option[String] = arg |>? { case ConcreteRep(StaticModule(name)) => name }
   }
+  /** This extractor is mostly just to gloss over the fact that lists ctors seem annoyingly special.
+    * Note that is seems we can define other ctors, as in `data A a = (:::) a`, so we should in principle handle all of them. */
+  object AsCtor {
+    def unapply(arg: Rep): Option[String] = arg |>? {
+      case ModuleDef("(:)") => ":"
+      case ModuleDef("[]") => "[]"
+      // ^ List is special, for some weird reason; is allowed to have non-alpha ctor name
+      case ModuleDef(name) if !name.head.isLetter || name.head.isUpper => name
+    }
+  }
   object Appl {
     def apply(lhs: Rep, rhs: Rep): Rep = app(lhs, rhs)(DummyTyp)
     def unapply(arg: Rep): Option[Rep -> Rep] = arg |>? { case ConcreteRep(Apply(lhs,rhs)) => lhs -> rhs }
@@ -290,12 +300,16 @@ abstract class HaskellGraph extends Graph {
         }
         findPath(scrut) {
           // TODO handle non-fully-applied ctors... (i.e., applied across control/branches)
-          case Applies(ModuleDef(mod),args)
-            if altsList.exists { case (con, _) => (mod endsWith con) || (con === "_") }
+          case Applies(AsCtor(ctorName),args)
+            if altsList.exists { case (con, _) => (ctorName endsWith con) || con === "_" } // e.g., "GHC.Types.True" endsWith "True"
+            // ^ I assume this cannot match random functions that happen to be named the same as the ctor (hopefully illegal)
+            //   However it doesn't support pattern synonyms.
+            //   A more conservative approach would be as follows:
+            //if altsList.exists { case (con, _) => ctorName endsWith con } || altsList.forall { case (con, _) => con === "_" }
           =>
-            altsList.find(mod endsWith _._1).getOrElse(
+            altsList.find { case (con, _) => ctorName endsWith con }.getOrElse {
               altsList.find(_._1 === "_").get
-            )._2
+            }._2
         }.map { case (conds, ctrl, arg) =>
           (conds, Id, arg)
           // We should not place the control `ctrl` found while looking for the scrutinee's ctor, as the scrutinee is
@@ -307,8 +321,8 @@ abstract class HaskellGraph extends Graph {
         val ModuleDef(conStr) = con
         val ConcreteRep(Constant(idxInt: Int)) = idx
         findPath(scrut) {
-          case Applies(ModuleDef(mod),args)
-            if mod endsWith conStr // e.g., "GHC.Types.True" endsWith "True"
+          case Applies(AsCtor(ctorName),args)
+            if ctorName endsWith conStr // e.g., "GHC.Types.True" endsWith "True"
           =>
             val arg = args(idxInt)
             arg

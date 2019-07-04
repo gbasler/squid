@@ -35,6 +35,9 @@ f1'1 = case f1 5 of { Just x -> True; Nothing -> False }
 f1'2 = orZero (f1 5)
 -- f1'3 = f0 (f1 6)
 
+f2 (a,b,c) = a + b + c
+f2'0 = f2 (1,2,3)
+
 
 slt0 = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
   bat (sf, arg) = let r = sf ((map (\c -> c + arg)) []) in r * r + 1
@@ -43,14 +46,16 @@ slt1 = bat (\res -> res, 0) where
   bat (sf, arg) ls = sf (map (\c -> arg)) (map (\c -> arg) ls)
 
 
--- FIXME wrong ordering of default case... reduces wrong!
 tls = [1,2,3,4]
 tf [a,b,c,d] = a+b+c+d
 tlsf = tf tls
 
--- FIXME doesn't reduce
+
 usum [] = 0
 usum (x : xs) = x + usum xs
-usumls = usum tls
+usum'0 = usum []
+-- usum'1 = usum [1] -- FIXME scheduled pgrm missing a def; also, when active alone, seems to cause divergence
+-- usum'2 = usum [1,2] -- FIXME scheduled pgrm missing a def
+
 
 

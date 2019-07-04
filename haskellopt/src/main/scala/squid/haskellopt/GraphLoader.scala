@@ -52,17 +52,17 @@ class GraphLoader[G <: HaskellGraphInterpreter with HaskellGraphScheduling2](val
         Graph.staticModule {
           val mod = ExternalName.externalModuleName
           val nme = ExternalName.externalName
-          (if (nme.head.isLetter) s"$mod.$nme" else s"($mod.$nme)") match {
-            // weird special cases in GHC:
-            case "(GHC.Types.:)" => "(:)"
-            case "(GHC.Types.[])" => "[]"
-            case "(GHC.Tuple.())" => "()"
-            case "(GHC.Tuple.(,))" => "(,)" // TODO other tuple arities...
-            case n => mod match {
-              case "GHC.Integer.Type" =>
-              case _ => imports += mod
-            }
-            n
+          (mod, nme) match {
+            case ("GHC.Types", ":") => "(:)"
+            case ("GHC.Types", "[]") => "[]"
+            case ("GHC.Tuple", tup) // match (); (,); (,,); ...
+              if (tup startsWith "(") && (tup endsWith ")") && tup.init.tail.forall(_ === ',') => tup
+            case _ =>
+              mod match {
+                case "GHC.Integer.Type" =>
+                case _ => imports += mod
+              }
+              if (nme.head.isLetter) s"$mod.$nme" else s"($mod.$nme)"
           }
         }
       def ELit(Lit: Lit): Expr = Graph.rep(Lit)

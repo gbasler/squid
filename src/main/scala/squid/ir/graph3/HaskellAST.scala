@@ -36,6 +36,15 @@ object CurriedParameters extends ParameterPassingStrategy {
 
 abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
+  val inlineOneShotLets = true
+  //val inlineOneShotLets = false
+  val inlineTrivialLets = true
+  //val inlineTrivialLets = false
+  val simplifyCases = true
+  //val simplifyCases = false
+  val commonSubexprElim = true
+  //val commonSubexprElim = false
+  
   type Ident
   def printIdent(id: Ident): String
   def mkIdent(nameHitn: String): Ident
@@ -199,13 +208,13 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Call(d, as) => Call(d, as.map(_.simplifyRec))
       case Let(p, e0, b) => Let(p, e0.simplifyRec, b.simplifyRec)
       case Case(scrut, arms) => Case(scrut.simplifyRec, arms.map { case (con,vals,body) =>
-        (con, vals, body.simplifyRec(caseCtx + ((scrut -> con) -> vals))) })
+        (con, vals, body.simplifyRec(if (simplifyCases) caseCtx + ((scrut -> con) -> vals) else caseCtx)) })
       case CtorField(scrut, ctor, arity, idx) => caseCtx.get(scrut, ctor) match {
         case Some(vals) => vals(idx)
         case None => CtorField(scrut.simplifyRec, ctor, arity, idx)
       }
     }
-    def cse: Expr = {
+    def cse: Expr = if (!commonSubexprElim) this else {
       //println(s"Shared in ${stringify}:\n\t${shareableExprs.filter(_._2 >= 2).map(kv=>kv._1.stringify->kv._2)}")
       val shared = shareableExprs.filter(_._2 >= 2)
       if (shared.isEmpty) this else {
@@ -271,10 +280,10 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   object Let {
     def apply(v: Vari, e: Expr, body: Expr): Expr = body.occurrences(v) match {
       case 0 => body
-      case 1 =>
+      case 1 if inlineOneShotLets =>
         body.subs(v, e)
       case _ =>
-        if (e.isTrivial) body.subs(v, e) else new Let(v, e, body){}
+        if (e.isTrivial && inlineTrivialLets) body.subs(v, e) else new Let(v, e, body){}
     }
   }
   case class Case(scrut: Expr, arms: List[(String,List[Vari],Expr)]) extends Expr

@@ -32,6 +32,6 @@ _3(# sf'3 #) = (\arg'2 -> (((GHC.Num.+) (_0(# arg'2, sf'3 #))) (sf'3 (GHC.Base.b
 
 sumnats = (_3(# Data.Foldable.sum #))
 
-_1(# c'5, f, n'5, xs' #) = (((GHC.Base.foldr (((GHC.Base..) c'5) f)) n'5) xs')
+_2(# arg'3 #) = (\c'5 -> (((GHC.Num.+) c'5) arg'3))
 
-_2(# arg'3 #) = (\c'6 -> (((GHC.Num.+) c'6) arg'3))
+_1(# c'6, f, n'5, xs' #) = (((GHC.Base.foldr (((GHC.Base..) c'6) f)) n'5) xs')

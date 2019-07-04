@@ -21,7 +21,7 @@ class OptTests extends FunSuite {
   }
   test("PatMat") {
     // -- TODO optimize across case branches
-    // -- FIXME order of cases
+    // -- FIXME scheduled pgrm missing a def
     TestHarness("PatMat")
     //TestHarness("PatMat", "0000"::Nil)
   }
