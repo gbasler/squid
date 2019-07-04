@@ -7,14 +7,14 @@
 --                          no rules,
 --                          eta-expand,
 --                          case-of-case}
--- Total nodes: 986; Boxes: 233; Branches: 222
--- Apps: 131; Lams: 26; Unreduced Redexes: 0
+-- Total nodes: 662; Boxes: 163; Branches: 90
+-- Apps: 106; Lams: 23; Unreduced Redexes: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (t3'0,x,f0'1,t1'1,bat,t0,e0'2,usum'0,f0'0,e1,f1'0,f2'0,f1,e0'1,a,t3,slt0,f0'2,e0,orZero,f0,t0'0,f1'2,ds,e1'1,t2,b,f0'3,e0'0,t1'0,c,f1'1,slt1,t1,t'ls,usum,e1'0,e0'3,f2) where
+module PatMat (x,f0'1,t1'1,bat,t0,e0'2,f0'0,e1,f1'0,f2'0,f1,e0'1,a,slt0,f0'2,e0,orZero,f0,t0'0,f1'2,ds,e1'1,b,f0'3,e0'0,t1'0,c,f1'1,slt1,t1,t'ls,e1'0,e0'3,f2) where
 
 import Control.Exception.Base
 import Data.Foldable
@@ -113,26 +113,4 @@ _9(# ds'23, ds'24, ds'25, ds'26 #) = (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) d
 
 t1'1 = (\xs' -> let sh' = (case xs' of (:) _ arg -> arg) in (_6(# xs', (_7(# sh', (_8(# (case sh' of (:) _ arg -> arg), (GHC.Num.fromInteger 5), (GHC.Num.fromInteger 6), (case xs' of (:) arg _ -> arg), (case sh' of (:) arg _ -> arg) #)) #)) #)))
 
-t2 = (\eta -> (case eta of {[] -> _10; (:) arg0'15 arg1'12 -> (case arg1'12 of {[] -> _10; (:) arg0'16 arg1'13 -> (case arg1'13 of {[] -> (_11(# arg0'15, arg0'16 #)); (:) arg0'17 arg1'14 -> _10})})}))
-
-_10 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:60:1-29|function t2"#)
-
-_11(# ds'27, ds'28 #) = (((:) (((GHC.Num.+) ds'27) ds'28)) (_11(# ds'28, ds'27 #)))
-
-t3 = (\eta' -> (case eta' of {[] -> _12; (:) arg0'18 arg1'15 -> (case arg1'15 of {[] -> _12; (:) arg0'19 arg1'16 -> (case arg1'16 of {[] -> (_13(# arg0'18, arg0'19 #)); (:) arg0'20 arg1'17 -> _12})})}))
-
-_12 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:62:1-29|function t3"#)
-
-_13(# ds'29, ds'30 #) = (((:) (((GHC.Num.+) ds'29) ds'30)) (_13(# ds'30, ds'29 #)))
-
-t3'0 = (_13(# 11, 22 #))
-
-usum = (\eta'2 -> (_14(# eta'2 #)))
-
-_14(# ds'31 #) = (case ds'31 of {[] -> _15; (:) arg0'21 arg1'18 -> (((GHC.Num.+) arg0'21) (_14(# arg1'18 #)))})
-
-usum'0 = _15
-
-_15 = (GHC.Num.fromInteger 0)
-
-r(# ds'32, ds'33 #) = (ds'32 (GHC.Base.build (\c'5 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'5) (\c'6 -> (((GHC.Num.+) c'6) ds'33)))) n'2) [])))))
+r(# ds'27, ds'28 #) = (ds'27 (GHC.Base.build (\c'5 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'5) (\c'6 -> (((GHC.Num.+) c'6) ds'28)))) n'2) [])))))

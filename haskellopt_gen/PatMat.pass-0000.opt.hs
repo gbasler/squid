@@ -2,14 +2,14 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Total nodes: 940; Boxes: 235; Branches: 182
--- Apps: 124; Lams: 27; Unreduced Redexes: 1
+-- Total nodes: 729; Boxes: 182; Branches: 143
+-- Apps: 99; Lams: 24; Unreduced Redexes: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (t3'0,f0'1,t1'1,t0,e0'2,usum'0,f0'0,e1,f1'0,f2'0,f1,e0'1,t3,slt0,f0'2,e0,orZero,f0,t0'0,f1'2,e1'1,t2,f0'3,e0'0,t1'0,f1'1,slt1,t1,t'ls,usum,e1'0,e0'3,f2) where
+module PatMat (f0'1,t1'1,t0,e0'2,f0'0,e1,f1'0,f2'0,f1,e0'1,slt0,f0'2,e0,orZero,f0,t0'0,f1'2,e1'1,f0'3,e0'0,t1'0,f1'1,slt1,t1,t'ls,e1'0,e0'3,f2) where
 
 import Control.Exception.Base
 import Data.Foldable
@@ -104,26 +104,4 @@ _13(# ds'26, ds'27, ds'28, ds'29 #) = (((GHC.Num.+) (((GHC.Num.+) (((GHC.Num.+) 
 
 t1'1 = (\xs' -> let sh' = (case xs' of (:) _ arg -> arg) in (_9(# xs', (_10(# sh', (_11(# (case sh' of (:) _ arg -> arg), (GHC.Num.fromInteger 5), (GHC.Num.fromInteger 6), (case xs' of (:) arg _ -> arg), (case sh' of (:) arg _ -> arg) #)) #)) #)))
 
-t2 = (\ds'30 -> (case ds'30 of {(:) arg0'12 arg1'9 -> (case arg1'9 of {(:) arg0'13 arg1'10 -> (case arg1'10 of {[] -> (_14(# arg0'12, arg0'13 #)); (_) -> _15}); (_) -> _15}); (_) -> _15}))
-
-_15 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:60:1-29|function t2"#)
-
-_14(# ds'31, ds'32 #) = (((:) (((GHC.Num.+) ds'31) ds'32)) (_14(# ds'32, ds'31 #)))
-
-t3 = (\ds'33 -> (case ds'33 of {(:) arg0'14 arg1'11 -> (case arg1'11 of {(:) arg0'15 arg1'12 -> (case arg1'12 of {[] -> (_16(# arg0'14, arg0'15 #)); (_) -> _17}); (_) -> _17}); (_) -> _17}))
-
-_17 = (Control.Exception.Base.patError "/Volumes/Macintosh HD/Users/lptk/work/EPFL/DATA/git/alt/Squid-1.0/haskellopt/src/test/haskell/PatMat.hs:62:1-29|function t3"#)
-
-_16(# ds'34, ds'35 #) = (((:) (((GHC.Num.+) ds'34) ds'35)) (_16(# ds'35, ds'34 #)))
-
-t3'0 = (_16(# 11, 22 #))
-
-usum = (\ds'36 -> (_18(# ds'36 #)))
-
-_18(# ds'37 #) = (case ds'37 of {[] -> _19; (:) arg0'16 arg1'13 -> (((GHC.Num.+) arg0'16) (_18(# arg1'13 #)))})
-
-usum'0 = _19
-
-_19 = (GHC.Num.fromInteger 0)
-
-r(# ds'38, ds'39 #) = (ds'38 (GHC.Base.build (\c'4 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'4) (\c'5 -> (((GHC.Num.+) c'5) ds'39)))) n'2) [])))))
+r(# ds'30, ds'31 #) = (ds'30 (GHC.Base.build (\c'4 -> (\n'2 -> (((GHC.Base.foldr (((GHC.Base..) c'4) (\c'5 -> (((GHC.Num.+) c'5) ds'31)))) n'2) [])))))

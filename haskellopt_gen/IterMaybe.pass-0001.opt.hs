@@ -12,6 +12,7 @@
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 
 module Main (count,loop,main,nats,n3) where
 
@@ -28,7 +29,9 @@ count = (\n -> (_0(# n, 0 #)))
 
 _0(# n', st0 #) = (case (((GHC.Classes.<) st0) n') of {False -> st0; True -> (_0(# n', (((GHC.Num.+) st0) 1) #))})
 
-loop = (\f -> let { _1(# st0' #) = (case (f st0') of {Nothing -> st0'; Just arg0 -> (_1(# arg0 #))}) } in (\state -> (_1(# state #))))
+loop = (\f -> (\state -> (_1(# state #))))
+
+_1(# st0' #) = (case (f st0') of {Nothing -> st0'; Just arg0 -> (_1(# arg0 #))})
 
 main = (GHC.TopHandler.runMainIO (case (((GHC.Classes.==) n3) (((:) 0) (((:) 1) (((:) 2) (((:) 3) (((:) 4) [])))))) of {False -> (((GHC.Base.>>) (System.IO.print n3)) System.Exit.exitFailure); True -> System.Exit.exitSuccess}))
 

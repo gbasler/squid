@@ -21,7 +21,6 @@ example/target/
 haskellopt/target/
 site/target/
 
-haskellopt/src/test/haskell/*.dump-*
 haskellopt_gen/*.hi
 haskellopt_gen/*.o
 haskellopt_gen/*.opt
@@ -30,9 +29,10 @@ haskellopt_gen/bench-doc/*.hi
 haskellopt_gen/bench-doc/*.o
 haskellopt_gen/bench-doc/*.opt
 
-# ignore everything in there but files with an extension -- this is to ignore executables compiled by me using GHC
+# ignore everything in there but files with a .hs extension -- this is to ignore executables compiled by me using GHC
 haskellopt/src/test/haskell/*
-haskellopt/src/test/haskell/!*.*
+!haskellopt/src/test/haskell/*.hs
+haskellopt/src/test/haskell/_perso*
 
 lib_managed/
 src_managed/

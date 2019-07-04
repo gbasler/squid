@@ -57,18 +57,5 @@ t1'0 = t1 t'ls
 t1'1 xs = t1 (5 : 6 : xs)
 
 
-t2 [a,b] = (a + b) : t2 [b,a] -- TODO why not reduce across the recursive call here?
-
-t3 [a,b] = (a + b) : t3 [b,a]
-t3'0 = t3 [11,22]
-
-
-
-usum [] = 0
-usum (x : xs) = x + usum xs
-usum'0 = usum []
--- usum'1 = usum [1] -- FIXME scheduled pgrm missing a def; also, when active alone, seems to cause divergence
--- usum'2 = usum [1,2] -- FIXME scheduled pgrm missing a def
-
 
 

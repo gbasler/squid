@@ -54,10 +54,11 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
   /** Important: `id` is used to uniquely identify the definition. */
   class Defn(val id: Ident, val params: List[Vari], val body: Expr) {
-    def toBeInlined: Bool =
+    def toBeInlined: Bool = !isRecursive && (
       body.isTrivial ||
         //false
         body.size <= params.size + 1 // makes sure to inline calls to trivial 'forwarding' defs like `_0(a, b) = a + b`
+    )
     
     def occurrences = body.occurrences -- params
     def shareableExprs = body.shareableExprs.filterKeys(k => !k.freeVars.exists(params.contains))
@@ -72,7 +73,11 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       res
     }
     
-    //val isRecursive = // would need to look at all calls in body
+    lazy val isRecursive: Bool = body.allChildren.exists {
+      case Call(d,_) =>
+        (d.isComputing // duh!
+        || d.value === this)
+      case _ => false }
     
     lazy val simplifiedBody = body.simplify.cse
     
@@ -135,6 +140,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     }
     
     def freeVars: Set[Vari] = occurrences.keySet
+    def hasFreeVar(v: Vari): Bool = occurrences.contains(v)
     
     /** Important: not all occurrences of case-bound variables may be visible  */
     lazy val occurrences: Map[Vari, Int] = this match {
@@ -156,7 +162,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case App(lhs, rhs) => (lhs.shareableExprs mergeValues rhs.shareableExprs)(_ + _) |> countThis
       case Lam(p, ds, b) =>
         ds.foldLeft(b.shareableExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)}
-          .filterKeys(k => !k.freeVars(p)) |> countThis
+          .filterKeys(k => !k.hasFreeVar(p)) |> countThis
       case Call(d, as) =>
         as.iterator.foldLeft(noSubExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)} |> countThis
       case Let(v, e, b) =>
@@ -198,6 +204,18 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Case(scrut, arms) => scrut.size + arms.foldLeft(0)(_ + _._3.size + 1)
       case CtorField(scrut, ctor, arity, idx) =>
         scrut.size // Note: could become a case, which is bigger... may also reduce to a variable, which is smaller!
+    }
+    
+    import Iterator.{ single => Ite }
+    def allChildren: Iterator[Expr] = Ite(this) ++ children.flatMap(_.allChildren)
+    def children: Iterator[Expr] = this match {
+      case _: Inline | _: Vari => Iterator.empty
+      case App(lhs, rhs) => Ite(lhs) ++ Ite(rhs)
+      case lam @ Lam(p, ds, b) => ds.iterator.map(_.body) ++ Ite(b)
+      case Call(d, as) => as.iterator
+      case Let(p, e0, b) => Ite(e0) ++ Ite(b)
+      case Case(scrut, arms) =>Ite(scrut) ++ arms.iterator.map(_._3)
+      case CtorField(scrut, ctor, arity, idx) =>Ite(scrut)
     }
     
     def simplify: Expr = simplifyRec(Map.empty)
