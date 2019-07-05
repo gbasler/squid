@@ -25,9 +25,16 @@ class OptTests extends FunSuite {
     //TestHarness("PatMat", "0000"::Nil)
   }
   test("PatMatRec") {
-    // -- TODO why not reduce across the recursive call here? [t2]
     //TestHarness("PatMatRec")
-    TestHarness("PatMatRec", "0000"::Nil) // FIXME infinite loop, printing "MAX PATH SIZE REACHED!"
+    TestHarness("PatMatRec", "0000"::Nil)
+    //TestHarness("PatMatRec", "0001"::Nil) // FIXME apparently-infinite loop, printing "MAX PATH SIZE REACHED!"
+  }
+  test("PatMatRec2") {
+    TestHarness("PatMatRec2")
+    /*
+    FIXME: the `usum` example here demonstrates a current problem: with all three examples together, we end up rewriting
+           lots of things (more than 600 rewrite iterations with `MaxPathSize = 32`), but it's mostly in dead branches!
+    */
   }
   test("Motiv") {
     TestHarness("Motiv")
@@ -36,6 +43,7 @@ class OptTests extends FunSuite {
     TestHarness("MotivLocal")
   }
   test("ListFusion") {
+    // FIXME this test generates code nondeterministically (order of two definitions keeps changing...)
     TestHarness("ListFusion")
     //TestHarness("ListFusion", "0000"::Nil)
     //TestHarness("ListFusion", (for (i <- 2 to 9) yield s"000$i").toList, opt = true)

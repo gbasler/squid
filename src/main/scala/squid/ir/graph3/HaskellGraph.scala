@@ -158,6 +158,7 @@ abstract class HaskellGraph extends Graph {
   // beta reduction rewires application nodes.
   
   val MaxPathSize = 16
+  //val MaxPathSize = 32
   
   // TODO use this simpler function to do beta reduction too, instead of the old simplifyGraph?
   def simplifyHaskell(rep: Rep): Iterator[Rep] = {
