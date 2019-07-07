@@ -131,6 +131,10 @@ class OptTests extends FunSuite {
     //TestHarness("IterContLocal2", "0000"::Nil, exec = true)
     //TestHarness("IterContLocal2", "0001"::Nil, exec = true)
   }
+  //test("IterContTuple") {
+  //  // Q: does it reduce?
+  //  TestHarness("IterContTupleBench", exec = true)
+  //}
   test("IterMaybe") {
     // Note: generated program used not to terminate! because a parameter was conflated due to mixing branch and control as param key
     

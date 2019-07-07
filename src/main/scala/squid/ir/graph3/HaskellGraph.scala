@@ -157,6 +157,7 @@ abstract class HaskellGraph extends Graph {
   // Type RedKey and val reduced used to be defined here, but I moved them to GraphRewriting so they can be updated when
   // beta reduction rewires application nodes.
   
+  //val MaxPathSize = 4
   val MaxPathSize = 16
   //val MaxPathSize = 32
   

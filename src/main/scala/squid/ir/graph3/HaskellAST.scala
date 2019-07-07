@@ -270,7 +270,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   object Lam {
     def apply(param: Vari, subDefs: List[Defn], body: Expr): Lam = {
       new Lam(param, subDefs.filterNot(_.toBeInlined), body){}
-      /*
+      /* // TODO
       // Can convert no-params defs to let bindings, but it's really not buying us much;
       //   not worth the trouble + perf hit of implementing an `isRecursive` field
       val (letBindings,subDefs2) = subDefs.filterNot(_.toBeInlined).partition(d => d.params.isEmpty && !d.isRecursive)

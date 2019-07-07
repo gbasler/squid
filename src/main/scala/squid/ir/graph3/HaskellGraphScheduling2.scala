@@ -143,6 +143,7 @@ trait HaskellGraphScheduling2 { graph: HaskellGraph =>
             //assert(c.ctrl === param.ctrl, s"${c.ctrl} ${param.ctrl}") // nope
             
             val originCtrl = pctrl `;` c.ctrl `;` cbr._1 `;` br.ctrl // no reason not to include pctrl after all...
+            //val originCtrl = c.ctrl `;` cbr._1 `;` br.ctrl // no reason not to include pctrl after all...
             Sdebug(s"originCtrl = $originCtrl")
             
             Sdebug(s"? ${pctrl} ; ${c.ctrl} ; ${cbr._1} ; ${br.ctrl}")

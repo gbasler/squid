@@ -23,8 +23,17 @@ class TestHarness {
     val writePath_graph = genFolder/RelPath(filePath.baseName+".opt.graph")
     if (exists(writePath_graph)) rm(writePath_graph)
     
+    val loadingStartTime = System.nanoTime
+    
     val go = new GraphLoader(mkGraph)
     val mod = go.loadFromDump(filePath)
+    
+    val loadingEndTime = System.nanoTime
+    val loadingTime = loadingEndTime-loadingStartTime
+    println(s"Loading time: ${loadingTime/1000/1000} ms")
+    
+    val rewriteStartTime = System.nanoTime
+    
     println(s"=== PHASE ${mod.modPhase} ===")
     
     //go.Graph.debugFor
@@ -45,7 +54,7 @@ class TestHarness {
       if (sanRes.isEmpty)
         println(s"Note: sanity check stopped early given fuel = $sanityCheckFuel")
       else if (go.Graph.RewriteDebug.isDebugEnabled)
-        println(s"Sanity check stopped with remaining fuel = $sanityCheckFuel")
+        println(s"Sanity check stopped with remaining fuel = $sanRes, given fuel = $sanityCheckFuel")
       
       //println(go.Graph.scheduleRec(mod))
       
@@ -69,6 +78,10 @@ class TestHarness {
     
     }
     
+    val rewriteEndTime = System.nanoTime
+    val rewriteTime = rewriteEndTime-rewriteStartTime
+    println(s"Rewrite time: ${rewriteTime/1000/1000} ms")
+    
     val graphStr = mod.show
     println(graphStr)
     if (dumpGraph) write(writePath_graph, graphStr, createFolders = true)
@@ -83,10 +96,17 @@ class TestHarness {
       assert(res.isInstanceOf[scala.util.Success[_]], res)
     }
     
+    val scheduleStartTime = System.nanoTime
+    
     //println(mod.show)
     val sch = 
       //go.Graph.HaskellScheduleDebug debugFor
       go.Graph.scheduleRec(mod)
+    
+    val scheduleEndTime = System.nanoTime
+    val scheduleTime = scheduleEndTime-scheduleStartTime
+    println(s"Scheduling time: ${scheduleTime/1000/1000} ms")
+    
     println("--- Scheduled ---")
     
     //go.Graph.HaskellScheduleDebug debugFor
@@ -97,9 +117,17 @@ class TestHarness {
     
     println("--- Generated ---")
     val ghcVersion = %%('ghc, "--version")(pwd).out.string.stripSuffix("\n")
+    val stringifyStartTime = System.nanoTime
     val moduleStr = sch.toHaskell(go.imports.toList.sorted, ghcVersion)
+    val stringifyEndTime = System.nanoTime
+    val stringifyTime = stringifyEndTime-stringifyStartTime
+    println(s"Stringify time: ${stringifyTime/1000/1000} ms")
     println(moduleStr)
     write(writePath_hs, moduleStr, createFolders = true)
+    
+    println(s"=> Loading+Rewrite+Schedule+Stringify time:" +
+      s" ${loadingTime/1000/1000} + ${rewriteTime/1000/1000} + ${scheduleTime/1000/1000} + ${stringifyTime/1000/1000}" +
+      s" = ${(loadingTime + rewriteTime + scheduleTime + stringifyTime)/1000/1000} ms\n")
     
     if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
   }
