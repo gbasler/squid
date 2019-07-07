@@ -2,7 +2,6 @@ module Main where
 
 import Criterion.Main
 
--- game :: (a -> [a]) -> ((b -> [c]) -> [b] -> [c]) -> ((Bool -> [b]) -> [b]) -> [a] -> [c]
 game :: (Int -> [Int]) -> ((Int -> [Int]) -> [Int] -> [Int]) -> ((Bool -> [Int]) -> [Int]) -> [Int] -> [Int]
 game lift bind flipCoin input = play input where
   play [] = lift 0
@@ -12,19 +11,21 @@ game lift bind flipCoin input = play input where
       bind (\rest ->
           -- if res then rest + x else rest
           lift (if res then rest + x else rest)
-        ) (play xs) 
+        ) (play xs)
     )
 
 -- -- game_nondet = game (:[]) concatMap (\f -> [f True, f False])
 -- game_nondet = game (:[]) (\f ls -> concatMap f ls) (\f -> [f True, f False])
 game_nondet = game (:[]) concatMap (\f -> f True ++ f False)
 
+-- This version is actually slightly slower!!(???)
 game_nondet_manual :: [Int] -> [Int]
 game_nondet_manual input = play input where
   play [] = [0]
   play (x : xs) =
-    let rest = play xs in
-    concatMap (\res -> [x + res, res]) rest
+    -- concatMap (\rest -> [rest + x] ++ [rest]) (play xs)
+    concatMap (\rest -> [rest + x]) (play xs) ++ concatMap (\rest -> [rest]) (play xs)
+    -- let r = play xs in concatMap (\rest -> [rest + x]) r ++ concatMap (\rest -> [rest]) r
 
 main = do
   defaultMain [
