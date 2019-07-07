@@ -127,7 +127,7 @@ class BenchTests extends FunSuite {
   
   
   test("AlgebraicEffectsBench") {
-    //TestHarness("AlgebraicEffectsBench") // FIXME assertion failure
+    //TestHarness("AlgebraicEffectsBench") // FIXME assertion failure (with previous version; now just the unsupported case)
   }
   
   
