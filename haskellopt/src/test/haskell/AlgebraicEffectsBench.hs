@@ -2,7 +2,7 @@ module Main where
 
 import Criterion.Main
 
-game :: (Int -> [Int]) -> ((Int -> [Int]) -> [Int] -> [Int]) -> ((Bool -> [Int]) -> [Int]) -> [Int] -> [Int]
+-- game :: (Int -> [Int]) -> ((Int -> [Int]) -> [Int] -> [Int]) -> ((Bool -> [Int]) -> [Int]) -> [Int] -> [Int]
 game lift bind flipCoin input = play input where
   play [] = lift 0
   play (x : xs) = flipCoin (\res ->
@@ -32,10 +32,18 @@ game_nondet_manual input = play input where
     concatMap (\rest -> [rest + x]) (play xs) ++ concatMap (\rest -> [rest]) (play xs)
     -- let r = play xs in concatMap (\rest -> [rest + x]) r ++ concatMap (\rest -> [rest]) r
 
+-- These have the same speed...
+game_lucky = game id (\f x -> f x) (\f -> f True)
+game_lucky_manual input = play input where
+  play [] = 0
+  play (x : xs) = (play xs) + x
+
 main = do
   defaultMain [
       bench "nondet" $ whnf game_nondet [0..666]
     -- , bench "nondet'" $ whnf game_nondet' [0..666]
     , bench "nondet_manual" $ whnf game_nondet_manual [0..666]
+    , bench "lucky" $ whnf game_lucky [0..666]
+    , bench "lucky_manual" $ whnf game_lucky_manual [0..666]
     ]
 -- main = pure()

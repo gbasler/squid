@@ -206,6 +206,9 @@ TODO Q: Is this because of an instance resolution defaulting to Int instead of I
 
 
 
+
+
+
 > time ghc -fforce-recomp -O2 ListFusionBench.hs
 [1 of 1] Compiling Main             ( ListFusionBench.hs, ListFusionBench.o )
 Linking ListFusionBench ...
