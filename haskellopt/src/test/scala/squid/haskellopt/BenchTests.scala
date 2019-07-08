@@ -6,8 +6,48 @@ import squid.ir.graph3.CurriedParameters
 import squid.ir.graph3.HaskellGraphScheduling2
 import squid.ir.graph3.ParameterPassingStrategy
 
-object SynthListFusionBench {
-  val sizes = (1 to 10)
+object SynthBench extends App {
+  val sizes = 1 to 25
+  import ammonite.ops._
+  
+  val imports = "Criterion.Main" :: Nil
+  
+  val defs = for {
+    size <- sizes
+    indices = 0 until size
+    xs = indices map ("x"+_)
+    ys = indices map ("y"+_)
+    prod = s"prod_$size (${xs mkString ","}) (${ys mkString ","}) = ${
+      (xs zip ys).foldLeft("0"){case (acc,xy) => acc + " + " + xy._1 + " * " + xy._2}}"
+    usage = s"test_$size n = sum (map (\\i -> prod_$size (${
+      indices map (i => s"i + $i") mkString ", "}) (${
+      indices map (i => s"i ^ $i") mkString ", "
+    })) [0..n])"
+  } yield s"$prod\n$usage"
+  
+  val benchmarks = for {
+    size <- sizes
+  } yield s"""bench "prod_$size" $$ whnf test_$size 1000"""
+  
+  val pgrmStr =
+    s"""
+    |-- Generated Haskell code from SynthBench
+    |
+    |module Main (main) where
+    |
+    |${imports.map("import "+_).mkString("\n")}
+    |
+    |${defs.mkString("\n\n")}
+    |
+    |main = defaultMain ${benchmarks.map("\n|    "+_).mkString("[",",","\n|  ]")}
+    |
+    |""".tail.stripMargin
+  
+  val path = pwd/'haskellopt/'src/'test/'haskell/"VectorsBench.hs"
+  
+  if (exists! path) rm! path
+  write(path, pgrmStr)
+  
 }
 
 class BenchTests extends FunSuite {
