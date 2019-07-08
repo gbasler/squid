@@ -9,12 +9,13 @@ object SynthBench {
   //  - add all smaller cases (it seems to make GHC inline much more aggressively...)
   
   //val sizes = 1 to 25
-  val sizes = 1 to 15
+  //val sizes = 1 to 15
   //val sizes = 20 to 40 by 5
   //val sizes = 15 to 40 by 5
   //val sizes = 1 to 30 by 5
   //val sizes = (1 to 10) ++ (12 to 20 by 2)
   //val sizes = (1 to 10)
+  val sizes = 1 to 12
   //val sizes = (5 to 30 by 5)
   //val sizes = (2 to 20 by 2)
   
@@ -99,7 +100,9 @@ object SynthBench {
 }
 object MkAllSynthBench extends App {
   //SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false)
-  SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false, generic = true)
+  //SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false, generic = true)
+  SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false,
+    generic = true, lists = true, multiCase = true)
 }
 
 object MeasureSynthBenchSizes extends BenchTests with App {
@@ -127,7 +130,9 @@ object MeasureSynthBenchSizes extends BenchTests with App {
     
     def termsFor(forceInline: Bool) = {
       //SynthBench.genPgrm(size :: Nil, fileName, bench = false, exportOnlyMain = exportOnlyMain)
-      SynthBench.genPgrm(size :: Nil, fileName, bench = true, exportOnlyMain = false, forceInline = forceInline)
+      //SynthBench.genPgrm(size :: Nil, fileName, bench = true, exportOnlyMain = false, forceInline = forceInline)
+      SynthBench.genPgrm(size :: Nil, fileName, bench = true, exportOnlyMain = false, forceInline = forceInline,
+        generic = true, lists = true, multiCase = true)
       %("ghc", opt, "-fforce-recomp", "-ddump-to-file", "-ddump-prep", path)(pwd)
       val dump = read(pwd/'haskellopt/'src/'test/'haskell/s"VectorsBench_$size.dump-prep")
       //val sizes = dump.lines.dropWhile(_ =/= "Result size of CorePrep").drop(1).next
