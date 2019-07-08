@@ -7,7 +7,11 @@ import squid.ir.graph3.HaskellGraphScheduling2
 import squid.ir.graph3.ParameterPassingStrategy
 
 object SynthBench extends App {
-  val sizes = 1 to 25
+  //val sizes = 1 to 25
+  //val sizes = 1 to 15
+  //val sizes = 20 to 40 by 5
+  //val sizes = 1 to 30 by 5
+  val sizes = (1 to 10) ++ (12 to 20 by 2)
   import ammonite.ops._
   
   val imports = "Criterion.Main" :: Nil
@@ -17,17 +21,17 @@ object SynthBench extends App {
     indices = 0 until size
     xs = indices map ("x"+_)
     ys = indices map ("y"+_)
-    prod = s"prod_$size (${xs mkString ","}) (${ys mkString ","}) = ${
+    prod = s"prod_$size :: [Int] -> [Int] -> Int\nprod_$size [${xs mkString ","}] [${ys mkString ","}] = ${
       (xs zip ys).foldLeft("0"){case (acc,xy) => acc + " + " + xy._1 + " * " + xy._2}}"
-    usage = s"test_$size n = sum (map (\\i -> prod_$size (${
-      indices map (i => s"i + $i") mkString ", "}) (${
-      indices map (i => s"i ^ $i") mkString ", "
-    })) [0..n])"
+    usage = s"test_$size n = sum (map (\\i -> prod_$size [${
+      indices map (i => s"i + $i") mkString ", "}] [${
+      indices map (i => s"i + $i") mkString ", "}]) [0..n])"
   } yield s"$prod\n$usage"
   
   val benchmarks = for {
     size <- sizes
-  } yield s"""bench "prod_$size" $$ whnf test_$size 1000"""
+  //} yield s"""bench "prod_$size" $$ whnf test_$size 1000"""
+  } yield s"""bench "$size" $$ whnf test_$size 1000"""
   
   val pgrmStr =
     s"""
@@ -165,9 +169,12 @@ class BenchTests extends FunSuite {
     */
   }
   
-  
   test("AlgebraicEffectsBench") {
     //TestHarness("AlgebraicEffectsBench") // FIXME assertion failure (with previous version; now just the unsupported case)
+  }
+  
+  test("VectorsBench") {
+    TestHarness("VectorsBench")
   }
   
   

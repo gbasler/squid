@@ -21,10 +21,11 @@ k [x0,x1,x2,x3,x4,x5] = (x0-1+x1+x2+x3+x4)*x5 -- no inline
 
 normal :: Int -> Int
 -- normal n = map (\x -> k [x,x+1,x+2,x+1,x,0] + n) values
-normal n = sum (map (\x -> k [x,x+1,x+2,x+1,x,1] + n) [0..n])
+normal n = sum (map (\x -> k [x,x+1,x+2,x+1,x,34] + n) [0..n])
 
 manual :: Int -> Int
-manual n = sum (map (\x -> (sum [x,x+1,x+2,x+1,x,1]) + n) [0..n])
+-- manual n = sum (map (\x -> (sum [x,x+1,x+2,x+1,x,34]) + n) [0..n])
+manual n = sum (map (\x -> (case [x,x+1,x+2,x+1,x,34] of [x0,x1,x2,x3,x4,x5] -> (x0-1+x1+x2+x3+x4)*x5) + n) [0..n])
 -- manual n = sum (map (\x -> n) [0..n])
 
 -- main = print (normal 42, manual 42)
