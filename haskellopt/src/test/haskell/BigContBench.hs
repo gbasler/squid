@@ -5,17 +5,19 @@ import Criterion.Main
 -- values = [0..1234]
 
 
-k [] = 0
-k [x0] = x0
-k [x0,x1] = x0+x1
-k [x0,x1,x2] = x0+x1+x2
-k [x0,x1,x2,x3,x4] = x0+x1+x2+x3+x4
+-- k [] = 0
+-- k [x0] = x0
+-- k [x0,x1] = x0+x1
+-- k [x0,x1,x2] = x0+x1+x2
+-- k [x0,x1,x2,x3,x4] = x0+x1+x2+x3+x4
+
 -- k [x0,x1,x2,x3,x4,x5] = x0+x1+x2+x3+x4+x5
 -- k [x0,x1,x2,x3,x4,x5] = (x0-1+x1-1+x2-1+x3-1+x4-1)*x5 -- not inlined
 -- k [x0,x1,x2,x3,x4,x5] = (x0-1+x1-1+x2-1+x3+x4)*x5 -- no inline
 -- k [x0,x1,x2,x3,x4,x5] = (x0-1+x1-1+x2+x3+x4)*x5 -- no inline
-k [x0,x1,x2,x3,x4,x5] = (x0-1+x1+x2+x3+x4)*x5 -- no inline
--- k [x0,x1,x2,x3,x4,x5] = (x0+x1+x2+x3+x4)*x5 -- inline!!!
+-- k [x0,x1,x2,x3,x4,x5] = (x0-1+x1+x2+x3+x4)*x5 -- no inline
+k [x0,x1,x2,x3,x4,x5] = (x0+x1+x2+x3+x4)*x5 -- inline!!! -- not anymore! unless the cases above are enabled!!
+{-# INLINE k #-}
 
 -- k (x : xs) = x + k xs
 
