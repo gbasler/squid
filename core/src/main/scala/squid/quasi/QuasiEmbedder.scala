@@ -543,12 +543,16 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
               if (!boundScopes.valuesIterator.exists(_ =:= ctx)) termScope ::= ctx
               q"$v.rep".asInstanceOf[b.Rep]
               
+            /* old logic; see https://github.com/epfldata/squid/issues/54
             case q"$baseTree.$$$$_varFun[$vtp,$tpt,$ctxt]($vref)($repfun)" =>
               val bv = ctx.get(vref.symbol.asTerm).getOrElse(throw QuasiException(
                 s"Inserted variable function refers to a variable '${showCode(vref)}' that is not bound in the scope of that quote.",
                 Some(repfun.pos)))
               val mb = b.asInstanceOf[(MetaBases{val u: c.universe.type})#MirrorBase with b.type]
               val tree = q"$baseTree.$$[$tpt,$ctxt]($repfun($Base.Variable.fromBound(${bv.asInstanceOf[mb.BoundVal].tree})))"
+            */
+            case q"$baseTree.$$$$_varFun[$vtp,$tpt,$ctxt]($repfun)" =>
+              val tree = q"$baseTree.$$[$vtp=>$tpt,$ctxt]($baseTree.`internal liftVarFun`[$vtp,$tpt,$ctxt]($repfun))"
               liftTerm(tree, parent, expectedType)
               
             /** Replaces insertion unquotes with whatever `insert` feels like inserting.
@@ -635,6 +639,12 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
               val argl2 = liftTerm(arg2, x, Some(tfrom2.tpe))
               val tree = q"$baseTree.$$[$tp,$scp]($baseTree0.liftOpenFun3[$tfrom0,$tfrom1,$tfrom2,$tto]($fun))"
               b.tryInline3(liftTerm(tree, parent, expectedType), argl0, argl1, argl2)(liftType(tto.tpe))
+              
+            // Special case for inserting a variable functions that is immediately applied
+            case q"$baseTree.$$$$_varFun[$vtp,$tpt,$ctxt]($repfun).apply($arg)" =>
+              val argl = liftTerm(arg, x, Some(vtp.tpe)) // Q: use typeIfNotNothing?
+              val tree = q"$baseTree.$$[$vtp=>$tpt,$ctxt]($baseTree.`internal liftVarFun`[$vtp,$tpt,$ctxt]($repfun))"
+              b.tryInline(liftTerm(tree, parent, expectedType), argl)(liftType(tpt.tpe))
               
               
             // Note: For some extremely mysterious reason, c.typecheck does _not_ seem to always report type errors from terms annotated with `_*`

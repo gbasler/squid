@@ -488,7 +488,13 @@ self: Base =>
   
   /* Used by QuasiMacro when inserting a Variable function into a code fragment. */
   @compileTimeOnly("This method is not supposed to be used manually.")
-  def $$_varFun[V,T,C](refIdent: V)(vf: Variable[V] => OpenCode[T]): T = ???
+  def $$_varFun[V,T,C](vf: Variable[V] => OpenCode[T]): V => T = ???
+  def `internal liftVarFun`[V:CodeType,T,C](vf: Variable[V] => OpenCode[T]): ClosedCode[V => T] = {
+    val v = Predef.Variable[V]
+    Code(lambda(v.`internal bound`::Nil,vf(v).rep))
+  }
+  // old signature; see https://github.com/epfldata/squid/issues/54
+  //def $$_varFun[V,T,C](refIdent: V)(vf: Variable[V] => OpenCode[T]): T = ???
   
   @compileTimeOnly("Cross-quotation reference was never captured. " +
     "Perhaps you intended to use a cross-stage-persistent reference, which needs the @squid.lib.persist annotation.")

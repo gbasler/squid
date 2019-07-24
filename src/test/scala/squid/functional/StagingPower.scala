@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,34 +53,12 @@ class StagingPower extends MyFunSuite {
   
   test("power(3)(x) alternative") {
     
-    val p3f = code"(x: Double) => ${(x: Variable[Double]) => power(3)(x.toCode)}"
+    val p3f = code"(x: Double) => ${(x: Variable[Double]) => power(3)(x.toCode)}(x)"
     p3f eqt model
     
-    val p3f2 = code"(x: Double) => ${(x: Variable[Double]) => power2(3)(x)}"
+    val p3f2 = code"(x: Double) => ${(x: Variable[Double]) => power2(3)(x)}(x)"
     p3f2 eqt model
     
   }
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

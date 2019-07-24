@@ -1,4 +1,4 @@
-// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -373,7 +373,8 @@ class QuasiBlackboxMacros(val c: blackbox.Context) {
                          Yes, this is an ugly wishful-thinking-based hack, but it seems to somehow get the job done. */ 
                       case e: scala.reflect.macros.ParseException => c.untypecheck(t)
                     }
-                    q"$base.$$$$_varFun[$varTyp,$retTyp,$ctx](${x.name})($t0)"
+                    //q"$base.$$$$_varFun[$varTyp,$retTyp,$ctx](${x.name})($t0)" // old signature
+                    q"$base.$$$$_varFun[$varTyp,$retTyp,$ctx]($t0)"
                   case _ => throw QuasiException("Inserted variable functions must be lambda expressions.", Some(t.pos))
                 }
               case AsFun2(AsVariable(_),AsVariable(_), _) | AsFun3(AsVariable(_),AsVariable(_),AsVariable(_), _) =>
