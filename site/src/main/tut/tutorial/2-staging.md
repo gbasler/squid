@@ -92,8 +92,12 @@ in order to amortize the cost of runtime compilation.
 What we really want here is to use `power` to generate partially-evaluated functions
 that efficiently compute the power of _any number_, given a fixed exponent.
 
+
+## Generating Specialized Power Implementations
+
 <!-- For example, we'd like to end up with something like `` -->
-In other words, for any given exponent `n` we'd like to generate the code of a function
+<!-- In other words,  -->
+For any given exponent `n`, for any given exponent `n` we'd like to generate the code of a function
 `(x: Double) => x * x * ... [n times] ... * x`.
 Let us try to do that naively for exponent `3`:
 
@@ -102,24 +106,227 @@ val pow3 = code"(x: Double) => ${ power(3, code"x") }"
 ```
 
 It does not work, because `x` is undefined in `code"x"`,
-even though it looks like we're binding it in the outer quote
-―
-basically, Squid does not support _cross-quotation references_,
-or references that cross quotation boundaries.
-This is 
-<!-- for reasons relating to  -->
-because of
-limitations in the capabilities of Scala macros,
-but also because it would be [unsafe [3]](/squid/#popl18) in many contexts,
-and because it would invalidate the principle that
-in a functional program,
-it should be possible to extract and let-bind any pure subexpression
-(here, extracting `code"x"` from its insertion point would result in `x` becoming out of scope).
+even though it looks like we're binding it in the outer quote.
+This is a limitation of string interpolation macros in Scala.
+To fix this, we need to _escape_ the inner insertion _and_ quotation, as follows
+(due to macro limitations,
+this code will not work if you defined `power` in the REPL,
+but it will work in a normal Scala file):
 
-Fortunately, Squid provides a way of encoding cross-quotation references conveniently.
-This is done using first-class code variables, which are the topic of the next section.
+```scala
+val pow3 = code"""(x: Double) => $${ power(3, code"x") }"""
+```
 
-## First-Class Variable Symbols
+Notice the use of triple-quotation `"""` to escape the inner quotation,
+and the double-dollar sign `$$` to escape the inner insertion.
+
+On the other hand, no escapes are needed in the alternative _quasicode_ syntax
+(which also works better in the REPL):
+
+```tut:silent
+import IR.Quasicodes._
+```
+```tut:fail
+val pow3 = code{ (x: Double) => ${ power(3, code{x}) } }
+```
+
+
+
+Our code still does not work, though!
+The reason is given in the error message:
+our `power` function expects to receive an argument of type `ClosedCode[Double]`,
+but we pass it a different type, `Code[Double,x.type]`...
+This was to be expected, since the term `code"x"` is obviously not "closed"
+--- it contains a free variable `x`, which is only bound in the outer quote.
+If `code"x"` was to be assigned type `ClosedCode[Int]`,
+Squid's type system would become unsound as 
+we could easily crash the program,
+for example by calling `code"x".run` or by storing `code"x"` in a mutable variable
+and reusing it later, outside of the outer quote where `x` is bound.
+
+Thankfully, the fix is easy:
+we need to make our `power` function _parametric_ in the context that it accepts:
+
+
+```tut:silent
+def power[C](n: Int, x: Code[Double,C]): Code[Double,C] = {
+  if (n > 0) code"${power(n-1, x)} * $x"
+  else code"1.0"
+}
+```
+
+We can now construct our `pow3` function:
+
+
+```tut
+val pow3 = code{ (x: Double) => ${ power(3, code{x}) } }
+```
+
+
+
+
+## Dealing with Context Types
+
+In the previous subsection,
+we saw an open term of type `Code[Double,x.type]`,
+where the free variable `x` was bound in some outer quote.
+The singleton `x.type` is used as a "phantom type"
+to indicate a dependency on the corresponding variable.
+But what happens if there are several free variables in the term?
+
+In general, a context type is made of an _intersection_ of _context requirements_,
+where a context requirement can be an abstract type or type parameter `C`
+or a specific variable requirement like `x.type`.
+
+For example, `Code[Double, C & x.type & y.type]`
+is the type of a code fragment whose context requirement is `C` augmented
+with the requirements for local variables `x` and `y`,
+where `&` denotes type intersections
+(equivalent to `A with B` in legacy Scala syntax).
+The `&` notation can be imported from `squid.utils`.
+
+Here is an example where the type `Code[Double, C & x.type & y.type]` comes up:
+
+
+```tut:silent
+import squid.utils.&
+
+def foo[C](ls: Code[List[Int],C]) = code {
+  ${ls}.map(_.toString).fold("")((x, y) => ${
+    val res: Code[String, C & x.type & y.type] = code{x + ", " + y}
+    code{ println("Folding: " + y); ${res} }
+  })
+}
+```
+
+Calling `foo(code"List(1,2,3)")` will result in a code fragment
+that maps and folds `List(1,2,3)`,
+which can be verified using the term equivalence method `=~=` as below:
+
+```tut
+foo(code"List(1,2,3)") =~= code"""
+  List(1,2,3).map(_.toString).fold("")((x, y) => {
+    println("Folding: " + y); x + ", " + y })"""
+```
+
+
+
+
+The `Code` class is contravariant in its `Ctx` type argument,
+so that a term with a context `C` can be used as a term with a _more specific_ context `C' <: C`. 
+For example, we have:  
+`ClosedCode[Int] = Code[Int,Any]  <:  Code[Int, v.type]  <:  Code[Int, v.type & w.type]  <:  OpenCode[Int] = Code[Int,Nothing]`
+
+
+
+**Note:**
+The current Scala compiler has an arbitrary limitation that prevents _users_
+from writing `x.type` if the type of `x` is not a subtype of `AnyRef`,
+for example if we have `x: Int`.
+To work around this, Squid provides a `singleton.scope` macro utility,
+which is used as follows:
+
+```tut:silent
+import squid.utils.typing.singleton.scope
+```
+```tut
+code{ (x: Int) => ${ val c: Code[Int, scope.x] = code{x + 1}; c } }
+```
+
+
+
+
+
+
+
+## Last Words on MSP
+
+Beyond the simplistic power function examples,
+MSP becomes truly useful when we start applying it to the construction of non-trivial,
+highly-polymorphic programs for which manual specialization would be too tedious or unfeasible to maintain.
+
+Because it is based on runtime program generation and compilation,
+MSP allows the program generation process itself to depend on runtime input values,
+which enables entirely new patterns of performance-oriented software engineering.
+
+In conclusion, MSP allows programmers to design abstract yet performant programs,
+sparing them the burden of having to write and maintain lots of boilerplate and repetitive code.
+Programmers can leverage generative techniques instead,
+with solid static guarantees that the generated code will be well-formed (well-typed and well-scoped).
+
+
+
+## Epilogue: Don't Want to Track Contexts Statically?
+
+Tracking contexts in the type system provides complete scope-safety for Squid metaprograms,
+but can make metaprogramming more verbose and difficult.
+Squid also supports a style of programming where one only manipulates `OpenCode` fragments,
+and where dynamic checks are used to convert `OpenCode` to `ClosedCode` when needed.
+
+For example, below we redefine the `power` function in this style:
+
+```tut:silent
+def pow(n: Int)(v: OpenCode[Double]): OpenCode[Double] = {
+  var cde = if (n == 0) code"1.0" else v
+  for (i <- 1 until n) cde = code"$cde * $v"
+  cde
+}
+def mkPow(n: Int) = code"(x: Double) => ${pow(n) _}(x)"
+```
+
+In the definition of `mkPow` above, we used automatic function lifting,
+which converts an `OpenCode[A] => OpenCode[B]`
+to an `OpenCode[A => B]` on insertion into a program fragment.
+
+We can then try to `close` the result of `mkPow(5)` at runtime, returning an `Option[ClosedCode[Double => Double]]`:
+
+```tut
+val pow5 = mkPow(5).close
+val power5 = pow5.get.compile
+power5(1.5)
+```
+
+Naturally, trying to close an open term will fail and return `None`.
+
+
+
+
+
+
+
+
+
+
+**If you are interested in learning a more advanced technique for manipulating free variables and open terms, read on. Otherwise, you can stop reading now!**
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Advanced Topic: First-Class Variable Symbols
+
+In addition to often being unsafe in several contexts (see [our paper [3]](/squid/#popl18)),
+traditional approaches to MSP such as MetaML and Dotty's new quoted terms
+do not provide a way to explicitly manipulate variable bindings.
+
+In Squid, not only is _scope safety_ ensured statically using the type system,
+but we can manipulate variables explicitly
+(which will become especially useful
+when we start matching code fragments in the next section).
+This is the topic of this section.
+
+
+## The Variable Type
 
 Squid allows the manipulation of first-class variable symbols,
 of type `Variable[T]`.
@@ -297,52 +504,3 @@ which is really just as fast as if we had written out:
 val power5 = (x: Double) => 1.0 * x * x * x * x * x
 ```
 
-
-## Conclusions on MSP
-
-Beyond the simplistic power function examples,
-MSP becomes truly useful when we start applying it to the construction of non-trivial,
-highly-polymorphic programs for which manual specialization would be too tedious or unfeasible to maintain.
-
-Because it is based on runtime program generation and compilation,
-MSP allows the program generation process itself to depend on runtime input values,
-which enables entirely new patterns of performance-oriented software engineering.
-
-In conclusion, MSP allows programmers to design abstract yet performant programs,
-sparing them the burden of having to write and maintain lots of boilerplate and repetitive code.
-Programmers can leverage generative techniques instead,
-with solid static guarantees that the generated code will be well-formed (well-typed and well-scoped).
-
-
-
-## Appendix: Don't Want to Track Contexts Statically?
-
-Tracking contexts in the type system provides complete scope-safety for Squid metaprograms,
-but can make metaprogramming more verbose and difficult.
-Squid also supports a style of programming where one only manipulates `OpenCode` fragments,
-and where dynamic checks are used to convert `OpenCode` to `ClosedCode` when needed.
-
-For example, below we redefine the `power` function in this style:
-
-```tut:silent
-def pow(n: Int)(v: OpenCode[Double]): OpenCode[Double] = {
-  var cde = if (n == 0) code"1.0" else v
-  for (i <- 1 until n) cde = code"$cde * $v"
-  cde
-}
-def mkPow(n: Int) = code"(x: Double) => ${pow(n) _}(x)"
-```
-
-In the definition of `mkPow` above, we used automatic function lifting,
-which converts an `OpenCode[A] => OpenCode[B]`
-to an `OpenCode[A => B]` on insertion into a program fragment.
-
-We can then try to `close` the result of `mkPow(5)` at runtime, returning an `Option[ClosedCode[Double => Double]]`:
-
-```tut
-val pow5 = mkPow(5).close
-val power5 = pow5.get.compile
-power5(1.5)
-```
-
-Naturally, trying to close an open term will fail and return `None`.

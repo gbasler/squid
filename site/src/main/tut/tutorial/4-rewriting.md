@@ -32,6 +32,8 @@ def intro[C](n: Code[Int, C]) = code"$s * $n"
 def outro[C](q: Code[String, C & s.Ctx]) = code"{($s) => $q}"
 ```
 
+(To learn more about `Variable`, see [this section](2-staging.html#advanced-topic-first-class-variable-symbols).)
+
 Function `intro` reuses term `n` of context `C` and _introduces_ a free variable `s`,
 yielding context `Code[String, C{val s: String}]`.
 On the other hand, `outro` takes a term `q` of context `C` _extended with_ `s: String` and captures that variable
@@ -40,8 +42,10 @@ by constructing a bigger term and inserting `q` in a context where `y` is define
 Here are a few usage examples:
 
 ```tut
-{ val x = Variable[Int]; val a = code"1 + $x"
-  val b = intro[x.Ctx](a); val c = outro[x.Ctx](b); // type arguments cannot be inferred
+{ val x = Variable[Int]
+  val a = code"1 + $x"
+  val b = intro[x.Ctx](a)
+  val c = outro[x.Ctx](b) // type arguments cannot be inferred
   code"val $x = 3; $c".run.apply("test!") }
 ```
 

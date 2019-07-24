@@ -19,7 +19,7 @@ val paradiseVersion = "2.1.0"
 val squidVersion = "0.3.2-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
-val initialConsoleCommands = """import squid.IR.Predef._"""
+val initialConsoleCommands = "import squid.IR, IR.Predef._, IR.Quasicodes._"
 
 lazy val commonSettings = Seq(
   version := squidVersion,

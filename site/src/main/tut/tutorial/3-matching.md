@@ -19,9 +19,10 @@ Squid is statically typed and prevents the occurrence of type mismatches or unbo
 in the tradition of _MetaML_.
 On the other hand, in the tradition of _Lisp_, Squid views code as (executable) data that one can _inspect_ (or _analyse_) and _rewrite_.
 This is made possible in a type-safe way by statically tracking context requirements, as presented in
-[the previous section](2-staging.html#contexts-and-open-terms).
+[the previous section](2-staging.html#dealing-with-context-types).
+<!-- [the previous section](2-staging.html#advanced-topic-first-class-variable-symbols). -->
 
-The functional way of analysing data and extracting patterns from it is to use pattern matching.
+The functional way of analyzing data and extracting patterns from it is to use pattern matching.
 In Squid, one can pattern-match program fragments just like one pattern-matches data.
 Holes in patterns behave like extractors, allowing programmers to take apart code expressions:
  
@@ -42,7 +43,9 @@ val funBody = code"(x: Int) => x + 1" match { case code"($y: Int) => $b" => b }
 ```
 
 The code above matches a lambda that binds some parameter `y` of type `Int` in some body `b`;
-it extracts two values: `y` of type `Variable[Int]` and `b` of type `Code[Int, y.Ctx]`.
+it extracts two values: `y` of type `Variable[Int]` and `b` of type `Code[Int, y.Ctx]`. `Variable` is a type that represents first-class variable symbols;
+for more information about it, see [this section](2-staging.html#the-variable-type).
+
 Note that since `y` is only defined withing the pattern matching branch,
 the type inferred by Scala for `funBody`,
 which is _dependent_ on `y`, is an existential:
