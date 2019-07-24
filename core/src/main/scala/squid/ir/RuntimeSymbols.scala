@@ -23,24 +23,14 @@ import collection.mutable
 object RuntimeSymbols extends RuntimeSymbols with PublicTraceDebug {
   
 }
-//trait RuntimeSymbols extends TraceDebug {
 trait RuntimeSymbols {
   import RuntimeSymbols._
   
   
   private[this] val symbolCache = mutable.HashMap.empty[(ScalaTypeSymbol,String), MtdSymbol]
   private[this] val overloadedSymbolCache = mutable.HashMap.empty[(ScalaTypeSymbol,String,Int), MtdSymbol]
-  private[this] lazy val typSymbolCache = mutable.HashMap.empty[String, ScalaTypeSymbol] // FIXME lazy...
+  private[this] val typSymbolCache = mutable.HashMap.empty[String, ScalaTypeSymbol]
   
-  
-  /*
-  // TODO migrate to use these instead
-  def classSymbol(rtcls: Class[_]): sru.ClassSymbol = srum.classSymbol(rtcls)
-  def moduleSymbol(rtcls: Class[_]): sru.ModuleSymbol = {
-    val clsSym = srum.classSymbol(rtcls)
-    srum.moduleSymbol(rtcls)  oh_and  ScalaReflectSurgeon.cache.enter(rtcls, clsSym) 
-  }
-  */
   
   protected def ensureDefined(name: => String, sym: sru.Symbol) = sym match {
     case sru.NoSymbol => 
@@ -85,8 +75,8 @@ trait RuntimeSymbols {
   private def loadMtdSymbolImpl(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Boolean): MtdSymbol = { // TODOne cache!!
     debug(s"Loading method $symName from $typ"+(if (static) " (static)" else ""))
     
-    /** Because of a 2-ways caching problem in the impl of JavaMirror,
-      * a Java class name like "java.lang.String" can return either 'object String' or 'class String'... */
+    /* Because of a 2-ways caching problem in the impl of JavaMirror,
+     * a Java class name like "java.lang.String" can return either 'object String' or 'class String'... */
     val tp = if (typ.isJava && (static ^ typ.isModuleClass))
       typ.companion.typeSignature else typ.toType
     
@@ -98,5 +88,24 @@ trait RuntimeSymbols {
     else throw IRException(s"Could not find overloading index $idx for method ${sym.fullName}; " +
       s"perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?")
   }
+  
+  
+  // Utilities:
+  
+  import reflect.runtime.universe.TypeTag
+  
+  def typeSymbol[T:TypeTag] = implicitly[TypeTag[T]].tpe.typeSymbol.asType
+  def methodSymbol[T:TypeTag](name: String, index: Int = -1) = {
+    val tpe = implicitly[TypeTag[T]].tpe
+    val alts = tpe.member(sru.TermName(name)).alternatives.filter(_.isMethod)
+    val r = if (alts.isEmpty) throw new IllegalArgumentException(s"no $name method in $tpe")
+      else if (alts.size == 1) alts.head
+      else {
+        require(index >= 0, s"overloaded method $name in $tpe")
+        alts(index)
+      }
+    r.asMethod
+  }
+  
   
 }
