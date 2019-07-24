@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,9 @@ class MultiStage extends MyFunSuite {
      * (See cod eat end of file.)
      */
     
-    assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
+    assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[TestDSL.MtdSymbol]) // Note: type TestDSL.MtdSymbol is not equal to base.MtdSymbol...
+    // used to be:
+    //assert(codeTypeOf[base.MtdSymbol].rep == base.uninterpretedType[sru.MethodSymbol])
     // ^ Note: this used to [not] work [anymore] because `base.MtdSymbol` is abstract type squid.utils.meta.RuntimeUniverseHelpers.sru.MethodSymbol,
     //         which was not embedded and fell back on a type tag.
     //         But now that we try to embed abstract types, it widens the base to scala.reflect.api.JavaUniverse because

@@ -433,7 +433,7 @@ trait AST extends InspectableBase with ScalaTyping with ASTReinterpreter with Ru
       import ruh.sru._
       val annots =
         if (sym.isAccessor) // Scala stores a field's annotation not in its accessor, but in the associated private value of the same name plus a space...
-          sym.owner.typeSignature member TermName(sym.name+" ") optionIf (_ =/= NoSymbol) getOrElse sym annotations
+          (sym.owner.typeSignature member TermName(sym.name+" ") optionIf (_ =/= NoSymbol) getOrElse sym.asMethodSymbol).annotations
         else sym.annotations
       annots.iterator map (_ tree) collectFirst {
         case q"new $tp(scala.Symbol.apply(${Literal(ruh.sru.Constant(name:String))}))" if tp.symbol.fullName == "squid.quasi.phase" =>

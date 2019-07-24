@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
       * Note: we may not actually find the method this way, eg for bytecode-less methods like those on primitives */
     
     val f1 = _mtd.paramLists.flatten
-    val mtdO = cls.toType.member(_mtd.name).alternatives collect {
+    val mtdO: Option[MtdSymbol] = cls.toType.member(_mtd.name).alternatives collect {
       case s: MethodSymbol if {
         val f0 = s.paramLists.flatten
         f0.size == f1.size && (f0 zip f1 forall {
@@ -184,7 +184,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
         /* ^ Scala methods' erasure can differ only by the return type;
          * however, Scala runtime reflection doesn't know how to invoke them so we fail (in default case below) */
       } => s
-    } match { case m::Nil => Some(m) case Nil => None
+    } match { case m::Nil => Some(m |> asMtdSymbol) case Nil => None
       case ls => throw new RuntimeException(s"Interpreting overloaded methods that differ only by their return type is not supported: $ls")
     }
     //if (mtdO.isDefined) println(s"Found method ${mtdO.get} in $cls") else println(s"Did not find method ${_mtd} in $cls")

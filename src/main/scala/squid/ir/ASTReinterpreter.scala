@@ -61,7 +61,9 @@ trait ASTReinterpreter { ast: AST =>
       case MethodApp(self, mtd, targs, argss, tp) =>
         val typ = newBase.loadTypSymbol(ruh.encodedTypeSymbol(mtd.owner.asType))
         val alts = mtd.owner.typeSignature.member(mtd.name).alternatives
-        val newMtd = newBase.loadMtdSymbol(typ, mtd.name.toString, if (alts.isEmpty) None else Some(alts.indexOf(mtd)), mtd.isStatic)
+        val newMtd = newBase.loadMtdSymbol(typ, mtd.name.toString,
+          if (alts.isEmpty) None else Some(alts.indexOf(mtd.asMethodSymbol) ensuring (_ =/= -1)),
+          mtd.isStatic)
         newBase.methodApp(
           apply(self),
           newMtd,

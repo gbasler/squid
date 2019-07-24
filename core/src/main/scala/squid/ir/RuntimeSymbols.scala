@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,11 +38,26 @@ trait RuntimeSymbols {
     case _ => sym
   }
   
-  //type TypSymbol = sru.ClassSymbol
   //type TypSymbol = sru.TypeSymbol
   type ScalaTypeSymbol = sru.TypeSymbol
-  //private[this] type TypSymbol = sru.TypeSymbol
-  type MtdSymbol = sru.MethodSymbol
+  
+  //type MtdSymbol = sru.MethodSymbol  // used to be this
+  class MtdSymbol private(val asMethodSymbol: sru.MethodSymbol) {
+    assert(!mtdSymbolCache.contains(asMethodSymbol))
+    
+    override def hashCode() = asMethodSymbol.name.hashCode()
+    override def equals(that: Any) = that match {
+      case mtd: MtdSymbol => asMethodSymbol === mtd.asMethodSymbol
+      case _ => false
+    }
+  }
+  protected val mtdSymbolCache = mutable.HashMap.empty[sru.MethodSymbol, MtdSymbol]
+  object MtdSymbol {
+    def apply(sym: sru.MethodSymbol): MtdSymbol =
+      mtdSymbolCache.getOrElseUpdate(sym, new MtdSymbol(sym))
+  }
+  implicit def asMethodSymbol(mtd: MtdSymbol): sru.MethodSymbol = mtd.asMethodSymbol
+  implicit def asMtdSymbol(sym: sru.MethodSymbol): MtdSymbol = MtdSymbol(sym)
   
   def loadTypSymbol(fullName: String): ScalaTypeSymbol = {
     typSymbolCache getOrElseUpdate (fullName, loadTypSymbolImpl(fullName))
@@ -84,7 +99,7 @@ trait RuntimeSymbols {
     if (sym.alternatives.nonEmpty) debug("Alts: "+sym.alternatives.map(_.typeSignature).map("\n\t"+_))
     
     val idx = index getOrElse 0
-    if (sym.alternatives.indices contains idx) sym.alternatives(idx).asMethod
+    if (sym.alternatives.indices contains idx) sym.alternatives(idx).asMethod |> asMtdSymbol
     else throw IRException(s"Could not find overloading index $idx for method ${sym.fullName}; " +
       s"perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?")
   }

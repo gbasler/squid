@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     getMtd(typ, mtd.name.toString, index, mtd.isStatic && mtd.isJava)
   }
   def getMtd(typ: TypSymbol, name: String, index: Option[Int] = None, isJavaStatic: Boolean = false): MtdSymbol = {
-    loadMtdSymbol(typ, name.toString, index, isJavaStatic)
+    loadMtdSymbol(typ, name, index, isJavaStatic)
   }
   
   

@@ -62,7 +62,7 @@ trait ASTHelpers extends Base { self: AST =>
   }
   
   object Apply {
-    val Symbol = ruh.FunctionType.symbol().toType.member(sru.TermName("apply")).asMethod // TODO use loadMtdSymbol
+    val Symbol = loadMtdSymbol(loadTypSymbol("scala.Function1"), "apply", None)
     def apply(f: Rep, a: Rep, typ: TypeRep) = MethodApp(f, Symbol, Nil, Args(a)::Nil, typ)
     def unapply(d: Def): Option[Rep -> Rep] = d match {
       case MethodApp(f, Symbol, Nil, Args(a)::Nil, _) => Some(f -> a)

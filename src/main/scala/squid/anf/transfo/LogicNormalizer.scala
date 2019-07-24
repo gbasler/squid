@@ -123,7 +123,7 @@ trait EqualityNormalizer extends SimpleRuleBasedTransformer { self =>
   
   val base: anf.analysis.BlockHelpers with lang.ScalaCore
   import base.Predef._
-  import base.{MethodApplication}
+  import base.{MethodApplication, asMethodSymbol}
   
   rewrite {
   

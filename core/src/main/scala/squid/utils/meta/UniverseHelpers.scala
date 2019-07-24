@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
     
     def apply(params: Type*)(ret: Type) = internal.typeRef(scalaPackage, symbol(params.size), params :+ ret toList)
     
-    def symbol(arity: Int = 1) = (arity match {
+    def symbol(arity: Int = 1): TypeSymbol = (arity match {
       case 0 => Fun0Sym
       case 1 => FunSym
       case 2 => Fun2Sym
@@ -137,19 +137,19 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
   
   import FunctionType.{FunSym, Fun2Sym, Fun3Sym}
   object AsFun {
-    def unapply(x:Type) = x.baseType(FunSym) match {
+    def unapply(x: Type) = x.baseType(FunSym) match {
       case TypeRef(_, FunSym, t0 :: tr :: Nil) => Some(t0,tr)
       case _ => None
     }
   }
   object AsFun2 {
-    def unapply(x:Type) = x.baseType(Fun2Sym) match {
+    def unapply(x: Type) = x.baseType(Fun2Sym) match {
       case TypeRef(_, Fun2Sym, t0 :: t1 :: tr :: Nil) => Some(t0,t1,tr)
       case _ => None
     }
   }
   object AsFun3 {
-    def unapply(x:Type) = x.baseType(Fun3Sym) match {
+    def unapply(x: Type) = x.baseType(Fun3Sym) match {
       case TypeRef(_, Fun3Sym, t0 :: t1 :: t2 :: tr :: Nil) => Some(t0,t1,t2,tr)
       case _ => None
     }

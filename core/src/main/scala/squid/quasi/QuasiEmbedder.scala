@@ -1,4 +1,4 @@
-// Copyright 2018 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
         if (curCtxs.contains(ctx)) {
           val fresh = TermName(c.freshName("__conv"))
           //q"implicit def $fresh: $lhs <:< $rhs = null" :: Nil
-          fresh -> q"implicit def $fresh: _root_.scala.Predef.<:<[$lhs,$rhs] = null" :: Nil
+          fresh -> q"implicit def $fresh: $scal.Predef.<:<[$lhs,$rhs] = null" :: Nil
         }
         else Nil
     } .unzip .mapFirst (_.toSet)  // same as:  |> { case (a,b) => (a.toSet,b) }
@@ -148,7 +148,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
                 val purged = purgedTypeToTree(tp)
                 debug("Purged matched type:", purged)
                 Some(q"$tree: $purged") // doesn't work to force subterms of covariant result to acquire the right type params.....
-                //Some(q"_root_.scala.Predef.identity[$purged]($virtualizedTree)") // nope, this neither
+                //Some(q"$scal.Predef.identity[$purged]($virtualizedTree)") // nope, this neither
             }
           } else None
         t.tpe.baseType(symbolOf[QuasiBase#Code[_,_]]) match {
@@ -610,7 +610,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
                 case idt :: Nil => subs(idt)
                 case _ =>
                   assertVararg(q"$$(..$idts)")
-                  subs(q"_root_.scala.Seq(..${idts}): _*")
+                  subs(q"$scal.Seq(..${idts}): _*")
               }
             
             /** Handles inserted references to variables symbols */
@@ -918,7 +918,7 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
         }
         val termTypesToExtract = termHoleInfoProcessed map {
           case (name, (scpTyp, tp)) => name -> (
-            if (splicedHoles(name)) tq"_root_.scala.collection.Seq[$baseTree.Code[$tp,$scpTyp]]"
+            if (splicedHoles(name)) tq"$scal.collection.Seq[$baseTree.Code[$tp,$scpTyp]]"
             else if (extractedBinders.isDefinedAt(name)) tq"${extractedBinders(name)}"
             else tq"$baseTree.Code[$tp,$scpTyp]"
           )}

@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ class InheritedDefs extends MyFunSuite {
     same(code"(new Derived()).foo".run, 0.5)
     same(code"(Derived()).foo".run, 0.5)
     
-    same(TestDSL.loadMtdSymbol(TestDSL.loadTypSymbol("squid.feature.Derived"), "foo", None), sru.typeOf[Derived].member(sru.TermName("foo")))
+    same(TestDSL.loadMtdSymbol(TestDSL.loadTypSymbol("squid.feature.Derived"), "foo", None).asMethodSymbol, sru.typeOf[Derived].member(sru.TermName("foo")))
   }
   
   test("Inherited Classes") {
