@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ package example
 
 /*
   * 
-  * Note: cannot use `var acc = ir"1.0" : IR[Double, x.Ctx]` on the rhs of the rewriting,
+  * Note: cannot use `var acc = code"1.0" : Code[Double, x.Ctx]` on the rhs of the rewriting,
   * because we would get {{{ _ <: Ctx }}}, which is not sufficient
   * (see the definition of `Ctx`, since it mirrors a contravariant type parameter).
   * 
@@ -41,9 +41,8 @@ object PowOptim extends App {
   val normCode = opt(code{ (x:Double,y:Double) => sqrt(pow(x,2) + pow(y,2)) })
   println(normCode)
   
-  //val norm = normCode.compile  // TODO port from SCP
+  //val norm = normCode.compile // also possible; invokes the compiler at run time
   val norm = normCode.run
-  println(norm)
   
   println(norm(1,2))
   
