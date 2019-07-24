@@ -15,6 +15,12 @@
 package squid
 package feature
 
+object Matching {
+  trait A { def head: List[Any] }
+  trait B { def head: Seq[Int] }
+  class C extends A with B { override def head = 42 :: Nil }
+  class D extends C { override def head = Nil }
+}
 class Matching extends MyFunSuite {
   import TestDSL.Predef._
   
@@ -82,6 +88,77 @@ class Matching extends MyFunSuite {
     code" ??? " match { case code" ??? " => }
     
     code"((x: Int) => println(x): Any)(0)" eqt code"((x: Int) => println(x): Any)(0)"
+    
+  }
+  
+  test("Overriding") {
+    import TestDSL._
+    
+    val nh = methodSymbol[Nil.type]("head")
+    val lh = methodSymbol[List[Any]]("head")
+    val sh = methodSymbol[Set[Any]]("head")
+    assert(nh == lh)
+    assert(lh == nh)
+    assert(lh == sh)
+    assert(sh == nh)
+    assert(lh != methodSymbol[List[Any]]("tail"))
+    assert(lh != methodSymbol[org.scalactic.Chain[Any]]("head"))
+    
+    val Mtd: MtdSymbol = nh
+    lh match {
+      case Mtd =>
+    }
+    
+    code"Nil.head" matches {
+      case code"($_:List[$ta]).head" =>
+    }
+    code"None.isEmpty" matches {
+      case code"($_:Option[$ta]).isEmpty" =>
+    }
+    code"Some(1).isEmpty" matches {
+      case code"($_:Option[$ta]).isEmpty" =>
+    }
+    
+    import Matching.{A,B,C,D}
+    val ah = methodSymbol[A]("head")
+    val bh = methodSymbol[B]("head")
+    val ch = methodSymbol[C]("head")
+    val dh = methodSymbol[D]("head")
+    assert(ah == bh)
+    assert(bh == ch)
+    assert(ch == ah)
+    assert(dh == ah)
+    assert(ch == dh)
+    assert(ah != lh)
+    
+    val cde0 = code"(new D).head"
+    val ndD: ClosedCode[D] = code"new D"
+    val ndC: ClosedCode[C] = code"new D"
+    val cde1 = code"$ndC.head"
+    val cde2 = code"$ndD.head"
+    cde0 eqt cde1
+    cde1 eqt cde2
+    cde0 eqt cde2
+    cde2 eqt cde1
+    
+    cde0 matches {
+      case code"($_:D).head" =>
+    } and {
+      case code"($_:C).head" =>
+    } and {
+      case code"($_:B).head" =>
+    } and {
+      case code"($_:A).head" =>
+    }
+    
+    code"(new C).head" matches {
+      case code"($_:C).head" =>
+    } and {
+      case code"($_:B).head" =>
+    } and {
+      case code"($_:D).head" => fail // though the method is equal, the receiver's type is incompatible!
+      case code"($_:A).head" =>
+    }
     
   }
   

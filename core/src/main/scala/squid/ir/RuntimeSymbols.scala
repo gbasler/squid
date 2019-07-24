@@ -43,13 +43,37 @@ trait RuntimeSymbols {
   
   //type MtdSymbol = sru.MethodSymbol  // used to be this
   class MtdSymbol private(val asMethodSymbol: sru.MethodSymbol) {
-    assert(!mtdSymbolCache.contains(asMethodSymbol))
+    //assert(!mtdSymbolCache.contains(asMethodSymbol))
+    def asMtdSymbol: this.type = this
+    
+    private var nextInSet: MtdSymbol = null
+    
+    asMethodSymbol.overrides.foreach(osym =>
+      if (osym.isMethod) // Note: not unifying with overridden objects, but hopefully with overridden val accessors...
+        union_!(MtdSymbol(osym.asMethod)))
+    
+    private def representative: MtdSymbol = if (nextInSet == null) this else {
+      val res = nextInSet.representative
+      assert(res.nextInSet == null)
+      if (!(res eq nextInSet)) nextInSet = res
+      res
+    }
+    
+    private def union_!(that: MtdSymbol): Unit = {
+      val thatRepr = that.representative
+      if (thatRepr != representative) {
+        assert(thatRepr.nextInSet == null)
+        thatRepr.nextInSet = this
+      }
+    }
     
     override def hashCode() = asMethodSymbol.name.hashCode()
     override def equals(that: Any) = that match {
-      case mtd: MtdSymbol => asMethodSymbol === mtd.asMethodSymbol
+      case mtd: MtdSymbol => representative eq mtd.representative
       case _ => false
     }
+    
+    override def toString = s"${asMethodSymbol.owner.name}[~>${representative.asMethodSymbol.owner.name}].${asMethodSymbol.name}"
   }
   protected val mtdSymbolCache = mutable.HashMap.empty[sru.MethodSymbol, MtdSymbol]
   object MtdSymbol {
@@ -109,8 +133,8 @@ trait RuntimeSymbols {
   
   import reflect.runtime.universe.TypeTag
   
-  def typeSymbol[T:TypeTag] = implicitly[TypeTag[T]].tpe.typeSymbol.asType
-  def methodSymbol[T:TypeTag](name: String, index: Int = -1) = {
+  def typeSymbol[T:TypeTag]: ScalaTypeSymbol = implicitly[TypeTag[T]].tpe.typeSymbol.asType
+  def methodSymbol[T:TypeTag](name: String, index: Int = -1): MtdSymbol = {
     val tpe = implicitly[TypeTag[T]].tpe
     val alts = tpe.member(sru.TermName(name)).alternatives.filter(_.isMethod)
     val r = if (alts.isEmpty) throw new IllegalArgumentException(s"no $name method in $tpe")
@@ -119,7 +143,7 @@ trait RuntimeSymbols {
         require(index >= 0, s"overloaded method $name in $tpe")
         alts(index)
       }
-    r.asMethod
+    r.asMethod |> asMtdSymbol
   }
   
   
