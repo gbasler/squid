@@ -86,8 +86,11 @@ in order to amortize the cost of runtime compilation.
 What we really want here is to use <code class="highlighter-rouge">power</code> to generate partially-evaluated functions
 that efficiently compute the power of <em>any number</em>, given a fixed exponent.</p>
 
+<h2 id="generating-specialized-power-implementations">Generating Specialized Power Implementations</h2>
+
 <!-- For example, we'd like to end up with something like `` -->
-<p>In other words, for any given exponent <code class="highlighter-rouge">n</code> we’d like to generate the code of a function
+<!-- In other words,  -->
+<p>For any given exponent <code class="highlighter-rouge">n</code>, for any given exponent <code class="highlighter-rouge">n</code> we’d like to generate the code of a function
 <code class="highlighter-rouge">(x: Double) =&gt; x * x * ... [n times] ... * x</code>.
 Let us try to do that naively for exponent <code class="highlighter-rouge">3</code>:</p>
 
@@ -98,24 +101,185 @@ Let us try to do that naively for exponent <code class="highlighter-rouge">3</co
 </code></pre></div></div>
 
 <p>It does not work, because <code class="highlighter-rouge">x</code> is undefined in <code class="highlighter-rouge">code"x"</code>,
-even though it looks like we’re binding it in the outer quote
-―
-basically, Squid does not support <em>cross-quotation references</em>,
-or references that cross quotation boundaries.
-This is 
-<!-- for reasons relating to  -->
-because of
-limitations in the capabilities of Scala macros,
-but also because it would be <a href="/squid/#popl18">unsafe [3]</a> in many contexts,
-and because it would invalidate the principle that
-in a functional program,
-it should be possible to extract and let-bind any pure subexpression
-(here, extracting <code class="highlighter-rouge">code"x"</code> from its insertion point would result in <code class="highlighter-rouge">x</code> becoming out of scope).</p>
+even though it looks like we’re binding it in the outer quote.
+This is a limitation of string interpolation macros in Scala.
+To fix this, we need to <em>escape</em> the inner insertion <em>and</em> quotation, as follows
+(due to macro limitations,
+this code will not work if you defined <code class="highlighter-rouge">power</code> in the REPL,
+but it will work in a normal Scala file):</p>
 
-<p>Fortunately, Squid provides a way of encoding cross-quotation references conveniently.
-This is done using first-class code variables, which are the topic of the next section.</p>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="n">pow3</span> <span class="k">=</span> <span class="n">code</span><span class="s">"""(x: Double) =&gt; $${ power(3, code"x") }"""</span>
+</code></pre></div></div>
 
-<h2 id="first-class-variable-symbols">First-Class Variable Symbols</h2>
+<p>Notice the use of triple-quotation <code class="highlighter-rouge">"""</code> to escape the inner quotation,
+and the double-dollar sign <code class="highlighter-rouge">$$</code> to escape the inner insertion.</p>
+
+<p>On the other hand, no escapes are needed in the alternative <em>quasicode</em> syntax
+(which also works better in the REPL):</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">IR.Quasicodes._</span>
+</code></pre></div></div>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pow3</span> <span class="k">=</span> <span class="n">code</span><span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">$</span><span class="o">{</span> <span class="n">power</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">code</span><span class="o">{</span><span class="n">x</span><span class="o">})</span> <span class="o">}</span> <span class="o">}</span>
+<span class="o">&lt;</span><span class="n">console</span><span class="k">&gt;:</span><span class="mi">20</span><span class="k">:</span> <span class="kt">error:</span> <span class="k">type</span> <span class="kt">mismatch</span><span class="o">;</span>
+ <span class="n">found</span>   <span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">x.</span><span class="k">type</span><span class="o">]</span>
+ <span class="n">required</span><span class="k">:</span> <span class="kt">IR.Predef.ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span>
+    <span class="o">(</span><span class="n">which</span> <span class="n">expands</span> <span class="n">to</span><span class="o">)</span>  <span class="nc">IR</span><span class="o">.</span><span class="nc">Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">Any</span><span class="o">]</span>
+       <span class="k">val</span> <span class="n">pow3</span> <span class="k">=</span> <span class="n">code</span><span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">$</span><span class="o">{</span> <span class="n">power</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">code</span><span class="o">{</span><span class="n">x</span><span class="o">})</span> <span class="o">}</span> <span class="o">}</span>
+                                                       <span class="o">^</span>
+</code></pre></div></div>
+
+<p>Our code still does not work, though!
+The reason is given in the error message:
+our <code class="highlighter-rouge">power</code> function expects to receive an argument of type <code class="highlighter-rouge">ClosedCode[Double]</code>,
+but we pass it a different type, <code class="highlighter-rouge">Code[Double,x.type]</code>…
+This was to be expected, since the term <code class="highlighter-rouge">code"x"</code> is obviously not “closed”
+— it contains a free variable <code class="highlighter-rouge">x</code>, which is only bound in the outer quote.
+If <code class="highlighter-rouge">code"x"</code> was to be assigned type <code class="highlighter-rouge">ClosedCode[Int]</code>,
+Squid’s type system would become unsound as 
+we could easily crash the program,
+for example by calling <code class="highlighter-rouge">code"x".run</code> or by storing <code class="highlighter-rouge">code"x"</code> in a mutable variable
+and reusing it later, outside of the outer quote where <code class="highlighter-rouge">x</code> is bound.</p>
+
+<p>Thankfully, the fix is easy:
+we need to make our <code class="highlighter-rouge">power</code> function <em>parametric</em> in the context that it accepts:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">power</span><span class="o">[</span><span class="kt">C</span><span class="o">](</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">x</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">C</span><span class="o">])</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">C</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="n">code</span><span class="s">"${power(n-1, x)} * $x"</span>
+  <span class="k">else</span> <span class="n">code</span><span class="s">"1.0"</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>We can now construct our <code class="highlighter-rouge">pow3</code> function:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pow3</span> <span class="k">=</span> <span class="n">code</span><span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">$</span><span class="o">{</span> <span class="n">power</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">code</span><span class="o">{</span><span class="n">x</span><span class="o">})</span> <span class="o">}</span> <span class="o">}</span>
+<span class="n">pow3</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Double</span> <span class="k">=&gt;</span> <span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"((x_0: scala.Double) =&gt; 1.0.*(x_0).*(x_0).*(x_0))"</span>
+</code></pre></div></div>
+
+<h2 id="dealing-with-context-types">Dealing with Context Types</h2>
+
+<p>In the previous subsection,
+we saw an open term of type <code class="highlighter-rouge">Code[Double,x.type]</code>,
+where the free variable <code class="highlighter-rouge">x</code> was bound in some outer quote.
+The singleton <code class="highlighter-rouge">x.type</code> is used as a “phantom type”
+to indicate a dependency on the corresponding variable.
+But what happens if there are several free variables in the term?</p>
+
+<p>In general, a context type is made of an <em>intersection</em> of <em>context requirements</em>,
+where a context requirement can be an abstract type or type parameter <code class="highlighter-rouge">C</code>
+or a specific variable requirement like <code class="highlighter-rouge">x.type</code>.</p>
+
+<p>For example, <code class="highlighter-rouge">Code[Double, C &amp; x.type &amp; y.type]</code>
+is the type of a code fragment whose context requirement is <code class="highlighter-rouge">C</code> augmented
+with the requirements for local variables <code class="highlighter-rouge">x</code> and <code class="highlighter-rouge">y</code>,
+where <code class="highlighter-rouge">&amp;</code> denotes type intersections
+(equivalent to <code class="highlighter-rouge">A with B</code> in legacy Scala syntax).
+The <code class="highlighter-rouge">&amp;</code> notation can be imported from <code class="highlighter-rouge">squid.utils</code>.</p>
+
+<p>Here is an example where the type <code class="highlighter-rouge">Code[Double, C &amp; x.type &amp; y.type]</code> comes up:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">squid.utils.</span><span class="o">&amp;</span>
+
+<span class="k">def</span> <span class="n">foo</span><span class="o">[</span><span class="kt">C</span><span class="o">](</span><span class="n">ls</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span>,<span class="kt">C</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span> <span class="o">{</span>
+  <span class="n">$</span><span class="o">{</span><span class="n">ls</span><span class="o">}.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">toString</span><span class="o">).</span><span class="n">fold</span><span class="o">(</span><span class="s">""</span><span class="o">)((</span><span class="n">x</span><span class="o">,</span> <span class="n">y</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">$</span><span class="o">{</span>
+    <span class="k">val</span> <span class="n">res</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">C</span> <span class="kt">&amp;</span> <span class="kt">x.</span><span class="k">type</span> <span class="kt">&amp;</span> <span class="kt">y.</span><span class="k">type</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="o">{</span><span class="n">x</span> <span class="o">+</span> <span class="s">", "</span> <span class="o">+</span> <span class="n">y</span><span class="o">}</span>
+    <span class="n">code</span><span class="o">{</span> <span class="n">println</span><span class="o">(</span><span class="s">"Folding: "</span> <span class="o">+</span> <span class="n">y</span><span class="o">);</span> <span class="n">$</span><span class="o">{</span><span class="n">res</span><span class="o">}</span> <span class="o">}</span>
+  <span class="o">})</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>Calling <code class="highlighter-rouge">foo(code"List(1,2,3)")</code> will result in a code fragment
+that maps and folds <code class="highlighter-rouge">List(1,2,3)</code>,
+which can be verified using the term equivalence method <code class="highlighter-rouge">=~=</code> as below:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">foo</span><span class="o">(</span><span class="n">code</span><span class="s">"List(1,2,3)"</span><span class="o">)</span> <span class="o">=~=</span> <span class="n">code</span><span class="s">"""
+     |   List(1,2,3).map(_.toString).fold("")((x, y) =&gt; {
+     |     println("Folding: " + y); x + ", " + y })"""</span>
+<span class="n">res4</span><span class="k">:</span> <span class="kt">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+</code></pre></div></div>
+
+<p>The <code class="highlighter-rouge">Code</code> class is contravariant in its <code class="highlighter-rouge">Ctx</code> type argument,
+so that a term with a context <code class="highlighter-rouge">C</code> can be used as a term with a <em>more specific</em> context <code class="highlighter-rouge">C' &lt;: C</code>. 
+For example, we have:<br />
+<code class="highlighter-rouge">ClosedCode[Int] = Code[Int,Any]  &lt;:  Code[Int, v.type]  &lt;:  Code[Int, v.type &amp; w.type]  &lt;:  OpenCode[Int] = Code[Int,Nothing]</code></p>
+
+<p><strong>Note:</strong>
+The current Scala compiler has an arbitrary limitation that prevents <em>users</em>
+from writing <code class="highlighter-rouge">x.type</code> if the type of <code class="highlighter-rouge">x</code> is not a subtype of <code class="highlighter-rouge">AnyRef</code>,
+for example if we have <code class="highlighter-rouge">x: Int</code>.
+To work around this, Squid provides a <code class="highlighter-rouge">singleton.scope</code> macro utility,
+which is used as follows:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">squid.utils.typing.singleton.scope</span>
+</code></pre></div></div>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">$</span><span class="o">{</span> <span class="k">val</span> <span class="n">c</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">Int</span>, <span class="kt">scope.x</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="o">{</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="o">};</span> <span class="n">c</span> <span class="o">}</span> <span class="o">}</span>
+<span class="n">res5</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span> <span class="k">=&gt;</span> <span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"((x_0: scala.Int) =&gt; x_0.+(1))"</span>
+</code></pre></div></div>
+
+<h2 id="last-words-on-msp">Last Words on MSP</h2>
+
+<p>Beyond the simplistic power function examples,
+MSP becomes truly useful when we start applying it to the construction of non-trivial,
+highly-polymorphic programs for which manual specialization would be too tedious or unfeasible to maintain.</p>
+
+<p>Because it is based on runtime program generation and compilation,
+MSP allows the program generation process itself to depend on runtime input values,
+which enables entirely new patterns of performance-oriented software engineering.</p>
+
+<p>In conclusion, MSP allows programmers to design abstract yet performant programs,
+sparing them the burden of having to write and maintain lots of boilerplate and repetitive code.
+Programmers can leverage generative techniques instead,
+with solid static guarantees that the generated code will be well-formed (well-typed and well-scoped).</p>
+
+<h2 id="epilogue-dont-want-to-track-contexts-statically">Epilogue: Don’t Want to Track Contexts Statically?</h2>
+
+<p>Tracking contexts in the type system provides complete scope-safety for Squid metaprograms,
+but can make metaprogramming more verbose and difficult.
+Squid also supports a style of programming where one only manipulates <code class="highlighter-rouge">OpenCode</code> fragments,
+and where dynamic checks are used to convert <code class="highlighter-rouge">OpenCode</code> to <code class="highlighter-rouge">ClosedCode</code> when needed.</p>
+
+<p>For example, below we redefine the <code class="highlighter-rouge">power</code> function in this style:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">pow</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)(</span><span class="n">v</span><span class="k">:</span> <span class="kt">OpenCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">])</span><span class="k">:</span> <span class="kt">OpenCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="k">var</span> <span class="n">cde</span> <span class="k">=</span> <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="n">code</span><span class="s">"1.0"</span> <span class="k">else</span> <span class="n">v</span>
+  <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="k">&lt;-</span> <span class="mi">1</span> <span class="n">until</span> <span class="n">n</span><span class="o">)</span> <span class="n">cde</span> <span class="k">=</span> <span class="n">code</span><span class="s">"$cde * $v"</span>
+  <span class="n">cde</span>
+<span class="o">}</span>
+<span class="k">def</span> <span class="n">mkPow</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(x: Double) =&gt; ${pow(n) _}(x)"</span>
+</code></pre></div></div>
+
+<p>In the definition of <code class="highlighter-rouge">mkPow</code> above, we used automatic function lifting,
+which converts an <code class="highlighter-rouge">OpenCode[A] =&gt; OpenCode[B]</code>
+to an <code class="highlighter-rouge">OpenCode[A =&gt; B]</code> on insertion into a program fragment.</p>
+
+<p>We can then try to <code class="highlighter-rouge">close</code> the result of <code class="highlighter-rouge">mkPow(5)</code> at runtime, returning an <code class="highlighter-rouge">Option[ClosedCode[Double =&gt; Double]]</code>:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pow5</span> <span class="k">=</span> <span class="n">mkPow</span><span class="o">(</span><span class="mi">5</span><span class="o">).</span><span class="n">close</span>
+<span class="n">pow5</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Double</span> <span class="k">=&gt;</span> <span class="kt">Double</span><span class="o">]]</span> <span class="k">=</span> <span class="nc">Some</span><span class="o">(</span><span class="n">code</span><span class="s">"((x_0: scala.Double) =&gt; x_0.*(x_0).*(x_0).*(x_0).*(x_0))"</span><span class="o">)</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">power5</span> <span class="k">=</span> <span class="n">pow5</span><span class="o">.</span><span class="n">get</span><span class="o">.</span><span class="n">compile</span>
+<span class="n">power5</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$5$47df7a4d24b6493e9a951a866e92bbc0</span><span class="o">.</span><span class="nc">__wrapper$5$47df7a4d24b6493e9a951a866e92bbc0$$$Lambda$6919</span><span class="o">/</span><span class="mi">1113167384</span><span class="k">@</span><span class="mf">92379f</span><span class="n">a</span>
+
+<span class="n">scala</span><span class="o">&gt;</span> <span class="n">power5</span><span class="o">(</span><span class="mf">1.5</span><span class="o">)</span>
+<span class="n">res6</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">7.59375</span>
+</code></pre></div></div>
+
+<p>Naturally, trying to close an open term will fail and return <code class="highlighter-rouge">None</code>.</p>
+
+<p><strong>If you are interested in learning a more advanced technique for manipulating free variables and open terms, read on. Otherwise, you can stop reading now!</strong></p>
+
+<h1 id="advanced-topic-first-class-variable-symbols">Advanced Topic: First-Class Variable Symbols</h1>
+
+<p>In addition to often being unsafe in several contexts (see <a href="/squid/#popl18">our paper [3]</a>),
+traditional approaches to MSP such as MetaML and Dotty’s new quoted terms
+do not provide a way to explicitly manipulate variable bindings.</p>
+
+<p>In Squid, not only is <em>scope safety</em> ensured statically using the type system,
+but we can manipulate variables explicitly
+(which will become especially useful
+when we start matching code fragments in the next section).
+This is the topic of this section.</p>
+
+<h2 id="the-variable-type">The Variable Type</h2>
 
 <p>Squid allows the manipulation of first-class variable symbols,
 of type <code class="highlighter-rouge">Variable[T]</code>.
@@ -125,10 +289,10 @@ and can be used to hygienically bind and reference named values in the construct
 <p>For example, the following <code class="highlighter-rouge">openCde</code> fragment contains an unbound reference to variable <code class="highlighter-rouge">v</code>:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">v</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span>
-<span class="n">v</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">v</span><span class="k">@</span><span class="mi">954502580</span><span class="o">)</span>
+<span class="n">v</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">v</span><span class="nd">@b5933df</span><span class="o">)</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">openCde</span> <span class="k">=</span> <span class="n">code</span><span class="s">"println($v + 1)"</span>
-<span class="n">openCde</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">v.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.println(v@954502580.+(1))"</span>
+<span class="n">openCde</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">v.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"scala.Predef.println(v@b5933df.+(1))"</span>
 </code></pre></div></div>
 
 <p>Notice the type of <code class="highlighter-rouge">openCde</code>, as printed in the REPL:
@@ -162,11 +326,11 @@ and are just there to help debugging.
 For example, two distinct variables with the same name will <em>not</em> be mixed up:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">v0</span><span class="o">,</span> <span class="n">v1</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="s">"myName"</span><span class="o">)</span> <span class="c1">// v0 and v1 distinct but share same name
-</span><span class="n">v0</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">myName</span><span class="k">@</span><span class="mi">1096577271</span><span class="o">)</span>
-<span class="n">v1</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">myName</span><span class="k">@</span><span class="mi">711536436</span><span class="o">)</span>
+</span><span class="n">v0</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">myName</span><span class="k">@</span><span class="mi">74</span><span class="n">c8e465</span><span class="o">)</span>
+<span class="n">v1</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span><span class="n">myName</span><span class="k">@</span><span class="mi">6</span><span class="n">e7fc04f</span><span class="o">)</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"($v0: Int) =&gt; ($v1: Int) =&gt; $v0 + $v1"</span>
-<span class="n">res5</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="kt">Int</span> <span class="k">=&gt;</span> <span class="kt">Int</span><span class="o">)]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"((myName_0: scala.Int) =&gt; ((myName_1: scala.Int) =&gt; myName_0.+(myName_1)))"</span>
+<span class="n">res8</span><span class="k">:</span> <span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="kt">Int</span> <span class="k">=&gt;</span> <span class="kt">Int</span><span class="o">)]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"((myName_0: scala.Int) =&gt; ((myName_1: scala.Int) =&gt; myName_0.+(myName_1)))"</span>
 </code></pre></div></div>
 
 <p>Notice that the code generated by Squid in the above example
@@ -188,7 +352,7 @@ making sure that they can never be mistaken for closed ones.
 For example, we cannot mistakenly try to evaluate an open term:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">openCde</span><span class="o">.</span><span class="n">run</span>
-<span class="o">&lt;</span><span class="n">console</span><span class="k">&gt;:</span><span class="mi">18</span><span class="k">:</span> <span class="kt">error:</span> <span class="kt">Cannot</span> <span class="kt">prove</span> <span class="kt">that</span> <span class="kt">v.Ctx</span> <span class="o">=:=</span> <span class="nc">Any</span><span class="o">.</span>
+<span class="o">&lt;</span><span class="n">console</span><span class="k">&gt;:</span><span class="mi">23</span><span class="k">:</span> <span class="kt">error:</span> <span class="kt">Cannot</span> <span class="kt">prove</span> <span class="kt">that</span> <span class="kt">v.Ctx</span> <span class="o">=:=</span> <span class="nc">Any</span><span class="o">.</span>
        <span class="n">openCde</span><span class="o">.</span><span class="n">run</span>
                <span class="o">^</span>
 </code></pre></div></div>
@@ -222,17 +386,17 @@ in an open term <code class="highlighter-rouge">t</code>
 by using the <code class="highlighter-rouge">subs</code> syntax below:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">t</span> <span class="k">=</span> <span class="n">code</span><span class="s">"$v0 + $v1 + 1"</span>
-<span class="n">t</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span> <span class="kt">with</span> <span class="kt">v0.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"myName@1096577271.+(myName@711536436).+(1)"</span>
+<span class="n">t</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span> <span class="kt">with</span> <span class="kt">v0.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"myName@74c8e465.+(myName@6e7fc04f).+(1)"</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">s</span> <span class="k">=</span> <span class="n">t</span><span class="o">.</span><span class="n">subs</span><span class="o">(</span><span class="n">v0</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="n">code</span><span class="s">"42"</span>
-<span class="n">s</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(42).+(myName@711536436).+(1)"</span>
+<span class="n">s</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(42).+(myName@6e7fc04f).+(1)"</span>
 </code></pre></div></div>
 
 <p>“Renaming” a free variable <code class="highlighter-rouge">v0</code> to <code class="highlighter-rouge">v1</code> is achieved by
 substituting free occurrences of <code class="highlighter-rouge">v0</code> with code references to <code class="highlighter-rouge">v1</code>, as in:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">t</span><span class="o">.</span><span class="n">subs</span><span class="o">(</span><span class="n">v0</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="n">v1</span><span class="o">.</span><span class="n">toCode</span>
-<span class="n">res7</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"myName@711536436.+(myName@711536436).+(1)"</span>
+<span class="n">res10</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">v1.Ctx</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"myName@6e7fc04f.+(myName@6e7fc04f).+(1)"</span>
 </code></pre></div></div>
 
 <p><strong>Note:</strong> syntax <code class="highlighter-rouge">v.toCode</code> converts a variable <code class="highlighter-rouge">v</code> of type <code class="highlighter-rouge">Variable[T]</code>
@@ -248,10 +412,10 @@ It is equivalent to <code class="highlighter-rouge">code"$v"</code>.</p>
 takes a program of type <code class="highlighter-rouge">Double</code> and returns a program of the same type:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">p3</span> <span class="k">=</span> <span class="n">power</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="k">_</span> <span class="k">:</span> <span class="kt">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">])</span>
-<span class="n">p3</span><span class="k">:</span> <span class="kt">IR.Predef.ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=&gt;</span> <span class="nc">IR</span><span class="o">.</span><span class="nc">Predef</span><span class="o">.</span><span class="nc">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">$$Lambda$47287</span><span class="o">/</span><span class="mi">965636071</span><span class="nd">@c648e96</span>
+<span class="n">p3</span><span class="k">:</span> <span class="kt">IR.Predef.ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=&gt;</span> <span class="nc">IR</span><span class="o">.</span><span class="nc">Predef</span><span class="o">.</span><span class="nc">Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="nc">$$Lambda$6957</span><span class="o">/</span><span class="mi">308514679</span><span class="k">@</span><span class="mf">3f</span><span class="mi">134169</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">p3</span><span class="o">(</span><span class="n">code</span><span class="s">"2.0"</span><span class="o">)</span>
-<span class="n">res8</span><span class="k">:</span> <span class="kt">IR.Predef.ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1.0.*(2.0).*(2.0).*(2.0)"</span>
+<span class="n">res11</span><span class="k">:</span> <span class="kt">IR.Predef.Code</span><span class="o">[</span><span class="kt">Double</span>,<span class="kt">Any</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1.0.*(2.0).*(2.0).*(2.0)"</span>
 </code></pre></div></div>
 
 <p>What we would now like to have is a term of type <code class="highlighter-rouge">ClosedCode[Double =&gt; Double]</code>,
@@ -288,10 +452,10 @@ For more details on this subject, see the
 <p>We can now generate on the fly efficient code for calculating the 5th power of any <code class="highlighter-rouge">Double</code>:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">power5</span> <span class="k">=</span> <span class="n">pow5</span><span class="o">.</span><span class="n">compile</span>
-<span class="n">power5</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$3$e3f1e657da6f419f9eceec6ca5567bb2</span><span class="o">.</span><span class="nc">__wrapper$3$e3f1e657da6f419f9eceec6ca5567bb2$$$Lambda$47341</span><span class="o">/</span><span class="mi">742695764</span><span class="nd">@a19726b</span>
+<span class="n">power5</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=&gt;</span> <span class="o">(</span><span class="nc">Double</span> <span class="k">=&gt;</span> <span class="nc">Double</span><span class="o">)</span> <span class="k">=</span> <span class="nc">__wrapper$6$4eb1413f36f3440b82a9a0b045e604a1</span><span class="o">.</span><span class="nc">__wrapper$6$4eb1413f36f3440b82a9a0b045e604a1$$$Lambda$6983</span><span class="o">/</span><span class="mi">1521535348</span><span class="k">@</span><span class="mi">1</span><span class="n">b3fad38</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">power5</span><span class="o">(</span><span class="mf">1.5</span><span class="o">)</span>
-<span class="n">res9</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">7.59375</span>
+<span class="n">res12</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$6$4eb1413f36f3440b82a9a0b045e604a1</span><span class="o">.</span><span class="nc">__wrapper$6$4eb1413f36f3440b82a9a0b045e604a1$$$Lambda$6984</span><span class="o">/</span><span class="mi">1076866530</span><span class="k">@</span><span class="mi">3</span><span class="n">a2e2122</span>
 </code></pre></div></div>
 
 <p>The last line will execute the function <code class="highlighter-rouge">power5</code>,
@@ -300,55 +464,6 @@ which is really just as fast as if we had written out:</p>
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="n">power5</span> <span class="k">=</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span>
 </code></pre></div></div>
 
-<h2 id="conclusions-on-msp">Conclusions on MSP</h2>
-
-<p>Beyond the simplistic power function examples,
-MSP becomes truly useful when we start applying it to the construction of non-trivial,
-highly-polymorphic programs for which manual specialization would be too tedious or unfeasible to maintain.</p>
-
-<p>Because it is based on runtime program generation and compilation,
-MSP allows the program generation process itself to depend on runtime input values,
-which enables entirely new patterns of performance-oriented software engineering.</p>
-
-<p>In conclusion, MSP allows programmers to design abstract yet performant programs,
-sparing them the burden of having to write and maintain lots of boilerplate and repetitive code.
-Programmers can leverage generative techniques instead,
-with solid static guarantees that the generated code will be well-formed (well-typed and well-scoped).</p>
-
-<h2 id="appendix-dont-want-to-track-contexts-statically">Appendix: Don’t Want to Track Contexts Statically?</h2>
-
-<p>Tracking contexts in the type system provides complete scope-safety for Squid metaprograms,
-but can make metaprogramming more verbose and difficult.
-Squid also supports a style of programming where one only manipulates <code class="highlighter-rouge">OpenCode</code> fragments,
-and where dynamic checks are used to convert <code class="highlighter-rouge">OpenCode</code> to <code class="highlighter-rouge">ClosedCode</code> when needed.</p>
-
-<p>For example, below we redefine the <code class="highlighter-rouge">power</code> function in this style:</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="n">pow</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)(</span><span class="n">v</span><span class="k">:</span> <span class="kt">OpenCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">])</span><span class="k">:</span> <span class="kt">OpenCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="k">var</span> <span class="n">cde</span> <span class="k">=</span> <span class="k">if</span> <span class="o">(</span><span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="n">code</span><span class="s">"1.0"</span> <span class="k">else</span> <span class="n">v</span>
-  <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="k">&lt;-</span> <span class="mi">1</span> <span class="n">until</span> <span class="n">n</span><span class="o">)</span> <span class="n">cde</span> <span class="k">=</span> <span class="n">code</span><span class="s">"$cde * $v"</span>
-  <span class="n">cde</span>
-<span class="o">}</span>
-<span class="k">def</span> <span class="n">mkPow</span><span class="o">(</span><span class="n">n</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(x: Double) =&gt; ${pow(n) _}(x)"</span>
-</code></pre></div></div>
-
-<p>In the definition of <code class="highlighter-rouge">mkPow</code> above, we used automatic function lifting,
-which converts an <code class="highlighter-rouge">OpenCode[A] =&gt; OpenCode[B]</code>
-to an <code class="highlighter-rouge">OpenCode[A =&gt; B]</code> on insertion into a program fragment.</p>
-
-<p>We can then try to <code class="highlighter-rouge">close</code> the result of <code class="highlighter-rouge">mkPow(5)</code> at runtime, returning an <code class="highlighter-rouge">Option[ClosedCode[Double =&gt; Double]]</code>:</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pow5</span> <span class="k">=</span> <span class="n">mkPow</span><span class="o">(</span><span class="mi">5</span><span class="o">).</span><span class="n">close</span>
-<span class="n">pow5</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">IR.ClosedCode</span><span class="o">[</span><span class="kt">Double</span> <span class="k">=&gt;</span> <span class="kt">Double</span><span class="o">]]</span> <span class="k">=</span> <span class="nc">Some</span><span class="o">(</span><span class="n">code</span><span class="s">"((x_0: scala.Double) =&gt; x_0.*(x_0).*(x_0).*(x_0).*(x_0))"</span><span class="o">)</span>
-
-<span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">power5</span> <span class="k">=</span> <span class="n">pow5</span><span class="o">.</span><span class="n">get</span><span class="o">.</span><span class="n">compile</span>
-<span class="n">power5</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$4$87fb074e1c8a4dd786dc88742240c548</span><span class="o">.</span><span class="nc">__wrapper$4$87fb074e1c8a4dd786dc88742240c548$$$Lambda$47379</span><span class="o">/</span><span class="mi">1170346397</span><span class="k">@</span><span class="mi">40</span><span class="n">cb4a6</span>
-
-<span class="n">scala</span><span class="o">&gt;</span> <span class="n">power5</span><span class="o">(</span><span class="mf">1.5</span><span class="o">)</span>
-<span class="n">res10</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">7.59375</span>
-</code></pre></div></div>
-
-<p>Naturally, trying to close an open term will fail and return <code class="highlighter-rouge">None</code>.</p>
 </section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/squid/highlight/highlight.pack.js"></script><script>hljs.configure({
 languages:['scala','java','bash']
 });

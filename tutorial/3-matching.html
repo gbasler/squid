@@ -7,9 +7,10 @@ Squid is statically typed and prevents the occurrence of type mismatches or unbo
 in the tradition of <em>MetaML</em>.
 On the other hand, in the tradition of <em>Lisp</em>, Squid views code as (executable) data that one can <em>inspect</em> (or <em>analyse</em>) and <em>rewrite</em>.
 This is made possible in a type-safe way by statically tracking context requirements, as presented in
-<a href="2-staging.html#contexts-and-open-terms">the previous section</a>.</p>
+<a href="2-staging.html#dealing-with-context-types">the previous section</a>.
+<!-- [the previous section](2-staging.html#advanced-topic-first-class-variable-symbols). --></p>
 
-<p>The functional way of analysing data and extracting patterns from it is to use pattern matching.
+<p>The functional way of analyzing data and extracting patterns from it is to use pattern matching.
 In Squid, one can pattern-match program fragments just like one pattern-matches data.
 Holes in patterns behave like extractors, allowing programmers to take apart code expressions:</p>
 
@@ -33,13 +34,15 @@ will give to the extracted subterm a type that reflects the potential dependency
 </code></pre></div></div>
 
 <p>The code above matches a lambda that binds some parameter <code class="highlighter-rouge">y</code> of type <code class="highlighter-rouge">Int</code> in some body <code class="highlighter-rouge">b</code>;
-it extracts two values: <code class="highlighter-rouge">y</code> of type <code class="highlighter-rouge">Variable[Int]</code> and <code class="highlighter-rouge">b</code> of type <code class="highlighter-rouge">Code[Int, y.Ctx]</code>.
-Note that since <code class="highlighter-rouge">y</code> is only defined withing the pattern matching branch,
+it extracts two values: <code class="highlighter-rouge">y</code> of type <code class="highlighter-rouge">Variable[Int]</code> and <code class="highlighter-rouge">b</code> of type <code class="highlighter-rouge">Code[Int, y.Ctx]</code>. <code class="highlighter-rouge">Variable</code> is a type that represents first-class variable symbols;
+for more information about it, see <a href="2-staging.html#the-variable-type">this section</a>.</p>
+
+<p>Note that since <code class="highlighter-rouge">y</code> is only defined withing the pattern matching branch,
 the type inferred by Scala for <code class="highlighter-rouge">funBody</code>,
 which is <em>dependent</em> on <code class="highlighter-rouge">y</code>, is an existential:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">funBody</span>
-<span class="n">res0</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">y.Ctx</span><span class="o">]</span> <span class="k">forSome</span> <span class="o">{</span> <span class="k">val</span> <span class="n">y</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]{</span><span class="k">type</span> <span class="kt">OuterCtx</span> <span class="o">=</span> <span class="nc">Any</span><span class="o">}</span> <span class="o">}</span> <span class="k">=</span> <span class="n">code</span><span class="s">"x@1403780485.+(1)"</span>
+<span class="n">res0</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Int</span>,<span class="kt">y.Ctx</span><span class="o">]</span> <span class="k">forSome</span> <span class="o">{</span> <span class="k">val</span> <span class="n">y</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]{</span><span class="k">type</span> <span class="kt">OuterCtx</span> <span class="o">=</span> <span class="nc">Any</span><span class="o">}</span> <span class="o">}</span> <span class="k">=</span> <span class="n">code</span><span class="s">"x@1a653e16.+(1)"</span>
 </code></pre></div></div>
 
 <p>In practice, we will avoid losing track of the variables our code values depend upon, as above,
@@ -200,7 +203,7 @@ so you will need to check them manually if necessary, as in:</p>
 </span>  <span class="k">case</span> <span class="n">code</span><span class="s">"$cde: $t where (t &lt;:&lt; List[Any])"</span> <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;:&lt;</span> <span class="n">codeTypeOf</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Any</span><span class="o">]]</span> <span class="k">=&gt;</span> <span class="c1">// ok
 </span></code></pre></div></div>
 
-<h2 id="note-on-legacy-nominal-context-system">Note on Legacy Nominal Context System</h2>
+<h2 id="note-on-the-legacy-nominal-context-system">Note on the Legacy Nominal Context System</h2>
 
 <p>Squid will let you match binding without <em>extracting</em> a first-class <code class="highlighter-rouge">Variable</code> value,
 as in the following:</p>

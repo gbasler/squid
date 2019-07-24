@@ -42,17 +42,8 @@ The full source code can be <a href="https://github.com/epfldata/squid/tree/mast
 using Squid quasiquotes, 
 transformers and first-class term rewriting:</p>
 
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="c1">// Syntax `code"t"` represents term `t` in some specified intermediate representation
-</span>     <span class="o">|</span> <span class="k">val</span> <span class="n">pgrm0</span> <span class="k">=</span> <span class="n">code</span><span class="s">"Test.foo(1 :: 2 :: 3 :: Nil) + 1"</span>
-<span class="n">pgrm0</span><span class="k">:</span> <span class="kt">example.doc.IntroExample.IR.ClosedCode</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
-<span class="n">code</span><span class="s">"""{
-  val x_0 = example.doc.Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
-  x_0.+(1)
-}"""</span>
-</code></pre></div></div>
-
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Syntax `code"t"` represents term `t` in some specified intermediate representation
-</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm0</span> <span class="k">=</span> <span class="n">code</span><span class="s">"Test.foo(1 :: 2 :: 3 :: Nil) + 1"</span>
+</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">pgrm0</span> <span class="k">=</span> <span class="n">code</span><span class="s">"(Test.foo(1 :: 2 :: 3 :: Nil) + 1).toDouble"</span>
 <span class="n">pgrm0</span><span class="k">:</span> <span class="kt">ClosedCode</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="n">code</span><span class="s">"""
   val x_0 = Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
   x_0.+(1).toDouble
@@ -100,7 +91,9 @@ an alternative to the current Scala-reflection macros.</p>
 
 <p>In your project, add the following to your <code class="highlighter-rouge">build.sbt</code>:</p>
 
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">libraryDependencies</span> <span class="o">+=</span> <span class="s">"ch.epfl.data"</span> <span class="o">%%</span> <span class="s">"squid"</span> <span class="o">%</span> <span class="s">"0.3.0-SNAPSHOT"</span>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">resolvers</span> <span class="o">+=</span> <span class="nc">Resolver</span><span class="o">.</span><span class="n">sonatypeRepo</span><span class="o">(</span><span class="s">"snapshots"</span><span class="o">)</span>
+
+<span class="n">libraryDependencies</span> <span class="o">+=</span> <span class="s">"ch.epfl.data"</span> <span class="o">%%</span> <span class="s">"squid"</span> <span class="o">%</span> <span class="s">"0.3.2-SNAPSHOT"</span>
 </code></pre></div></div>
 
 <p>Some features related to <a href="#qsr">library-defined optimizations</a> and <a href="#smacros">squid macros</a>, 

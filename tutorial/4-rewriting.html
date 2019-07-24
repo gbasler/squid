@@ -16,6 +16,8 @@ For instance, one can define:</p>
 <span class="k">def</span> <span class="n">outro</span><span class="o">[</span><span class="kt">C</span><span class="o">](</span><span class="n">q</span><span class="k">:</span> <span class="kt">Code</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">C</span> <span class="kt">&amp;</span> <span class="kt">s.Ctx</span><span class="o">])</span> <span class="k">=</span> <span class="n">code</span><span class="s">"{($s) =&gt; $q}"</span>
 </code></pre></div></div>
 
+<p>(To learn more about <code class="highlighter-rouge">Variable</code>, see <a href="2-staging.html#advanced-topic-first-class-variable-symbols">this section</a>.)</p>
+
 <p>Function <code class="highlighter-rouge">intro</code> reuses term <code class="highlighter-rouge">n</code> of context <code class="highlighter-rouge">C</code> and <em>introduces</em> a free variable <code class="highlighter-rouge">s</code>,
 yielding context <code class="highlighter-rouge">Code[String, C{val s: String}]</code>.
 On the other hand, <code class="highlighter-rouge">outro</code> takes a term <code class="highlighter-rouge">q</code> of context <code class="highlighter-rouge">C</code> <em>extended with</em> <code class="highlighter-rouge">s: String</code> and captures that variable
@@ -23,8 +25,10 @@ by constructing a bigger term and inserting <code class="highlighter-rouge">q</c
 
 <p>Here are a few usage examples:</p>
 
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="o">{</span> <span class="k">val</span> <span class="n">x</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">];</span> <span class="k">val</span> <span class="n">a</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1 + $x"</span>
-     <span class="o">|</span>   <span class="k">val</span> <span class="n">b</span> <span class="k">=</span> <span class="n">intro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">a</span><span class="o">);</span> <span class="k">val</span> <span class="n">c</span> <span class="k">=</span> <span class="n">outro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">b</span><span class="o">);</span> <span class="c1">// type arguments cannot be inferred
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="o">{</span> <span class="k">val</span> <span class="n">x</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span>
+     <span class="o">|</span>   <span class="k">val</span> <span class="n">a</span> <span class="k">=</span> <span class="n">code</span><span class="s">"1 + $x"</span>
+     <span class="o">|</span>   <span class="k">val</span> <span class="n">b</span> <span class="k">=</span> <span class="n">intro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">a</span><span class="o">)</span>
+     <span class="o">|</span>   <span class="k">val</span> <span class="n">c</span> <span class="k">=</span> <span class="n">outro</span><span class="o">[</span><span class="kt">x.Ctx</span><span class="o">](</span><span class="n">b</span><span class="o">)</span> <span class="c1">// type arguments cannot be inferred
 </span>     <span class="o">|</span>   <span class="n">code</span><span class="s">"val $x = 3; $c"</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">apply</span><span class="o">(</span><span class="s">"test!"</span><span class="o">)</span> <span class="o">}</span>
 <span class="n">res0</span><span class="k">:</span> <span class="kt">String</span> <span class="o">=</span> <span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span><span class="n">test</span><span class="o">!</span>
 </code></pre></div></div>
@@ -52,14 +56,14 @@ For example, notice how the result of the rewriting below has type <code class="
 This is because we have introduced a free variable in the right-hand side of the rewrite rule.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">d</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span>
-<span class="n">d</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">](</span><span class="n">d</span><span class="k">@</span><span class="mi">585844081</span><span class="o">)</span>
+<span class="n">d</span><span class="k">:</span> <span class="kt">IR.Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">]</span> <span class="k">=</span> <span class="nc">Variable</span><span class="o">[</span><span class="kt">Double</span><span class="o">](</span><span class="n">d</span><span class="k">@</span><span class="mf">4d</span><span class="n">ccccec</span><span class="o">)</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">code</span><span class="s">"val x = 42; println(x.toDouble)"</span> <span class="n">rewrite</span> <span class="o">{</span>
      <span class="o">|</span>   <span class="k">case</span> <span class="n">code</span><span class="s">"($n:Int).toDouble"</span> <span class="k">=&gt;</span> <span class="n">code</span><span class="s">"$d + 1"</span> <span class="o">}</span>
 <span class="n">res1</span><span class="k">:</span> <span class="kt">IR.Code</span><span class="o">[</span><span class="kt">Unit</span>,<span class="kt">d.Ctx</span><span class="o">]</span> <span class="k">=</span>
 <span class="n">code</span><span class="s">"""{
   val x_0 = 42;
-  scala.Predef.println(d@585844081.+(1))
+  scala.Predef.println(d@4dccccec.+(1))
 }"""</span>
 </code></pre></div></div>
 
@@ -155,7 +159,7 @@ would be given type <code class="highlighter-rouge">Code[Double,&lt;context @ 2:
 })))"""</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">norm</span> <span class="k">=</span> <span class="n">normCode</span><span class="o">.</span><span class="n">compile</span>
-<span class="n">norm</span><span class="k">:</span> <span class="o">(</span><span class="kt">Double</span><span class="o">,</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$5$0567450d4df443ffa4431243ea65bc55</span><span class="o">.</span><span class="nc">__wrapper$5$0567450d4df443ffa4431243ea65bc55$$$Lambda$47877</span><span class="o">/</span><span class="mi">719440300</span><span class="k">@</span><span class="mi">5672395</span><span class="n">e</span>
+<span class="n">norm</span><span class="k">:</span> <span class="o">(</span><span class="kt">Double</span><span class="o">,</span> <span class="kt">Double</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">Double</span> <span class="k">=</span> <span class="nc">__wrapper$7$8c669180b3714feab68cd6892f23cc48</span><span class="o">.</span><span class="nc">__wrapper$7$8c669180b3714feab68cd6892f23cc48$$$Lambda$7125</span><span class="o">/</span><span class="mi">1287275307</span><span class="k">@</span><span class="mi">3281173</span><span class="n">c</span>
 
 <span class="n">scala</span><span class="o">&gt;</span> <span class="n">norm</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span><span class="mi">2</span><span class="o">)</span>
 <span class="n">res3</span><span class="k">:</span> <span class="kt">Double</span> <span class="o">=</span> <span class="mf">2.23606797749979</span>
