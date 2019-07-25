@@ -24,76 +24,87 @@ Squid uses **advanced static typing** techniques to prevent common metaprogrammi
 
 <a name="early-example">
 
-## A Short Example
+## An Early Example
 
-To give a quick taste of Squid's capabilities,
-here is a very basic example of program manipulation.
-The full source code can be [found here, in the example folder](https://github.com/epfldata/squid/tree/master/example/src/main/scala/example/doc/IntroExample.scala).
+To give a quick taste of Squid's unique mix of capabilities,
+here is a basic (contrived!) example of program manipulation.
+The full source code can be [found here, in the example folder](https://github.com/LPTK/Squid/blob/master/example/src/main/scala/example/PowOptim.scala).
+Much more detailed explanations of each feature can be found in the [tutorial](http://epfldata.github.io/squid/tutorial).
 
-Assume we define some library function `foo` as below:
+The core of Squid's frontend is its type- and scope-safe quasiquotation engine.
+We can write program fragments, or _code values_, by using the `code` interpolator:
 
 ```scala
-@embed object Test {
-  @phase('MyPhase) // phase specification helps with mechanized inlining
-  def foo[T](xs: List[T]) = xs.head
+import scala.io.StdIn
+
+val c0 = code"Some(StdIn.readDouble)" // resolves types and imports statically
+
+println(c0) // code"scala.Some.apply[scala.Double](scala.io.StdIn.readDouble())"
+```
+
+We can then compose programs incrementally from smaller parts:
+
+```scala
+val c1: ClosedCode[Double] = code"$c0.get"
+// ClosedCode[T], an alias for Code[T,Any], is the type of closed terms
+
+println(c1) // code"scala.Some.apply[scala.Double](scala.io.StdIn.readDouble()).get"
+
+// A function that manipulates code fragments in context/scope C:
+def mkPow[C](b: Code[Double,C], e: Code[Double,C]) = code"Math.pow($b, $e)"
+
+val c2: ClosedCode[Double] = mkPow(c1, code"3")
+
+// method `=~=` tests for alpha-equivalence of code values:
+assert(c2 =~= code"java.lang.Math.pow(Some(StdIn.readDouble).get, 3.0)")
+```
+
+Now, let us define a `Math.pow` optimizer.
+We'll do a top-down rewriting until a fixed point is reached,
+thanks to the `fix_topDown_rewrite` method:
+
+```scala
+def optPow[T,C](pgrm: Code[T,C]): Code[T,C] = pgrm fix_topDown_rewrite {
+  case code"Math.pow($x, 0.0)"       => code"1.0"
+  case code"Math.pow($x, ${Const(d)})" // `Const` matches constants, so `d` has type Double
+    if d.isWhole && 0 < d && d < 16  => code"Math.pow($x, ${Const(d-1)}) * $x"
 }
 ```
 
-The `@embed` annotation allows Squid to the see the method implementations inside an object or class, so that they can be inlined later automatically (as shown below) 
-–– note that this annotation is _not_ required in general, as non-annotated classes and methods can also be used inside quasiquotes.
-
-What follows is an example REPL session demonstrating some program manipulation
-using Squid quasiquotes, 
-transformers and first-class term rewriting:
+And finally, let us build a compiler for fast power functions!
+Given an integer `n`, we return a function that has been runtime-compiled to multiply any number with itself `n` times, using only plain multiplications:
 
 ```scala
-// Syntax `code"t"` represents term `t` in some specified intermediate representation
-> val pgrm0 = code"(Test.foo(1 :: 2 :: 3 :: Nil) + 1).toDouble"
-pgrm0: ClosedCode[Double] = code"""
-  val x_0 = Test.foo[scala.Int](scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1));
-  x_0.+(1).toDouble
-"""
-// ^ triple-quotation """ is for multi-line strings
-
-// `Lowering('P)` builds a transformer that inlines all functions marked with phase `P`
-// Here we inline `Test.foo`, which is annotated at phase `'MyPhase`
-> val pgrm1 = pgrm0 transformWith (new Lowering('MyPhase) with BottomUpTransformer)
-pgrm1: ClosedCode[Double] = code"scala.collection.immutable.Nil.::[scala.Int](3).::[scala.Int](2).::[scala.Int](1).head.+(1).toDouble"
-
-// Next, we perform a fixed-point rewriting to partially-evaluate
-// the statically-known parts of our program:
-> val pgrm2 = pgrm1 fix_rewrite {
-    case code"($xs:List[$t]).::($x).head" => x
-    case code"(${Const(n)}:Int) + (${Const(m)}:Int)" => Const(n + m)
-  }
-pgrm2: ClosedCode[Double] = code"2.toDouble"
-
-// Finally, let's runtime-compile and evaluate that program!
-> pgrm2.compile
-res0: Double = 2.0
+def mkFastPow(n: Int): Double => Double = {
+  val powCode = code"${ (x: Variable[Double]) => mkPow(code"$x", Const(n)) }"
+  // ^ The line above lifts a function of type `(v: Variable[Double]) => Code[Double, v.Ctx]`
+  //   into a program fragment of type `ClosedCode[Double => Double]`
+  val powCodeOpt = optPow(powCode) // optimize our pow function
+  powCodeOpt.compile // produce efficient bytecode at runtime
+}
+val p4fast = mkFastPow(4) // equivalent to: `(x: Double) => 1.0 * x * x * x * x`
+println(p4fast(42)) // 3111696.0
 ```
 
-Naturally, this simple REPL session can be generalized into a proper domain-specific compiler that will work on any input program 
-(for example, see the stream fusion compiler [[2]](#gpce17)).
 
-It is then possible to turn this into a static program optimizer,
-so that writing the following expression 
-expands at compile time into just `println(2)`,
-as show in the
-[IntroExampleTest](https://github.com/epfldata/squid/tree/master/example/src/test/scala/example/doc/IntroExampleTest.scala#L25)
-file:
-
-```scala
-MyOptimizer.optimize{ println(Test.foo(1 :: 2 :: 3 :: Nil) + 1) }
-```
-
-We could also turn this into a dedicated [Squid macro](#smacros),
-an alternative to the current Scala-reflection macros.
+This is just the beginning.
+Squid has much more under the hood, including:
+normalizing intermediate representations;
+online optimization;
+mixin program transformers;
+cross-stage persistence;
+automatic lifting and controlled inlining of library definitions;
+painless compile-time optimization...
+An overview of Squid's features is given [below](#overview),
+and a short example of some of them can be found
+[here](http://epfldata.github.io/squid/AdditionalExample.md).
 
 
-## Installation – Getting Started
 
-Squid currently supports Scala versions `2.12.x` and `2.11.3` to `2.11.11`
+
+## Getting Started
+
+Squid currently supports Scala versions `2.12.x` and `2.11.y` for `y > 2`
 (other versions might work as well, but have not been tested).
 
 In your project, add the following to your `build.sbt`:
@@ -117,11 +128,13 @@ autoCompilerPlugins := true
 addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 ```
 
-In case you wish to use a more recent version that has not yet been published,
+In case you wish to use a more recent version of Squid that has not yet been published,
 you'll have to clone this repository
 and publish Squid locally,
 which can be done by executing the script in `bin/publishLocal.sh`.
 
+
+<a name="overview">
 
 ## Overview of Features
 
@@ -250,8 +263,11 @@ myMacro(Test.foo(1 :: 2 :: 3 :: Nil) + 1) // expands into `2.toDouble`
 
 ## Applications of Squid
 
-Squid is new. See the [examples folder](example/src/main/scala/) for examples. A little query compiler built with Squid can be found [here](https://github.com/epfldata/sc-public/tree/master/relation-dsl-squid). Another LINQ-inspired query engine build with Squid can be found [here](https://github.com/epfldata/dbstage).
-
+Squid is still quite new and "bleeding edge".
+See the [examples folder](example/src/main/scala/) for some example uses.
+A little query compiler built with Squid can be found [here](https://github.com/epfldata/sc-public/tree/master/relation-dsl-squid). Another LINQ-inspired query engine build with Squid can be found [here](https://github.com/epfldata/dbstage).
+We also built a small staged linear algebra library prototype [[4]](#ecoop19),
+to be released soon.
 
 
 
@@ -276,5 +292,11 @@ Lionel Parreaux, Antoine Voizard, Amir Shaikhha, and Christoph E. Koch. 2018.
 [Unifying Analytic and Statically-Typed Quasiquotes](https://popl18.sigplan.org/event/popl-2018-papers-unifying-analytic-and-statically-typed-quasiquotes).
 In Proceedings of the ACM on Programming Languages (POPL 2018).
 (Get the paper [here](https://infoscience.epfl.ch/record/232427).)
+
+<a name="ecoop19">[4]</a>: 
+Amir Shaikhha, Lionel Parreaux. 2019.
+[Finally, a Polymorphic Linear Algebra Language](https://2019.ecoop.org/details/ecoop-2019-papers/5/Finally-a-Polymorphic-Linear-Algebra-Language).
+In 33rd European Conference on Object-Oriented Programming (ECOOP 2019).
+(Get the paper [here](https://infoscience.epfl.ch/record/266001).)
 
 

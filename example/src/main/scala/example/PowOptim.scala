@@ -13,6 +13,45 @@
 // limitations under the License.
 
 package example
+package powoptim
+
+object Code extends squid.ir.SimpleAST
+import Code.Predef._
+import Code.Quasicodes._
+
+object PowOptim1 extends App {
+  
+  def optPow[T,C](pgrm: Code[T,C]): Code[T,C] = pgrm fix_topDown_rewrite {
+    case code"Math.pow($x, 0.0)" => code"1.0"
+    case code"Math.pow($x, ${Const(d)})"
+      if d.isWhole && 0 < d && d < 16
+    =>
+      code"$x * Math.pow($x, ${Const(d-1)})"
+  }
+  
+  def mkPow[C](b: Code[Double, C], e: Code[Double, C]) = code"Math.pow($b, $e)"
+  
+  val p4code = code"${(x: Variable[Double]) => mkPow(code"$x", code"3.0")}"
+  println(p4code)
+  println(optPow(p4code))
+  
+  val p4slow: Double => Double = p4code.run
+  
+  def mkFastPow(n: Int): Double => Double = {
+    
+    // Alternatives that all work:
+    val powCode = code"${ (x: Variable[Double]) => mkPow(code"$x", Const(n)) }"
+    //val powCode = code"""(x: Double) => $${ mkPow(code"x", Const(n)) }"""
+    //val powCode = code{ (x: Double) => ${ mkPow(code"x", Const(n)) } }
+    
+    val powCodeOpt = optPow(powCode)
+    powCodeOpt.compile
+  }
+  val p4fast = mkFastPow(4)
+  
+  println(p4fast(42))
+  
+}
 
 /*
   * 
@@ -21,11 +60,7 @@ package example
   * (see the definition of `Ctx`, since it mirrors a contravariant type parameter).
   * 
   */
-object PowOptim extends App {
-  
-  object Code extends squid.ir.SimpleAST
-  import Code.Predef._
-  import Code.Quasicodes._
+object PowOptim2 extends App {
   
   def opt[T,C](pgrm: Code[T,C]): Code[T,C] = pgrm rewrite {
     case code"Math.pow($x, ${Const(d)})"
