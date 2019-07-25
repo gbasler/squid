@@ -101,7 +101,7 @@ In your project, add the following to your `build.sbt`:
 ```scala
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-libraryDependencies += "ch.epfl.data" %% "squid" % "0.3.2-SNAPSHOT"
+libraryDependencies += "ch.epfl.data" %% "squid" % "0.4.0-SNAPSHOT"
 ```
 
 Some features related to [library-defined optimizations](#qsr) and [squid macros](#smacros), 
