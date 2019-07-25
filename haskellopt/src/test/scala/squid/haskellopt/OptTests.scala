@@ -44,12 +44,16 @@ class OptTests extends FunSuite {
   }
   test("ListFusion") {
     // FIXME this test generates code nondeterministically (order of two definitions keeps changing...)
-    TestHarness("ListFusion")
+    //TestHarness("ListFusion")
+    TestHarness("ListFusionPaper")
     //TestHarness("ListFusion", "0000"::Nil)
     //TestHarness("ListFusion", (for (i <- 2 to 9) yield s"000$i").toList, opt = true)
   }
   test("ListFusionBTest") {
     TestHarness("ListFusionBench")
+  }
+  test("SimpleRec") {
+    TestHarness("SimpleRec")
   }
   test("HigherOrder") {
     TestHarness("HigherOrder")

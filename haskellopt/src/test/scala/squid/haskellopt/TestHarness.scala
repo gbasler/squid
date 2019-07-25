@@ -100,7 +100,7 @@ class TestHarness {
     
     //println(mod.show)
     val sch = 
-      //go.Graph.HaskellScheduleDebug debugFor
+      go.Graph.HaskellScheduleDebug debugFor
       go.Graph.scheduleRec(mod)
     
     val scheduleEndTime = System.nanoTime

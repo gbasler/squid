@@ -84,7 +84,7 @@ class BenchTests extends FunSuite {
     Core dump, it produces a very tight, strict loop, whereas when we fuse `sum` normally into a `foldr`, GHC generates
     a less efficient loop.
     I can't get a sense of what's happening, as `sum` seems to be implemented in GHC as a `foldl` and `foldl` itself is
-    implemented as a `foldr`! (see https://hackage.haskell.org/package/base-4.12.0.0/docs/src/GHC.List.html)
+      implemented as a `foldr`! (see https://hackage.haskell.org/package/base-4.12.0.0/docs/src/GHC.List.html)
     
     Note: Currently, `sum` in `sumnatsLocalTupled` is never fused in the graph because our `foldr` pattern currently only
           matches it applied to exactly 3 args (and here the 3rd arg is given across function boundary); but as the times

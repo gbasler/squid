@@ -40,8 +40,8 @@ object SynthBench {
       //  indices map (i => s"i + $i") mkString ", "}] [${
       //  indices map (i => s"i + $i") mkString ", "}]) [0..n])"
       
-      //(unit,op) = ("0,"+")
-      (unit,op) = ("1","*")
+      (unit,op) = ("0","+")
+      //(unit,op) = ("1","*")
       //(unit,op) = ("666","`mod`")
       
       prod =
@@ -61,8 +61,8 @@ object SynthBench {
             (xs zip ys).foldLeft(unit){case (acc,xy) => acc + s" $op " + xy._1}}"
         }.mkString("\n")))
       usage = s"test_$size n = sum (map (\\i -> prod_$size ${`[`}${
-        //indices map (i => s"i + $i") mkString ", "
-        indices map (i => s"i ^ $i") mkString ", "
+        indices map (i => s"i + $i") mkString ", "
+        //indices map (i => s"i ^ $i") mkString ", "
       }${`]`}) [0..n])"
     } yield s"$prod\n$usage"
     
@@ -101,7 +101,7 @@ object SynthBench {
 object MkAllSynthBench extends App {
   //SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false)
   //SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false, generic = true)
-  SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = false,
+  SynthBench.genPgrm(SynthBench.sizes, "VectorsBench.hs", bench = true, exportOnlyMain = false, forceInline = true,
     generic = true, lists = true, multiCase = true)
 }
 

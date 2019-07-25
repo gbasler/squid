@@ -357,6 +357,7 @@ abstract class HaskellGraph extends Graph {
         //???
         rep.rewireTo(
           
+        /* currently creates scope extrusion: */ 
         //abs(xsv,
         //app(
           
