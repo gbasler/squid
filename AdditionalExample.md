@@ -48,7 +48,7 @@ res0: Double = 2.0
 ```
 
 Naturally, this simple REPL session can be generalized into a proper domain-specific compiler that will work on any input program 
-(for example, see the stream fusion compiler [[2]](#gpce17)).
+(for example, see the stream fusion compiler [[2]](http://epfldata.github.io/squid/home.html#gpce17)).
 
 It is then possible to turn this into a static program optimizer,
 so that writing the following expression 
@@ -61,6 +61,6 @@ file:
 MyOptimizer.optimize{ println(Test.foo(1 :: 2 :: 3 :: Nil) + 1) }
 ```
 
-We could also turn this into a dedicated [Squid macro](#smacros),
+We could also turn this into a dedicated [Squid macro](http://epfldata.github.io/squid/home.html#smacros),
 an alternative to the current Scala-reflection macros.
 

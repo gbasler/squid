@@ -97,7 +97,7 @@ automatic lifting and controlled inlining of library definitions;
 painless compile-time optimization...
 An overview of Squid's features is given [below](#overview),
 and a short example of some of them can be found
-[here](http://epfldata.github.io/squid/AdditionalExample.md).
+[here](https://github.com/epfldata/squid/blob/master/AdditionalExample.md).
 
 
 
