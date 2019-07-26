@@ -167,4 +167,30 @@ class TermRewriting extends MyFunSuite {
     
   }
   
+  test("Rewrite patterns with varargs and unapplySeq") {
+    
+    val c0 = code"Some(List(1,2,3))"
+    
+    c0 rewrite {
+      case code"List[$t]($xs:_*)" =>
+        code"$xs.toList"
+    } eqt code"Some(Seq(1,2,3).toList)"
+    
+    c0 rewrite {
+      case code"List[$t]($xs*)" =>
+        code"Seq($xs*).toList"
+    } eqt code"Some(Seq(1,2,3).toList)"
+    
+    c0 rewrite {
+      case code"List[$t](${Seq(a,b,c)}*)" =>
+        code"$a :: $b :: $c :: Nil"
+    } eqt code"Some(1 :: 2 :: 3 :: Nil)"
+    
+    c0 rewrite {
+      case code"List[$t](${xs @ Seq(a,b,c)}*)" =>
+        code"$a :: $b :: $c :: Nil"
+    } eqt code"Some(1 :: 2 :: 3 :: Nil)"
+    
+  }
+  
 }
