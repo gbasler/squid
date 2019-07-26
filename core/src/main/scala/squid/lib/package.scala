@@ -42,6 +42,7 @@ package object lib {
   abstract class MutVar[A] {
     def := (that: A) : Unit
     def ! : A
+    def get = this.!
     override def equals(that: Any) = that |>? { case v: MutVar[_] => this.! == v.! } Else false
     override def toString = s"MutVar(${this!})"
   }
@@ -54,10 +55,13 @@ package object lib {
   }
   
   /** Used in ReinterpreterToScala when a local variable "escapes", to preserve the validity and semantics of the program. */
-  class MutVarProxy[A](get: => A, set: A => Unit) extends MutVar[A] {
-    def := (that: A) = set(that)
-    def ! = get
+  private class MutVarProxy[A](getter: => A, setter: A => Unit) extends MutVar[A] {
+    def := (that: A) = setter(that)
+    def ! = getter
   }
+  @transparencyPropagating
+  def MutVarProxy[A](get: => A, set: A => Unit): MutVar[A] = // upcasted to MutVar so code uses the same symbol...
+    new MutVarProxy(get, set)
   
   // More confusing than useful, especially since it seems to be automatically imported along with Var:
   //implicit def readVar[A](v: Var[A]): A = v!

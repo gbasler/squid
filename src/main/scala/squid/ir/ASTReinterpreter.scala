@@ -172,7 +172,7 @@ trait ASTReinterpreter { ast: AST =>
           case code"(${ScalaVar(id)}: squid.lib.MutVar[$tv]) !" => id
           case code"${ScalaVar(id)}: squid.lib.MutVar[$tv]" =>
             if (warnOnEscapingVars) System.err.println(s"Virtualized variable `${id}` of type `${tv}` escapes its defining scope!")
-            q"new squid.lib.MutVarProxy[${rect(tv.rep)}]($id, a => $id = a)"
+            q"squid.lib.MutVarProxy[${rect(tv.rep)}]($id, a => $id = a)"
             
           //case ir"var $v: $tv = $init; $body: $tb" =>
           case code"var ${v @ BV(bv)}: $tv = $init; $body: $tb" =>
