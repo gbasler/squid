@@ -123,7 +123,7 @@ class CompileTimeMacros(override val c: whitebox.Context) extends QuasiMacros(c)
   
   // TODO: handle the many possible sources of errors/exceptions more gracefully
   def compileTimeImpl[A: WeakTypeTag](a: Tree): Tree = wrapError {
-    debug(s"Executing static{ ${showCode(a)} }")
+    debug(s"Interpreting compileTime{ ${showCode(a)} }")
     
     val tree = inlineStaticParts(a)
     

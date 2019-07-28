@@ -20,16 +20,17 @@ package object statics {
   
   import scala.language.experimental.macros
   
+  /** Lifts a piece of code to a compile-time value, to be inlined and executed later by `compileTimeExec` or `compileTimeEval`. */
   def compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
   @MacroSetting(debug = true)
   def dbg_compileTime[A](a: A): A = macro CompileTimeMacros.compileTimeImpl[A]
   
-  /***/
+  /** Execute a given piece of code at compile time for its side effects. */
   def compileTimeExec(cde: Unit): Unit = macro CompileTimeMacros.compileTimeExecImpl
   @MacroSetting(debug = true)
   def dbg_compileTimeExec(cde: Unit): Unit = macro CompileTimeMacros.compileTimeExecImpl
   
-  /** Like compileTimeExec, but uses Java serialization to parse the result back to code that can be dynamically executed. */
+  /** Like compileTimeExec, but uses Java serialization to parse the result back to code that can be evaluated at run time. */
   def compileTimeEval[A](cde: A): A = macro CompileTimeMacros.compileTimeEvalImpl[A]
   @MacroSetting(debug = true)
   def dbg_compileTimeEval[A](cde: A): A = macro CompileTimeMacros.compileTimeEvalImpl[A]
@@ -37,7 +38,7 @@ package object statics {
   
   // ---
   
-  // This methid is only for testing purposes; needs separate compilation 
+  // This method is only for testing purposes; needs separate compilation 
   // private[statics]  –– can't make it package-private as that would prevent reflective compilation
   def `test withStaticSymbol`(n: Int)(implicit sym: CompileTime[Symbol]) = sym.get.name * n
   
