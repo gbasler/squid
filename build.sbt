@@ -16,7 +16,7 @@ val scala211Version = "2.11.12"
 val scala212Version = "2.12.8"
 
 val paradiseVersion = "2.1.0"
-val squidVersion = "0.4.0-SNAPSHOT"
+val squidVersion = "0.4.1-SNAPSHOT"
 val squidIsSnapshot: Boolean = squidVersion endsWith "-SNAPSHOT"
 
 val initialConsoleCommands = "import squid.IR, IR.Predef._, IR.Quasicodes._"
