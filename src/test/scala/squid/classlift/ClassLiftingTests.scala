@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,21 +13,19 @@
 // limitations under the License.
 
 package squid
+package classlift
 
-import lang._
-import quasi._
-import ir._
+import squid.ir._
+import squid.utils.meta.RuntimeUniverseHelpers
+import utils._
 
-class TestBase extends SimpleAST with ClassEmbedder with ScalaCore with Definitions
-object MyBase extends TestBase
-object TestDSL extends TestBase
-object NormDSL extends TestBase with OnlineOptimizer with BindingNormalizer //with BlockNormalizer
-object CrossStageDSL extends TestBase with CrossStageAST
-
-object LegacyTestDSL extends TestBase {
-  override val newExtractedBindersSemantics: Boolean = false
-}
-
-object Test {
-  object InnerTestDSL extends SimpleAST
+class ClassLiftingTests extends MyFunSuite {
+  import TestDSL.Predef._
+  
+  test("A") {
+    
+    println(MyClass.reflect(TestDSL))
+    
+  }
+  
 }
