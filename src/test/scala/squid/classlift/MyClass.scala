@@ -82,7 +82,8 @@ object MyClass {
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap
   
   @phase('Sugar)
-  val cst = 42
+  //val cst = 42
+  var cst = 42
   
 }
 /*

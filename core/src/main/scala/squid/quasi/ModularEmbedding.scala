@@ -105,6 +105,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
   }
+  def getMtd(mtd: MethodSymbol): MtdSymbol = getMtd(mtd.owner.asType |> getTypSym, mtd)
   def getMtd(typ: TypSymbol, mtd: MethodSymbol): MtdSymbol = {
     //debug(s"Getting mtd $mtd "+mtd.isStatic)
     
@@ -310,7 +311,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         if (method.owner.name.toString === "<refinement>")
           throw EmbeddingException(s"Cannot refer to method ${method.name} defined in refinement: ${method.owner}")
         
-        def refMtd = getMtd(method.owner.asType |> getTypSym, method)
+        //def refMtd = getMtd(method.owner.asType |> getTypSym, method)
+        def refMtd = getMtd(method)
         
         val tp = liftType(x.tpe)
         val self = liftTerm(obj, x, Some(obj.tpe))
