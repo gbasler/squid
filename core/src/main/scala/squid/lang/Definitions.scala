@@ -57,7 +57,8 @@ trait Definitions extends Base {
       val companion: Option[Class[_]]
     }
     // FIXME typeParams should be a TypSymbol?
-    abstract class Class[C](val name: String, val typeParams: List[CodeType[_]]) extends ClassOrObject[C] {
+    //abstract class Class[C](val name: String, val typeParams: List[CodeType[_]]) extends ClassOrObject[C] {
+    abstract class Class[C](val name: String, val typeParams: List[TypParam]) extends ClassOrObject[C] {
       val companion: Option[Object[_]]
     }
     //abstract class Object[C](val name: String) extends ClassOrObject[C] {
@@ -85,7 +86,8 @@ trait Definitions extends Base {
         val A: CodeType[A] = implicitly[CodeType[A]]
         val symbol: MtdSymbol = get
       }
-      class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {
+      //class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {
+      class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[TypParam], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {
         type Scp = S
         type A = A0
         val A: CodeType[A] = implicitly[CodeType[A]]
@@ -93,7 +95,8 @@ trait Definitions extends Base {
         //println(s"METHOD ${symbol} = ${body}")
         println(s"METHOD $this")
         
-        override def toString = s"def ${symbol}[${tparams.map(_.rep).mkString(",")}]${vparams.map(vps => vps.map(vp =>
+        //override def toString = s"def ${symbol}[${tparams.map(_.rep).mkString(",")}]${vparams.map(vps => vps.map(vp =>
+        override def toString = s"def ${symbol}[${tparams.mkString(",")}]${vparams.map(vps => vps.map(vp =>
           //s"${vp.`internal bound`}: ${vp.Typ.rep}"
           s"$vp"
         ).mkString("(",",",")")).mkString}: ${A.rep} = ${showRep(body.rep)}"

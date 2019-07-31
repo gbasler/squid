@@ -81,6 +81,7 @@ trait MetaBases {
     
     type MtdSymbol = Tree
     type TypSymbol = (String, Tree) // (nameHint, exprTree)
+    type TypParam = TypSymbol
     
     
     def repEq(a: Rep, b: Rep): Boolean = a == b
@@ -116,7 +117,13 @@ trait MetaBases {
     
     override def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = name->q"$Base.loadMtdTypParamSymbol(${mtd}, $name)" // name hint?!
     
-    override def typeParam(name: String): TypeRep = q"$Base.typeParam($name)"
+    //override def typeParam(name: String): TypParam = q"$Base.typeParam($name)"
+    override def typeParam(name: String): TypParam = {
+      val n = curatedFreshName(name+"Param")
+      symbols += n -> q"$Base.typeParam($name)"
+      //name -> q"$Base.typeParam($name)"
+      name -> q"$n"
+    }
     
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): New =
       //TermName(name) -> typ // We assume it's fine without a fresh name, since the binding structure should reflect that of the encoded program
@@ -279,6 +286,7 @@ trait MetaBases {
     
     type MtdSymbol = TermName
     type TypSymbol = () => sru.TypeSymbol // to delay computation, since we won't need most of them! (only needed in typeApp)
+    type TypParam = () => sru.FreeTypeSymbol
     
     
     def repEq(a: Rep, b: Rep): Boolean = a == b
@@ -310,7 +318,8 @@ trait MetaBases {
         r
       }
     
-    override def typeParam(name: String): TypeRep = tq"${TypeName(name)}"
+    //override def typeParam(name: String): TypeRep = tq"${TypeName(name)}"
+    override def typeParam(name: String): TypParam = () => sru.internal.newFreeType(name, sru.Flag.PARAM)
     
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here

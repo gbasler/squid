@@ -49,6 +49,7 @@ self: IntermediateBase => // for 'repType' TODO rm
   }
   
   type TypSymbol = sru.TypeSymbol
+  type TypParam = sru.FreeTypeSymbol
   //type TypeRep = ScalaType
   implicit class TypeRep(val tpe: ScalaType) {
     override def toString = sru.show(tpe)
@@ -114,7 +115,8 @@ self: IntermediateBase => // for 'repType' TODO rm
     if (typ.isStatic)
       sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
     else
-      sru.internal.typeRef(typ.owner.asMethod.owner.asType.toType, typ, targs map (_ tpe))
+      //sru.internal.typeRef(typ.owner.asMethod.owner.asType.toType, typ, targs map (_ tpe))
+      typ.toType
   }
   
   def valType(self: TypeRep, valName: String): TypeRep =
@@ -127,8 +129,8 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   def typeHole(name: String): TypeRep = TypeHoleRep(name)
   
-  override def typeParam(name: String): TypeRep =
-    sru.internal.newFreeType(name, sru.Flag.PARAM).toType
+  override def typeParam(name: String): TypParam =
+    sru.internal.newFreeType(name, sru.Flag.PARAM)//.toType
   
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean = a <:< b

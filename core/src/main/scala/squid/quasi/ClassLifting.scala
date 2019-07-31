@@ -180,6 +180,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
               lazy val tparams = md.symbol.typeSignature.typeParams.map{tp =>
                 assert(tp.asType.typeParams.isEmpty)
                 tp -> Base.typeParam(tp.name.toString)}
+                //tp -> Base.staticTypeApp(Base.typeParam(tp.name.toString),Nil)}
               lazy val vparams = md.symbol.typeSignature.paramLists.map(vps =>
                 vps.map{vp =>
                   vp -> Base.bindVal(vp.name.toString, ME.liftType(vp.typeSignature), Nil)})
@@ -197,7 +198,8 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
                   Base.typeParam(tsym.name.toString)
                   */
                   //tparams.find(_._1 === tsym).get._2
-                  tparams.find(_._1.name.toString === tsym.name.toString).get._2 // FIXME hygiene
+                  Base.staticTypeApp(
+                    tparams.find(_._1.name.toString === tsym.name.toString).get._2, Nil) // FIXME hygiene
                 } else super.unknownTypefallBack(tp)
               }
               /*
@@ -238,7 +240,11 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
             q"..${
               //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))
               ME.vparams.flatMap(_.map(vp => vp._2.toValDef))
-            }; new Method[Any,Scp]($sym,${ME.tparams.map(tp => q"$td.CodeType(${tp._2})")},${
+            }; new Method[Any,Scp]($sym,${
+              //ME.tparams.map(tp => q"$td.CodeType(${tp._2})")
+              //ME.tparams.map(tp => Base.staticTypeApp(tp._2,Nil))
+              ME.tparams.map(tp => tp._2._2)
+            },${
               //ME.vparams.map(_.map(_._2.tree))},d.Code($res))"
               ME.vparams.map(_.map(tv => q"$td.Variable.mk(${tv._2.tree},${tv._2.typRep})"))},d.Code($res))($td.CodeType(${ME.liftType(md.rhs.tpe)}))"
             //???

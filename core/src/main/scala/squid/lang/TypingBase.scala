@@ -48,8 +48,8 @@ trait TypingBase { self: Base =>
   
   /** These special type symbols are supposed to be turned into types using staticTypeApp only. */
   type TypParam <: TypSymbol
-  // FIXME type:
-  def typeParam(name: String): TypeRep = ???
+  def typeParam(name: String): TypParam = ???
+  def substituteTypeParam(typ: TypeRep): TypeRep = ???
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean
   def typEq(a: TypeRep, b: TypeRep): Boolean = typLeq(a,b) && typLeq(b,a)
