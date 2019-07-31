@@ -62,8 +62,47 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
       def freshName(hint: String) = c.freshName(TermName(hint))
     }
     //val Base = new MBM.ScalaReflectionBase
-    val Base = new MBM.MirrorBase(d, None)
-    object ME extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str))
+    //val Base = new MBM.MirrorBase(d, None)
+    debug(d.tpe)
+    val td = c.typecheck(q"d:d.type")
+    debug(td,td.tpe)
+    //???
+    val Base = new MBM.MirrorBase(td, Some(td.tpe))
+    //object QTE extends QuasiTypeEmbedder[c.type, Base.type](c, Base, str => debug(str)) {
+    //  //override val c: c.type = c
+    //  val helper = Helpers
+    //  val baseTree: c.Tree = d
+    //  override def unknownTypefallBack(tp: Type): base.TypeRep = {
+    //    ???
+    //  }
+    //}
+    
+    class MEBase extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
+    //object ME extends QTE.Impl {
+      override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
+          
+        case Ident(TermName(name)) =>
+          //varRefs += name -> x
+          debug(s"IDENT $name: ${x.tpe.widen}")
+          base.hole(name, liftType(x.tpe))  // FIXME is it safe to introduce holes with such names?
+          
+        case _ =>
+          super.unknownFeatureFallback(x, parent)
+          
+      }
+      /*
+      override def unknownTypefallBack(tp: Type): base.TypeRep = {
+        //val tag = mkTag(tpe)
+        //uninterpretedType(tag)
+        val tag = super.unknownTypefallBack(c.typecheck(q"???").tpe)
+        //q"$tag.asInstanceOf[$d.CodeType[Any]]"
+        tag
+        //super.unknownTypefallBack(c.typecheck(q"class A; new A").tpe)
+        //super.unknownTypefallBack(c.typecheck(q"??? : Any").tpe)
+        //???
+      }
+      */
+    }
     
     //println(c.enclosingClass.symbol)
     ////println(c.enclosingClass.symbol.asType)
@@ -71,7 +110,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     //println(Helpers.encodedTypeSymbol(c.enclosingClass.symbol.companion.asType))
     val tsymStr = Helpers.encodedTypeSymbol(c.enclosingClass.symbol.typeSignature.typeSymbol.asType)
     println(tsymStr)
-    println(ME.loadTypSymbol(tsymStr))
+    //println(ME.loadTypSymbol(tsymStr))
     println(Base.loadTypSymbol(tsymStr))
     //println(ME.loadTypSymbol(tsymStr)())
     //???
@@ -94,6 +133,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           catch { case _: scala.reflect.internal.Symbols#CyclicReference => false })
             && vd.symbol.asTerm.isVal || vd.symbol.asTerm.isVar
           =>
+            object ME extends MEBase
             //println(vd.symbol.asTerm.isGetter) // false
             //q"(code{(??? : ${name}.type).${vd.name}},code{???})"
             //println(vd.symbol,vd.symbol.typeSignature)
@@ -109,23 +149,77 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
               //if (vd.mods.flags | Flag.MUTABLE)
               if (vd.symbol.asTerm.isVar) q"Some(code{${Ident(name)}.${vd.name} = ???})" else q"None"
             })"
+        }
+        val methods = defs.collect {
             //q"mkField(code{this.${vd.name}},code{???})"
+          case _md: DefDef if (_md.name.toString =/= "<init>") && (_md.name.toString =/= "reflect") =>
+            object ME extends MEBase {
+              override def unknownTypefallBack(tp: Type): base.TypeRep = {
+                val tsym = tp.typeSymbol.asType
+                if (tsym.isParameter) {
+                  debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
+                  //debug(s"P ${encodedTypeSymbol(tsym.asType)}")
+                  assert(tsym.typeParams.isEmpty)
+                  val loaded = Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)//._2
+                  Base.staticTypeApp(loaded, Nil)
+                } else super.unknownTypefallBack(tp)
+              }
+              override def getTypSym(tsym: TypeSymbol): Base.TypSymbol = {
+                if (tsym.isParameter)
+                  ???
+                  //Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)
+                else super.getTypSym(tsym)
+              }
+            }
+            debug(showCode(_md))
+            debug(showCode(_md.rhs))
+            debug(_md.symbol.typeSignature)
+            debug(_md.rhs.symbol.typeSignature)
+            val md = c.typecheck(_md).asInstanceOf[DefDef]
+            debug(showCode(md.rhs))
+            debug(md.symbol.typeSignature)
+            debug(md.rhs.symbol.typeSignature)
+            md.rhs match {
+              case Apply(f @ Select(pre,nme),as) =>
+                println(f,f.tpe,f.symbol,f.symbol.typeSignature)
+                println(pre,pre.tpe,pre.symbol,pre.symbol.typeSignature)
+                println(as,as.map(_.tpe))
+              case _ => println("...")
+            }
+            //val resTpe = md.symbol.typeSignature.resultType
+            val resTpe = md.symbol.typeSignature.finalResultType
+            debug("RT: "+resTpe)
+            ME.setType(md.rhs, resTpe)
+            val macroUni = ME.uni.asInstanceOf[scala.reflect.macros.Universe]
+            macroUni.internal.setSymbol(md.rhs.asInstanceOf[macroUni.Tree], md.symbol.asInstanceOf[macroUni.Symbol])
+            val res = ME.apply(md.rhs, Some(md.symbol.typeSignature))
+            debug(showCode(res))
+            //q"Method(null.asInstanceOf[d.MtdSymbol],d.Code($res))"
+            val sym = ME.getMtd(md.symbol.asMethod)
+            debug(sym)
+            //q"Method[Unit](null.asInstanceOf[d.MtdSymbol],d.Code($res))"
+            q"Method[Unit]($sym,d.Code($res))"
+            //???
         }
         val dv = c.freshName(d.symbol.name).toTermName
         q"""
         val $dv: d.type = d
+        ..${Base.mkSymbolDefs}
+        class Test
+        //implicit val tt = 
         new $dv.Class(${name.toString}){
           import $dv.Predef._
           import $dv.Quasicodes._
+          //println(codeTypeOf[Test])
           val fields: List[Field[_]] = $fields
-          val methods: List[Method[_]] = Nil
+          val methods: List[Method[_]] = $methods
         }"""
     }
     debug(s"Generated: ${showCode(res)}")
-    debug(Base.symbols)
+    //debug(Base.symbols)
     //debug(c.enclosingClass.asInstanceOf[ModuleDef].impl.body)
     res
-    ???
+    //???
   }
   
   

@@ -17,14 +17,18 @@ package classlift
 
 import squid.ir._
 import squid.utils.meta.RuntimeUniverseHelpers
-import utils._
+import squid.utils._
 
 class ClassLiftingTests extends MyFunSuite {
   import TestDSL.Predef._
+  import TestDSL.Class
   
   test("A") {
     
-    println(MyClass.reflect(TestDSL))
+    val cls = MyClass.reflect(TestDSL)
+    println(cls)
+    println(cls.asInstanceOf[Class].methods
+      .map(_.symbol == TestDSL.methodSymbol[MyClass.type]("swap")))
     
   }
   

@@ -48,7 +48,7 @@ object MyClass {
   
   //val reflect = lift.thisClass
   //val reflect = dbg_lift.thisClass
-  def reflect(d: squid.lang.Definitions): d.Class = dbg_lift.thisClass(d)
+  def reflect(d: squid.lang.Definitions): d.ClassTemplate = dbg_lift.thisClass(d)
   
   /*
   @phase('Sugar)
@@ -78,6 +78,11 @@ object MyClass {
   @phase('Sugar)
   def foobarCurried(x: Int)(y: Double) = bar(foo(x))(y)
   */
+  
+  //def baz(x: Int, y: Int) = swap((x,y))('test)._2._2
+  //def baz(x: Int, y: Int) = (x,y)
+  def baz(u: Int, v: Int) = (u,v)
+  
   @phase('Sugar)
   def swap[A](x: (A,A))(name: Symbol) = name -> x.swap
   

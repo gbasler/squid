@@ -113,6 +113,8 @@ trait MetaBases {
       q"$n"
     }
     
+    override def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = name->q"$Base.loadMtdTypParamSymbol(${mtd}, $name)" // name hint?!
+    
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ // We assume it's fine without a fresh name, since the binding structure should reflect that of the encoded program
       New(name, TermName("_$"+name), typ, annots) // Assumption: nobody else uses names of this form... (?)
@@ -288,6 +290,18 @@ trait MetaBases {
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
     
+    override def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol =
+      //() => sru.internal.singleType(sru.typeOf[String], sru.Constant(name))
+      () => {
+        println(s"? ${mtd} $name")
+        //val r = sru.internal.constantType(sru.Constant(name)).typeSymbol.asType
+        //val r = sru.internal.newFreeType(name, sru.NoFlags).asType
+        val r = sru.internal.newFreeType(name, sru.Flag.PARAM).asType
+        println(r.isParameter)
+        println(r.toType)
+        r
+      }
+    
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here
       (freshName(name toString),
@@ -342,7 +356,7 @@ trait MetaBases {
     
     def uninterpretedType[A: sru.TypeTag]: TypeRep = tq"${typeOf[A]}"
     
-    def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = if (typ().isParameter) tq"${TypeName(typ().name.toString)}" else {
       val tp = typ()
       val pre = self match {
         // sometimes `staticTypeApp` produces such trees, and it really corresponds to a type projection:
@@ -363,7 +377,17 @@ trait MetaBases {
         val exName = freshName("x")
         tq"$exName.${TermName(valName)}.type forSome { val $exName: $self }"
     }
-    def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    //def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
+    //def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = typ().toType match {
+    def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = if (typ().isParameter) ??? else {
+      //case sru.ConstantType(sru.Constant(value: String)) =>
+      //  tq"${TypeName(value)}"
+      //  ???
+      //case _ =>
+        //println(s"!! ${typ()}")
+        //println(s"!! ${typ().toType}")
+        println(s"!! ${typ()} ${typ().toType} ${typ().isParameter}")
+        //println(s"!! ${typ().typeSignature}")
       val tp = typ()
       var nameChain = ((Iterator iterate tp.owner)(_.owner) takeWhile (s => s.name.toString != "<root>")
         map (s => TermName(s.name.toString)) foldLeft List.empty[TermName]) (_.::(_))

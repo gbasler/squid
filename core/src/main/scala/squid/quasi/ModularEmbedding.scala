@@ -94,7 +94,9 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   val ObjectSym = typeOf[Object].typeSymbol
   
-  def getTypSym(tsym: TypeSymbol): TypSymbol = {
+  def getTypSym(tsym: TypeSymbol): TypSymbol = if (tsym.isParameter) {
+    loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)
+  } else {
     // Maybe cache this more somehow? (e.g. per compilation unit):
     
     val cls = encodedTypeSymbol(tsym)
@@ -636,7 +638,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   def apply(code: Tree, expectedType: Option[Type] = None) = {
     
-    liftTerm(code, code, expectedType  orElse Some(code.tpe))(Map())
+    liftTerm(code, code, expectedType orElse Some(code.tpe))(Map())
     
   }
   

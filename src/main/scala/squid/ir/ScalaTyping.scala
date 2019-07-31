@@ -101,14 +101,20 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   def uninterpretedType[A: TypeTag]: TypeRep = sru.typeTag[A].tpe
   
+  override def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = mtd.asInstanceOf[AST#MtdSymbol].asMethodSymbol.typeParams.find(_.name.toString === name).get.asType
+  
   
   //def typeApp(self: Rep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = sru.internal.typeRef(repType(self), typ, targs map (_ tpe))
   def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep =
     sru.internal.typeRef(self, typ, targs map (_ tpe))
   
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
-    assert(typ.isStatic)
-    sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
+    //assert(typ.isStatic)
+    assert(typ.isStatic || typ.isParameter)
+    if (typ.isStatic)
+      sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
+    else
+      sru.internal.typeRef(typ.owner.asMethod.owner.asType.toType, typ, targs map (_ tpe))
   }
   
   def valType(self: TypeRep, valName: String): TypeRep =
