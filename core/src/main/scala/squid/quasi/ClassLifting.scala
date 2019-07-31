@@ -39,7 +39,7 @@ class dbg_lift[B <: Base] extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassLifting.liftAnnotImpl
 }
 object dbg_lift {
-  @MacroSetting(debug = true) def thisClass(d: squid.lang.Definitions): d.ClassTemplate = macro ClassLifting.classLiftImpl
+  @MacroSetting(debug = true) def thisClass(d: squid.lang.Definitions): d.TopLevel.ClassOrObject[_] = macro ClassLifting.classLiftImpl
 }
 
 class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
@@ -119,7 +119,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     
     debug(d)
     val res = c.enclosingClass match {
-      case ModuleDef(mods, name, Template(parents, self, defs)) =>
+      case mod @ ModuleDef(mods, name, Template(parents, self, defs)) =>
         println(defs)
         //defs.foreach{d =>
         //  println(d)
@@ -238,7 +238,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
             q"..${
               //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))
               ME.vparams.flatMap(_.map(vp => vp._2.toValDef))
-            }; new Method[Any]($sym,${ME.tparams.map(tp => q"$td.CodeType(${tp._2})")},${
+            }; new Method[Any,Scp]($sym,${ME.tparams.map(tp => q"$td.CodeType(${tp._2})")},${
               //ME.vparams.map(_.map(_._2.tree))},d.Code($res))"
               ME.vparams.map(_.map(tv => q"$td.Variable.mk(${tv._2.tree},${tv._2.typRep})"))},d.Code($res))($td.CodeType(${ME.liftType(md.rhs.tpe)}))"
             //???
@@ -249,12 +249,13 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
         ..${Base.mkSymbolDefs}
         class Test
         //implicit val tt = 
-        new $dv.Class(${name.toString}){
+        new $dv.TopLevel.Object[$name.type](${name.toString}){
           import $dv.Predef._
           import $dv.Quasicodes._
           //println(codeTypeOf[Test])
           val fields: List[Field[_]] = $fields
-          val methods: List[Method[_]] = $methods
+          val methods: List[Method[_,Scp]] = $methods
+          val companion = None
         }"""
     }
     debug(s"Generated: ${showCode(res)}")

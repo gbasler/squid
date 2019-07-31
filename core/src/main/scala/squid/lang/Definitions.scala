@@ -24,69 +24,96 @@ trait Definitions extends Base {
   type FieldGetter <: MtdSymbol
   type FieldSetter  <: MtdSymbol
   
-  sealed abstract class ClassTemplate {
-    val name: String
-    val typeParams: List[TypSymbol]
-    def unprocessed: Class
-  }
-  
-  // TODO a way to adapt existing code to use the monomorphized version... though it would not work if it's used with abstract type args...
+  // TODO monomorphization
   // TODO for monomorphized classes,
   //      We should ideally generate a match type dispatching to the correct impl...
   //      But since that's impossible in Scala 2, we need to transform all the type references everywhere...
   
-  case class PolyClass(name: String, typeParams: List[WeakTypeTag[_]], monomorphize: List[CodeType[_]] => Class) {
-    // TODOne way to genrate the non-monomorphized version?
-    lazy val unprocessed: Class = monomorphize(typeParams.map(tag => CodeType(uninterpretedType(tag.asInstanceOf[TypeTag[_]]))))
-  }
-  case class MonomorphizationError(reason: String)
-  abstract class MonomorphizedClass(name: String) extends Class(name) {
-    def adaptCode[T,C](cde: Code[T,C]): Either[MonomorphizationError, Code[T,C]] = ???
+  
+  //object TopLevel extends Scope[Any] {
+  object TopLevel extends Scope {
+    type Scp = Any
   }
   
-  // TODO MonoClass[C]?
-  abstract class Class(val name: String) extends ClassTemplate {
+  //trait Scope[+ParentScp] {
+  //  type Scp <: ParentScp
+  trait Scope { outerScope =>
     type Scp
     
-    //println(scala.reflect.runtime.universe.weakTypeOf[Scp])
-    //println(implicitly[WeakTypeTag[Scp]].asInstanceOf[TypeTag[_]])
+    sealed abstract class Member
+    val members: List[Member] = Nil
     
-    val typeParams: List[TypSymbol] = Nil
-    def unprocessed = this
-    
-    val fields: List[Field[_]]
-    val methods: List[Method[_]]
-    
-    class Field[A0: CodeType](val name: String, val get: FieldGetter, val set: Option[FieldSetter], val init: Code[A0,Scp]) {
-      type A = A0
-      val A: CodeType[A] = implicitly[CodeType[A]]
+    trait ClassWithObject[C] extends ClassOrObject[C] {
+      val companion: Some[Class[_]]
     }
-    class Method[A0: CodeType](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,Scp]) {
-      type A = A0
-      val A: CodeType[A] = implicitly[CodeType[A]]
-      
-      //println(s"METHOD ${symbol} = ${body}")
-      println(s"METHOD $this")
-      
-      override def toString = s"def ${symbol}[${tparams.map(_.rep).mkString(",")}]${vparams.map(vps => vps.map(vp =>
-        //s"${vp.`internal bound`}: ${vp.Typ.rep}"
-        s"$vp"
-      ).mkString("(",",",")")).mkString}: ${A.rep} = ${showRep(body.rep)}"
+    trait ClassWithoutObject[C] extends Class[C] {
+      val companion: Some[Object[_]]
+    }
+    trait ObjectWithoutClass[C] extends Object[C] {
+      val companion: None.type = None
     }
     
-    //sealed abstract class MethodTransformation
-    sealed abstract class MethodTransformation[-A]
-    case object Remove extends MethodTransformation[Any]
-    case class Rewrite[A](newBody: Code[A,Scp]) extends MethodTransformation[A]
-    
-    //def transform(trans: Map[Method[_],MethodTransformation])
-    def transform(trans: List[MethodTransformation[_]]) = ???
-    
-    def mkField[A](get: OpenCode[A], set: Option[OpenCode[Unit]]): Field[A] = {
-      println(get, set)
-      //Field[Unit](null,null,None,null)(Predef.implicitType[Unit])
-      null
-      //???
+    abstract class Object[C](val name: String) extends ClassOrObject[C] {
+      val companion: Option[Class[_]]
+    }
+    // FIXME typeParams should be a TypSymbol?
+    abstract class Class[C](val name: String, val typeParams: List[CodeType[_]]) extends ClassOrObject[C] {
+      val companion: Option[Object[_]]
+    }
+    //abstract class Object[C](val name: String) extends ClassOrObject[C] {
+    //}
+    //abstract class ClassOrObject[C] extends Member with Scope[Scp] {
+    abstract class ClassOrObject[C] extends Member with Scope {
+      type Scp <: outerScope.Scp
+      val name: String
+      
+      //println(scala.reflect.runtime.universe.weakTypeOf[Scp])
+      //println(implicitly[WeakTypeTag[Scp]].asInstanceOf[TypeTag[_]])
+      
+      //val typeParams: List[TypSymbol] = Nil
+      def unprocessed = this
+      
+      val fields: List[Field[_]]
+      val methods: List[Method[_,_]]
+      
+      abstract class FieldOrMethod[A] extends Member {
+        val symbol: MtdSymbol
+      }
+      
+      class Field[A0: CodeType](val name: String, val get: FieldGetter, val set: Option[FieldSetter], val init: Code[A0,Scp]) extends FieldOrMethod[A0] {
+        type A = A0
+        val A: CodeType[A] = implicitly[CodeType[A]]
+        val symbol: MtdSymbol = get
+      }
+      class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {
+        type Scp = S
+        type A = A0
+        val A: CodeType[A] = implicitly[CodeType[A]]
+        
+        //println(s"METHOD ${symbol} = ${body}")
+        println(s"METHOD $this")
+        
+        override def toString = s"def ${symbol}[${tparams.map(_.rep).mkString(",")}]${vparams.map(vps => vps.map(vp =>
+          //s"${vp.`internal bound`}: ${vp.Typ.rep}"
+          s"$vp"
+        ).mkString("(",",",")")).mkString}: ${A.rep} = ${showRep(body.rep)}"
+      }
+      
+      //sealed abstract class MethodTransformation
+      sealed abstract class MethodTransformation[-A]
+      case object Remove extends MethodTransformation[Any]
+      case class Rewrite[A](newBody: Code[A,Scp]) extends MethodTransformation[A]
+      
+      //def transform(trans: Map[Method[_],MethodTransformation])
+      def transform(trans: List[MethodTransformation[_]]) = ???
+      
+      def mkField[A](get: OpenCode[A], set: Option[OpenCode[Unit]]): Field[A] = {
+        println(get, set)
+        //Field[Unit](null,null,None,null)(Predef.implicitType[Unit])
+        null
+        //???
+      }
+      
     }
     
   }

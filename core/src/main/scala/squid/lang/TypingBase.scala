@@ -44,7 +44,11 @@ trait TypingBase { self: Base =>
   
   type TypSymbol
   def loadTypSymbol(fullName: String): TypSymbol 
-  def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = ??? 
+  def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = ???
+  
+  /** These special type symbols are supposed to be turned into types using staticTypeApp only. */
+  type TypParam <: TypSymbol
+  // FIXME type:
   def typeParam(name: String): TypeRep = ???
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean

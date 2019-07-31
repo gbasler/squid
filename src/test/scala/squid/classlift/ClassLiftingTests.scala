@@ -21,13 +21,14 @@ import squid.utils._
 
 class ClassLiftingTests extends MyFunSuite {
   import TestDSL.Predef._
-  import TestDSL.Class
+  import TestDSL.TopLevel._
   
   test("A") {
     
     val cls = MyClass.reflect(TestDSL)
     println(cls)
-    println(cls.asInstanceOf[Class].methods
+    //println(cls.asInstanceOf[ClassOrObject].methods
+    println(cls.methods
       .map(_.symbol == TestDSL.methodSymbol[MyClass.type]("swap")))
     
   }

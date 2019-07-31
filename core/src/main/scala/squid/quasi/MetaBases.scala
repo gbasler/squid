@@ -396,7 +396,7 @@ trait MetaBases {
       //case _ =>
         //println(s"!! ${typ()}")
         //println(s"!! ${typ().toType}")
-        println(s"!! ${typ()} ${typ().toType} ${typ().isParameter}")
+        //println(s"!! ${typ()} ${typ().toType} ${typ().isParameter}")
         //println(s"!! ${typ().typeSignature}")
       val tp = typ()
       var nameChain = ((Iterator iterate tp.owner)(_.owner) takeWhile (s => s.name.toString != "<root>")

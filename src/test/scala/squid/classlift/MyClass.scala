@@ -48,7 +48,7 @@ object MyClass {
   
   //val reflect = lift.thisClass
   //val reflect = dbg_lift.thisClass
-  def reflect(d: squid.lang.Definitions): d.ClassTemplate = dbg_lift.thisClass(d)
+  def reflect(d: squid.lang.Definitions): d.TopLevel.Object[MyClass.type] = dbg_lift.thisClass(d)
   
   /*
   @phase('Sugar)
