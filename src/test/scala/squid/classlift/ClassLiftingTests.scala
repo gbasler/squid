@@ -19,17 +19,43 @@ import squid.ir._
 import squid.utils.meta.RuntimeUniverseHelpers
 import squid.utils._
 
+trait I { def sayHi_! : String }
+class A {
+  //object B
+  //class B {
+  object B extends I {
+    def sayHi_! = "hello"
+  }
+  //class B { def this() = {this()} }
+}
+
 class ClassLiftingTests extends MyFunSuite {
   import TestDSL.Predef._
   import TestDSL.TopLevel._
   
-  test("A") {
+  test("cls") {
+    
+    val cls = (new MyClass).reflect(TestDSL)
+    
+    assert(cls.methods
+      .exists(_.symbol == TestDSL.methodSymbol[MyClass]("foo")))
+    
+  }
+  test("obj") {
     
     val cls = MyClass.reflect(TestDSL)
+    
     println(cls)
     //println(cls.asInstanceOf[ClassOrObject].methods
-    println(cls.methods
-      .map(_.symbol == TestDSL.methodSymbol[MyClass.type]("swap")))
+    
+    assert(cls.methods
+      exists (_.symbol == TestDSL.methodSymbol[MyClass.type]("swap")))
+    
+  }
+  
+  test("B") {
+    
+    classOf[A].getClasses.toList.head.getConstructors.toList.head.newInstance(null).asInstanceOf[I].sayHi_! alsoApply println
     
   }
   

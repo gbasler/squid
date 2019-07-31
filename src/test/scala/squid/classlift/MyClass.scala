@@ -41,12 +41,16 @@ class MyClass {
   */
   
   //val baz = MyClass.swap(1,2)('lol)._2._2
+  def baz = MyClass.swap(1,2)('lol)._2._2
   //def foo(x: Int) = baz + x
   
-  //def bar(x: Int) = x + 1
-  //def foo(str: String) = str.length
+  def bar(x: Int) = x + 1
+  def foo(str: String) = str.length
   
   //val bazzz = MyClass.cst
+  var bazzz = MyClass.cst
+  
+  def reflect(d: squid.lang.Definitions): d.TopLevel.Class[MyClass] = dbg_lift.thisClass(d)
   
 }
 
@@ -58,7 +62,8 @@ object MyClass {
   //val reflect = dbg_lift.thisClass
   
   //private[this] 
-  def reflect(d: squid.lang.Definitions): d.TopLevel.ClassWithObject[MyClass] = dbg_lift.thisClass(d)
+  //def reflect(d: squid.lang.Definitions): d.TopLevel.ClassWithObject[MyClass] = dbg_lift.thisClass(d)
+  def reflect(d: squid.lang.Definitions): d.TopLevel.Object[MyClass.type] = dbg_lift.thisClass(d)
   //def reflect(d: squid.lang.Definitions): d.TopLevel.ClassOrObject[_] = null
   
   /*

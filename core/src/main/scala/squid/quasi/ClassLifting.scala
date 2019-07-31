@@ -72,8 +72,8 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     ////println(c.enclosingClass.symbol.asType)
     //println(c.enclosingClass.symbol.typeSignature.typeSymbol)
     //println(Helpers.encodedTypeSymbol(c.enclosingClass.symbol.companion.asType))
-    val obj = c.enclosingClass.asInstanceOf[ModuleDef]
-    ///*
+    val obj = c.enclosingClass //.asInstanceOf[ModuleDef]
+    /*
     val chain = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain
     /*
     debug(s">>> "+chain.map(_.scope.collectFirst{
@@ -100,8 +100,15 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     val cls = c.enclosingPackage.children.find(_.symbol == obj.symbol.companion)
       .map(_.asInstanceOf[ClassDef])
     debug(s"Companion tree: $cls")
-    //*/
+    */
     //val cls: Option[ClassDef] = None
+    val cls: Option[ClassDef] = c.enclosingClass |>? {
+      case c: ClassDef => c
+    }
+    val obj_cls = c.enclosingClass match {
+      case c: ModuleDef => Left(c)
+      case c: ClassDef => Right(c)
+    }
     
     //internal.fullyInitialize(d.symbol)
     internal.fullyInitialize(obj.symbol)
@@ -222,8 +229,10 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     }
     
     
-    val trees = cls match {
-      case None =>
+    //val trees = cls match {
+    val trees = obj_cls match {
+      //case None =>
+      case Left(obj) =>
       //case _ =>
         val (fields, methods) = liftTemplate(obj.name, obj.impl)
         q"""
@@ -233,6 +242,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           val companion = None
         }
         """
+        /*
       case Some(cls) =>
         val (fields, methods) = liftTemplate(obj.name, obj.impl)
         val cls2 = cls
@@ -251,6 +261,16 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           val companion = Some(obj)
         }
         cls
+        """
+        */
+      case Right(cls) =>
+        val (cfields, cmethods) = liftTemplate(cls.name, cls.impl)
+        q"""
+        new $d.TopLevel.Class[${cls.name}](${cls.name.toString},Nil) {
+          val fields: List[Field[_]] = $cfields
+          val methods: List[Method[_,Scp]] = $cmethods
+          val companion = None
+        }
         """
     }
     
