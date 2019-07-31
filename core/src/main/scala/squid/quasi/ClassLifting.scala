@@ -20,7 +20,6 @@ import squid.lang._
 import squid.quasi._
 import squid.ir._
 import squid.utils.MacroUtils.MacroSetting
-//import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
 import scala.annotation.StaticAnnotation
 import scala.annotation.compileTimeOnly
@@ -46,90 +45,67 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
   import c.universe._
   
   def liftAnnotImpl(annottees: c.Tree*): c.Tree = wrapError {
-    ???
+    annottees match {
+      case (cls: ClassDef) :: rest =>
+        q"""..${ClassDef(cls.mods, cls.name, cls.tparams, Template(cls.impl.parents, cls.impl.self, 
+          //q"${ Modifiers(NoFlags, TermName(""), ) } def foo = 0"::
+            cls.impl.body)) :: rest}"""
+        //???
+    }
   }
   
   def classLiftImpl(d: c.Tree): c.Tree = wrapError {
-    //debug(c.reifyEnclosingRuntimeClass)
-    //debug(c.enclosingClass)
-    //debug(c.enclosingMethod)
-    
-    //object MB extends MetaBases
-    //val Base = new BaseInterpreter
     
     object MBM extends MetaBases {
       val u: c.universe.type = c.universe
       def freshName(hint: String) = c.freshName(TermName(hint))
     }
-    //val Base = new MBM.ScalaReflectionBase
-    //val Base = new MBM.MirrorBase(d, None)
-    debug(d.tpe)
     val td = c.typecheck(q"d:d.type")
-    debug(td,td.tpe)
-    //???
-    val Base = new MBM.MirrorBase(td, Some(td.tpe))
-    //object QTE extends QuasiTypeEmbedder[c.type, Base.type](c, Base, str => debug(str)) {
-    //  //override val c: c.type = c
-    //  val helper = Helpers
-    //  val baseTree: c.Tree = d
-    //  override def unknownTypefallBack(tp: Type): base.TypeRep = {
-    //    ???
-    //  }
-    //}
+    internal.setType(d, td.tpe)
+    val Base = new MBM.MirrorBase(d, Some(td.tpe))
     
     class MEBase extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
-    //object ME extends QTE.Impl {
-      /*
-      override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
-          
-        case Ident(TermName(name)) =>
-          //varRefs += name -> x
-          debug(s"IDENT $name: ${x.tpe.widen}")
-          base.hole(name, liftType(x.tpe))  // FIXME is it safe to introduce holes with such names?
-          
-        case _ =>
-          super.unknownFeatureFallback(x, parent)
-          
-      }
-      */
-      /*
-      override def unknownTypefallBack(tp: Type): base.TypeRep = {
-        //val tag = mkTag(tpe)
-        //uninterpretedType(tag)
-        val tag = super.unknownTypefallBack(c.typecheck(q"???").tpe)
-        //q"$tag.asInstanceOf[$d.CodeType[Any]]"
-        tag
-        //super.unknownTypefallBack(c.typecheck(q"class A; new A").tpe)
-        //super.unknownTypefallBack(c.typecheck(q"??? : Any").tpe)
-        //???
-      }
-      */
+      // TOOD handle `this` references
     }
     
     //println(c.enclosingClass.symbol)
     ////println(c.enclosingClass.symbol.asType)
     //println(c.enclosingClass.symbol.typeSignature.typeSymbol)
     //println(Helpers.encodedTypeSymbol(c.enclosingClass.symbol.companion.asType))
-    val tsymStr = Helpers.encodedTypeSymbol(c.enclosingClass.symbol.typeSignature.typeSymbol.asType)
-    println(tsymStr)
-    //println(ME.loadTypSymbol(tsymStr))
-    println(Base.loadTypSymbol(tsymStr))
-    //println(ME.loadTypSymbol(tsymStr)())
-    //???
+    val obj = c.enclosingClass.asInstanceOf[ModuleDef]
     
-    debug(d)
-    val res = c.enclosingClass match {
+    val chain = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain
+    /*
+    debug(s">>> "+chain.map(_.scope.collectFirst{
+      case cls: ClassDef if cls.symbol.companion === obj.symbol => cls
+    }))
+    //debug(s">>> "+chain.map(_.scope.collect{case d:ClassDef=>d.symbol}))
+    //debug(s">>> "+chain.map(_.scope.collect{case d:ModuleDef=>d.symbol}))
+    debug(s">>> "+chain.map(_.scope.iterator.find(_.name.toString === obj.symbol.name.toString)))
+    debug(s">>> "+chain.map(_.scope.iterator.find(_ == obj.symbol.companion)))
+    ???
+    */
+    val comp = chain.flatMap(_.scope.iterator.find(_ == obj.symbol.companion)).headOption
+    debug(s"Companion: $comp")
+    //debug()
+    
+    ////debug(c.enclosingUnit.body)
+    //debug(c.enclosingPackage)
+    //???
+    val cls = c.enclosingPackage.children.find(_.symbol == obj.symbol.companion)
+      .map(_.asInstanceOf[ClassDef])
+    debug(s"Companion tree: $cls")
+    
+    
+    
+    //val tsymStr = Helpers.encodedTypeSymbol(cls.symbol.typeSignature.typeSymbol.asType)
+    
+    def liftTemplate(t: Template) = ???
+    
+    
+    val res = obj match {
       case mod @ ModuleDef(mods, name, Template(parents, self, defs)) =>
-        println(defs)
-        //defs.foreach{d =>
-        //  println(d)
-        //  try println(": "+d.symbol.typeSignature)
-        //  catch {
-        //    //_: internal.CyclicReference =>
-        //    case _: scala.reflect.internal.Symbols#CyclicReference =>
-        //      println(": ?")
-        //  }
-        //}
+        //println(defs)
         val fields = defs.collect {
           case vd: ValDef if (try vd.symbol.typeSignature != null
           catch { case _: scala.reflect.internal.Symbols#CyclicReference => false })
@@ -137,46 +113,16 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           =>
             object ME extends MEBase
             //println(vd.symbol.asTerm.isGetter) // false
-            //q"(code{(??? : ${name}.type).${vd.name}},code{???})"
-            //println(vd.symbol,vd.symbol.typeSignature)
             val s = c.typecheck(q"${Ident(name)}.${vd.name}").symbol
-            println(s,s.asTerm.isGetter)
+            assert(s.asTerm.isGetter, s)
             val t = c.typecheck(q"${Ident(name)}.${vd.name} = ???").symbol
-            println(t,t.asTerm.isSetter)
-            println(t == s)
-            println(ME.getMtd(s.asMethod))
-            println(ME.getMtd(t.asMethod))
-            println(ME.apply(vd.rhs, Some(vd.symbol.typeSignature)))
-            //q"mkField(code{${Ident(name)}.${vd.name}},${
-            //  //if (vd.mods.flags | Flag.MUTABLE)
-            //  if (vd.symbol.asTerm.isVar) q"Some(code{${Ident(name)}.${vd.name} = ???})" else q"None"
-            //})"
-            //q"new Field[Any](${vd.name.toString},???,None,${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
+            assert(t.asTerm.isSetter, t)
             q"mkField(${vd.name.toString},${ME.getMtd(s.asMethod)},Some(${ME.getMtd(t.asMethod)}),${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
         }
         val methods = defs.collect {
-            //q"mkField(code{this.${vd.name}},code{???})"
           case _md: DefDef if (_md.name.toString =/= "<init>") && (_md.name.toString =/= "reflect") =>
-            /*
-            debug(showCode(_md))
-            debug(showCode(_md.rhs))
-            debug(_md.symbol.typeSignature)
-            debug(_md.rhs.symbol.typeSignature)
-            */
-            _md.symbol.typeSignature
+            _md.symbol.typeSignature // force type checking!
             val md = c.typecheck(_md).asInstanceOf[DefDef]
-            /*
-            debug(showCode(md.rhs))
-            debug(md.symbol.typeSignature)
-            debug(md.rhs.symbol.typeSignature)
-            md.rhs match {
-              case Apply(f @ Select(pre,nme),as) =>
-                println(f,f.tpe,f.symbol,f.symbol.typeSignature)
-                println(pre,pre.tpe,pre.symbol,pre.symbol.typeSignature)
-                println(as,as.map(_.tpe))
-              case _ => println("...")
-            }
-            */
             // FIXME cache symbols!
             object ME extends MEBase {
               lazy val tparams = md.symbol.typeSignature.typeParams.map{tp =>
@@ -191,35 +137,15 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
                 val tsym = tp.typeSymbol.asType
                 if (tsym.isParameter) {
                   debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
-                  //debug(s"P ${encodedTypeSymbol(tsym.asType)}")
                   assert(tsym.typeParams.isEmpty)
-                  /*
-                  //val loaded = Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)//._2
-                  //val loaded = tsym.name.toString->tq"${internal.newFreeType(tsym.name.toString, Flag.PARAM).asType}"
-                  //Base.staticTypeApp(loaded, Nil)
-                  Base.typeParam(tsym.name.toString)
-                  */
-                  //tparams.find(_._1 === tsym).get._2
                   Base.staticTypeApp(
                     tparams.find(_._1.name.toString === tsym.name.toString).get._2, Nil) // FIXME hygiene
                 } else super.unknownTypefallBack(tp)
               }
-              /*
-              override def getTypSym(tsym: TypeSymbol): Base.TypSymbol = {
-                if (tsym.isParameter)
-                  ???
-                  //Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)
-                else super.getTypSym(tsym)
-              }
-              */
               override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
                   
                 case Ident(TermName(name)) =>
-                  //varRefs += name -> x
-                  debug(s"IDENT $name: ${x.tpe.widen}")
-                  //base.hole(name, liftType(x.tpe))  // FIXME is it safe to introduce holes with such names?
-                  println(x.symbol,vparams.map(_.map(_._1)))
-                  //vparams.iterator.flatten.find(_._1 === x.symbol).get._2.tree
+                  //debug(s"IDENT $name: ${x.tpe.widen}")
                   vparams.iterator.flatten.find(_._1.name.toString === x.symbol.name.toString).get._2 |> Base.readVal // FIXME hygiene
                   
                 case _ =>
@@ -227,17 +153,12 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
                   
               }
             }
-            //val resTpe = md.symbol.typeSignature.resultType
             val resTpe = md.symbol.typeSignature.finalResultType
-            debug("RT: "+resTpe)
             ME.setType(md.rhs, resTpe)
             val macroUni = ME.uni.asInstanceOf[scala.reflect.macros.Universe]
             macroUni.internal.setSymbol(md.rhs.asInstanceOf[macroUni.Tree], md.symbol.asInstanceOf[macroUni.Symbol])
             val res = ME.apply(md.rhs, Some(md.symbol.typeSignature))
-            debug(showCode(res))
-            //q"Method(null.asInstanceOf[d.MtdSymbol],d.Code($res))"
             val sym = ME.getMtd(md.symbol.asMethod)
-            debug(sym)
             //q"Method[Unit](null.asInstanceOf[d.MtdSymbol],d.Code($res))"
             q"..${
               //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))

@@ -17,6 +17,7 @@ package classlift
 
 import squid.quasi._
 
+@lift
 class MyClass {
   /*
   // TODO proper error when name clash and no possibility to define outer staging object

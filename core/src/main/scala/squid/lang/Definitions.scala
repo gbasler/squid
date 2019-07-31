@@ -60,6 +60,8 @@ trait Definitions extends Base {
     //abstract class Class[C](val name: String, val typeParams: List[CodeType[_]]) extends ClassOrObject[C] {
     abstract class Class[C](val name: String, val typeParams: List[TypParam]) extends ClassOrObject[C] {
       val companion: Option[Object[_]]
+      // TODO self reference
+      val self: Variable[C] = null
     }
     //abstract class Object[C](val name: String) extends ClassOrObject[C] {
     //}
@@ -67,6 +69,7 @@ trait Definitions extends Base {
     abstract class ClassOrObject[C] extends Member with Scope {
       type Scp <: outerScope.Scp
       val name: String
+      val parents: List[CodeType[_]] = Nil // TODO
       
       //println(scala.reflect.runtime.universe.weakTypeOf[Scp])
       //println(implicitly[WeakTypeTag[Scp]].asInstanceOf[TypeTag[_]])
