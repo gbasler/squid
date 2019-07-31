@@ -147,10 +147,12 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
             println(ME.getMtd(s.asMethod))
             println(ME.getMtd(t.asMethod))
             println(ME.apply(vd.rhs, Some(vd.symbol.typeSignature)))
-            q"mkField(code{${Ident(name)}.${vd.name}},${
-              //if (vd.mods.flags | Flag.MUTABLE)
-              if (vd.symbol.asTerm.isVar) q"Some(code{${Ident(name)}.${vd.name} = ???})" else q"None"
-            })"
+            //q"mkField(code{${Ident(name)}.${vd.name}},${
+            //  //if (vd.mods.flags | Flag.MUTABLE)
+            //  if (vd.symbol.asTerm.isVar) q"Some(code{${Ident(name)}.${vd.name} = ???})" else q"None"
+            //})"
+            //q"new Field[Any](${vd.name.toString},???,None,${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
+            q"mkField(${vd.name.toString},${ME.getMtd(s.asMethod)},Some(${ME.getMtd(t.asMethod)}),${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
         }
         val methods = defs.collect {
             //q"mkField(code{this.${vd.name}},code{???})"

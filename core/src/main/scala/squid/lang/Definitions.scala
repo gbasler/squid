@@ -110,12 +110,15 @@ trait Definitions extends Base {
       //def transform(trans: Map[Method[_],MethodTransformation])
       def transform(trans: List[MethodTransformation[_]]) = ???
       
-      def mkField[A](get: OpenCode[A], set: Option[OpenCode[Unit]]): Field[A] = {
-        println(get, set)
-        //Field[Unit](null,null,None,null)(Predef.implicitType[Unit])
-        null
-        //???
-      }
+      //def mkField[A](get: OpenCode[A], set: Option[OpenCode[Unit]]): Field[A] = {
+      //  println(get, set)
+      //  //Field[Unit](null,null,None,null)(Predef.implicitType[Unit])
+      //  null
+      //  //???
+      //}
+      def mkField(name: String, get: MtdSymbol, set: Option[MtdSymbol], init: Rep)(typ: TypeRep): Field[_] =
+        new Field[Any](name, get.asInstanceOf[FieldGetter],
+          set.map(_.asInstanceOf[FieldSetter]),Code(init))(CodeType[Any](typ))
       
     }
     
