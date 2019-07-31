@@ -45,6 +45,7 @@ trait TypingBase { self: Base =>
   type TypSymbol
   def loadTypSymbol(fullName: String): TypSymbol 
   def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = ??? 
+  def typeParam(name: String): TypeRep = ???
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean
   def typEq(a: TypeRep, b: TypeRep): Boolean = typLeq(a,b) && typLeq(b,a)

@@ -74,6 +74,7 @@ trait MetaBases {
     case class Existing(tree: Tree) extends BoundVal
     case class New(originalName: String, valName/*(in gen'd code)*/: TermName, typRep: TypeRep, annots: List[Annot]) extends BoundVal {
       def tree = Ident(valName)
+      def toValDef = q"val $valName = $Base.bindVal($originalName, $typRep, ${mkNeatList(annots map annot)})"
     }
     
     type TypeRep = Tree
@@ -115,7 +116,9 @@ trait MetaBases {
     
     override def loadMtdTypParamSymbol(mtd: MtdSymbol, name: String): TypSymbol = name->q"$Base.loadMtdTypParamSymbol(${mtd}, $name)" // name hint?!
     
-    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
+    override def typeParam(name: String): TypeRep = q"$Base.typeParam($name)"
+    
+    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): New =
       //TermName(name) -> typ // We assume it's fine without a fresh name, since the binding structure should reflect that of the encoded program
       New(name, TermName("_$"+name), typ, annots) // Assumption: nobody else uses names of this form... (?)
     
@@ -299,8 +302,15 @@ trait MetaBases {
         val r = sru.internal.newFreeType(name, sru.Flag.PARAM).asType
         println(r.isParameter)
         println(r.toType)
+        val s = sru.internal.newFreeType(name, sru.Flag.PARAM).asType
+        println(r == s)
+        println(r.toType =:= s.toType)
+        println(r.toType == r.toType)
+        println(r.toType =:= r.toType)
         r
       }
+    
+    override def typeParam(name: String): TypeRep = tq"${TypeName(name)}"
     
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here

@@ -127,6 +127,8 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   def typeHole(name: String): TypeRep = TypeHoleRep(name)
   
+  override def typeParam(name: String): TypeRep =
+    sru.internal.newFreeType(name, sru.Flag.PARAM).toType
   
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean = a <:< b

@@ -57,15 +57,21 @@ trait Definitions extends Base {
     val fields: List[Field[_]]
     val methods: List[Method[_]]
     
-    case class Field[A0: CodeType](name: String, get: FieldGetter, set: Option[FieldSetter], init: Code[A0,Scp]) {
+    class Field[A0: CodeType](val name: String, val get: FieldGetter, val set: Option[FieldSetter], val init: Code[A0,Scp]) {
       type A = A0
       val A: CodeType[A] = implicitly[CodeType[A]]
     }
-    case class Method[A0: CodeType](symbol: MtdSymbol, body: Code[A0,Scp]) {
+    class Method[A0: CodeType](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,Scp]) {
       type A = A0
       val A: CodeType[A] = implicitly[CodeType[A]]
       
-      println(s"METHOD ${symbol} = ${body}")
+      //println(s"METHOD ${symbol} = ${body}")
+      println(s"METHOD $this")
+      
+      override def toString = s"def ${symbol}[${tparams.map(_.rep).mkString(",")}]${vparams.map(vps => vps.map(vp =>
+        //s"${vp.`internal bound`}: ${vp.Typ.rep}"
+        s"$vp"
+      ).mkString("(",",",")")).mkString}: ${A.rep} = ${showRep(body.rep)}"
     }
     
     //sealed abstract class MethodTransformation

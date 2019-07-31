@@ -39,7 +39,7 @@ class dbg_lift[B <: Base] extends StaticAnnotation {
   @MacroSetting(debug = true) def macroTransform(annottees: Any*): Any = macro ClassLifting.liftAnnotImpl
 }
 object dbg_lift {
-  @MacroSetting(debug = true) def thisClass(d: squid.lang.Definitions): Any = macro ClassLifting.classLiftImpl
+  @MacroSetting(debug = true) def thisClass(d: squid.lang.Definitions): d.ClassTemplate = macro ClassLifting.classLiftImpl
 }
 
 class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
@@ -79,6 +79,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     
     class MEBase extends ModularEmbedding[c.universe.type, Base.type](c.universe, Base, str => debug(str)) {
     //object ME extends QTE.Impl {
+      /*
       override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
           
         case Ident(TermName(name)) =>
@@ -90,6 +91,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           super.unknownFeatureFallback(x, parent)
           
       }
+      */
       /*
       override def unknownTypefallBack(tp: Type): base.TypeRep = {
         //val tag = mkTag(tpe)
@@ -153,29 +155,15 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
         val methods = defs.collect {
             //q"mkField(code{this.${vd.name}},code{???})"
           case _md: DefDef if (_md.name.toString =/= "<init>") && (_md.name.toString =/= "reflect") =>
-            object ME extends MEBase {
-              override def unknownTypefallBack(tp: Type): base.TypeRep = {
-                val tsym = tp.typeSymbol.asType
-                if (tsym.isParameter) {
-                  debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
-                  //debug(s"P ${encodedTypeSymbol(tsym.asType)}")
-                  assert(tsym.typeParams.isEmpty)
-                  val loaded = Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)//._2
-                  Base.staticTypeApp(loaded, Nil)
-                } else super.unknownTypefallBack(tp)
-              }
-              override def getTypSym(tsym: TypeSymbol): Base.TypSymbol = {
-                if (tsym.isParameter)
-                  ???
-                  //Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)
-                else super.getTypSym(tsym)
-              }
-            }
+            /*
             debug(showCode(_md))
             debug(showCode(_md.rhs))
             debug(_md.symbol.typeSignature)
             debug(_md.rhs.symbol.typeSignature)
+            */
+            _md.symbol.typeSignature
             val md = c.typecheck(_md).asInstanceOf[DefDef]
+            /*
             debug(showCode(md.rhs))
             debug(md.symbol.typeSignature)
             debug(md.rhs.symbol.typeSignature)
@@ -185,6 +173,55 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
                 println(pre,pre.tpe,pre.symbol,pre.symbol.typeSignature)
                 println(as,as.map(_.tpe))
               case _ => println("...")
+            }
+            */
+            // FIXME cache symbols!
+            object ME extends MEBase {
+              lazy val tparams = md.symbol.typeSignature.typeParams.map{tp =>
+                assert(tp.asType.typeParams.isEmpty)
+                tp -> Base.typeParam(tp.name.toString)}
+              lazy val vparams = md.symbol.typeSignature.paramLists.map(vps =>
+                vps.map{vp =>
+                  vp -> Base.bindVal(vp.name.toString, ME.liftType(vp.typeSignature), Nil)})
+                  //Base.New(vp.name.toString, vp.name.toTermName, ME.liftType(vp.typeSignature), Nil)))
+              override def unknownTypefallBack(tp: Type): base.TypeRep = {
+                val tsym = tp.typeSymbol.asType
+                if (tsym.isParameter) {
+                  debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
+                  //debug(s"P ${encodedTypeSymbol(tsym.asType)}")
+                  assert(tsym.typeParams.isEmpty)
+                  /*
+                  //val loaded = Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)//._2
+                  //val loaded = tsym.name.toString->tq"${internal.newFreeType(tsym.name.toString, Flag.PARAM).asType}"
+                  //Base.staticTypeApp(loaded, Nil)
+                  Base.typeParam(tsym.name.toString)
+                  */
+                  //tparams.find(_._1 === tsym).get._2
+                  tparams.find(_._1.name.toString === tsym.name.toString).get._2 // FIXME hygiene
+                } else super.unknownTypefallBack(tp)
+              }
+              /*
+              override def getTypSym(tsym: TypeSymbol): Base.TypSymbol = {
+                if (tsym.isParameter)
+                  ???
+                  //Base.loadMtdTypParamSymbol(getMtd(tsym.owner.asMethod), tsym.name.toString)
+                else super.getTypSym(tsym)
+              }
+              */
+              override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
+                  
+                case Ident(TermName(name)) =>
+                  //varRefs += name -> x
+                  debug(s"IDENT $name: ${x.tpe.widen}")
+                  //base.hole(name, liftType(x.tpe))  // FIXME is it safe to introduce holes with such names?
+                  println(x.symbol,vparams.map(_.map(_._1)))
+                  //vparams.iterator.flatten.find(_._1 === x.symbol).get._2.tree
+                  vparams.iterator.flatten.find(_._1.name.toString === x.symbol.name.toString).get._2 |> Base.readVal // FIXME hygiene
+                  
+                case _ =>
+                  super.unknownFeatureFallback(x, parent)
+                  
+              }
             }
             //val resTpe = md.symbol.typeSignature.resultType
             val resTpe = md.symbol.typeSignature.finalResultType
@@ -198,7 +235,12 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
             val sym = ME.getMtd(md.symbol.asMethod)
             debug(sym)
             //q"Method[Unit](null.asInstanceOf[d.MtdSymbol],d.Code($res))"
-            q"Method[Unit]($sym,d.Code($res))"
+            q"..${
+              //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))
+              ME.vparams.flatMap(_.map(vp => vp._2.toValDef))
+            }; new Method[Any]($sym,${ME.tparams.map(tp => q"$td.CodeType(${tp._2})")},${
+              //ME.vparams.map(_.map(_._2.tree))},d.Code($res))"
+              ME.vparams.map(_.map(tv => q"$td.Variable.mk(${tv._2.tree},${tv._2.typRep})"))},d.Code($res))($td.CodeType(${ME.liftType(md.rhs.tpe)}))"
             //???
         }
         val dv = c.freshName(d.symbol.name).toTermName
