@@ -73,7 +73,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     //println(c.enclosingClass.symbol.typeSignature.typeSymbol)
     //println(Helpers.encodedTypeSymbol(c.enclosingClass.symbol.companion.asType))
     val obj = c.enclosingClass.asInstanceOf[ModuleDef]
-    
+    ///*
     val chain = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper.context.enclosingContextChain
     /*
     debug(s">>> "+chain.map(_.scope.collectFirst{
@@ -89,104 +89,176 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
     debug(s"Companion: $comp")
     //debug()
     
+    val ctx = chain.find(_.scope.iterator.find(_ == obj.symbol.companion).isDefined).get
+    
+    val ty = c.asInstanceOf[reflect.macros.runtime.Context].callsiteTyper
+    debug(ty.context)
+    
     ////debug(c.enclosingUnit.body)
     //debug(c.enclosingPackage)
     //???
     val cls = c.enclosingPackage.children.find(_.symbol == obj.symbol.companion)
       .map(_.asInstanceOf[ClassDef])
     debug(s"Companion tree: $cls")
+    //*/
+    //val cls: Option[ClassDef] = None
     
-    
+    //internal.fullyInitialize(d.symbol)
+    internal.fullyInitialize(obj.symbol)
+    cls.foreach(c => internal.fullyInitialize(c.symbol))
     
     //val tsymStr = Helpers.encodedTypeSymbol(cls.symbol.typeSignature.typeSymbol.asType)
     
-    def liftTemplate(t: Template) = ???
-    
-    
-    val res = obj match {
-      case mod @ ModuleDef(mods, name, Template(parents, self, defs)) =>
-        //println(defs)
-        val fields = defs.collect {
-          case vd: ValDef if (try vd.symbol.typeSignature != null
-          catch { case _: scala.reflect.internal.Symbols#CyclicReference => false })
-            && vd.symbol.asTerm.isVal || vd.symbol.asTerm.isVar
-          =>
-            object ME extends MEBase
-            //println(vd.symbol.asTerm.isGetter) // false
-            val s = c.typecheck(q"${Ident(name)}.${vd.name}").symbol
-            assert(s.asTerm.isGetter, s)
-            val t = c.typecheck(q"${Ident(name)}.${vd.name} = ???").symbol
-            assert(t.asTerm.isSetter, t)
-            q"mkField(${vd.name.toString},${ME.getMtd(s.asMethod)},Some(${ME.getMtd(t.asMethod)}),${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
-        }
-        val methods = defs.collect {
-          case _md: DefDef if (_md.name.toString =/= "<init>") && (_md.name.toString =/= "reflect") =>
-            _md.symbol.typeSignature // force type checking!
-            val md = c.typecheck(_md).asInstanceOf[DefDef]
-            // FIXME cache symbols!
-            object ME extends MEBase {
-              lazy val tparams = md.symbol.typeSignature.typeParams.map{tp =>
-                assert(tp.asType.typeParams.isEmpty)
-                tp -> Base.typeParam(tp.name.toString)}
-                //tp -> Base.staticTypeApp(Base.typeParam(tp.name.toString),Nil)}
-              lazy val vparams = md.symbol.typeSignature.paramLists.map(vps =>
-                vps.map{vp =>
-                  vp -> Base.bindVal(vp.name.toString, ME.liftType(vp.typeSignature), Nil)})
-                  //Base.New(vp.name.toString, vp.name.toTermName, ME.liftType(vp.typeSignature), Nil)))
-              override def unknownTypefallBack(tp: Type): base.TypeRep = {
-                val tsym = tp.typeSymbol.asType
-                if (tsym.isParameter) {
-                  debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
-                  assert(tsym.typeParams.isEmpty)
-                  Base.staticTypeApp(
-                    tparams.find(_._1.name.toString === tsym.name.toString).get._2, Nil) // FIXME hygiene
-                } else super.unknownTypefallBack(tp)
-              }
-              override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
-                  
-                case Ident(TermName(name)) =>
-                  //debug(s"IDENT $name: ${x.tpe.widen}")
-                  vparams.iterator.flatten.find(_._1.name.toString === x.symbol.name.toString).get._2 |> Base.readVal // FIXME hygiene
-                  
-                case _ =>
-                  super.unknownFeatureFallback(x, parent)
-                  
-              }
+    def liftTemplate(name: Name, templ: Template) = {
+      //debug(templ.body.map(d => d.symbol))
+      //debug(templ.body.map(d => (d.isTerm, d.symbol.isTerm, d.symbol, d.symbol.typeSignature optionIf (d.symbol =/= null), d)))
+      //val defs = templ.body
+      println("1: "+templ.body)
+      val defs = templ.body.collect{case d: Tree with ValOrDefDefApi if d.name.toString=/="<init>"=>d}
+        //.map(d => c.typecheck(d))
+        //.map(d => if () c.typecheck(d))
+        //.map(d => if (d.symbol === NoSymbol) c.typecheck(d) else d)
+        .map(d => if (d.symbol === NoSymbol) {
+          internal.initialize(d.symbol)
+          internal.fullyInitialize(d.symbol)
+          //debug(s"? ${templ.symbol}")
+          internal.fullyInitialize(obj.symbol)
+          cls.foreach(c => internal.fullyInitialize(c.symbol))
+          d
+        } else d)
+      val fields = defs.collect {
+        case vd: ValDef if (try vd.symbol.typeSignature != null
+        catch { case e: scala.reflect.internal.Symbols#CyclicReference => 
+          debug(s"OOPS: $e")
+          false })
+          && vd.symbol.asTerm.isVal || vd.symbol.asTerm.isVar
+        =>
+          object ME extends MEBase
+          //val self = q"${name.toTypeName}.this"
+          //println(c.typecheck(q"${Ident(name)}.${vd.name}"))
+          val self = name match {
+            case name: TermName => q"${Ident(name)}"
+            case name: TypeName => q"$name.this"
+          }
+          //println(vd.symbol.asTerm.isGetter) // false
+          //val s = c.typecheck(q"${name.toTypeName}.this.${vd.name}").symbol
+          val s = c.typecheck(q"$self.${vd.name}").symbol
+          //assert(s.asTerm.isGetter, s) // FIXME?!
+          //val t = c.typecheck(q"${name.toTypeName}.this.${vd.name} = ???").symbol
+          val t = c.typecheck(q"$self.${vd.name} = ???").symbol
+          //assert(t.asTerm.isSetter, t) // FIXME?!
+          q"mkField(${vd.name.toString},${ME.getMtd(s.asMethod)},Some(${ME.getMtd(t.asMethod)}),${ME(vd.rhs, Some(vd.symbol.typeSignature))})(${ME.liftType(vd.rhs.tpe)})"
+      }
+      println("2: "+defs)
+      val methods = defs.collect {
+        case _md: DefDef if (_md.name.toString =/= "<init>") && (_md.name.toString =/= "reflect") =>
+          debug(s">> Method ${_md.name}")
+          _md.symbol.typeSignature // force type checking!
+          val md = c.typecheck(_md).asInstanceOf[DefDef]
+          // FIXME cache symbols!
+          object ME extends MEBase {
+            lazy val tparams = md.symbol.typeSignature.typeParams.map{tp =>
+              assert(tp.asType.typeParams.isEmpty)
+              tp -> Base.typeParam(tp.name.toString)}
+              //tp -> Base.staticTypeApp(Base.typeParam(tp.name.toString),Nil)}
+            lazy val vparams = md.symbol.typeSignature.paramLists.map(vps =>
+              vps.map{vp =>
+                vp -> Base.bindVal(vp.name.toString, ME.liftType(vp.typeSignature), Nil)})
+                //Base.New(vp.name.toString, vp.name.toTermName, ME.liftType(vp.typeSignature), Nil)))
+            override def unknownTypefallBack(tp: Type): base.TypeRep = {
+              val tsym = tp.typeSymbol.asType
+              if (tsym.isParameter) {
+                debug(s"P ${tsym.fullName} ${tsym.owner.isType}")
+                assert(tsym.typeParams.isEmpty)
+                Base.staticTypeApp(
+                  tparams.find(_._1.name.toString === tsym.name.toString).get._2, Nil) // FIXME hygiene
+              } else super.unknownTypefallBack(tp)
             }
-            val resTpe = md.symbol.typeSignature.finalResultType
-            ME.setType(md.rhs, resTpe)
-            val macroUni = ME.uni.asInstanceOf[scala.reflect.macros.Universe]
-            macroUni.internal.setSymbol(md.rhs.asInstanceOf[macroUni.Tree], md.symbol.asInstanceOf[macroUni.Symbol])
-            val res = ME.apply(md.rhs, Some(md.symbol.typeSignature))
-            val sym = ME.getMtd(md.symbol.asMethod)
-            //q"Method[Unit](null.asInstanceOf[d.MtdSymbol],d.Code($res))"
-            q"..${
-              //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))
-              ME.vparams.flatMap(_.map(vp => vp._2.toValDef))
-            }; new Method[Any,Scp]($sym,${
-              //ME.tparams.map(tp => q"$td.CodeType(${tp._2})")
-              //ME.tparams.map(tp => Base.staticTypeApp(tp._2,Nil))
-              ME.tparams.map(tp => tp._2._2)
-            },${
-              //ME.vparams.map(_.map(_._2.tree))},d.Code($res))"
-              ME.vparams.map(_.map(tv => q"$td.Variable.mk(${tv._2.tree},${tv._2.typRep})"))},d.Code($res))($td.CodeType(${ME.liftType(md.rhs.tpe)}))"
-            //???
+            override def unknownFeatureFallback(x: Tree, parent: Tree) = x match {
+                
+              case Ident(TermName(name)) =>
+                //debug(s"IDENT $name: ${x.tpe.widen}")
+                vparams.iterator.flatten.find(_._1.name.toString === x.symbol.name.toString).get._2 |> Base.readVal // FIXME hygiene
+                
+              case _ =>
+                super.unknownFeatureFallback(x, parent)
+                
+            }
+          }
+          val resTpe = md.symbol.typeSignature.finalResultType
+          ME.setType(md.rhs, resTpe)
+          val macroUni = ME.uni.asInstanceOf[scala.reflect.macros.Universe]
+          macroUni.internal.setSymbol(md.rhs.asInstanceOf[macroUni.Tree], md.symbol.asInstanceOf[macroUni.Symbol])
+          val res = ME.apply(md.rhs, Some(md.symbol.typeSignature))
+          val sym = ME.getMtd(md.symbol.asMethod)
+          //q"Method[Unit](null.asInstanceOf[d.MtdSymbol],d.Code($res))"
+          q"..${
+            //ME.vparams.flatMap(_.map(vp => ValDef(vp._2.valName, q"")))
+            ME.vparams.flatMap(_.map(vp => vp._2.toValDef))
+          }; new Method[Any,Scp]($sym,${
+            //ME.tparams.map(tp => q"$td.CodeType(${tp._2})")
+            //ME.tparams.map(tp => Base.staticTypeApp(tp._2,Nil))
+            ME.tparams.map(tp => tp._2._2)
+          },${
+            //ME.vparams.map(_.map(_._2.tree))},d.Code($res))"
+            ME.vparams.map(_.map(tv => q"$td.Variable.mk(${tv._2.tree},${tv._2.typRep})"))},d.Code($res))($td.CodeType(${ME.liftType(md.rhs.tpe)}))"
+          //???
         }
-        val dv = c.freshName(d.symbol.name).toTermName
+        //val dv = c.freshName(d.symbol.name).toTermName
+        //q"""
+        //val $dv: d.type = d
+        //..${Base.mkSymbolDefs}
+        //class Test
+        ////implicit val tt = 
+        //new $dv.TopLevel.Object[$name.type](${name.toString}){
+        //  import $dv.Predef._
+        //  import $dv.Quasicodes._
+        //  //println(codeTypeOf[Test])
+        //  val fields: List[Field[_]] = $fields
+        //  val methods: List[Method[_,Scp]] = $methods
+        //  val companion = None
+        //}"""
+        (fields, methods)
+    }
+    
+    
+    val trees = cls match {
+      case None =>
+      //case _ =>
+        val (fields, methods) = liftTemplate(obj.name, obj.impl)
         q"""
-        val $dv: d.type = d
-        ..${Base.mkSymbolDefs}
-        class Test
-        //implicit val tt = 
-        new $dv.TopLevel.Object[$name.type](${name.toString}){
-          import $dv.Predef._
-          import $dv.Quasicodes._
-          //println(codeTypeOf[Test])
+        new $d.TopLevel.Object[${obj.name}.type](${obj.name.toString}){
           val fields: List[Field[_]] = $fields
           val methods: List[Method[_,Scp]] = $methods
           val companion = None
-        }"""
+        }
+        """
+      case Some(cls) =>
+        val (fields, methods) = liftTemplate(obj.name, obj.impl)
+        val cls2 = cls
+        //val cls2 = c.typecheck(cls).asInstanceOf[ClassDef]
+        val (cfields, cmethods) = liftTemplate(cls2.name, cls2.impl)
+        q"""
+        object obj extends $d.TopLevel.Object[${obj.name}.type](${obj.name.toString}) {
+          val fields: List[Field[_]] = $fields
+          val methods: List[Method[_,Scp]] = $methods
+          lazy val companion = Some(cls) // lazy otherwise diverges!
+        }
+        object cls extends $d.TopLevel.Class[${cls.name}](${cls.name.toString},Nil)
+                  with $d.TopLevel.ClassWithObject[${cls.name}] {
+          val fields: List[Field[_]] = $cfields
+          val methods: List[Method[_,Scp]] = $cmethods
+          val companion = Some(obj)
+        }
+        cls
+        """
     }
+    
+    val res = q"""
+    ..${Base.mkSymbolDefs}
+    $trees
+    """
+    
     debug(s"Generated: ${showCode(res)}")
     //debug(Base.symbols)
     //debug(c.enclosingClass.asInstanceOf[ModuleDef].impl.body)

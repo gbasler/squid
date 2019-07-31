@@ -44,22 +44,23 @@ trait Definitions extends Base {
     val members: List[Member] = Nil
     
     trait ClassWithObject[C] extends ClassOrObject[C] {
-      val companion: Some[Class[_]]
+      val companion: Some[outerScope.Object[_]]
     }
     trait ClassWithoutObject[C] extends Class[C] {
-      val companion: Some[Object[_]]
+      //val companion: Some[outerScope.Object[_]]
+      val companion: None.type = None
     }
     trait ObjectWithoutClass[C] extends Object[C] {
       val companion: None.type = None
     }
     
     abstract class Object[C](val name: String) extends ClassOrObject[C] {
-      val companion: Option[Class[_]]
+      val companion: Option[outerScope.Class[_]]
     }
     // FIXME typeParams should be a TypSymbol?
     //abstract class Class[C](val name: String, val typeParams: List[CodeType[_]]) extends ClassOrObject[C] {
     abstract class Class[C](val name: String, val typeParams: List[TypParam]) extends ClassOrObject[C] {
-      val companion: Option[Object[_]]
+      val companion: Option[outerScope.Object[_]]
       // TODO self reference
       val self: Variable[C] = null
     }
@@ -88,6 +89,8 @@ trait Definitions extends Base {
         type A = A0
         val A: CodeType[A] = implicitly[CodeType[A]]
         val symbol: MtdSymbol = get
+        println(s"FIELD $this")
+        override def toString = s"va(l/r) ${symbol}: ${A.rep} = ${showRep(init.rep)}"
       }
       //class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[CodeType[_]], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {
       class Method[A0: CodeType, S <: Scp](val symbol: MtdSymbol, val tparams: List[TypParam], val vparams: List[List[Variable[_]]], val body: Code[A0,S]) extends FieldOrMethod[A0] {

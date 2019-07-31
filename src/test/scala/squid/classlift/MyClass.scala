@@ -40,16 +40,26 @@ class MyClass {
   def lol(a: Int = 0, b: Int, c: String, d: String = "3"): String = a + b + c + d
   */
   
-  val baz = MyClass.swap(1,2)('lol)._2._2
-  def foo(x: Int) = baz + x
+  //val baz = MyClass.swap(1,2)('lol)._2._2
+  //def foo(x: Int) = baz + x
+  
+  //def bar(x: Int) = x + 1
+  //def foo(str: String) = str.length
+  
+  //val bazzz = MyClass.cst
   
 }
 
 object MyClass {
   
+  //val x = MyClass.this.cst
+  
   //val reflect = lift.thisClass
   //val reflect = dbg_lift.thisClass
-  def reflect(d: squid.lang.Definitions): d.TopLevel.Object[MyClass.type] = dbg_lift.thisClass(d)
+  
+  //private[this] 
+  def reflect(d: squid.lang.Definitions): d.TopLevel.ClassWithObject[MyClass] = dbg_lift.thisClass(d)
+  //def reflect(d: squid.lang.Definitions): d.TopLevel.ClassOrObject[_] = null
   
   /*
   @phase('Sugar)
@@ -90,6 +100,10 @@ object MyClass {
   @phase('Sugar)
   //val cst = 42
   var cst = 42
+  
+  //def get(c: MyClass): Int = c.bar(0)
+  
+  //def getMut(c: MyClass): Int = c.bazzz
   
 }
 /*
