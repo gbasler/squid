@@ -74,12 +74,14 @@ trait MetaBases {
     case class Existing(tree: Tree) extends BoundVal
     case class New(originalName: String, valName/*(in gen'd code)*/: TermName, typRep: TypeRep, annots: List[Annot]) extends BoundVal {
       def tree = Ident(valName)
+      def toValDef = q"val $valName = $Base.bindVal($originalName, $typRep, ${mkNeatList(annots map annot)})"
     }
     
     type TypeRep = Tree
     
     type MtdSymbol = Tree
     type TypSymbol = (String, Tree) // (nameHint, exprTree)
+    type TypParam = TypSymbol
     
     
     def repEq(a: Rep, b: Rep): Boolean = a == b
@@ -113,7 +115,13 @@ trait MetaBases {
       q"$n"
     }
     
-    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
+    def typeParam(name: String): TypParam = {
+      val n = curatedFreshName(name+"Param")
+      symbols += n -> q"$Base.typeParam($name)"
+      name -> q"$n"
+    }
+    
+    def bindVal(name: String, typ: TypeRep, annots: List[Annot]): New =
       //TermName(name) -> typ // We assume it's fine without a fresh name, since the binding structure should reflect that of the encoded program
       New(name, TermName("_$"+name), typ, annots) // Assumption: nobody else uses names of this form... (?)
     
@@ -128,14 +136,14 @@ trait MetaBases {
     //   we get the Scala 2.12.4/5 compilers crashing with an assertion error...
     //   Bug reported there: https://github.com/scala/bug/issues/10857
     private def lamImpl(params: List[BoundVal], body: => Rep): Rep = q"""
-      ..${params collect { case New(on, vn, vt, anns) => q"val $vn = $Base.bindVal($on, $vt, ${mkNeatList(anns map annot)})" }}
+      ..${params collect { case n: New => n.toValDef }}
       $Base.lambda(${mkNeatList(params map (_.tree))}, $body)
     """
     
     override def letin(bound: BoundVal, value: Rep, body: => Rep, bodyType: TypeRep): Rep = q"""
       ..${bound |> {
         case Existing(_) => q""
-        case New(_1,_2,_3,_4) => q"val ${_2} = $Base.bindVal(${_1}, ${_3}, ${mkNeatList(_4 map annot)})"
+        case n: New => n.toValDef
       }}
       $Base.letin(${bound.tree}, $value, $body, $bodyType)
     """
@@ -274,6 +282,7 @@ trait MetaBases {
     
     type MtdSymbol = TermName
     type TypSymbol = () => sru.TypeSymbol // to delay computation, since we won't need most of them! (only needed in typeApp)
+    type TypParam = () => sru.FreeTypeSymbol
     
     
     def repEq(a: Rep, b: Rep): Boolean = a == b
@@ -287,6 +296,9 @@ trait MetaBases {
     
     def loadMtdSymbol(typ: TypSymbol, symName: String, index: Option[Int], static: Boolean = false): MtdSymbol =
       TermName(symName)
+    
+    def typeParam(name: String): TypParam = () =>
+      sru.internal.newFreeType(name, sru.Flag.PARAM)
     
     def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal =
       //TermName(name) -> typ  // [wrong] Assumption: it will be fine to use the unaltered name here
@@ -344,6 +356,7 @@ trait MetaBases {
     
     def typeApp(self: TypeRep, typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val tp = typ()
+      assert(!tp.isParameter)
       val pre = self match {
         // sometimes `staticTypeApp` produces such trees, and it really corresponds to a type projection:
         case tq"$t.${tn:TypeName}" =>
@@ -365,11 +378,16 @@ trait MetaBases {
     }
     def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
       val tp = typ()
-      var nameChain = ((Iterator iterate tp.owner)(_.owner) takeWhile (s => s.name.toString != "<root>")
-        map (s => TermName(s.name.toString)) foldLeft List.empty[TermName]) (_.::(_))
-      if (startPathsFromRoot) nameChain ::= TermName("_root_")
-      val path = nameChain.tail.foldLeft(Ident(nameChain.head):Tree){ (p, n) => q"$p.$n" }
-      typeApp(path, () => tp, targs)
+      if (tp.isParameter) tq"${TypeName(tp.name.toString)}" // weirdly, this case never seems to trigger...
+        // perhaps because ModularEmbedding's liftType (used by reinterpretType) does not seem to treat type parameters
+        // specially (maybe it should?)
+      else {
+        var nameChain = ((Iterator iterate tp.owner)(_.owner) takeWhile (s => s.name.toString != "<root>")
+          map (s => TermName(s.name.toString)) foldLeft List.empty[TermName]) (_.::(_))
+        if (startPathsFromRoot) nameChain ::= TermName("_root_")
+        val path = nameChain.tail.foldLeft(Ident(nameChain.head):Tree){ (p, n) => q"$p.$n" }
+        typeApp(path, () => tp, targs)
+      }
     }
     
     def repType(r: Rep): TypeRep = ??? // TODO impl (store types using internal)

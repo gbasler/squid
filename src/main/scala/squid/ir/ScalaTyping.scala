@@ -49,6 +49,8 @@ self: IntermediateBase => // for 'repType' TODO rm
   }
   
   type TypSymbol = sru.TypeSymbol
+  type TypParam = sru.FreeTypeSymbol
+  
   //type TypeRep = ScalaType
   implicit class TypeRep(val tpe: ScalaType) {
     override def toString = sru.show(tpe)
@@ -107,8 +109,12 @@ self: IntermediateBase => // for 'repType' TODO rm
     sru.internal.typeRef(self, typ, targs map (_ tpe))
   
   def staticTypeApp(typ: TypSymbol, targs: List[TypeRep]): TypeRep = {
-    assert(typ.isStatic)
-    sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
+    if (typ.isStatic)
+      sru.internal.typeRef(typ.owner.asType.toType, typ, targs map (_ tpe))
+    else {
+      assert(typ.isParameter)
+      typ.toType
+    }
   }
   
   def valType(self: TypeRep, valName: String): TypeRep =
@@ -121,6 +127,8 @@ self: IntermediateBase => // for 'repType' TODO rm
   
   def typeHole(name: String): TypeRep = TypeHoleRep(name)
   
+  def typeParam(name: String): TypParam =
+    sru.internal.newFreeType(name, sru.Flag.PARAM)
   
   
   def typLeq(a: TypeRep, b: TypeRep): Boolean = a <:< b
@@ -177,8 +185,9 @@ self: IntermediateBase => // for 'repType' TODO rm
       case typ -> xtyp => // FIXME: is it okay to do this here? we should probably ensure typ is a TypeRef...
         val targs = typ.typeArgs
         
-        if (xtyp.typeSymbol.isParameter) return None alsoDo debug(s"Cannot match parameter type `$xtyp`.")
-        // ^ Sometimes we get this kind of types because of type-tag-based uninterpretedType
+        //if (xtyp.typeSymbol.isParameter) return None alsoDo debug(s"Cannot match parameter type `$xtyp`.")
+        //// ^ Sometimes we get this kind of types because of type-tag-based uninterpretedType
+        // ^ We now use scala-reflect "free types" with the PARAM flag to encode type parameters
         
         if (xtyp =:= ruh.Null) return None alsoDo debug(s"Cannot match type `Null`.") // TODO  actually allow this match (but soundly)
         

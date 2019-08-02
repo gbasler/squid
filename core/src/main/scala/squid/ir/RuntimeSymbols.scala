@@ -73,7 +73,11 @@ trait RuntimeSymbols {
       case _ => false
     }
     
-    override def toString = s"${asMethodSymbol.owner.name}[~>${representative.asMethodSymbol.owner.name}].${asMethodSymbol.name}"
+    /** Like toString, but with some additional info about the union-find representation. */
+    def infoString =
+      s"${asMethodSymbol.owner.name}[~>${representative.asMethodSymbol.owner.name}].${asMethodSymbol.name}"
+    
+    override def toString = s"${asMethodSymbol.owner.name}.${asMethodSymbol.name}"
   }
   protected val mtdSymbolCache = mutable.HashMap.empty[sru.MethodSymbol, MtdSymbol]
   object MtdSymbol {

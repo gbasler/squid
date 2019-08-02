@@ -34,6 +34,7 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   import BaseInterpreter._
   
   type TypSymbol = ScalaTypeSymbol
+  type TypParam = TypSymbol
   
   type Rep = Any
   
@@ -262,6 +263,8 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   def valType(self: TypeRep, valName: String): TypeRep = () =>
     self().toType.member(TermName(valName)).typeSignature.typeSymbol.asType
   def constType(value: Any, underlying: TypeRep): TypeRep = () => ???
+  def typeHole(name: String): TypeRep = ???
+  def typeParam(name: String): TypParam = sru.internal.newFreeType(name, Flag.PARAM)
   
   object Const extends ConstAPI {
     def unapply[T: sru.TypeTag](cde: AnyCode[T]): Option[T] = ???
@@ -270,7 +273,6 @@ class BaseInterpreter extends Base with CrossStageEnabled with RuntimeSymbols wi
   def hopHole(name: String, typ: TypeRep, yes: List[List[BoundVal]], no: List[BoundVal]): Rep = ???
   def splicedHole(name: String, typ: TypeRep): Rep = ???
   def substitute(r: => Rep,defs: scala.collection.immutable.Map[String,Rep]): Rep = ???
-  def typeHole(name: String): TypeRep = ???
   
   
 }

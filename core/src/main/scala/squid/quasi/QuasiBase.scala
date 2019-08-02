@@ -207,6 +207,7 @@ self: Base =>
     def `internal bound` = bound
     def rep: Rep = readVal(bound)
     def toCode: Code[Typ,Ctx] = Code(rep)
+    def Typ: CodeType[T] = codeTypeOf[T]
     def substitute[S,C](body: Code[S,C & Ctx], mkArg: => Code[T,C])(implicit ev: self.type <:< InspectableBase): Code[S,C] = {
       val arg = Lazy(mkArg)
       val b = self.asInstanceOf[self.type with InspectableBase]

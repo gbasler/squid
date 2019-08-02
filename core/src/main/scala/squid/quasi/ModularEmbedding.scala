@@ -105,6 +105,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     //debug(s"""Getting type for symbol $tsym -- encoded name "$cls"""")
     loadTypSymbol(cls)
   }
+  
   def getMtd(typ: TypSymbol, mtd: MethodSymbol): MtdSymbol = {
     //debug(s"Getting mtd $mtd "+mtd.isStatic)
     
@@ -161,6 +162,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   def getMtd(typ: TypSymbol, name: String, index: Option[Int] = None, isJavaStatic: Boolean = false): MtdSymbol = {
     loadMtdSymbol(typ, name, index, isJavaStatic)
   }
+  def getMtd(mtd: MethodSymbol): MtdSymbol = getMtd(mtd.owner.asType |> getTypSym, mtd)
   
   
   type Ctx = Map[TermSymbol, BoundVal]
@@ -310,7 +312,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
         if (method.owner.name.toString === "<refinement>")
           throw EmbeddingException(s"Cannot refer to method ${method.name} defined in refinement: ${method.owner}")
         
-        def refMtd = getMtd(method.owner.asType |> getTypSym, method)
+        def refMtd = getMtd(method)
         
         val tp = liftType(x.tpe)
         val self = liftTerm(obj, x, Some(obj.tpe))
@@ -634,7 +636,7 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
   
   def apply(code: Tree, expectedType: Option[Type] = None) = {
     
-    liftTerm(code, code, expectedType  orElse Some(code.tpe))(Map())
+    liftTerm(code, code, expectedType orElse Some(code.tpe))(Map())
     
   }
   

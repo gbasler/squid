@@ -1,4 +1,4 @@
-// Copyright 2017 EPFL DATA Lab (data.epfl.ch)
+// Copyright 2019 EPFL DATA Lab (data.epfl.ch)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package squid
+package squid.classlift
 
-import lang._
-import quasi._
-import ir._
+import squid.quasi._
 
-class TestBase extends SimpleAST with ClassEmbedder with ScalaCore with Definitions
-object MyBase extends TestBase
-object TestDSL extends TestBase
-object NormDSL extends TestBase with OnlineOptimizer with BindingNormalizer //with BlockNormalizer
-object CrossStageDSL extends TestBase with CrossStageAST
-
-object LegacyTestDSL extends TestBase {
-  override val newExtractedBindersSemantics: Boolean = false
+@lift
+class MyClass2 {
+  def test = List(1,2,3)
+  var mut = 42
+  def oops = Ooops.oopsy2(this,'hi)
+  def foo(mc: MyClass3) = mc.met + mut
+}
+object MyClass2 {
+  
+  var mit = 123
+  
+  class A {
+    def oops = Ooops.oopsy2A(this,'hi)
+    var mat = 123
+  }
+  object A
+  
+  def testo(x: Int) = Some((new MyClass2).mut + x)
+  
 }
 
-object Test {
-  object InnerTestDSL extends SimpleAST
+@lift
+class MyClass3 {
+  var met = 345
+  def getMet(els: Int) = if (met < 0) els else met
+  def test = (new MyClass2).foo(this)
+}
+object MyClass3 {
 }

@@ -217,6 +217,8 @@ class PrettyPrinter extends Base with TraceDebug {
 
   def typeHole(name: String): TypeRep = ???
 
+  def typeParam(name: String): TypParam = ???
+
   /** Parameter `static` should be true only for truly static methods (in the Java sense)
     * Note: index should be None when the symbol is not overloaded, to allow for more efficient caching */
   override def loadMtdSymbol(typ: String, symName: String, index: Option[Int], static: Bool) = symName
