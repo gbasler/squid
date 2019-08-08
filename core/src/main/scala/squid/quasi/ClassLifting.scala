@@ -92,12 +92,9 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
       case _ => reqFail("The class lifting macro should be placed within the companion object of the lifted class.")
     }
     req(obj.symbol.owner.isPackage, "Can only lift top-level definitions.")
+    /*
     val pack2 = new Transformer {
       override def transform(tree: Tree) = tree match {
-          
-        case cd @ (_: ClassDef | _: ModuleDef) if !obj.symbol.fullName.startsWith(cd.symbol.fullName) =>
-          debug(s"${cd.symbol.fullName} =/= ${obj.symbol.fullName}")
-          q""
           
         // The goal of the following was to remove references to the macro call and the macro annotation...
         // Unfortunately, while these _seem_ to achieve their purpose I, could not prevent recursive execution of
@@ -120,6 +117,11 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
         case _ => super.transform(tree)
       }
     } transform pack
+    */
+    val pack2 = internal.setSymbol(
+      PackageDef(pack.pid, pack.stats.collect {
+      case cd @ (_: ClassDef | _: ModuleDef) if obj.symbol.fullName === cd.symbol.fullName => cd
+    }), pack.symbol)
     
     //val tpack = c.typecheck(pack2).asInstanceOf[PackageDef]
     val tpack = c.typecheck(pack2, withMacrosDisabled = true).asInstanceOf[PackageDef]

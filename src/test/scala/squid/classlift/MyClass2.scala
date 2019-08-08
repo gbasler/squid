@@ -16,8 +16,10 @@ package squid.classlift
 
 import squid.quasi._
 
+class My
+
 @lift
-class MyClass2 {
+class MyClass2 extends My {
   def test = List(1,2,3)
   var mut = 42
   def oops = Ooops.oopsy2(this,'hi)
