@@ -33,7 +33,10 @@ object MyClass2 {
   }
   object A
   
-  def testo(x: Int) = Some((new MyClass2).mut + x)
+  def testo(x: Int) = {
+    val mc = new MyClass2
+    Some(mc.mut + x)
+  }
   
 }
 

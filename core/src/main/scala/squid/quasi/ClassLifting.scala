@@ -190,7 +190,9 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
                 super.unknownFeatureFallback(x, parent)
             }
           }
-          val res = ME.apply(md.rhs, Some(md.symbol.typeSignature))
+          val expTyp = md.symbol.asMethod.returnType
+          assert(md.symbol.typeSignature.finalResultType =:= expTyp, s"${md.tpe.finalResultType} =:= ${expTyp}")
+          val res = ME.apply(md.rhs, Some(expTyp))
           val sym = ME.getMtd(md.symbol.asMethod)
           q"..${
             ME.vparams.flatMap(_.map(vp => vp._2.toValDef))

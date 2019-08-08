@@ -185,6 +185,8 @@ class ModularEmbedding[U <: scala.reflect.api.Universe, B <: Base](val uni: U, v
     
     //debug(List(s"TRAVERSING",x,s"[${x.tpe}]  <:",expectedType getOrElse "?") mkString " ")
     //dbg(s"TRAVERSING",showCode(x),s"[${x.tpe}]  <:",expectedType getOrElse "?")
+    debug(s"TRAVERSING  ${showCode(x).replaceAll("\\n","").truncate(50,"  [...]")}")
+    debug(s"  of type:  ${x.tpe}  <:  ${expectedType getOrElse "?"}")
     
     /** In some cases (like the loop of a while), the virtualized version expects Unit but Scala is okay with Any;
       * so we have to make the types right by introducing a () return. */

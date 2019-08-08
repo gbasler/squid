@@ -75,7 +75,7 @@ class ClassLiftingTests extends MyFunSuite {
     obj.methods.find(_.symbol == TestDSL.methodSymbol[MyClass2.type]("testo")) |>! {
       case Some(mtd) =>
         val x = mtd.vparams.head.head.asInstanceOf[Variable[Int]]
-        mtd.body eqt code"Some((new MyClass2).mut + $x)"
+        mtd.body eqt code"val m = new MyClass2; Some(m.mut + $x)"
     }
     
     assert(cls.methods.head.symbol.asMethodSymbol.owner.isClass)

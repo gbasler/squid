@@ -151,6 +151,11 @@ package object utils {
     def mapLines(f: String => String) = splitSane('\n') map f mkString "\n"
     def indent(pre: String) = mapLines(pre + _)
     def indent: String = indent("\t")
+    def truncate(maxChars: Int, replace: String): String = {
+      val newStr = self.take(maxChars)
+      if (newStr.length < self.length) newStr + replace
+      else newStr
+    }
   }
   
   implicit class BoolTraversableOps(private val self: TraversableOnce[Bool]) extends AnyVal {
