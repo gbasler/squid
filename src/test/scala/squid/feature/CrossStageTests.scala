@@ -185,6 +185,17 @@ class CrossStageTests extends MyFunSuite(CrossStageDSL) {
     
   }
   
+  test("Serialization of Cross-Stage Mutable Variables") {
+    
+    @persist val v = squid.lib.MutVar(0)
+    
+    val cde = code"v := v.! + 1"
+    
+    // squid.ir.IRException: Could not persist non-serializable value: MutVar(0)
+    intercept[squid.ir.IRException](base.scalaTree(cde.rep))
+    
+  }
+  
   
   abstract class DataManager {
     val data: Array[Int]

@@ -71,7 +71,8 @@ trait Base extends TypingBase with quasi.QuasiBase {
   }
   val Const: ConstAPI
   
-  /** High-level interface which implementation should specify how to construct (and potentially also deconstruct) constants */
+  /** Compares to Reps for equivalence, which may be defined as equality, alpha equivalence, or some yet more advanced
+    * notion of equivalence, depending on the intended semantics of the Base implementation. */
   def repEq(a: Rep, b: Rep): Boolean
   
   
