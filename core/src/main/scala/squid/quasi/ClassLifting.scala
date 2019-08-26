@@ -228,7 +228,7 @@ class ClassLifting(override val c: whitebox.Context) extends QuasiMacros(c) {
           
           q"mkField(${vd.name.toString},${ME.getMtd(get)},Some(${ME.getMtd(set)}),${
             ME(vd.rhs, Some(vd.symbol.typeSignature))
-          })(${ME.liftType(vd.rhs.tpe)})"
+          })(${ME.liftType(vd.symbol.typeSignature)})"
       }
       (fields, methods)
     }

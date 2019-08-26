@@ -81,6 +81,8 @@ class ClassLiftingTests extends MyFunSuite {
     assert(cls.methods.head.symbol.asMethodSymbol.owner.isClass)
     assert(obj.methods.head.symbol.asMethodSymbol.owner.isModuleClass)
     
+    eqt(cls.fields.head.A, codeTypeOf[Int])
+    
   }
   
 }
