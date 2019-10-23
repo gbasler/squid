@@ -33,6 +33,9 @@ haskellopt_gen/bench-doc/*.opt
 haskellopt/src/test/haskell/*
 !haskellopt/src/test/haskell/*.hs
 haskellopt/src/test/haskell/_perso*
+haskellopt/src/test/haskell2/*
+!haskellopt/src/test/haskell2/*.hs
+haskellopt/src/test/haskell2/_perso*
 
 lib_managed/
 src_managed/

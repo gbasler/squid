@@ -24,6 +24,8 @@ package object utils {
   /** We have Int instead of Integer; why not Bool instead of Boolean? */
   type Bool = Boolean
   
+  type Str = String
+  
   /** Dotty syntax for intersection types */
   @showAsInfix
   type & [+A,+B] = A with B

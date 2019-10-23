@@ -110,6 +110,7 @@ lazy val haskellopt = (project in file("haskellopt")).
     initialCommands in console := initialConsoleCommands,
     libraryDependencies += "io.bullet" %% "borer-core" % "0.9.0",
     libraryDependencies += "com.lihaoyi" %% "ammonite-ops" % "1.6.6",
+    libraryDependencies += "com.lihaoyi" %% "pprint" % "0.5.5",
   ).
   dependsOn(main)
 

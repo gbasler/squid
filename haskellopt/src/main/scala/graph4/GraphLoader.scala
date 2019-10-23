@@ -1,0 +1,195 @@
+package graph4
+
+import squid.utils._
+import squid.haskellopt.ghcdump
+import squid.ir.graph3._
+import ammonite.ops.FilePath
+
+import scala.collection.mutable
+
+class GraphLoader[G <: GraphIR](val Graph: G) {
+  /* Notes.
+  
+  Problems with exporting Haskell from GHC-Core:
+   - After rewrite rules, we get code that refers to functions not exported from modules,
+     such as `GHC.Base.mapFB`, `GHC.List.takeFB`
+   - After some point (phase Specialise), we start getting fictive symbols,
+     such as `GHC.Show.$w$cshowsPrec4`
+   - The _simplifier_ itself creates direct references to type class instance methods, such as
+     `GHC.Show.$fShowInteger_$cshowsPrec`, and I didn't find a way to disable that behavior... 
+  So the Haskell export really only works kind-of-consistently right after the desugar phase OR after some
+  simplification with optimization turned off, but no further...
+  (The -O flag could have been useful, as it makes list literals be represented as build.)
+  So it's probably best to selectively disable optimizations, such as the application of rewrite rules.
+  
+  */
+  
+  import Graph._
+  
+  val imports = mutable.Set.empty[String]
+  
+  def loadFromDump(dump: FilePath): GraphModule = {
+    
+    var modName = Option.empty[String]
+    val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, String -> Ref]
+    
+    var reificationContext = Map.empty[Var, Lazy[NodeRef]]
+    
+    val DummyNode = bindVal("<dummy>")
+    
+    object GraphDumpInterpreter extends ghcdump.Interpreter {
+      
+      type Expr = Ref
+      type Lit = ConstantNode
+      type Alt = (AltCon, () => Expr, Ref => Map[BinderId, Ref])
+      
+      val bindings = mutable.Map.empty[BinderId, Either[Var, Ref]] // Left for lambda- or let-bound; Right for module-bound
+      
+      val TypeBinding = bindVal("ty")
+      val DummyRead = TypeBinding.mkRef
+      
+      def EVar(b: BinderId): Expr = bindings(b).fold(reificationContext(_).value, id)
+      
+      def EVarGlobal(ExternalName: ExternalName): Expr = {
+        val mod = ExternalName.externalModuleName
+        val nme = ExternalName.externalName
+        if (mod === modName.get) moduleBindings(ExternalName.externalUnique)._2
+        else ModuleRef(ExternalName.externalModuleName, (mod, nme) match {
+          case ("GHC.Types", ":") => "(:)" // weirdness of GHC
+          // Not sure if still useful:
+          //case ("GHC.Types", "[]") => "[]"
+          //case ("GHC.Tuple", tup) // match (); (,); (,,); ...
+          //  if (tup startsWith "(") && (tup endsWith ")") && tup.init.tail.forall(_ === ',') => tup
+          case _ =>
+            mod match {
+              case "GHC.Integer.Type" =>
+              case _ => imports += mod
+            }
+            // FIXME? use below?
+            //if (nme.head.isLetter) s"$mod.$nme" else s"($mod.$nme)"
+            nme
+        }).mkRef
+      }
+      def ELit(Lit: Lit): Expr = Lit.mkRefNamed("κ")
+      def EApp(e0: Expr, e1: Expr): Expr = e1.node match {
+        case TypeBinding => e0
+        case Control(_,Ref(TypeBinding)) => e0
+        case ModuleRef(mod,nme) if nme.contains("$f") => e0
+        case Control(_,Ref(ModuleRef(mod,nme))) if nme.contains("$f") => e0 // TODO more robust?
+        case _ => App(e0, e1).mkRefNamed("α")
+      }
+      def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
+      def ELam(bndr: Binder, mkE: => Expr): Expr = {
+        val name = mkName(bndr.binderName, bndr.binderId.name)
+        val param = bindVal(name)
+        bindings += bndr.binderId -> Left(param)
+        require(!reificationContext.contains(param))
+        val old = reificationContext
+        try if (bndr.binderName.startsWith("$")) { // ignore type and type class lambdas
+          reificationContext += param -> Lazy(DummyRead)
+          mkE
+        }
+        else {
+          val occ = param.mkRefNamed(name)
+          reificationContext = reificationContext.map { case(v,r) => (v, Lazy(Control.mkRef(Pop.it(param),r.value))) }
+          reificationContext += param -> Lazy(occ)
+          Lam(occ, mkE).mkRefNamed("λ")
+        } finally reificationContext = old
+      }
+      def ELet(lets: Seq[(Binder, () => Expr)], e0: => Expr): Expr = {
+        //println(s"LETS ${lets}")
+        val old = reificationContext
+        try lets.foldRight(() => e0) {
+          case ((bndr, rhs), body) =>
+            val name = mkName(bndr.binderName, bndr.binderId.name)
+            //println(s"LET ${name}")
+            val v = bindVal(name)
+            val rv = DummyNode.mkRefNamed(name)
+            require(!reificationContext.contains(v))
+            reificationContext += v -> Lazy(rv)
+            bindings += bndr.binderId -> Left(v)
+            () => {
+              //println(s"LET' ${name} ${reificationContext}")
+              // TODO change reificationContext to point directly to the let-bound def
+              val bod = rhs()
+              setMeaningfulName(bod, name)
+              rv.rewireTo(bod)
+              body()
+            }
+        }()
+        finally reificationContext = old
+      }
+      def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr =
+        // TODO handle special case where the only alt is AltDefault?
+      {
+        ??? // TODO
+        /*
+        import reificationContext
+        val old = reificationContext
+        try {
+          val v = e0.bound
+          
+          reificationContext += v -> e0
+          // ^ It looks like this is sometimes used; probably if the scrutinee variable is accessed directly (instead of the ctor-index-getters)
+          bindings += bndr.binderId -> Left(v)
+          
+          val altValues = alts.map { case (c,r,f) =>
+            val rs = f(e0)
+            
+            reificationContext ++= rs.map(r => r._2.bound -> r._2)
+            bindings ++= rs.map(r => r._1 -> Left(r._2.bound))
+            
+            (c, rs.size, r)
+          }
+          mkCase(e0, altValues.map { case (con,arity,rhs) =>
+            (con match {
+              case AltDataCon(name) => name
+              case AltDefault => "_"
+              case AltLit(_) => ??? // TODO
+            },
+            arity,
+            rhs)
+          })
+        } finally reificationContext = old
+        */
+      }
+      def EType(ty: Type): Expr = DummyRead
+      
+      def Alt(altCon: AltCon, altBinders: Seq[Binder], altRHS: => Expr): Alt = {
+        (altCon, () => altRHS, r => altBinders.zipWithIndex.map(b => b._1.binderId ->
+          CtorField(
+            r,
+            altCon.asInstanceOf[AltDataCon] // FIXME properly handle the alternatives
+              .name,
+            b._2).mkRefNamed("σ")
+        ).toMap)
+      }
+      
+      def LitInteger(n: Int): Lit = IntLit(false, n)
+      def MachInt(n: Int): Lit = IntLit(true, n)
+      def MachStr(s: String): Lit = StrLit(true, s)
+      
+    }
+    val mod = ghcdump.Reader(dump, GraphDumpInterpreter)
+    modName = Some(mod.moduleName)
+    
+    mod.moduleTopBindings.foreach { tb =>
+      val rv = DummyNode.mkRefNamed(tb.bndr.binderName)
+      moduleBindings += tb.bndr.binderId -> (tb.bndr.binderName -> rv)
+      GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
+    }
+    
+    GraphModule(mod.moduleName, mod.modulePhase,
+      mod.moduleTopBindings.iterator
+        .filter(_.bndr.binderName =/= "$trModule")
+        .map(tb => tb.bndr.binderName -> {
+          val (nme,rv) = moduleBindings(tb.bndr.binderId)
+          rv.rewireTo(tb.expr)
+          setMeaningfulName(tb.expr, nme)
+          rv
+        }).toList.reverse
+    )
+    
+  }
+  
+}
