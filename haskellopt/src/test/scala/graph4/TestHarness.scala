@@ -15,7 +15,7 @@ class TestHarness {
   def mkGraph =
     new GraphIR
   
-  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, interpret: Bool): Unit = {
+  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, interpret: Bool, prefixFilter: Str): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath_hs)) rm(writePath_hs)
@@ -26,7 +26,7 @@ class TestHarness {
     val loadingStartTime = System.nanoTime
     
     val go = new GraphLoader(mkGraph)
-    val mod = go.loadFromDump(filePath)
+    val mod = go.loadFromDump(filePath, prefixFilter)
     
     val loadingEndTime = System.nanoTime
     val loadingTime = loadingEndTime-loadingStartTime
@@ -148,6 +148,7 @@ class TestHarness {
             compileResult: Bool = true,
             dumpGraph: Bool = false,
             exec: Bool = false,
+            prefixFilter: Str = ""
            ): Unit = {
     import ghcdump._
     //if (exec) require(compileResult) // In fact, we may want to execute the interpreter only, and not any compiled code
@@ -174,7 +175,8 @@ class TestHarness {
     for (idxStr <- passes) {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
-      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"), compileResult, dumpGraph && (idxStr === "0000"), interpret = exec)
+      pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"),
+        compileResult, dumpGraph && (idxStr === "0000"), interpret = exec, prefixFilter = prefixFilter)
       if (compileResult && exec) %%(execPath)(pwd)
     }
     

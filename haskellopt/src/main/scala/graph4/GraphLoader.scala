@@ -28,7 +28,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
   
   val imports = mutable.Set.empty[String]
   
-  def loadFromDump(dump: FilePath): GraphModule = {
+  def loadFromDump(dump: FilePath, prefixFilter: Str): GraphModule = {
     
     var modName = Option.empty[String]
     val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, String -> Ref]
@@ -110,10 +110,11 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             bindings += bndr.binderId -> Left(v)
             () => {
               //println(s"LET' ${name} ${reificationContext}")
-              // TODO change reificationContext to point directly to the let-bound def
               val bod = rhs()
               setMeaningfulName(bod, name)
               rv.rewireTo(bod)
+              // Change context to point directly to the let-bound def (the indirection was only needed for recursive occurrences):
+              reificationContext += v -> Lazy(bod)
               body()
             }
         }()
@@ -187,7 +188,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
           rv.rewireTo(tb.expr)
           setMeaningfulName(tb.expr, nme)
           rv
-        }).toList.reverse
+        }).toList.reverse.filter(_._1.startsWith(prefixFilter))
     )
     
   }

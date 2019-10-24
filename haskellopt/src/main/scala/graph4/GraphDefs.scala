@@ -10,84 +10,11 @@ import scala.annotation.tailrec
 
 abstract class GraphDefs { self: GraphIR =>
   
-  /* Better to keep the definitions ordered, for easier reading of output code.
-   * Unfortunately, it seems we get them in mangled order from GHC. */
-  case class GraphModule(modName: Str, modPhase: Str, modDefs: List[Str -> NodeRef]) {
-    private var uniqueCount = 0
-    def nextUnique = uniqueCount alsoDo {uniqueCount += 1} // move somewhere else?
-    
-    /** There might be cyclic subgraphs (due to recursion or sel-feed) which are no longer reachable
-      * but still point to reachable nodes.
-      * I'd like to keep everything deterministic so I prefer to avoid using weak references,
-      * and to instead call this special gc() function from time to time.
-      * TODO actually call it */
-    def gc(): Unit = {
-      // TODO
-      checkRefs()
-    }
-    def checkRefs(): Unit = {
-      // TODO
-    }
-    
-    def simplify(): Bool = {
-      
-      var changed = false
-      val traversed = mutable.Set.empty[NodeRef]
-      
-      def rec(ref: NodeRef): Unit = {
-        
-        def again(): Unit = {
-          changed = true
-          //scala.util.control.Breaks.break()
-          // Note: commenting the following (or worse, uncommenting the above) will make some tests slow as they will print many more steps
-          traversed -= ref; rec(ref)
-        }
-        
-        traversed.setAndIfUnset(ref, ref.node match {
-          case Control(i0, r @ NodeRef(Control(i1, body))) =>
-            ref.node = Control(i0 `;` i1, body)
-          case App(lr @ NodeRef(l: Lam), arg) =>
-            if (lr.references.size === 1) {
-              assert(lr.references.head === ref)
-              
-              // Note: can't actually perform an in-place replacement:\
-              // the lambda may have been reduced before, and also its scope would become mangled (due to the captures/pop nodes)
-              
-              val v = l.param
-              val cid = new CallId(v, nextUnique)
-              l.paramRef.node = Control(Drop(Id)(cid), arg)
-              ref.node = Control(Push(cid,Id,Id), l.body)
-              
-              again()
-            }
-            else {
-              val v = l.param
-              val cid = new CallId(v, nextUnique)
-              //l.paramRef = new NodeRef(Branch(Id, Map(cid -> arg))) // stupid
-              ref.rewireTo(l.body)
-              ???
-              again()
-            }
-          case _ =>
-            //println(s"Users of $ref: ${ref.references}")
-            ref.children.foreach(rec)
-        })
-        
-      }
-      modDefs.foreach(_._2 |> rec)
-      
-      changed
-    }
-    
-    def show: Str = s"module $modName where" + modDefs.map{ case(n,r) => s"\n $n = ${r.showGraph}" }.mkString("")
-    
-  }
-  
   sealed abstract class Node {
     
     def children: Iterator[NodeRef] = this match {
       case Control(i, b) => Iterator(b)
-      case Branch(i, ls) => ls.valuesIterator
+      case Branch(c, t, e) => Iterator(t, e)
       case Lam(p, b) => Iterator(b)
       case App(l, r) => Iterator(l, r)
       case Case(s, as) => Iterator(s) ++ as.iterator.map(_._2)
@@ -113,7 +40,7 @@ abstract class GraphDefs { self: GraphIR =>
     override def toString: Str = this match {
       case Control(Id, b) => s"[]${b.subString}"
       case Control(i, b) => s"[$i]${b.subString}"
-      case Branch(i, ls) => ??? // TODO
+      case Branch(c, t, e) => s"${c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(" & ")} ? $t ¿ $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => s"$n"
       case App(Ref(App(Ref(ModuleRef(m, op)), lhs)), rhs) if knownModule(m) && !op.head.isLetter =>
@@ -143,8 +70,7 @@ abstract class GraphDefs { self: GraphIR =>
     }
   }
   
-  // TODO actually Map[Instr, CallId]
-  case class Branch(i: Instr, legs: Map[CallId, NodeRef]) extends VirtualNode
+  case class Branch(cnd: Map[Instr, CallId], thn: Ref, els: Ref) extends VirtualNode
   
   sealed abstract class ConcreteNode extends Node
   
@@ -253,20 +179,22 @@ abstract class GraphDefs { self: GraphIR =>
     def unapply(arg: NodeRef): Some[Node] = Some(arg.node)
   }
   
-  class CallId(val v: Var, val uid: Int)
-  
-  object Instr {
+  class CallId(val v: Var, val uid: Int) {
+    import CallId._
+    def color =
+      //colors((uid + colors.size - 1) % colors.size)
+      colors(uid % colors.size)
+    override def toString = s"$color$v:${uid.toHexString}"
+  }
+  object CallId {
     private val colors = List(
       //Console.BLACK,
       Console.RED,Console.GREEN,Console.YELLOW,Console.BLUE,Console.MAGENTA,Console.CYAN,
       //Console.WHITE,Console.BLACK_B,Console.RED_B,Console.GREEN_B,Console.YELLOW_B,Console.BLUE_B,Console.MAGENTA_B,Console.CYAN_B
     ) ++ (for { i <- 90 to 96 } yield s"\u001b[$i;1m") // Some alternative color versions (https://misc.flogisoft.com/bash/tip_colors_and_formatting#colors)
-    private def colorOf(cid: CallId) =
-      //colors((cid.uid + colors.size - 1) % colors.size)
-      colors(cid.uid % colors.size)
   }
+  
   sealed abstract class Instr {
-    import Instr._
     import Console.{BOLD,RESET}
     
     def `;` (that: Instr): Instr =
@@ -297,9 +225,9 @@ abstract class GraphDefs { self: GraphIR =>
     override def toString: Str = this match {
       case Id => s"Id"
       case Pop(i) => s"$BOLD↓$RESET${i.thenString}"
-      case d @ Drop(i) => s"$BOLD${colorOf(d.originalCid)}∅$RESET${i.thenString}" // also see: Ø
-      case Push(c,Id,i) => s"$BOLD${colorOf(c)}${c.v}:${c.uid.toHexString}↑$RESET${i.thenString}"
-      case Push(c,p,i) => s"$BOLD${colorOf(c)}${c.v}:${c.uid.toHexString}↑$RESET$BOLD[$RESET${p}$BOLD]$RESET${i.thenString}"
+      case d @ Drop(i) => s"$BOLD${d.originalCid.color}∅$RESET${i.thenString}" // also see: Ø
+      case Push(c,Id,i) => s"$BOLD$c↑$RESET${i.thenString}"
+      case Push(c,p,i) => s"$BOLD$c↑$RESET$BOLD[$RESET${p}$BOLD]$RESET${i.thenString}"
     }
   }
   

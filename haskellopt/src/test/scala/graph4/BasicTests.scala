@@ -6,10 +6,9 @@ import org.scalatest.FunSuite
 class BasicTests extends FunSuite {
   object TestHarness extends TestHarness
   
-  // TODO allow selecting defs to test in isolation
-  
   test("Basics") {
     TestHarness("Basics", dumpGraph = true)
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "gTest")
   }
   
   test("BasicRec") {
