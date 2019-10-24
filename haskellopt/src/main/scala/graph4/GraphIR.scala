@@ -85,35 +85,57 @@ class GraphIR extends GraphDefs {
         }
         
         traversed.setAndIfUnset(ref, ref.node match {
+            
           case Control(i0, r @ NodeRef(Control(i1, body))) =>
             ref.node = Control(i0 `;` i1, body)
-          case App(lr @ NodeRef(l: Lam), arg) =>
-            if (lr.references.size === 1) {
-              assert(lr.references.head === ref)
-              
-              // Note: can't actually perform an in-place replacement:\
-              // the lambda may have been reduced before, and also its scope would become mangled (due to the captures/pop nodes)
-              
-              val v = l.param
-              val cid = new CallId(v, nextUnique)
-              l.paramRef.node = Control(Drop(Id)(cid), arg)
-              ref.node = Control(Push(cid,Id,Id), l.body)
-              
-              again()
+            again()
+            
+          case App(fun, arg) =>
+            val ps = fun.newPathsToLambdas.toList
+            ps match {
+              case (p @ (i, cnd), lr) :: _ =>
+                println(s"$ref -- $cnd -->> [$i]$lr")
+                
+                assert(cnd.isEmpty) // TODO handle
+                // TODO update usedPathsToLambdas
+                
+                val l = lr.node.asInstanceOf[Lam]
+                assert(l.paramRef.pathsToLambdas.isEmpty)
+                
+                val v = l.param
+                val cid = new CallId(v, nextUnique)
+                val ctrl = Control(Push(cid,i,Id), l.body)
+                
+                if ((lr eq fun) && lr.references.size === 1) {
+                  // If `fun` is a directly applied one-shot lambda, we need less ceremony.
+                  // Note: Can't actually perform an in-place replacement:
+                  //       the lambda may have been reduced before,
+                  //       and also its scope would become mangled (due to the captures/pop nodes)
+                  assert(cnd.isEmpty)
+                  assert(lr.references.head === ref)
+                  
+                  l.paramRef.node = Control(Drop(Id)(cid), arg)
+                  ref.node = ctrl
+                  // no need to update l.paramRef since the lambda is now supposed to be unused
+                  assert(lr.references.isEmpty, lr.references)
+                  
+                } else {
+                  
+                  val newOcc = v.mkRefNamed(v.name+"_ε")
+                  l.paramRef.node = Branch(Map(Id -> cid), Control.mkRef(Drop(Id)(cid), arg), newOcc)
+                  l.paramRef = newOcc
+                  ref.node = ctrl
+                  
+                }
+                again()
+              case Nil =>
+                ref.children.foreach(rec)
             }
-            else {
-              val v = l.param
-              val cid = new CallId(v, nextUnique)
-              //l.paramRef = Branch(Id, Map(cid -> Control.mkRef(Drop(Id)(cid), arg))).mkRefNamed("Φ")
-              val newOcc = v.mkRefNamed("ε")
-              l.paramRef.node = Branch(Map(Id -> cid), Control.mkRef(Drop(Id)(cid), arg), newOcc)
-              l.paramRef = newOcc
-              ref.node = Control(Push(cid,Id,Id), l.body)
-              again()
-            }
+            
           case _ =>
             //println(s"Users of $ref: ${ref.references}")
             ref.children.foreach(rec)
+            
         })
         
       }

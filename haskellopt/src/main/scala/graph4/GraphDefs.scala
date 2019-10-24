@@ -10,6 +10,15 @@ import scala.annotation.tailrec
 
 abstract class GraphDefs { self: GraphIR =>
   
+  type Condition = Map[Instr, CallId]
+  
+  type Path = (Instr, Condition)
+  object Path {
+    def empty: Path = (Id, Map.empty)
+    def throughControl(in: Instr, p: Path): Path =
+      (in `;` p._1, p._2.map{ case (i, c) => (in `;` i, c) })
+  }
+  
   sealed abstract class Node {
     
     def children: Iterator[NodeRef] = this match {
@@ -40,7 +49,8 @@ abstract class GraphDefs { self: GraphIR =>
     override def toString: Str = this match {
       case Control(Id, b) => s"[]${b.subString}"
       case Control(i, b) => s"[$i]${b.subString}"
-      case Branch(c, t, e) => s"${c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(" & ")} ? $t ¿ $e"
+      case Branch(c, t, e) => s"${c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }
+        .mkString(Console.BOLD + " & ")} ${Console.BOLD}?${Console.RESET} $t ${Console.BOLD}¿${Console.RESET} $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => s"$n"
       case App(Ref(App(Ref(ModuleRef(m, op)), lhs)), rhs) if knownModule(m) && !op.head.isLetter =>
@@ -70,7 +80,7 @@ abstract class GraphDefs { self: GraphIR =>
     }
   }
   
-  case class Branch(cnd: Map[Instr, CallId], thn: Ref, els: Ref) extends VirtualNode
+  case class Branch(cnd: Condition, thn: Ref, els: Ref) extends VirtualNode
   
   sealed abstract class ConcreteNode extends Node
   
@@ -103,16 +113,48 @@ abstract class GraphDefs { self: GraphIR =>
   
   
   class NodeRef(private var _node: Node, var name: Opt[Str] = None) {
-    def children: Iterator[NodeRef] = _node.children
+    
     var references: List[NodeRef] = Nil
-    def addrefs(): Unit = {
-      children.foreach(_.references ::= this)
-    }
-    def remrefs(): Unit = {
-      children.foreach(_.unref(this))
+    
+    /** Only control and branch nodes maintain their known paths to lambdas. */
+    val pathsToLambdas: mutable.Map[Path, NodeRef] = mutable.Map.empty
+    val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
+    def newPathsToLambdas: Iterator[Path -> Ref] =
+      pathsToLambdas.iterator.filterNot(_._1 |> usedPathsToLambdas)
+    
+    node match {
+      case _: Lam => pathsToLambdas += Path.empty -> this
+      case _ =>
     }
     addrefs()
-    def unref(ref: NodeRef): Unit = {
+    
+    def children: Iterator[NodeRef] = _node.children
+    
+    def addrefs(): Unit = {
+      children.foreach(_.addref(this))
+    }
+    def remrefs(): Unit = {
+      children.foreach(_.remref(this))
+    }
+    def addref(ref: NodeRef): Unit = {
+      references ::= ref
+      
+      // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
+      ref.node match {
+        case Control(i, b) =>
+          assert(b eq this)
+          pathsToLambdas.foreach { case (p, l) =>
+            val newPath = Path.throughControl(i, p)
+            assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
+            ref.pathsToLambdas += newPath -> l
+          }
+        case Branch(c, t, e) =>
+          // TODO
+        case _ =>
+      }
+      
+    }
+    def remref(ref: NodeRef): Unit = {
       def go(refs: List[NodeRef]): List[NodeRef] = refs match {
         case `ref` :: rs => rs
         case r :: rs => r :: go(rs)
@@ -179,12 +221,13 @@ abstract class GraphDefs { self: GraphIR =>
     def unapply(arg: NodeRef): Some[Node] = Some(arg.node)
   }
   
+  import CallId._, Console.{BOLD,RESET}
+  
   class CallId(val v: Var, val uid: Int) {
-    import CallId._
     def color =
       //colors((uid + colors.size - 1) % colors.size)
       colors(uid % colors.size)
-    override def toString = s"$color$v:${uid.toHexString}"
+    override def toString = s"$color$v:${uid.toHexString}$RESET"
   }
   object CallId {
     private val colors = List(
@@ -195,7 +238,6 @@ abstract class GraphDefs { self: GraphIR =>
   }
   
   sealed abstract class Instr {
-    import Console.{BOLD,RESET}
     
     def `;` (that: Instr): Instr =
     //println(s"($this) ; ($that)") thenReturn (

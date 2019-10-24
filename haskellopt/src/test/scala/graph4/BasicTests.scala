@@ -9,6 +9,7 @@ class BasicTests extends FunSuite {
   test("Basics") {
     TestHarness("Basics", dumpGraph = true)
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "gTest")
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "fTest")
   }
   
   test("BasicRec") {

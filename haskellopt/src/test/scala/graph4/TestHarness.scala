@@ -74,8 +74,7 @@ class TestHarness {
     //  })
     
     /* Tries reducing some more...: */
-    //go.Graph.betaReduced.clear()
-    //while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false))) ite += 1
+    //while (mod.simplify()) ite += 1
     
     println(s"--- Final Graph (${ite}) ---")
     
