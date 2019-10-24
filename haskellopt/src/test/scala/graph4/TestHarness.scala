@@ -87,7 +87,8 @@ class TestHarness {
     
     val graphStr = mod.show
     println(graphStr)
-    if (dumpGraph) write(writePath_graph, graphStr, createFolders = true)
+    val graphText = graphStr.replaceAll("\u001B\\[[;\\d]*m", "") // remove ASCII color codes (https://stackoverflow.com/a/14652763/1518588)
+    if (dumpGraph) write(writePath_graph, graphText, createFolders = true)
     
     if (interpret) {
       println("--- Interpreted ---")
