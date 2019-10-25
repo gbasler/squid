@@ -220,8 +220,15 @@ abstract class GraphDefs { self: GraphIR =>
       Iterator.single(this) ++ node.children.flatMap(_.mkIterator)
     }, Iterator.empty)
     
-    // TODO always show constants inline
-    def toBeShownInline: Bool = !showFull && node.canBeShownInline && references.size <= 1
+    def toBeShownInline: Bool = (
+      !showFull
+      && node.canBeShownInline
+      && (
+        node.isSimple && !node.isInstanceOf[Control]
+        // ^ always show simple nodes like constants and variables inline, except for controls
+        || references.size <= 1
+      )
+    )
     
     def showGraph: Str = showGraph()
     def showGraph(printRefCounts: Bool = true, showRefs: Bool = showRefs): Str = s"$this" + {
