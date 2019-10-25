@@ -15,7 +15,7 @@ class TestHarness {
   def mkGraph =
     new GraphIR
   
-  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, checks: Seq[CheckDSL], interpret: Bool, prefixFilter: Str): Unit = {
+  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, checks: Seq[CheckDSL], interpret: Bool, schedule: Bool, prefixFilter: Str): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath_hs)) rm(writePath_hs)
@@ -117,6 +117,8 @@ class TestHarness {
       */
     }
     
+    if (!schedule) return
+    
     val scheduleStartTime = System.nanoTime
     
     //println(mod.show)
@@ -161,6 +163,7 @@ class TestHarness {
             compileResult: Bool = true,
             dumpGraph: Bool = false,
             exec: Bool = false,
+            schedule: Bool = true,
             prefixFilter: Str = ""
            )(checks: CheckDSL*): Unit = {
     import ghcdump._
@@ -189,7 +192,7 @@ class TestHarness {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"),
-        compileResult, dumpGraph && (idxStr === "0000"), checks, interpret = exec, prefixFilter = prefixFilter)
+        compileResult, dumpGraph && (idxStr === "0000"), checks, interpret = exec, schedule = schedule, prefixFilter = prefixFilter)
       if (compileResult && exec) %%(execPath)(pwd)
     }
     

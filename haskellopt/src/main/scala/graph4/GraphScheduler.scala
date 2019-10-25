@@ -56,16 +56,42 @@ abstract class GraphScheduler { self: GraphIR =>
       |
       |${imports.map("import "+_).mkString("\n")}
       |
-      |${mod.modDefs.map(d => s"${d._1} = undefined").mkString("\n")}
+      |${modDefs.map(d => d.stringify).mkString("\n\n")}
       |""".tail.stripMargin
-      //|${topLevelRepsOrdered.map(_.defn.value.stringify).mkString("\n\n")}
-      //
       //|-- Apps: ${mod.Stats.apps}; Lams: ${mod.Stats.lams}; Unreduced Redexes: ${mod.Stats.unreducedRedexes}
     }
     
     override def toString =
       s"module ${mod.modName} ???" // TODO
       //s"module ${mod.modName}${topLevelRepsOrdered.map("\n\t"+_.stringify).mkString}"
+    
+    
+    val modDefs: List[AST.Defn] = mod.modDefs.map { case (name, ref) =>
+      
+      def rec(ref: Ref)(implicit ictx: Instr): AST.Expr = ref.node match {
+        case Control(i,b) =>
+          rec(b)(ictx `;` i)
+        case Branch(c,t,e) =>
+          if (Condition.test_!(c,ictx)) rec(t) else rec(e)
+        case App(l,r) =>
+          AST.App(rec(l), rec(r))
+        case l @ Lam(_,b) =>
+          AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
+        case v: Var => AST.Vari(v) //AST.mkIdent(v.name)
+        case IntLit(true, n) => AST.Inline(n.toString)
+        case IntLit(false, n) => AST.Inline(s"$n#")
+        case StrLit(true, s) => AST.Inline(s.toString)
+        case StrLit(false, s) => AST.Inline(s"$s#")
+        case ModuleRef(m, n) => AST.Inline(s"$m.$n")
+        case Case(s,as) => ???
+        case CtorField(s,c,i) => ???
+      }
+      val e = rec(ref)(Id)
+      
+      new AST.Defn(bindVal(name), Nil, e)
+      
+    }
+    
     
   }
   

@@ -18,7 +18,9 @@ class BasicTests extends FunSuite {
   )
   
   test("BasicRec") (
-    TestHarness("BasicRec", dumpGraph = true)
+    TestHarness("BasicRec", dumpGraph = true,
+      schedule = false // TODO schedule recursive functions
+    )
     (
       // TODO checks
     )

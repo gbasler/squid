@@ -166,9 +166,9 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         ).toMap)
       }
       
-      def LitInteger(n: Int): Lit = IntLit(false, n)
-      def MachInt(n: Int): Lit = IntLit(true, n)
-      def MachStr(s: String): Lit = StrLit(true, s)
+      def LitInteger(n: Int): Lit = IntLit(true, n)
+      def MachInt(n: Int): Lit = IntLit(false, n)
+      def MachStr(s: String): Lit = StrLit(false, s)
       
     }
     val mod = ghcdump.Reader(dump, GraphDumpInterpreter)
