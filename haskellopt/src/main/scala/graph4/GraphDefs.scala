@@ -344,32 +344,28 @@ abstract class GraphDefs { self: GraphIR =>
   
   def showGraphOf(refs: Iterator[Ref], modDefNames: Map[Ref, Str], printRefCounts: Bool, showRefs: Bool): Str = {
     val iterator = refs.flatMap(_.iterator)
-    val toShow = iterator.toList.distinct.flatMap { r =>
-      val inl = r.toBeShownInline
-      modDefNames.get(r) match {
+    iterator.toList.distinct.flatMap { r =>
+      (modDefNames.get(r) match {
         case Some(defName) =>
           //val defStr = s"\n$BOLD → \t$defName$RESET = $r"
           val defStr = s"\n$BOLD  $defName$RESET = $r"
-          if (showFull || !inl) Left(defStr) :: Right(r) :: Nil
-          else Left(defStr) :: Nil
-        case None =>
-          if (showFull || !inl) Right(r) :: Nil
-          else Nil
-      }
-    }
-    toShow.map {
-      case Left(defStr) => defStr
-      case Right(r) =>
-        val rhs = r.node
-        val headStr = s"\n\t$r"
-        val str =
-          if (showRefs) s"$headStr = $rhs;\t\t\t\t{${r.references.mkString(",")}}"
-          else if (printRefCounts && r.references.size > 1) s"$headStr = $rhs;\t\t\t\t\t(x${r.references.size})"
-          else s"$headStr = $rhs;"
-        if (showPaths) (str
-          + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
-          + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
-        ) else str
+          defStr :: Nil
+        case None => Nil
+      }) ::: (
+        if (showFull || !r.toBeShownInline) {
+          val rhs = r.node
+          val headStr = s"\n\t$r = $rhs;"
+          val str =
+            if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(",")}}"
+            else if (printRefCounts && r.references.size > 1) s"$headStr\t\t\t\t\t(x${r.references.size})"
+            else headStr
+          if (showPaths) (str
+            + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
+            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
+          ) else str
+        } :: Nil
+        else Nil
+      )
     }.mkString
   }
   
