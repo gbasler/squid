@@ -230,22 +230,8 @@ abstract class GraphDefs { self: GraphIR =>
       )
     )
     
-    def showGraph: Str = showGraph()
-    def showGraph(printRefCounts: Bool = true, showRefs: Bool = showRefs): Str = s"$this" + {
-      val defsStr = iterator.toList.distinct
-        .filter(showFull || !_.toBeShownInline)
-        .map { r =>
-          val rhs = r.node
-          val str =
-            if (showRefs) s"\n\t${r} = $rhs;\t\t\t\t{${r.references.mkString(",")}}"
-            else if (printRefCounts && r.references.size > 1) s"\n\t${r} = $rhs;\t\t\t\t\t(${r.references.size}x)"
-            else s"\n\t${r} = $rhs;"
-          if (showPaths) (str
-            + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
-            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
-          ) else str
-        }
-        .mkString
+    def showGraph: Str = s"$this" + {
+      val defsStr = showGraphOf(Iterator(this), Map.empty, true, showRefs)
       if (defsStr.isEmpty) "" else " where:" + defsStr
     }
     
@@ -353,6 +339,38 @@ abstract class GraphDefs { self: GraphIR =>
   case object Id extends TransitiveControl {
     /** It's sometimes useful to rewire a node to another node, without having to duplicate its Def! */
     def apply(r: NodeRef) = Control(Id,r)
+  }
+  
+  
+  def showGraphOf(refs: Iterator[Ref], modDefNames: Map[Ref, Str], printRefCounts: Bool, showRefs: Bool): Str = {
+    val iterator = refs.flatMap(_.iterator)
+    val toShow = iterator.toList.distinct.flatMap { r =>
+      val inl = r.toBeShownInline
+      modDefNames.get(r) match {
+        case Some(defName) =>
+          //val defStr = s"\n$BOLD → \t$defName$RESET = $r"
+          val defStr = s"\n$BOLD  $defName$RESET = $r"
+          if (showFull || !inl) Left(defStr) :: Right(r) :: Nil
+          else Left(defStr) :: Nil
+        case None =>
+          if (showFull || !inl) Right(r) :: Nil
+          else Nil
+      }
+    }
+    toShow.map {
+      case Left(defStr) => defStr
+      case Right(r) =>
+        val rhs = r.node
+        val headStr = s"\n\t$r"
+        val str =
+          if (showRefs) s"$headStr = $rhs;\t\t\t\t{${r.references.mkString(",")}}"
+          else if (printRefCounts && r.references.size > 1) s"$headStr = $rhs;\t\t\t\t\t(x${r.references.size})"
+          else s"$headStr = $rhs;"
+        if (showPaths) (str
+          + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
+          + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
+        ) else str
+    }.mkString
   }
   
 }

@@ -17,8 +17,11 @@ class GraphIR extends GraphDefs {
   val showFull: Bool = false
   //val showFull: Bool = true
   
+  val showRefCounts: Bool = true
+  //val showRefCounts: Bool = false
+  
   val showRefs: Bool = false
-  //val printRefs: Bool = true
+  //val showRefs: Bool = true
   
   val strictCallIdChecking = true
   
@@ -155,8 +158,10 @@ class GraphIR extends GraphDefs {
       changed
     }
     
-    // FIXME don't repeat shared defs!
-    def show: Str = s"module $modName where" + modDefs.map{ case(n,r) => s"\n $n = ${r.showGraph}" }.mkString("")
+    def showGraph: Str = showGraph()
+    def showGraph(showRefCounts: Bool = showRefCounts, showRefs: Bool = showRefs): Str =
+      s"${Console.BOLD}module $modName where${Console.RESET}" +
+        showGraphOf(modDefs.iterator.flatMap(_._2.iterator), modDefs.iterator.map(_.swap).toMap, showRefCounts, showRefs)
     
   }
   

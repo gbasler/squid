@@ -45,7 +45,7 @@ class TestHarness {
       
       if (go.Graph.RewriteDebug.isDebugEnabled) {
         println(s"--- Graph ${ite} ---")
-        println(mod.show)
+        println(mod.showGraph)
         println(s"--- / ---")
         Thread.sleep(100)
       }
@@ -84,7 +84,7 @@ class TestHarness {
     val rewriteTime = rewriteEndTime-rewriteStartTime
     println(s"Rewrite time: ${rewriteTime/1000/1000} ms")
     
-    val graphStr = mod.show
+    val graphStr = mod.showGraph
     println(graphStr)
     val graphText = graphStr.replaceAll("\u001B\\[[;\\d]*m", "") // remove ASCII color codes (https://stackoverflow.com/a/14652763/1518588)
     if (dumpGraph) write(writePath_graph, graphText, createFolders = true)
