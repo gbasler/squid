@@ -1,3 +1,5 @@
+-- Beta reductions:  52
+-- Incl. one-shot:  2
 module Basics where
   foo = []λ_101
     λ_101 = \x'15 -> β_fc + β_fc;

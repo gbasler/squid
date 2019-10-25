@@ -75,6 +75,9 @@ class GraphIR extends GraphDefs {
     private var uniqueCount = 0
     def nextUnique = uniqueCount alsoDo {uniqueCount += 1} // move somewhere else?
     
+    var betaReductions: Int = 0
+    var oneShotBetaReductions: Int = 0
+    
     /** There might be cyclic subgraphs (due to recursion or sel-feed) which are no longer reachable
       * but still point to reachable nodes.
       * I'd like to keep everything deterministic so I prefer to avoid using weak references,
@@ -119,6 +122,8 @@ class GraphIR extends GraphDefs {
               case Some((p @ (i, cnd), lr)) =>
                 println(s"$ref -- $cnd -->> [$i]$lr")
                 
+                betaReductions += 1
+                
                 val l = lr.node.asInstanceOf[Lam]
                 assert(l.paramRef.pathsToLambdas.isEmpty)
                 
@@ -133,6 +138,8 @@ class GraphIR extends GraphDefs {
                   //       and also its scope would become mangled (due to the captures/pop nodes)
                   assert(cnd.isEmpty)
                   assert(lr.references.head === ref)
+                  
+                  oneShotBetaReductions += 1
                   
                   l.paramRef.node = Control(Drop(Id)(cid), arg)
                   ref.node = ctrl

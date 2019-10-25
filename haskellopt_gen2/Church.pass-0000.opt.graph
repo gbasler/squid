@@ -1,3 +1,5 @@
+-- Beta reductions:  36
+-- Incl. one-shot:  0
 module Church where
   zero_x_three = [n'16:a↑[m'15:0↑]]β_45
     β_45 = [↓]m'15:0 ? [z'4:b↑[s'3:1↑[↓;∅]]]z_12 ¿ _ε_6f;					(x3)

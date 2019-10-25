@@ -1,3 +1,5 @@
+-- Beta reductions:  8
+-- Incl. one-shot:  0
 module BasicRec where
   nrec_0 = []λ_4b
     λ_4b = \x'11 -> [y'13:0↑]β_48;
