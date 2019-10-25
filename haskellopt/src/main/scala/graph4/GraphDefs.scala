@@ -79,7 +79,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case _ => isSimple
     }
     def isSimple: Bool = this match {
-      case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => true
+      case IntBoxing(_) => true
       case _: ConstantNode | _: Var | _: CtorField => true
       case _: Control => true // so we don't need parens in things like `[a][b](...)` or `f @ [a](...)`
       case _ => false
@@ -91,7 +91,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case Branch(c, t, e) => s"${c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }
         .mkString(Console.BOLD + " & ")} ${Console.BOLD}?${Console.RESET} $t ${Console.BOLD}¿${Console.RESET} $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
-      case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => s"$n"
+      case IntBoxing(n) => s"$n"
       case App(Ref(App(Ref(ModuleRef(m, op)), lhs)), rhs) if knownModule(m) && !op.head.isLetter =>
         s"${lhs.subString} $op ${rhs.subString}"
       case App(Ref(ModuleRef(m, op)), lhs) if knownModule(m) && !op.head.isLetter =>
@@ -150,6 +150,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   case class IntLit(boxed: Bool, value: Int) extends Lit
   case class StrLit(boxed: Bool, value: Str) extends Lit
   
+  object IntBoxing {
+    def unapply(nde: Node): Opt[Int] = nde |>? {
+      case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => n
+    }
+  }
   
   class NodeRef(private var _node: Node, var name: Opt[Str] = None) {
     

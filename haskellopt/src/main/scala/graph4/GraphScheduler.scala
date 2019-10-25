@@ -73,6 +73,7 @@ abstract class GraphScheduler { self: GraphIR =>
           rec(b)(ictx `;` i)
         case Branch(c,t,e) =>
           if (Condition.test_!(c,ictx)) rec(t) else rec(e)
+        case IntBoxing(n) => AST.Inline(n.toString)
         case App(l,r) =>
           AST.App(rec(l), rec(r))
         case l @ Lam(_,b) =>
