@@ -369,7 +369,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       }) ::: (
         if (showFull || !r.toBeShownInline) {
           val rhs = r.node
-          val headStr = s"\n\t$r = $rhs;"
+          val headStr = s"\n    $r = $rhs;"
           val str =
             if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(",")}}"
             else if (printRefCounts && r.references.size > 1) s"$headStr\t\t\t\t\t(x${r.references.size})"
