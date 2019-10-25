@@ -22,8 +22,15 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         k -> r
       }
     }
-    def throughControl(in: Instr, c: Condition): Condition = {
-      c.map{ case (i, c) => (in `;` i, c) }
+    /** Note that a condition might be incompatible with a given ambient instruction
+      * (for example, instruction `Push[a0]` and condition `a1?`);
+      * so in these cases this will return None. */
+    def throughControl(in: Instr, c: Condition): Opt[Condition] = {
+      Some(c.map{ case (i, c) =>
+        val newInstr = in `;` i // TODO can this ever fail? maybe if something ends up being propagated too far...
+        if (newInstr.lastCallId.exists(_ =/= c)) return None
+        (newInstr, c)
+      })
     }
     /** Must have full context; will crash if `ictx` is only partial. */
     def test_!(cnd: Condition, ictx: Instr): Bool = {
@@ -41,10 +48,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   type Path = (Instr, Condition)
   object Path {
     def empty: Path = (Id, Map.empty)
-    def throughControl(in: Instr, p: Path): Path = {
-      val newCond = Condition.throughControl(in, p._2)
+    def throughControl(in: Instr, p: Path): Opt[Path] = {
+      val newCond = Condition.throughControl(in, p._2).getOrElse(return None)
       if (newCond.size =/= p._2.size) die // TODO merge making sure compatible — and it may fail!
-      (in `;` p._1, newCond)
+      Some((in `;` p._1, newCond))
     }
     def throughBranchLHS(cnd: Condition, p: Path): Option[Path] =
       Condition.merge(cnd, p._2).map((p._1, _))
@@ -191,9 +198,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case Control(i, b) =>
           assert(b eq this)
           pathsToLambdas.foreach { case (p, l) =>
-            val newPath = Path.throughControl(i, p)
-            assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
-            ref.pathsToLambdas += newPath -> l
+            //println(s"> $this tells $ref about $p")
+            Path.throughControl(i, p).foreach { newPath =>
+              assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
+              ref.pathsToLambdas += newPath -> l
+            }
           }
           ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>

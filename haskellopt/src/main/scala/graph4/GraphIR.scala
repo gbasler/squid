@@ -101,6 +101,7 @@ class GraphIR extends GraphDefs {
             scala.util.control.Breaks.break()
           // Note: commenting the following (or worse, enabling the above) will make some tests slow as they will print many more steps
           traversed -= ref; rec(ref)
+          //ref.children.foreach(rec)
         }
         
         traversed.setAndIfUnset(ref, ref.node match {
@@ -150,7 +151,7 @@ class GraphIR extends GraphDefs {
                       def rec(f: Ref, ictx: Instr, curCnd: Condition): Ref = f.node match {
                         case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(f)
                         case Branch(c, t, e) =>
-                          val brCnd = Condition.throughControl(ictx, c)
+                          val brCnd = Condition.throughControl(ictx, c).get // not supposed to fail...(?)
                           val accepted = brCnd.forall{case(i,cid) => cnd.get(i).contains(cid)}
                           val newCnd = if (accepted) {
                             assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
