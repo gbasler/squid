@@ -51,6 +51,7 @@ abstract class GraphInterpreter { self: GraphIR =>
     /** Convert a Scala value into a value understood by the interpreter */
     def lift(value: Any): Value = value match {
       case n: Int => Int(n)
+      case 'S => Fun(x => Int(x.value.int + 1))
       case _ => lastWords(s"don't know how to lift $value")
     }
     

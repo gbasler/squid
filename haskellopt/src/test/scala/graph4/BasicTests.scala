@@ -40,4 +40,16 @@ class BasicTests extends FunSuite {
     )
   )
   
+  test("Church") (
+    TestHarness("Church", dumpGraph = true)
+    //TestHarness("Church", dumpGraph = true, prefixFilter = "two")
+    //TestHarness("Church", dumpGraph = true, prefixFilter = "two_x_three")
+    (
+      check('three_id, 42)(42),
+      check('two_p_three, 'S, 100)(105),
+      check('two_x_three, 'S, 100)(106),
+      check('zero_x_three, 'S, 100)(100),
+    )
+  )
+  
 }
