@@ -163,14 +163,16 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def addrefs(): Unit = {
       children.foreach(_.addref(this))
     }
-    def remrefs(): Unit = {
+    // Note: I'm not completely sure it's okay to stop early based on the `done` set (and so potentially not remove every ref?);
+    //       But I got some stack overflows here, so for now that's what we'll do.
+    def remrefs()(implicit done: mutable.HashSet[Ref] = mutable.HashSet.empty): Unit = done.setAndIfUnset(this, {
       children.foreach(_.remref(this))
-    }
+    })
     def addref(ref: NodeRef): Unit = {
       references ::= ref
-      propagatePaths(ref)
+      propagatePaths(ref)(mutable.HashSet.empty)
     }
-    def remref(ref: NodeRef): Unit = {
+    def remref(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = {
       def go(refs: List[NodeRef]): List[NodeRef] = refs match {
         case `ref` :: rs => rs
         case r :: rs => r :: go(rs)
@@ -179,7 +181,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       references = go(references)
       if (references.isEmpty) remrefs()
     }
-    def propagatePaths(ref: NodeRef): Unit = {
+    // TODO do propagate recursively but only if there was a change?
+    //   — currently done.setAndIfUnset makes us miss some reductions in HigherOrder ([↓]f_ε_115 @ λ_40)...
+    def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
+      //println(s"> $this tells $ref")
       
       // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
       ref.node match {
@@ -206,7 +211,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case _ =>
       }
       
-    }
+    })
     def node: Node = _node
     def node_=(that: Node): Unit = {
       remrefs()
