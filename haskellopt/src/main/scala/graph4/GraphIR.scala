@@ -110,7 +110,10 @@ class GraphIR extends GraphDefs {
             again()
             
           case App(fun, arg) =>
-            val ps = fun.pathsToLambdas.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
+            val ps = if (smartRewiring) fun.pathsToLambdas.headOption
+              // If we are not using smart rewiring, we need to keep track of which reductions have already been done: 
+              else fun.pathsToLambdas.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
+            
             ps match {
               case Some((p @ (i, cnd), lr)) =>
                 println(s"$ref -- $cnd -->> [$i]$lr")
@@ -162,9 +165,11 @@ class GraphIR extends GraphDefs {
                       rec(fun, Id, cnd)
                     } else fun
                     val rebuiltApp = App(rebuiltFun, arg).mkRefNamed("_ε")
-                    rebuiltApp.usedPathsToLambdas ++= ref.usedPathsToLambdas
-                    ref.usedPathsToLambdas.clear()
-                    rebuiltApp.usedPathsToLambdas += p
+                    if (!smartRewiring) {
+                      rebuiltApp.usedPathsToLambdas ++= ref.usedPathsToLambdas
+                      ref.usedPathsToLambdas.clear()
+                      rebuiltApp.usedPathsToLambdas += p
+                    }
                     ref.node = Branch(cnd, ctrl.mkRef, rebuiltApp)
                   }
                   
