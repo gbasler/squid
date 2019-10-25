@@ -2,7 +2,7 @@ package graph4
 
 import squid.utils._
 
-abstract class GraphInterpreter { self: GraphIR =>
+abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
   
   class Interpreter extends PublicTraceDebug {
     

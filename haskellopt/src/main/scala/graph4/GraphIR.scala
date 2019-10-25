@@ -68,6 +68,8 @@ class GraphIR extends GraphDefs {
   val DummyVar = new Var("<dummy>", -1)
   val DummyCallId = new CallId(DummyVar, -1) // TODO rm? or use
   
+  val WildcardVal = new Var("_", -2)
+  
   
   /* Better to keep the `modDefs` definitions ordered, for easier reading of output code.
    * Unfortunately, it seems we get them in mangled order from GHC. */
@@ -77,6 +79,8 @@ class GraphIR extends GraphDefs {
     
     var betaReductions: Int = 0
     var oneShotBetaReductions: Int = 0
+    
+    def nodes = modDefs.iterator.flatMap(_._2.iterator)
     
     /** There might be cyclic subgraphs (due to recursion or sel-feed) which are no longer reachable
       * but still point to reachable nodes.
@@ -204,7 +208,26 @@ class GraphIR extends GraphDefs {
     def showGraph: Str = showGraph()
     def showGraph(showRefCounts: Bool = showRefCounts, showRefs: Bool = showRefs): Str =
       s"${Console.BOLD}module $modName where${Console.RESET}" +
-        showGraphOf(modDefs.iterator.flatMap(_._2.iterator), modDefs.iterator.map(_.swap).toMap, showRefCounts, showRefs)
+        showGraphOf(nodes, modDefs.iterator.map(_.swap).toMap, showRefCounts, showRefs)
+    
+    object Stats {
+      val (tot, lams, apps, boxes, brans) = {
+        var tot, lams, apps, boxes, brans = 0
+        nodes.map(_.node alsoDo {tot += 1}).foreach {
+          case _: Lam =>
+            lams += 1
+          case _: App =>
+            apps += 1
+          case _: Control =>
+            boxes += 1
+          case _: Branch =>
+            brans += 1
+          case _ =>
+        }
+        (tot, lams, apps, boxes, brans)
+      }
+      //val unreducedRedexes =  // TODO port from v3?
+    }
     
   }
   

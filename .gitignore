@@ -21,6 +21,7 @@ example/target/
 haskellopt/target/
 site/target/
 
+
 haskellopt_gen/*.hi
 haskellopt_gen/*.o
 haskellopt_gen/*.opt
@@ -33,9 +34,21 @@ haskellopt_gen/bench-doc/*.opt
 haskellopt/src/test/haskell/*
 !haskellopt/src/test/haskell/*.hs
 haskellopt/src/test/haskell/_perso*
+
+# -- Graph IR v4: --
+
+haskellopt_gen2/*.hi
+haskellopt_gen2/*.o
+haskellopt_gen2/*.opt
+haskellopt_gen2/bench/*
+haskellopt_gen2/bench-doc/*.hi
+haskellopt_gen2/bench-doc/*.o
+haskellopt_gen2/bench-doc/*.opt
+
 haskellopt/src/test/haskell2/*
 !haskellopt/src/test/haskell2/*.hs
 haskellopt/src/test/haskell2/_perso*
+
 
 lib_managed/
 src_managed/

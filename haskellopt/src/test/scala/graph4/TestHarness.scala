@@ -117,14 +117,12 @@ class TestHarness {
       */
     }
     
-    // TODO scheduling
-    /*
     val scheduleStartTime = System.nanoTime
     
     //println(mod.show)
     val sch = 
       //go.Graph.HaskellScheduleDebug debugFor
-      go.Graph.scheduleRec(mod)
+      go.Graph.schedule(mod)
     
     val scheduleEndTime = System.nanoTime
     val scheduleTime = scheduleEndTime-scheduleStartTime
@@ -153,7 +151,7 @@ class TestHarness {
       s" = ${(loadingTime + rewriteTime + scheduleTime + stringifyTime)/1000/1000} ms\n")
     
     if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
-    */
+    
   }
   
   def apply(testName: String,
