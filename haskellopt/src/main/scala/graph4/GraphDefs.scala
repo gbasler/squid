@@ -22,10 +22,18 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         k -> r
       }
     }
+    def throughControl(in: Instr, c: Condition): Condition = {
+      c.map{ case (i, c) => (in `;` i, c) }
+    }
     /** Must have full context; will crash if `ictx` is only partial. */
     def test_!(cnd: Condition, ictx: Instr): Bool = {
       cnd.forall { case (i,c) =>
         (ictx `;` i).lastCallId.get === c
+      }
+    }
+    def test(cnd: Condition, ictx: Instr): Opt[Bool] = Some {
+      cnd.forall { case (i,c) =>
+        (ictx `;` i).lastCallId.getOrElse(return None) === c
       }
     }
   }
@@ -34,8 +42,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   object Path {
     def empty: Path = (Id, Map.empty)
     def throughControl(in: Instr, p: Path): Path = {
-      val newCond = p._2.map{ case (i, c) => (in `;` i, c) }
-      if (newCond.size =/= p._2.size) die // TODO merge making sure compatible — fallible!
+      val newCond = Condition.throughControl(in, p._2)
+      if (newCond.size =/= p._2.size) die // TODO merge making sure compatible — and it may fail!
       (in `;` p._1, newCond)
     }
     def throughBranchLHS(cnd: Condition, p: Path): Option[Path] =
@@ -56,6 +64,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     
     def mkRef = new NodeRef(this)
     def mkRefNamed(name: Str) = new NodeRef(this, Some(name))
+    def mkRefFrom(r: Ref) = new NodeRef(this, r.name)
     
     def canBeShownInline: Bool = this match {
       //case _: Control | _: App => true

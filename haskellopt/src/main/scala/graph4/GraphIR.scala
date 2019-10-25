@@ -23,7 +23,16 @@ class GraphIR extends GraphDefs {
   val showRefs: Bool = false
   //val showRefs: Bool = true
   
+  val smartRewiring = true
+  //val smartRewiring = false
+  
   val strictCallIdChecking = true
+  
+  /** Determines whether multiple reductions are performed with each simplification pass.
+    * If logging of the rewritten graphs is enabled, doing only one step at a time will be much slower,
+    * but it will make things easier to understand and debug. */
+  val multiStepReductions = true
+  //val multiStepReductions = false
   
   
   type Ref = NodeRef
@@ -79,7 +88,7 @@ class GraphIR extends GraphDefs {
       // TODO
     }
     
-    def simplify(): Bool = {
+    def simplify(): Bool = scala.util.control.Breaks tryBreakable {
       
       var changed = false
       val traversed = mutable.Set.empty[NodeRef]
@@ -88,8 +97,9 @@ class GraphIR extends GraphDefs {
         
         def again(): Unit = {
           changed = true
-          //scala.util.control.Breaks.break()
-          // Note: commenting the following (or worse, uncommenting the above) will make some tests slow as they will print many more steps
+          if (!multiStepReductions)
+            scala.util.control.Breaks.break()
+          // Note: commenting the following (or worse, enabling the above) will make some tests slow as they will print many more steps
           traversed -= ref; rec(ref)
         }
         
@@ -133,7 +143,25 @@ class GraphIR extends GraphDefs {
                   if (cnd.isEmpty) {
                     ref.node = ctrl
                   } else {
-                    val rebuiltApp = App(fun, arg).mkRefNamed("_ε")
+                    val rebuiltFun = if (smartRewiring) {
+                      def rec(f: Ref, ictx: Instr, curCnd: Condition): Ref = f.node match {
+                        case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(f)
+                        case Branch(c, t, e) =>
+                          val brCnd = Condition.throughControl(ictx, c)
+                          val accepted = brCnd.forall{case(i,cid) => cnd.get(i).contains(cid)}
+                          val newCnd = if (accepted) {
+                            assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
+                            curCnd -- brCnd.keysIterator
+                          } else curCnd
+                          if (newCnd.isEmpty) {
+                            if (accepted) e else t
+                          } else
+                          (if (accepted) Branch(c, rec(t, ictx, newCnd), e) else Branch(c, t, rec(e, ictx, newCnd))).mkRefFrom(f)
+                        case _ => die
+                      }
+                      rec(fun, Id, cnd)
+                    } else fun
+                    val rebuiltApp = App(rebuiltFun, arg).mkRefNamed("_ε")
                     rebuiltApp.usedPathsToLambdas ++= ref.usedPathsToLambdas
                     ref.usedPathsToLambdas.clear()
                     rebuiltApp.usedPathsToLambdas += p
@@ -156,7 +184,8 @@ class GraphIR extends GraphDefs {
       modDefs.foreach(_._2 |> rec)
       
       changed
-    }
+      
+    } catchBreak true
     
     def showGraph: Str = showGraph()
     def showGraph(showRefCounts: Bool = showRefCounts, showRefs: Bool = showRefs): Str =

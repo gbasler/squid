@@ -29,13 +29,13 @@ class TestHarness {
     val mod = go.loadFromDump(filePath, prefixFilter)
     
     val Inter = new go.Graph.Interpreter
-    def check(c: CheckDSL): Unit = {
+    def check(c: CheckDSL): Unit = if (c.fname.name.startsWith(prefixFilter)) {
       val liftedArgs = c.args.map(Inter.lift)
       val liftedValue = Inter.lift(c.value)
       val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
       val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
       println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
-      assert(applied === liftedValue)
+      assert(applied === liftedValue, s"Interpreter result $applied did not equal expected result $liftedValue")
     }
     
     val loadingEndTime = System.nanoTime

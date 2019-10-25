@@ -28,6 +28,7 @@ class BasicTests extends FunSuite {
     // Simplest example: run with prefixFilter = "hTest4"; hTest3 is similar but not reducible due to unsaturated functions...
     TestHarness("HigherOrder", dumpGraph = true)
     //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "hTest4")
+    //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "gTest0")
     //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "g")
     (
       check('hTest3)(-12),
