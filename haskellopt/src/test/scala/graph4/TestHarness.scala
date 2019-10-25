@@ -15,7 +15,7 @@ class TestHarness {
   def mkGraph =
     new GraphIR
   
-  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, interpret: Bool, prefixFilter: Str): Unit = {
+  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, checks: Seq[CheckDSL], interpret: Bool, prefixFilter: Str): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath_hs)) rm(writePath_hs)
@@ -27,6 +27,16 @@ class TestHarness {
     
     val go = new GraphLoader(mkGraph)
     val mod = go.loadFromDump(filePath, prefixFilter)
+    
+    val Inter = new go.Graph.Interpreter
+    def check(c: CheckDSL): Unit = {
+      val liftedArgs = c.args.map(Inter.lift)
+      val liftedValue = Inter.lift(c.value)
+      val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
+      val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
+      println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
+      assert(applied === liftedValue)
+    }
     
     val loadingEndTime = System.nanoTime
     val loadingTime = loadingEndTime-loadingStartTime
@@ -59,6 +69,8 @@ class TestHarness {
         println(s"Sanity check stopped with remaining fuel = $sanRes, given fuel = $sanityCheckFuel")
       */
       //println(go.Graph.scheduleRec(mod))
+      
+      checks.foreach(check)
       
       ite += 1
       
@@ -149,7 +161,7 @@ class TestHarness {
             dumpGraph: Bool = false,
             exec: Bool = false,
             prefixFilter: Str = ""
-           ): Unit = {
+           )(checks: CheckDSL*): Unit = {
     import ghcdump._
     //if (exec) require(compileResult) // In fact, we may want to execute the interpreter only, and not any compiled code
     
@@ -176,15 +188,23 @@ class TestHarness {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"),
-        compileResult, dumpGraph && (idxStr === "0000"), interpret = exec, prefixFilter = prefixFilter)
+        compileResult, dumpGraph && (idxStr === "0000"), checks, interpret = exec, prefixFilter = prefixFilter)
       if (compileResult && exec) %%(execPath)(pwd)
     }
     
   }
   
 }
+
 object Clean extends scala.App {
   object TestHarness extends TestHarness
   println(s"Cleaning...")
   ls(TestHarness.dumpFolder) |? (_.ext === "md5") |! { p => println(s"Removing $p"); os.remove(p) }
+}
+
+case class CheckDSL(fname: Symbol, args: Seq[Any], value: Any) {
+  override def toString = fname.name + args.map(" "+_).mkString
+}
+object CheckDSL {
+  def check(fname: Symbol, args: Any*)(value: Any): CheckDSL = CheckDSL(fname, args, value)
 }

@@ -8,7 +8,7 @@ import squid.utils.CollectionUtils.IteratorHelper
 
 import scala.annotation.tailrec
 
-abstract class GraphDefs { self: GraphIR =>
+abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   type Condition = Map[Instr, CallId]
   object Condition {
@@ -20,6 +20,12 @@ abstract class GraphDefs { self: GraphIR =>
         assert(l.v === r.v)
         if (l =/= r) return None
         k -> r
+      }
+    }
+    /** Must have full context; will crash if `ictx` is only partial. */
+    def test_!(cnd: Condition, ictx: Instr): Bool = {
+      cnd.forall { case (i,c) =>
+        (ictx `;` i).lastCallId.get === c
       }
     }
   }
