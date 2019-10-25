@@ -158,9 +158,10 @@ class GraphIR extends GraphDefs {
                       def rec(f: Ref, ictx: Instr, curCnd: Condition): Ref = f.node match {
                         case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(f)
                         case Branch(c, t, e) =>
-                          val brCnd = Condition.throughControl(ictx, c).get // not supposed to fail...(?)
-                          val accepted = brCnd.forall{case(i,cid) => cnd.get(i).contains(cid)}
+                          val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
+                          val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
                           val newCnd = if (accepted) {
+                            val brCnd = brCndOpt.get
                             assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
                             curCnd -- brCnd.keysIterator
                           } else curCnd

@@ -188,15 +188,17 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       references = go(references)
       if (references.isEmpty) remrefs()
     }
-    // TODO do propagate recursively but only if there was a change?
-    //   — currently done.setAndIfUnset makes us miss some reductions in HigherOrder ([↓]f_ε_115 @ λ_40)...
-    def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
+    //def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
+    // ^ If we stop propagating recursively using done.setAndIfUnset, it makes us miss some reductions
+    //     For example in HigherOrder.hs ([↓]f_ε_115 @ λ_40) and in Church.hs
+    def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = ({
       //println(s"> $this tells $ref")
       
       // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
       ref.node match {
         case Control(i, b) =>
           assert(b eq this)
+          val oldSize = ref.pathsToLambdas.size
           pathsToLambdas.foreach { case (p, l) =>
             //println(s"> $this tells $ref about $p")
             Path.throughControl(i, p).foreach { newPath =>
@@ -204,9 +206,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToLambdas += newPath -> l
             }
           }
-          ref.references.foreach(ref.propagatePaths(_))
+          if (ref.pathsToLambdas.size > oldSize)
+            ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>
           assert((t eq this) || (e eq this))
+          val oldSize = ref.pathsToLambdas.size
           pathsToLambdas.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
@@ -216,7 +220,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToLambdas += newPath -> l
             }
           }
-          ref.references.foreach(ref.propagatePaths(_))
+          if (ref.pathsToLambdas.size > oldSize)
+            ref.references.foreach(ref.propagatePaths(_))
         case _ =>
       }
       
