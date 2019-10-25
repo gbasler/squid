@@ -11,12 +11,29 @@ import scala.annotation.tailrec
 abstract class GraphDefs { self: GraphIR =>
   
   type Condition = Map[Instr, CallId]
+  object Condition {
+    def merge(lhs: Condition, rhs: Condition): Opt[Condition] = Some {
+      val commonKeys = lhs.keySet & rhs.keySet
+      lhs ++ (rhs -- commonKeys) ++ commonKeys.map { k =>
+        val l = lhs(k)
+        val r = rhs(k)
+        assert(l.v === r.v)
+        if (l =/= r) return None
+        k -> r
+      }
+    }
+  }
   
   type Path = (Instr, Condition)
   object Path {
     def empty: Path = (Id, Map.empty)
-    def throughControl(in: Instr, p: Path): Path =
-      (in `;` p._1, p._2.map{ case (i, c) => (in `;` i, c) })
+    def throughControl(in: Instr, p: Path): Path = {
+      val newCond = p._2.map{ case (i, c) => (in `;` i, c) }
+      if (newCond.size =/= p._2.size) die // TODO merge making sure compatible — fallible!
+      (in `;` p._1, newCond)
+    }
+    def throughBranchLHS(cnd: Condition, p: Path): Option[Path] =
+      Condition.merge(cnd, p._2).map((p._1, _))
   }
   
   sealed abstract class Node {
@@ -119,8 +136,6 @@ abstract class GraphDefs { self: GraphIR =>
     /** Only control and branch nodes maintain their known paths to lambdas. */
     val pathsToLambdas: mutable.Map[Path, NodeRef] = mutable.Map.empty
     val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
-    def newPathsToLambdas: Iterator[Path -> Ref] =
-      pathsToLambdas.iterator.filterNot(_._1 |> usedPathsToLambdas)
     
     node match {
       case _: Lam => pathsToLambdas += Path.empty -> this
@@ -162,7 +177,17 @@ abstract class GraphDefs { self: GraphIR =>
           }
           ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>
-          // TODO
+          assert((t eq this) || (e eq this))
+          pathsToLambdas.foreach { case (p, l) =>
+            val newPath = if (t eq this) {
+              Path.throughBranchLHS(c, p)
+            } else Some(p)
+            newPath.foreach { newPath =>
+              assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
+              ref.pathsToLambdas += newPath -> l
+            }
+          }
+          ref.references.foreach(ref.propagatePaths(_))
         case _ =>
       }
       
@@ -195,17 +220,23 @@ abstract class GraphDefs { self: GraphIR =>
       Iterator.single(this) ++ node.children.flatMap(_.mkIterator)
     }, Iterator.empty)
     
-    def toBeShownInline: Bool = node.canBeShownInline && references.size <= 1
+    // TODO always show constants inline
+    def toBeShownInline: Bool = !showFull && node.canBeShownInline && references.size <= 1
     
     def showGraph: Str = showGraph()
-    def showGraph(full: Bool = false, printRefCounts: Bool = true, printRefs: Bool = printRefs): Str = s"$this" + {
+    def showGraph(printRefCounts: Bool = true, showRefs: Bool = showRefs): Str = s"$this" + {
       val defsStr = iterator.toList.distinct
-        .filterNot(_ eq this).filter(full || !_.toBeShownInline)
+        .filter(showFull || !_.toBeShownInline)
         .map { r =>
           val rhs = r.node
-          if (printRefs) s"\n\t${r} = $rhs;\t\t\t\t{${r.references.mkString(",")}}"
-          else if (printRefCounts && r.references.size > 1) s"\n\t${r} = $rhs;\t\t\t\t\t(${r.references.size}x)"
-          else s"\n\t${r} = $rhs;"
+          val str =
+            if (showRefs) s"\n\t${r} = $rhs;\t\t\t\t{${r.references.mkString(",")}}"
+            else if (printRefCounts && r.references.size > 1) s"\n\t${r} = $rhs;\t\t\t\t\t(${r.references.size}x)"
+            else s"\n\t${r} = $rhs;"
+          if (showPaths) (str
+            + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
+            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
+          ) else str
         }
         .mkString
       if (defsStr.isEmpty) "" else " where:" + defsStr

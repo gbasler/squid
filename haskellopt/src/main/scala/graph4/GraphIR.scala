@@ -11,7 +11,13 @@ class GraphIR extends GraphDefs {
   val showInlineNames: Bool = false
   //val showInlineNames: Bool = true
   
-  val printRefs: Bool = false
+  val showPaths: Bool = false
+  //val showPaths: Bool = true
+  
+  val showFull: Bool = false
+  //val showFull: Bool = true
+  
+  val showRefs: Bool = false
   //val printRefs: Bool = true
   
   val strictCallIdChecking = true
@@ -91,13 +97,10 @@ class GraphIR extends GraphDefs {
             again()
             
           case App(fun, arg) =>
-            val ps = fun.newPathsToLambdas.toList
+            val ps = fun.pathsToLambdas.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
             ps match {
-              case (p @ (i, cnd), lr) :: _ =>
+              case Some((p @ (i, cnd), lr)) =>
                 println(s"$ref -- $cnd -->> [$i]$lr")
-                
-                assert(cnd.isEmpty) // TODO handle
-                // TODO update usedPathsToLambdas
                 
                 val l = lr.node.asInstanceOf[Lam]
                 assert(l.paramRef.pathsToLambdas.isEmpty)
@@ -124,11 +127,19 @@ class GraphIR extends GraphDefs {
                   val newOcc = v.mkRefNamed(v.name+"_ε")
                   l.paramRef.node = Branch(Map(Id -> cid), Control.mkRef(Drop(Id)(cid), arg), newOcc)
                   l.paramRef = newOcc
-                  ref.node = ctrl
+                  if (cnd.isEmpty) {
+                    ref.node = ctrl
+                  } else {
+                    val rebuiltApp = App(fun, arg).mkRefNamed("_ε")
+                    rebuiltApp.usedPathsToLambdas ++= ref.usedPathsToLambdas
+                    ref.usedPathsToLambdas.clear()
+                    rebuiltApp.usedPathsToLambdas += p
+                    ref.node = Branch(cnd, ctrl.mkRef, rebuiltApp)
+                  }
                   
                 }
                 again()
-              case Nil =>
+              case None =>
                 ref.children.foreach(rec)
             }
             
