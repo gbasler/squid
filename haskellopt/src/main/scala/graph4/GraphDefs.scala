@@ -138,6 +138,18 @@ abstract class GraphDefs { self: GraphIR =>
     }
     def addref(ref: NodeRef): Unit = {
       references ::= ref
+      propagatePaths(ref)
+    }
+    def remref(ref: NodeRef): Unit = {
+      def go(refs: List[NodeRef]): List[NodeRef] = refs match {
+        case `ref` :: rs => rs
+        case r :: rs => r :: go(rs)
+        case Nil => Nil
+      }
+      references = go(references)
+      if (references.isEmpty) remrefs()
+    }
+    def propagatePaths(ref: NodeRef): Unit = {
       
       // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
       ref.node match {
@@ -148,20 +160,12 @@ abstract class GraphDefs { self: GraphIR =>
             assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
             ref.pathsToLambdas += newPath -> l
           }
+          ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>
           // TODO
         case _ =>
       }
       
-    }
-    def remref(ref: NodeRef): Unit = {
-      def go(refs: List[NodeRef]): List[NodeRef] = refs match {
-        case `ref` :: rs => rs
-        case r :: rs => r :: go(rs)
-        case Nil => Nil
-      }
-      references = go(references)
-      if (references.isEmpty) remrefs()
     }
     def node: Node = _node
     def node_=(that: Node): Unit = {
