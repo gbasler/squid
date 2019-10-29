@@ -219,6 +219,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = ({
       //println(s"> $this tells $ref")
       
+      //println(s"> $this tells $ref ${
+      //  pathsToLambdas.map("\n\t"+_).mkString
+      //}"); Thread.sleep(50)
+      
       // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
       ref.node match {
         case Control(i, b) =>

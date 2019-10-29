@@ -61,8 +61,13 @@ class BasicTests extends FunSuite {
   )
   
   test("SimpleChurch") (
-    //TestHarness("SimpleChurch") // FIXME propagator does not terminate
-    TestHarness("SimpleChurch", prefixFilter = "_2I") // TODO reduce one-shots behind virtual nodes
+    //TestHarness("SimpleChurch")
+    //TestHarness("SimpleChurch", prefixFilter = "test_1") // indirect recursion: scheduled program fails occurs check
+    //TestHarness("SimpleChurch", prefixFilter = "test_2") // FIXME indirect recursion: propagator does not terminate
+    //TestHarness("SimpleChurch", prefixFilter = "test_3") // FIXME bad comparison
+    //
+    //TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2I") // TODO reduce one-shots behind virtual nodes
+    TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2")
     (
     )
   )

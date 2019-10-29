@@ -10,8 +10,21 @@ _2I = _2 _I where
   _I = \x -> x
   _2 = \x -> \y -> x (x y)
 
--- test = _2 _I _I where -- okay
-test = _2 _2 _I _I where -- nonterm
+_2II = _2 _I _I where
+  _I = \x -> x
+  _2 = \x -> \y -> x (x y)
+
+test_1 = _1 _1 where -- scheduled fails occurs check
+  _1 s z = s z
+
+test_2 = _2 _2 where -- nonterm
+-- test = _2 _2 _I where -- nonterm
+-- test = _2 _2 _I _I where -- nonterm
 -- test = _2 _2 _2 _I _I where -- nonterm
   _I = \x -> x
   _2 s z = s (s z)
+
+test_3 = _3 _2 _I _I where
+  _I = \x -> x
+  _2 s z = s (s z)
+  _3 s z = s (s (s z))
