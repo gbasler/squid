@@ -45,6 +45,8 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   //val simplifyCases = false
   val commonSubexprElim = true
   //val commonSubexprElim = false
+  val mergeLets = false
+  //val mergeLets = true
   
   type Ident
   def printIdent(id: Ident): String
@@ -87,8 +89,9 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       if (s eq body) this else new Defn(id, params, s)
     }
     
-    def stringify: String = {
-      s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${simplifiedBody.stringify}"
+    def stringify: Str = stringify("  ")
+    def stringify(indent: Str): Str = {
+      s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${simplifiedBody.stringify(indent, 0)}"
     }
     
     override def equals(that: Any) = that match { case d: Defn => id === d.id case _ => false }
@@ -100,19 +103,24 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   private[this] val noOccs: Map[Vari, Int] = Map.empty[Vari, Int].withDefaultValue(0)
   private[this] val noSubExprs: Map[Expr, Int] = Map.empty[Expr, Int].withDefaultValue(0)
   
-  private[this] val findLets: Expr => (List[String], String) = {
-    case Let(v,e,b) => findLets(b) ||> (_1 = s"${v.stringify} = ${e.stringify}" :: _)
-    case e => Nil -> e.stringify
+  private[this] def findLets(indent: Str): Expr => (List[String], String) = {
+    case Let(v,e,b) => findLets(indent)(b) ||> (_1 = s"${v.stringify(indent, 1)} = ${e.stringify(indent, 1)}" :: _)
+    case e => Nil -> e.stringify(indent, 1)
   }
-  private[this] def stringifyLets(known: List[String], rest: Expr, paren: Bool): String = {
-    val (discovered, restStr) = findLets(rest)
+  private[this] def stringifyLets(indent: Str, known: List[String], rest: Expr): String = {
+    val (discovered, restStr) = findLets(indent + "  ")(rest)
     val lets = known ++ discovered.reverse
-    val str = lets match {
+    lets match {
       case Nil => restStr
-      case single :: Nil => s"let $single in $restStr"
-      case many => s"let { ${many.mkString("; ")} } in $restStr"
+      case single :: Nil =>
+        //s"let $single in $restStr"
+        s"\n${indent}let $single in\n${indent}$restStr"
+      case many =>
+        if (mergeLets)
+          //s"let { ${many.mkString("; ")} } in $restStr"
+          s"let${many.map(s"\n$indent"+_).mkString}\n${indent}in $restStr"
+        else many.map(l => s"\n${indent}let $l in").mkString + s"\n$indent$restStr" 
     }
-    if (paren) s"($str)" else str
   }
   
   sealed abstract class Expr {
@@ -122,22 +130,36 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case _ => false
     }
     
-    def stringify: String = this match {
+    private[this] def parens(str: Str, cnd: Bool = true) = if (cnd) s"($str)" else str
+    
+    final def stringify: Str = stringify("  ", 0)
+    
+    /** outerPrec: 0 for top-level; 1 for lambda and let; 2 for case arms; 3 for app LHS; 4 for app RHS */
+    def stringify(indent: Str, outerPrec: Int): Str = this match {
       case Vari(id) => printIdent(id)
       case Inline(str) => str
-      case App(lhs, rhs) => s"(${lhs.stringify} ${rhs.stringify})"
+      case App(App(Inline(op), lhs), rhs) if op.head === '(' && op.last === ')' =>
+        parens(s"${lhs.stringify(indent, 3)} ${op.tail.init} ${rhs.stringify(indent, 3)}",
+          outerPrec > 2)
+      case App(lhs, rhs) =>
+        parens(s"${lhs.stringify(indent, 3)} ${rhs.stringify(indent, 4)}",
+          outerPrec > 3)
       case Lam(p, ds, b) =>
-        s"(\\${p.id |> printIdent} -> ${stringifyLets(ds.map(_.stringify), b, paren = false)})"
+        parens(s"\\${p.id |> printIdent} -> ${stringifyLets(indent, ds.map(_.stringify(indent)), b)}",
+          outerPrec > 1)
       case Call(d, args) =>
-        s"${pp.mkArgs(d.value.id |> printIdent, args.map(_.stringify))}"
+        s"${pp.mkArgs(d.value.id |> printIdent, args.map(_.stringify(indent, 0)))}"
       case Let(v,e,b) =>
-        stringifyLets(s"${v.stringify} = ${e.stringify}" :: Nil, b, paren = true)
+        parens(stringifyLets(indent, s"${v.stringify(indent, 1)} = ${e.stringify(indent, 1)}" :: Nil, b),
+          outerPrec > 1)
       case Case(scrut, arms) =>
-        s"(case ${scrut.stringify} of {${arms.map { case (con, vars, rhs) =>
-            mkCtorStr(con) + vars.map(_.id |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify}"
-        }.mkString("; ")}})"
+        parens(s"case ${scrut.stringify(indent, 1)} of {${arms.map { case (con, vars, rhs) =>
+            mkCtorStr(con) + vars.map(_.id |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify(indent, 2)}"
+        }.mkString("; ")}})",
+          outerPrec > 1)
       case CtorField(scrut, ctor, arity, idx) =>
-        s"(case ${scrut.stringify} of ${mkCtorStr(ctor)} ${List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")} -> arg)"
+        parens(s"case ${scrut.stringify(indent, 1)} of ${mkCtorStr(ctor)} ${List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")} -> arg",
+          outerPrec > 1)
     }
     
     def freeVars: Set[Vari] = occurrences.keySet

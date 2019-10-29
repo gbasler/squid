@@ -18,11 +18,13 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
         def intBinOp(f: (Int, Int) => Int): Thunk =
           Fun(rhs => Int(f(arg.value.int, rhs.value.int)))
         c match {
+          case ModuleRef("GHC.Base","id") => arg
           case ModuleRef("GHC.Num","+") => intBinOp(_ + _)
           case ModuleRef("GHC.Num","-") => intBinOp(_ - _)
           case ModuleRef("GHC.Num","*") => intBinOp(_ * _)
+          case ModuleRef("GHC.Real","^") => intBinOp(scala.math.pow(_, _).toInt)
           case ModuleRef("GHC.Types","I#") => arg
-          case _ => lastWords(s"not a function: $this")
+          case _ => lastWords(s"not a known function: $this")
         }
       }
     }

@@ -254,6 +254,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
     */
     
+    def toBeScheduledInline = node.isSimple && !node.isInstanceOf[VirtualNode]
+    
     def iterator: Iterator[Ref] = mkIterator(false, mutable.HashSet.empty)
     def mkIterator(implicit rev: Bool, done: mutable.HashSet[Ref]): Iterator[Ref] = done.setAndIfUnset(this, {
       Iterator.single(this) ++ node.children.flatMap(_.mkIterator)
@@ -282,7 +284,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       if (toBeShownInline)
         (if (showInlineNames) Debug.GREY +showName+":" + Console.RESET else "") + node.toString
       else showName
-    def subString = if (toBeShownInline && !node.isSimple) s"($toString)" else toString 
+    def subString = if (toBeShownInline && !node.isSimple) s"($toString)" else toString
+    def defstr = if (toBeShownInline && !showInlineNames) node else s"$showName = $node"
   }
   object NodeRef {
     def unapply(arg: NodeRef): Some[Node] = Some(arg.node)
@@ -291,7 +294,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   import CallId._, Console.{BOLD,RESET}
   
   class CallId(val v: Var, val uid: Int) {
-    def color =
+    def color = if (uid === -1) Debug.GREY else
       //colors((uid + colors.size - 1) % colors.size)
       colors(uid % colors.size)
     override def toString = s"$color$v:${uid.toHexString}$RESET"

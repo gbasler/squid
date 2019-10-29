@@ -1,13 +1,14 @@
 package graph4
 
 import squid.utils._
-import squid.ir.graph3.{HaskellAST, ParameterPassingStrategy, UnboxedTupleParameters}
 
 import scala.collection.mutable
 
 abstract class GraphScheduler { self: GraphIR =>
   
   def schedule(mod: GraphModule): Scheduler = new Scheduler(mod)
+  object ScheduleDebug extends PublicTraceDebug
+  import ScheduleDebug.{debug=>Sdebug}
   
   class Scheduler(mod: GraphModule) {
     
@@ -78,12 +79,14 @@ abstract class GraphScheduler { self: GraphIR =>
           AST.App(rec(l), rec(r))
         case l @ Lam(_,b) =>
           AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
-        case v: Var => AST.Vari(v) //AST.mkIdent(v.name)
+        case v: Var => AST.Vari(v)
         case IntLit(true, n) => AST.Inline(n.toString)
         case IntLit(false, n) => AST.Inline(s"$n#")
         case StrLit(true, s) => AST.Inline(s.toString)
         case StrLit(false, s) => AST.Inline(s"$s#")
-        case ModuleRef(m, n) => AST.Inline(s"$m.$n")
+        case ModuleRef(m, n) =>
+          val str = if (knownModule(m)) n else s"$m.$n"
+          AST.Inline(if (n.head.isLetter) str else s"($str)")
         case Case(s,as) => ???
         case CtorField(s,c,i) => ???
       }

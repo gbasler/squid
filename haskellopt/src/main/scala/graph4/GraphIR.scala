@@ -63,10 +63,13 @@ class GraphIR extends GraphDefs {
   
   protected var curNodeRefId = 0
   
-  val knownModule = Set("GHC.Num", "GHC.Types", "GHC.Base")
+  val knownModule = Set("GHC.Num", "GHC.Types", "GHC.Base", "GHC.Real")
   
   val DummyVar = new Var("<dummy>", -1)
   val DummyCallId = new CallId(DummyVar, -1) // TODO rm? or use
+  {
+    override def toString = s"$color<d>${Console.RESET}"
+  }
   
   val WildcardVal = new Var("_", -2)
   

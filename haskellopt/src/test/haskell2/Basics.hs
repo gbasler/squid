@@ -3,24 +3,31 @@ module Basics where
 
 -- Local shared work
 
-foo :: Int -> Int
-foo x =
+foo_0 :: Int -> Int
+foo_0 x =
   let tmp = x * 2
   in tmp + tmp
 
 -- Local function
 
-foo' :: Int -> Int
-foo' x =
+foo_1 :: Int -> Int
+foo_1 x =
   let f y = y * 2
   in f (x + 1)
 
 -- Variable capture
 
-foo'' :: Int -> Int
-foo'' x =
+foo_2 :: Int -> Int
+foo_2 x =
   let f y = y * x
   in f (x + 1)
+
+-- All of the above
+
+foo_3 :: Int -> Int
+foo_3 x =
+  let f y = let tmp = y * x in tmp ^ tmp
+  in f (x + 1) - f x
 
 -- Nested calls
 
