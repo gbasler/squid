@@ -14,7 +14,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   object Condition {
     def merge(lhs: Condition, rhs: Condition): Opt[Condition] = Some {
       val commonKeys = lhs.keySet & rhs.keySet
-      lhs ++ (rhs -- commonKeys) ++ commonKeys.map { k =>
+      lhs ++ (rhs -- commonKeys) ++ commonKeys.iterator.map { k =>
         val l = lhs(k)
         val r = rhs(k)
         assert(l.v === r.v)
@@ -26,16 +26,29 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       * (for example, instruction `Push[a0]` and condition `a1?`);
       * so in these cases this will return None. */
     def throughControl(in: Instr, c: Condition): Opt[Condition] = {
-      Some(c.map{ case (i, c) =>
+      val res = mutable.Map.empty[Instr, CallId]
+      c.foreach { case (i, c) =>
         val newInstr = in `;` i // TODO can this ever fail? maybe if something ends up being propagated too far...
-        if (newInstr.lastCallId.exists(_ =/= c)) return None
-        (newInstr, c)
-      })
+        newInstr.lastCallId match {
+          case Some(c2) =>
+            if (c2 =/= c) return None
+          case None =>
+            res.get(newInstr) match {
+              case Some(c2) => if (c2 =/= c) return None
+              case None => res(newInstr) = c
+            }
+        }
+      }
+      Some(res.toMap) // TODO aboid this conversion cost
     }
     /** Must have full context; will crash if `ictx` is only partial. */
     def test_!(cnd: Condition, ictx: Instr): Bool = {
+      //println(s"test [$ictx] $cnd")
       cnd.forall { case (i,c) =>
-        (ictx `;` i).lastCallId.get === c
+        try ((ictx `;` i).lastCallId.get === c)
+        catch { case _: BadComparison => true }
+        // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
+        // TODO perhaps it's better to just use a List or ListMap for Condition
       }
     }
     def test(cnd: Condition, ictx: Instr): Opt[Bool] = Some {
@@ -50,7 +63,6 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def empty: Path = (Id, Map.empty)
     def throughControl(in: Instr, p: Path): Opt[Path] = {
       val newCond = Condition.throughControl(in, p._2).getOrElse(return None)
-      if (newCond.size =/= p._2.size) die // TODO merge making sure compatible — and it may fail!
       Some((in `;` p._1, newCond))
     }
     def throughBranchLHS(cnd: Condition, p: Path): Option[Path] =
@@ -119,7 +131,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
   }
   
-  case class Branch(cnd: Condition, thn: Ref, els: Ref) extends VirtualNode
+  case class Branch(cnd: Condition, thn: Ref, els: Ref) extends VirtualNode {
+    cnd.foreach{case(i,c) => assert(i.lastCallId.isEmpty, s"condition was not simplified: ${i->c}")}
+  }
   
   sealed abstract class ConcreteNode extends Node
   
@@ -307,6 +321,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     ) ++ (for { i <- 90 to 96 } yield s"\u001b[$i;1m") // Some alternative color versions (https://misc.flogisoft.com/bash/tip_colors_and_formatting#colors)
   }
   
+  case class BadComparison(msg: Str) extends Exception(msg)
+  object BadComparison extends BadComparison("?")
+  
   sealed abstract class Instr {
     
     def `;` (that: Instr): Instr =
@@ -352,13 +369,17 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         assert(!strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVar, s"${cid.v} === ${p.originalVar} in Push($cid, $payload, $rest)")
         payload `;` rest2
       case d @ Drop(rest2) =>
-        assert(!strictCallIdChecking || cid === DummyCallId ||
+        val assertion = (!strictCallIdChecking || cid === DummyCallId ||
           // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
           // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible. 
-          cid === d.originalCid, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)"
+          cid === d.originalCid//, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)"
           // A less drastic version:
-          //cid.v === d.originalCid.v, s"${cid.v} === ${d.originalCid.v} in Push($cid, $payload, $rest)"
+          //cid.v === d.originalCid.v//, s"${cid.v} === ${d.originalCid.v} in Push($cid, $payload, $rest)"
         )
+        //assert(assertion)
+        if (!assertion) throw BadComparison
+        //if (!assertion) throw BadComparison(s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)")
+        // ^ better diagnostic, but slower
         rest2
       case rest: TransitiveControl => apply(cid, payload, rest)
     }
