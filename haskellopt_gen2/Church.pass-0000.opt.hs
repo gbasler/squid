@@ -2,16 +2,16 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  67
+-- Beta reductions:  69
 -- Incl. one-shot:  0
--- Total nodes: 2470; Boxes: 1046; Branches: 1104
--- Apps: 117; Lams: 65
+-- Total nodes: 2946; Boxes: 1232; Branches: 1330
+-- Apps: 136; Lams: 74
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module Church (zero_x_three,two_x_zero,two_x_three,mult,two_p_three,plus,three,three_id,two_id,two,one,zero,_I) where
+module Church (zero_x_three,two_x_zero,two_x_three,mult,two_p_three,plus,three,three_id,two_id,two,one_id,one,zero,_I) where
 
 
 
@@ -34,6 +34,8 @@ three_id = \z'3 -> z'3
 two_id = \z'3 -> z'3
 
 two = \s'3 -> \z'3 -> s'3 (s'3 z'3)
+
+one_id = \z'4 -> z'4
 
 one = \s'4 -> \z'4 -> s'4 z'4
 

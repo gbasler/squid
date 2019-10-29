@@ -9,11 +9,13 @@ class BasicTests extends FunSuite {
   
   test("Basics") (
     TestHarness("Basics", dumpGraph = true)
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "foo_3")
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "gTest")
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "fTest")
     (
       check('gTest0)(24),
       check('gTest2, 4)(24),
+      check('foo_3, 2)(46400),
     )
   )
   
@@ -44,6 +46,7 @@ class BasicTests extends FunSuite {
   
   test("Church") (
     TestHarness("Church", dumpGraph = true)
+    //TestHarness("Church", dumpGraph = true, prefixFilter = "one_id")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "two")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "two_x_three")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "zero_x_three")

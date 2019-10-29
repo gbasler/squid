@@ -26,8 +26,8 @@ foo_1 = \x' -> (x' + 1) * fromInteger 2
 foo_2 = \x'2 -> (x'2 + 1) * x'2
 
 foo_3 = \x'3 -> 
-  let sh' = (x'3 + 1) * x'3 in
   let sh'2 = x'3 * x'3 in
+  let sh' = (x'3 + 1) * x'3 in
   (sh' ^ sh') - (sh'2 ^ sh'2)
 
 fTest4 = 

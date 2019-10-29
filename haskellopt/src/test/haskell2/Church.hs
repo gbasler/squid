@@ -7,6 +7,8 @@ one s z = s z
 two s z = s (s z)
 three s z = s (s (s z))
 
+one_id = one _I
+
 two_id = two _I
 
 three_id = two _I

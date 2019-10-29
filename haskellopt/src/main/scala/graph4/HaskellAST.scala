@@ -48,6 +48,9 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   val mergeLets = false
   //val mergeLets = true
   
+  val baseIndent = "  "
+  val letIndent = baseIndent * 3 // Haskell's stupid indentation rules require lots of indentation after a let...
+  
   type Ident
   def printIdent(id: Ident): String
   def mkIdent(nameHitn: String): Ident
@@ -89,7 +92,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       if (s eq body) this else new Defn(id, params, s)
     }
     
-    def stringify: Str = stringify("  ")
+    def stringify: Str = stringify(baseIndent)
     def stringify(indent: Str): Str = {
       s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${simplifiedBody.stringify(indent, 0)}"
     }
@@ -108,8 +111,8 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     case e => Nil -> e.stringify(indent, 1)
   }
   private[this] def stringifyLets(indent: Str, known: List[String], rest: Expr): String = {
-    val (discovered, restStr) = findLets(indent + "  ")(rest)
-    val lets = known ++ discovered.reverse
+    val (discovered, restStr) = findLets(indent + letIndent)(rest)
+    val lets = known ++ discovered
     lets match {
       case Nil => restStr
       case single :: Nil =>
@@ -132,7 +135,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     
     private[this] def parens(str: Str, cnd: Bool = true) = if (cnd) s"($str)" else str
     
-    final def stringify: Str = stringify("  ", 0)
+    final def stringify: Str = stringify(baseIndent, 0)
     
     /** outerPrec: 0 for top-level; 1 for lambda and let; 2 for case arms; 3 for app LHS; 4 for app RHS */
     def stringify(indent: Str, outerPrec: Int): Str = this match {
@@ -150,7 +153,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Call(d, args) =>
         s"${pp.mkArgs(d.value.id |> printIdent, args.map(_.stringify(indent, 0)))}"
       case Let(v,e,b) =>
-        parens(stringifyLets(indent, s"${v.stringify(indent, 1)} = ${e.stringify(indent, 1)}" :: Nil, b),
+        parens(stringifyLets(indent, s"${v.stringify(indent, 1)} = ${e.stringify(indent + letIndent, 1)}" :: Nil, b),
           outerPrec > 1)
       case Case(scrut, arms) =>
         parens(s"case ${scrut.stringify(indent, 1)} of {${arms.map { case (con, vars, rhs) =>
