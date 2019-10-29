@@ -29,6 +29,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
   val imports = mutable.Set.empty[String]
   
   def loadFromDump(dump: FilePath, prefixFilter: Str): GraphModule = {
+    implicit val dummyModule: Module = DummyModule
     
     var modName = Option.empty[String]
     val moduleBindings = mutable.Map.empty[GraphDumpInterpreter.BinderId, String -> Ref]

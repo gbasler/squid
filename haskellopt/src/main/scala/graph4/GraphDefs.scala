@@ -191,30 +191,27 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case _: Lam => pathsToLambdas += Path.empty -> this
       case _ =>
     }
-    addrefs()
+    children.foreach { c => c.addref(this); c.propagatePaths(this)(mutable.HashSet.empty) }
     
     def children: Iterator[NodeRef] = _node.children
     
-    def addrefs(): Unit = {
-      children.foreach(_.addref(this))
-    }
     // Note: I'm not completely sure it's okay to stop early based on the `done` set (and so potentially not remove every ref?);
     //       But I got some stack overflows here, so for now that's what we'll do.
-    def remrefs()(implicit done: mutable.HashSet[Ref] = mutable.HashSet.empty): Unit = done.setAndIfUnset(this, {
-      children.foreach(_.remref(this))
+    def remrefs(oldChildren: Iterator[Ref])(implicit mod: Module, done: mutable.HashSet[Ref] = mutable.HashSet.empty): Unit = done.setAndIfUnset(this, {
+      oldChildren.foreach(_.remref(this))
     })
     def addref(ref: NodeRef): Unit = {
       references ::= ref
-      propagatePaths(ref)(mutable.HashSet.empty)
+      //propagatePaths(ref)(mutable.HashSet.empty) // now done in each call site, as it sometimes need to be delayed...
     }
-    def remref(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = {
+    def remref(ref: NodeRef)(implicit mod: Module, done: mutable.HashSet[Ref]): Unit = {
       def go(refs: List[NodeRef]): List[NodeRef] = refs match {
         case `ref` :: rs => rs
         case r :: rs => r :: go(rs)
         case Nil => Nil
       }
       references = go(references)
-      if (references.isEmpty) remrefs()
+      if (references.isEmpty && !mod.roots(this)) remrefs(children)
     }
     //def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
     // ^ If we stop propagating recursively using done.setAndIfUnset, it makes us miss some reductions
@@ -255,12 +252,14 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       
     })
     def node: Node = _node
-    def node_=(that: Node): Unit = {
-      remrefs()
+    def node_=(that: Node)(implicit mod: Module): Unit = {
+      val oldChildren = children
       _node = that
-      addrefs()
+      children.foreach(_.addref(this)) // Note: we need to do that before `remrefs` or some counts will drop to 0 prematurely
+      remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (_node assignment is done above)
+      children.foreach(_.propagatePaths(this)(mutable.HashSet.empty))
     }
-    def rewireTo(that: Ref): Unit = node = Id(that)
+    def rewireTo(that: Ref)(implicit mod: Module): Unit = node = Id(that)
     
     /*
     def nonSimpleReferences: List[NodeRef] = {
@@ -432,7 +431,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           val rhs = r.node
           val headStr = s"\n    $r = $rhs;"
           val str =
-            if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(",")}}"
+            if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(", ")}}"
             else if (printRefCounts && r.references.size > 1) s"$headStr\t\t\t\t\t(x${r.references.size})"
             else headStr
           if (showPaths) (str

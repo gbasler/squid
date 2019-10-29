@@ -71,6 +71,8 @@ class TestHarness {
       */
       //println(go.Graph.scheduleRec(mod))
       
+      mod.checkRefs()
+      
       checks.foreach(check)
       
       ite += 1
@@ -126,6 +128,7 @@ class TestHarness {
     val sch =
       //go.Graph.ScheduleDebug debugFor
       go.Graph.schedule(mod)
+      //go.Graph.schedule(mod, naive = true)
     
     val scheduleEndTime = System.nanoTime
     val scheduleTime = scheduleEndTime-scheduleStartTime

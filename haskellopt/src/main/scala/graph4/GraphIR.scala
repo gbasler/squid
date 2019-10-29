@@ -73,15 +73,24 @@ class GraphIR extends GraphDefs {
   
   val WildcardVal = new Var("_", -2)
   
+  abstract class Module {
+    val roots: Ref => Bool
+  }
+  object DummyModule extends Module {
+    val roots = _ => true
+  }
   
   /* Better to keep the `modDefs` definitions ordered, for easier reading of output code.
    * Unfortunately, it seems we get them in mangled order from GHC. */
-  case class GraphModule(modName: Str, modPhase: Str, modDefs: List[Str -> NodeRef]) {
+  case class GraphModule(modName: Str, modPhase: Str, modDefs: List[Str -> NodeRef]) extends Module {
+    private implicit def self: this.type = this
     private var uniqueCount = 0
     def nextUnique = uniqueCount alsoDo {uniqueCount += 1} // move somewhere else?
     
     var betaReductions: Int = 0
     var oneShotBetaReductions: Int = 0
+    
+    val roots = modDefs.iterator.map(_._2).toSet
     
     def nodes = modDefs.iterator.flatMap(_._2.iterator)
     
@@ -95,7 +104,14 @@ class GraphIR extends GraphDefs {
       checkRefs()
     }
     def checkRefs(): Unit = {
-      // TODO
+      import squid.utils.CollectionUtils.MutSetHelper
+      def go(ref: Ref)(implicit done: mutable.HashSet[Ref] = mutable.HashSet.empty): Unit = done.setAndIfUnset(ref, {
+        ref.children.foreach { c =>
+          assert(c.references.contains(ref), s"$c does not back-reference $ref, but only ${c.references}")
+          go(c)
+        }
+      })
+      modDefs.foreach(_._2 |> go)
     }
     
     def simplify(): Bool = scala.util.control.Breaks tryBreakable {
@@ -138,11 +154,14 @@ class GraphIR extends GraphDefs {
                 val cid = new CallId(v, nextUnique)
                 val ctrl = Control(Push(cid,i,Id), l.body)
                 
+                // TODO generalize to lr.nonBoxReferences.size === 1 to one-shot reduce across boxes
+                //      or more generally one-shot reduce across boxes and ONE level of branches...
                 if ((lr eq fun) && lr.references.size === 1) {
                   // If `fun` is a directly applied one-shot lambda, we need less ceremony.
                   // Note: Can't actually perform an in-place replacement:
                   //       the lambda may have been reduced before,
                   //       and also its scope would become mangled (due to the captures/pop nodes)
+                  println(s"One shot!")
                   assert(cnd.isEmpty)
                   assert(lr.references.head === ref)
                   
