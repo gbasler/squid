@@ -35,18 +35,13 @@ object CurriedParameters extends ParameterPassingStrategy {
 
 abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
-  val dropUnusedLets = true
-  //val dropUnusedLets = false
-  val inlineOneShotLets = true
-  //val inlineOneShotLets = false
-  val inlineTrivialLets = true
-  //val inlineTrivialLets = false
+  val dropUnusedLets: Bool
+  val inlineOneShotLets: Bool
+  val inlineTrivialLets: Bool
+  val commonSubexprElim: Bool
+  
   val simplifyCases = true
-  //val simplifyCases = false
-  val commonSubexprElim = true
-  //val commonSubexprElim = false
   val mergeLets = false
-  //val mergeLets = true
   
   val baseIndent = "  "
   val letIndent = baseIndent * 3 // Haskell's stupid indentation rules require lots of indentation after a let...

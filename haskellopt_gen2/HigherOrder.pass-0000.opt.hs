@@ -16,23 +16,18 @@ module HigherOrder (hTest5,hTest4,hTest3,h,gTest1,gTest0,g,m1,iTest2,iTest1,iTes
 import GHC.Num
 import GHC.Types
 
-hTest5 = 
-  let sh = (-) 3 in
-  let sh' = (-) 2 in
-  (2 * (sh' 2 * sh' 3)) * (3 * (sh 2 * sh 3))
+hTest5 = (2 * ((2 - 2) * (2 - 3))) * (3 * ((3 - 2) * (3 - 3)))
 
 hTest4 = ((2 + 1) * (3 + 1)) - ((2 * 2) * (3 * 2))
 
 hTest3 = 
-  let sh'2 = (*) 2 in
-  let sh'3 = (+) 1 in
-  (sh'3 2 * sh'3 3) - (sh'2 2 * sh'2 3)
+  let β = (+) 1 in
+  let β' = (*) 2 in
+  (β 2 * β 3) - (β' 2 * β' 3)
 
 h = \f -> f 2 * f 3
 
-gTest1 = 
-  let sh'4 = 3 - 1 in
-  (((4 - 1) + sh'4) - 1) + sh'4
+gTest1 = (((4 - 1) + (3 - 1)) - 1) + (3 - 1)
 
 gTest0 = (2 - 1) + (3 - 1)
 

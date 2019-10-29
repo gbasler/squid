@@ -151,7 +151,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   case class StrLit(boxed: Bool, value: Str) extends Lit
   
   object IntBoxing {
-    def unapply(nde: Node): Opt[Int] = nde |>? {
+    def unapply(nde: App): Opt[Int] = nde |>? {
       case App(Ref(ModuleRef("GHC.Types","I#")), Ref(IntLit(_,n))) => n
     }
   }

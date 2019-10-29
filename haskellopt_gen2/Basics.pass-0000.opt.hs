@@ -18,35 +18,35 @@ import GHC.Real
 import GHC.Types
 
 foo_0 = \x -> 
-  let sh = x * 2 in
-  sh + sh
+  let β = x * 2 in
+  β + β
 
 foo_1 = \x' -> (x' + 1) * fromInteger 2
 
 foo_2 = \x'2 -> (x'2 + 1) * x'2
 
 foo_3 = \x'3 -> 
-  let sh'2 = x'3 * x'3 in
-  let sh' = (x'3 + 1) * x'3 in
-  (sh' ^ sh') - (sh'2 ^ sh'2)
+  let β' = (x'3 + 1) * x'3 in
+  let β'2 = x'3 * x'3 in
+  (β' ^ β') - (β'2 ^ β'2)
 
 fTest4 = 
-  let sh'3 = 77 * 77 in
-  let sh'4 = 66 * 66 in
-  (sh'4 * sh'4) + (sh'3 * sh'3)
+  let β'3 = 66 * 66 in
+  let β'4 = 77 * 77 in
+  (β'3 * β'3) + (β'4 * β'4)
 
 fTest3 = 
-  let sh'5 = 77 * 77 in
-  let sh'6 = 66 * 66 in
-  (sh'6 * sh'6) * (sh'5 * sh'5)
+  let β'5 = 66 * 66 in
+  let β'6 = 77 * 77 in
+  (β'5 * β'5) * (β'6 * β'6)
 
 fTest2 = 
-  let sh'7 = 55 * 55 in
-  (44 * 44) + (sh'7 * sh'7)
+  let β'7 = 55 * 55 in
+  (44 * 44) + (β'7 * β'7)
 
 fTest1 = 
-  let sh'8 = 33 * 33 in
-  sh'8 * sh'8
+  let β'8 = 33 * 33 in
+  β'8 * β'8
 
 fTest0 = (11 * 11) * (22 * 22)
 
@@ -54,9 +54,7 @@ f = \x'4 -> x'4 * x'4
 
 gTest6 = (44 * 33) * 11
 
-gTest5 = 
-  let sh'9 = (*) 11 in
-  (sh'9 30 * (30 * 22)) + (sh'9 40 * (40 * 22))
+gTest5 = ((11 * 30) * (30 * 22)) + ((11 * 40) * (40 * 22))
 
 gTest4 = (2 * 3) * (4 * 5)
 
