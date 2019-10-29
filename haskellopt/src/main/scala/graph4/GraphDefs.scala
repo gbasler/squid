@@ -327,6 +327,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       //colors((uid + colors.size - 1) % colors.size)
       colors(uid % colors.size)
     override def toString = s"$color$v:${uid.toHexString}$RESET"
+    override def hashCode = uid.hashCode
+    override def equals(that: Any) = that match { case that: CallId => that.uid === uid; case _ => false }
   }
   object CallId {
     private val colors = List(
@@ -409,7 +411,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   case class Drop(rest: Instr)(val originalCid: CallId) extends Instr {
   }
-  object Drop { def it(originalCid: CallId) = Drop(Id)(originalCid) }
+  case object Drop { def it(originalCid: CallId) = Drop(Id)(originalCid) }
   
   sealed abstract class TransitiveControl extends Instr {
     def `;` (that: TransitiveControl): TransitiveControl = (this,that) match {
