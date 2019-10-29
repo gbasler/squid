@@ -27,8 +27,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       * so in these cases this will return None. */
     def throughControl(in: Instr, c: Condition): Opt[Condition] = {
       val res = mutable.Map.empty[Instr, CallId]
-      c.foreach { case (i, c) =>
-        val newInstr = in `;` i // TODO can this ever fail? maybe if something ends up being propagated too far...
+      val ite = c.iterator
+      while (ite.hasNext) {
+        val (i, c) = ite.next
+        val newInstr = try in `;` i // this can fail if something ends up being propagated too far...
+          catch { case _: BadComparison => return None }
         newInstr.lastCallId match {
           case Some(c2) =>
             if (c2 =/= c) return None
@@ -39,7 +42,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             }
         }
       }
-      Some(res.toMap) // TODO aboid this conversion cost
+      Some(res.toMap) // TODO avoid this conversion cost
     }
     /** Must have full context; will crash if `ictx` is only partial. */
     def test_!(cnd: Condition, ictx: Instr): Bool = {
