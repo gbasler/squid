@@ -60,4 +60,11 @@ class BasicTests extends FunSuite {
     )
   )
   
+  test("SimpleChurch") (
+    //TestHarness("SimpleChurch") // FIXME propagator does not terminate
+    TestHarness("SimpleChurch", prefixFilter = "_2I") // TODO reduce one-shots behind virtual nodes
+    (
+    )
+  )
+  
 }
