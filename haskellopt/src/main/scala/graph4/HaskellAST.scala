@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package squid.ir
-package graph3
+package graph4
 
 import squid.utils._
 import squid.utils.CollectionUtils.MapHelper
