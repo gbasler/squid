@@ -44,12 +44,21 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     /** Must have full context; will crash if `ictx` is only partial. */
     def test_!(cnd: Condition, ictx: Instr): Bool = {
       //println(s"test [$ictx] $cnd")
-      cnd.forall { case (i,c) =>
-        try ((ictx `;` i).lastCallId.get === c)
-        catch { case _: BadComparison => true }
+      var atLeastOne = false // at least one subcondition could be tested
+      var result = true
+      cnd.foreach { case (i,c) =>
+        try ((ictx `;` i).lastCallId match {
+          case Some(c2) =>
+            atLeastOne = true
+            result &&= c2 === c
+          case None => result = false
+        })
+        catch { case _: BadComparison => result = false }
         // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
         // TODO perhaps it's better to just use a List or ListMap for Condition
       }
+      assert(atLeastOne)
+      result
     }
     def test(cnd: Condition, ictx: Instr): Opt[Bool] = Some {
       cnd.forall { case (i,c) =>
@@ -366,7 +375,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def apply(cid: CallId, payload: Instr, rest: TransitiveControl): TransitiveControl = new Push(cid, payload, rest){}
     def apply(cid: CallId, payload: Instr, rest: Instr): Instr = rest match {
       case p @ Pop(rest2) =>
-        assert(!strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVar, s"${cid.v} === ${p.originalVar} in Push($cid, $payload, $rest)")
+        val assertion = !strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVar
+        //assert(assertion)
+        if (!assertion) throw BadComparison
+        //if (!assertion) throw BadComparison(s"${cid.v} === ${p.originalVar} in Push($cid, $payload, $rest)")
+        // ^ better diagnostic, but slower
         payload `;` rest2
       case d @ Drop(rest2) =>
         val assertion = (!strictCallIdChecking || cid === DummyCallId ||

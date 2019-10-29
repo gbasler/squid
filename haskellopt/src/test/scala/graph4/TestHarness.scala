@@ -32,6 +32,7 @@ class TestHarness {
     def check(c: CheckDSL): Unit = if (c.fname.name.startsWith(prefixFilter)) {
       val liftedArgs = c.args.map(Inter.lift)
       val liftedValue = Inter.lift(c.value)
+      //println(s"Eval... $c")
       val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
       val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
       println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
@@ -122,7 +123,7 @@ class TestHarness {
     val scheduleStartTime = System.nanoTime
     
     //println(mod.show)
-    val sch = 
+    val sch =
       //go.Graph.ScheduleDebug debugFor
       go.Graph.schedule(mod)
     

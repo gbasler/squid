@@ -92,20 +92,24 @@ abstract class GraphScheduler { self: GraphIR =>
     }
     
     val modDefs: List[AST.Defn] = mod.modDefs.map { case (name, ref) =>
-      def rec(ref: Ref)(implicit ictx: Instr): AST.Expr = ref.node match {
-        case Control(i,b) =>
-          rec(b)(ictx `;` i)
-        case Branch(c,t,e) =>
-          if (Condition.test_!(c,ictx)) rec(t) else rec(e)
-        case IntBoxing(n) => AST.Inline(n.toString)
-        case App(l,r) =>
-          AST.App(rec(l), rec(r))
-        case l @ Lam(_,b) =>
-          AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
-        case v: Var => AST.Vari(v)
-        case c: ConstantNode => constantToExpr(c)
-        case Case(s,as) => ???
-        case CtorField(s,c,i) => ???
+      Sdebug(s"Scheduling $name")
+      def rec(ref: Ref)(implicit ictx: Instr): AST.Expr = ScheduleDebug.nestDbg {
+        Sdebug(s"[$ictx] ${ref.defstr}")
+        ref.node match {
+          case Control(i,b) =>
+            rec(b)(ictx `;` i)
+          case Branch(c,t,e) =>
+            if (Condition.test_!(c,ictx)) rec(t) else rec(e)
+          case IntBoxing(n) => AST.Inline(n.toString)
+          case App(l,r) =>
+            AST.App(rec(l), rec(r))
+          case l @ Lam(_,b) =>
+            AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
+          case v: Var => AST.Vari(v)
+          case c: ConstantNode => constantToExpr(c)
+          case Case(s,as) => ???
+          case CtorField(s,c,i) => ???
+        }
       }
       val e = rec(ref)(Id)
       new AST.Defn(bindVal(name), Nil, e)
