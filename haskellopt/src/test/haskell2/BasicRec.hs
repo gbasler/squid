@@ -25,6 +25,7 @@ module BasicRec where
 nrec_0 :: Int -> [Int]
 nrec_0 x =
   let f y = y : (f (y + 1))
+  -- let f y = y : (f y)
   in f x
 
 --- Basic recursion

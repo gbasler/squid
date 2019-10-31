@@ -29,7 +29,7 @@ class TestHarness {
     val mod = go.loadFromDump(filePath, prefixFilter)
     
     val Inter = new go.Graph.Interpreter
-    def check(c: CheckDSL): Unit = if (c.fname.name.startsWith(prefixFilter)) {
+    def check(c: CheckDSL): Unit = if (c.fname.name + " " startsWith prefixFilter) {
       val liftedArgs = c.args.map(Inter.lift)
       val liftedValue = Inter.lift(c.value)
       //println(s"Eval... $c")

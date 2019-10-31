@@ -16,19 +16,23 @@ package graph4
 
 import squid.utils._
 import squid.utils.CollectionUtils.MapHelper
+import squid.utils.CollectionUtils.MutSetHelper
 
 import scala.collection.mutable
 
 abstract class ParameterPassingStrategy {
+  val requiresParens: Bool
   def mkParams(fun: String, params: List[String]): String
   def mkArgs(fun: String, args: List[String]): String =
     if (args.isEmpty) fun else "(" + mkParams(fun, args) + ")"
 }
 object UnboxedTupleParameters extends ParameterPassingStrategy {
+  val requiresParens: Bool = false
   def mkParams(fun: String, params: List[String]): String =
     if (params.isEmpty) fun else params.mkString(s"$fun(# ", ", ", " #)")
 }
 object CurriedParameters extends ParameterPassingStrategy {
+  val requiresParens: Bool = true
   def mkParams(fun: String, params: List[String]): String =
     (fun :: params).mkString(" ")
 }
@@ -54,7 +58,10 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     if (ctor.head.isLetter || ctor === "[]" || ctor.head === '(') ctor else s"($ctor)"
   
   /** Important: `id` is used to uniquely identify the definition. */
-  class Defn(val id: Ident, val params: List[Vari], val body: Expr) {
+  class Defn(val ide: Ident, val params: List[Vari], _body: Lazy[Expr]) {
+    
+    def body = _body.value
+    
     def toBeInlined: Bool = !isRecursive && (
       body.isTrivial ||
         //false
@@ -62,10 +69,12 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     )
     
     def occurrences = body.occurrences -- params
+    def freeVars = occurrences.keySet
+    def freeIdents: Set[Ident] = body.freeIdents -- params.iterator.map(_.ide) - ide
     def shareableExprs = body.shareableExprs.filterKeys(k => !k.freeVars.exists(params.contains))
     
-    def subs(v: Vari, e: Expr): Defn = if (params.contains(v)) this else new Defn(id, params, body.subs(v, e))
-    def map(f: Expr => Expr): Defn = new Defn(id, params, body.map(f))
+    def subs(v: Vari, e: Expr): Defn = if (params.contains(v)) this else new Defn(ide, params, Lazy(body.subs(v, e)))
+    def map(f: Expr => Expr): Defn = new Defn(ide, params, Lazy(body.map(f)))
     
     def inline(args: List[Expr]) = {
       assert(params.size === args.size)
@@ -74,7 +83,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       res
     }
     
-    lazy val isRecursive: Bool = body.allChildren.exists {
+    lazy val isRecursive: Bool = _body.isComputing || body.allChildren.exists {
       case Call(d,_) =>
         (d.isComputing // duh!
         || d.value === this)
@@ -84,18 +93,18 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     
     def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]]) = {
       val s = body.simplifyRec // TODO make simplifyRec eq-preserving in case of no changes
-      if (s eq body) this else new Defn(id, params, s)
+      if (s eq body) this else new Defn(ide, params, Lazy(s))
     }
     
     def stringify: Str = stringify(baseIndent)
     def stringify(indent: Str): Str = {
-      s"${pp.mkParams(printIdent(id), params.map(_.id |> printIdent))} = ${simplifiedBody.stringify(indent, 0)}"
+      s"${pp.mkParams(printIdent(ide), params.map(_.ide |> printIdent))} = ${simplifiedBody.stringify(indent, 0)}"
     }
     
-    override def equals(that: Any) = that match { case d: Defn => id === d.id case _ => false }
-    override def hashCode() = id.hashCode
+    override def equals(that: Any) = that match { case d: Defn => ide === d.ide case _ => false }
+    override def hashCode() = ide.hashCode
     
-    override def toString = s"$id(${params.mkString(", ")})"
+    override def toString = s"$ide(${params.mkString(", ")})"
   }
   
   private[this] val noOccs: Map[Vari, Int] = Map.empty[Vari, Int].withDefaultValue(0)
@@ -103,6 +112,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
   private[this] def findLets(indent: Str): Expr => (List[String], String) = {
     case Let(v,e,b) => findLets(indent)(b) ||> (_1 = s"${v.stringify(indent, 1)} = ${e.stringify(indent, 1)}" :: _)
+    case LetDefn(d,b) => findLets(indent)(b) ||> (_1 = s"${d.stringify(indent)}" :: _)
     case e => Nil -> e.stringify(indent, 1)
   }
   private[this] def stringifyLets(indent: Str, known: List[String], rest: Expr): String = {
@@ -143,16 +153,19 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         parens(s"${lhs.stringify(indent, 3)} ${rhs.stringify(indent, 4)}",
           outerPrec > 3)
       case Lam(p, ds, b) =>
-        parens(s"\\${p.id |> printIdent} -> ${stringifyLets(indent, ds.map(_.stringify(indent)), b)}",
+        parens(s"\\${p.ide |> printIdent} -> ${stringifyLets(indent, ds.map(_.stringify(indent)), b)}",
           outerPrec > 1)
       case Call(d, args) =>
-        s"${pp.mkArgs(d.value.id |> printIdent, args.map(_.stringify(indent, 0)))}"
+        s"${pp.mkArgs(d.value.ide |> printIdent, args.map(_.stringify(indent, if (pp.requiresParens) 3 else 0)))}"
       case Let(v,e,b) =>
         parens(stringifyLets(indent, s"${v.stringify(indent, 1)} = ${e.stringify(indent + letIndent, 1)}" :: Nil, b),
           outerPrec > 1)
+      case LetDefn(d, b) =>
+        parens(stringifyLets(indent, s"${d.stringify(indent + letIndent)}" :: Nil, b),
+          outerPrec > 1)
       case Case(scrut, arms) =>
         parens(s"case ${scrut.stringify(indent, 1)} of {${arms.map { case (con, vars, rhs) =>
-            mkCtorStr(con) + vars.map(_.id |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify(indent, 2)}"
+            mkCtorStr(con) + vars.map(_.ide |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify(indent, 2)}"
         }.mkString("; ")}})",
           outerPrec > 1)
       case CtorField(scrut, ctor, arity, idx) =>
@@ -161,6 +174,8 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     }
     
     def freeVars: Set[Vari] = occurrences.keySet
+    def freeIdents: Set[Ident] = // TODO use cleaner definition
+      freeVars.map(_.ide) ++ allChildren.collect { case Call(d, as) => Iterator(d.value.ide) ++ as.iterator.flatMap(_.freeIdents) }.flatten.toSet
     def hasFreeVar(v: Vari): Bool = occurrences.contains(v)
     
     /** Important: not all occurrences of case-bound variables may be visible  */
@@ -172,6 +187,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Call(d, as) =>
         as.iterator.foldLeft(noOccs){case (acc,e) => (acc mergeValues e.occurrences)(_ + _)}
       case Let(v, e, b) => (e.occurrences mergeValues (b.occurrences - v))(_ + _)
+      case LetDefn(d, b) => (d.occurrences mergeValues b.occurrences)(_ + _)
       case Case(scrut, arms) => arms.foldLeft(scrut.occurrences){ case (acc,(con,vals,e)) =>
         (acc mergeValues (e.occurrences -- vals))(_ + _)}
       case CtorField(scrut, ctor, arity, idx) => scrut.occurrences // Approximation... we may later resolve this expr to a variable!
@@ -188,6 +204,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         as.iterator.foldLeft(noSubExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)} |> countThis
       case Let(v, e, b) =>
         (e.shareableExprs mergeValues (b.shareableExprs - v))(_ + _) // Note: let's not try to share lets...
+      case LetDefn(d, b) => ??? // TODO similar to Lam (make sure no refs to params)
       case Case(scrut, arms) => arms.foldLeft(scrut.shareableExprs){ case (acc,(con,vals,e)) => (acc mergeValues
         e.shareableExprs.filterKeys(k => !k.freeVars.exists(vals.contains)))(_ + _) } // And let's not share cases, for perf reasons
       case CtorField(scrut, ctor, arity, idx) => scrut.shareableExprs |> countThis
@@ -199,6 +216,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.subs(v, e)), if (p == v) b else b.subs(v, e))
       case Call(d, as) => Call(d, as.map(_.subs(v, e)))
       case Let(p, e0, b) => Let(p, e0.subs(v, e), if (v == p) b else b.subs(v, e))
+      case LetDefn(d, b) => LetDefn(d.subs(v, e), b.subs(v, e))
       case Case(scrut, arms) => Case(scrut.subs(v, e), arms.map { case (con,vals,body) =>
         (con, vals, if (vals.contains(v)) body else body.subs(v, e))
       })
@@ -210,6 +228,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.map(f)), b.map(f))
       case Call(d, as) => Call(d, as.map(_.map(f)))
       case Let(p, e0, b) => Let(p, e0.map(f), b.map(f))
+      case LetDefn(d, b) => LetDefn(d.map(f), b.map(f))
       case Case(scrut, arms) => Case(scrut.map(f), arms.map { case (con,vals,body) =>
         (con, vals, body.map(f))
       })
@@ -222,6 +241,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Lam(p, ds, b) => b.size + ds.foldLeft(0)(_ + _.body.size + 1) + 1
       case Call(d, as) => as.foldLeft(0)(_ + _.size) + 1
       case Let(p, e, b) => e.size + b.size
+      case LetDefn(d, b) => d.body.size + b.size + 1//Int.MaxValue // FIXME?
       case Case(scrut, arms) => scrut.size + arms.foldLeft(0)(_ + _._3.size + 1)
       case CtorField(scrut, ctor, arity, idx) =>
         scrut.size // Note: could become a case, which is bigger... may also reduce to a variable, which is smaller!
@@ -235,6 +255,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case lam @ Lam(p, ds, b) => ds.iterator.map(_.body) ++ Ite(b)
       case Call(d, as) => as.iterator
       case Let(p, e0, b) => Ite(e0) ++ Ite(b)
+      case LetDefn(d, b) => d.body.children ++ b.children
       case Case(scrut, arms) =>Ite(scrut) ++ arms.iterator.map(_._3)
       case CtorField(scrut, ctor, arity, idx) =>Ite(scrut)
     }
@@ -246,6 +267,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.simplifyRec), b.simplifyRec.cse)
       case Call(d, as) => Call(d, as.map(_.simplifyRec))
       case Let(p, e0, b) => Let(p, e0.simplifyRec, b.simplifyRec)
+      case LetDefn(d, b) => LetDefn(d.simplifyRec, b.simplifyRec)
       case Case(scrut, arms) => Case(scrut.simplifyRec, arms.map { case (con,vals,body) =>
         (con, vals, body.simplifyRec(if (simplifyCases) caseCtx + ((scrut -> con) -> vals) else caseCtx)) })
       case CtorField(scrut, ctor, arity, idx) => caseCtx.get(scrut, ctor) match {
@@ -285,7 +307,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     //override def toString = stringify
   }
   case class Inline(str: String) extends Expr
-  case class Vari(id: Ident) extends Expr
+  case class Vari(ide: Ident) extends Expr
   case class App(lhs: Expr, rhs: Expr) extends Expr
   sealed abstract case class Lam(param: Vari, subDefs: List[Defn], body: Expr) extends Expr
   object Lam {
@@ -308,7 +330,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     }
   }
   sealed abstract case class Call(d: Lazy[Defn], args: List[Expr]) extends Expr {
-    override def toString = s"${d.value.id}@(${args.mkString(", ")})"
+    override def toString = s"${d.value.ide}@(${args.mkString(", ")})"
   }
   object Call {
     def apply(d: Lazy[Defn], args: List[Expr]): Expr =
@@ -319,13 +341,84 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   object Let {
     def apply(v: Vari, e: Expr, body: Expr): Expr = body.occurrences(v) match {
       case 0 if dropUnusedLets => body
-      case 1 if inlineOneShotLets =>
+      case 1 if inlineOneShotLets && !(e.freeVars contains v) =>
         body.subs(v, e)
       case _ =>
         if (e.isTrivial && inlineTrivialLets) body.subs(v, e) else new Let(v, e, body){}
     }
+    def multiple(defs: List[Binding], body: Expr): Expr = {
+      // Require that binding idents be unique:
+      //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
+      /*
+      // in the meantime, ensure uniqueness with this:
+      val used = mutable.Set.empty[Ident]
+      val unique = defs.filter { case b => used.setAndIfUnset(Binding.ident(b), true, false) }
+      */
+      val unique = defs // assumed; it's tested in `reorder`
+      unique.foldRight(body) {
+        case (Left((v,e)), acc) => Let(v,e,acc)
+        case (Right(dfn), acc) => LetDefn(dfn,acc)
+      }
+    }
+    def reorder(defs: List[Binding], body: Expr): Expr = {
+      // Require that binding idents be unique:
+      //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
+      
+      val used = mutable.Set.empty[Ident] // probably more efficient than groupBy
+      
+      /*
+      // in the meantime, ensure uniqueness with this:
+      val nodes = defs.flatMap { d =>
+        val ide = Binding.ident(d)
+        if (used(ide)) Nil else {
+          used += ide
+          (ide, d) :: Nil
+        }
+      }
+      */
+      val nodes = defs.map { d =>
+        val ide = Binding.ident(d)
+        require(!used(ide))
+        used += ide
+        (ide, d)
+      }
+      
+      val deps = defs.toIterator.map {
+        case Left((v,e)) => (v.ide, mutable.Set.empty[Ident])
+        case Right(dfn) => (dfn.ide, mutable.Set.empty[Ident])
+      }.toMap
+      
+      defs.foreach {
+        case Left((v,e)) => deps.get(v.ide).foreach(_ ++= e.freeIdents - v.ide)
+        case Right(dfn) => deps.get(dfn.ide).foreach(_ ++= dfn.freeIdents - dfn.ide)
+      }
+      
+      var changed = true
+      while (changed) {
+        changed = false
+        deps.foreach { case (id, dep) =>
+          val oldSize = dep.size
+          dep.foreach { id2 => deps get id2 foreach { set => dep ++= set } }
+          if (dep.size > oldSize) changed = true
+        }
+      }
+      //println("!!! "+deps.map(kv => s"\n\t${kv._1|>printIdent} -> ${kv._2.map(_ |> printIdent).mkString(", ")}").mkString)
+      
+      val sorted = nodes.sortWith { (lhs,rhs) => deps(rhs._1)(lhs._1) && !deps(lhs._1)(rhs._1) }
+      
+      multiple(sorted.map(_._2), body)
+    }
   }
+  case class LetDefn(defn: Defn, body: Expr) extends Expr
   case class Case(scrut: Expr, arms: List[(String,List[Vari],Expr)]) extends Expr
   case class CtorField(scrut: Expr, ctor: String, arity: Int, idx: Int) extends Expr
+  
+  type Binding = (Vari, Expr) \/ Defn
+  object Binding {
+    def ident(b: Binding): Ident = b match {
+      case Left((v,_)) => v.ide
+      case Right(dfn) => dfn.ide
+    }
+  }
   
 }

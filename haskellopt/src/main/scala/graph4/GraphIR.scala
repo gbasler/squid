@@ -34,6 +34,9 @@ class GraphIR extends GraphDefs {
   val multiStepReductions = true
   //val multiStepReductions = false
   
+  val inlineScheduledLets = true
+  //val inlineScheduledLets = false
+  
   
   type Ref = NodeRef
   val Ref: NodeRef.type = NodeRef

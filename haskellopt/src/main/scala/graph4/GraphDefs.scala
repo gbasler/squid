@@ -320,14 +320,17 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     
     /** This is just a debugging help. */
     protected val id = curNodeRefId alsoDo (curNodeRefId += 1)
-    def showName = s"${name.getOrElse("")}_${id.toHexString}"
     
     override def toString =
       if (toBeShownInline)
         (if (showInlineNames) Debug.GREY +showName+":" + Console.RESET else "") + node.toString
       else showName
+    
     def subString = if (toBeShownInline && !node.isSimple) s"($toString)" else toString
-    def defstr = if (toBeShownInline && !showInlineNames) node else s"$showName = $node"
+    
+    def showName = s"${name.getOrElse("")}_${id.toHexString}"
+    def showDef = s"$showName = $node"
+    def show = if (toBeShownInline && !showInlineNames) node else showDef
   }
   object NodeRef {
     def unapply(arg: NodeRef): Some[Node] = Some(arg.node)

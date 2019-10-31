@@ -7,10 +7,15 @@ class BasicTests extends FunSuite {
   object TestHarness extends TestHarness
   import CheckDSL.check
   
+  // TODO find a way to test the checks on the GHC-compiled programs! — e.g., generate an executable Main module
+  
   test("Basics") (
     TestHarness("Basics", dumpGraph = true)
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "f")
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "fTest0")
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "foo_3")
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "gTest")
+    //TestHarness("Basics", dumpGraph = true, prefixFilter = "gTest0")
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "fTest")
     (
       check('gTest0)(24),
@@ -20,8 +25,11 @@ class BasicTests extends FunSuite {
   )
   
   test("BasicRec") (
-    TestHarness("BasicRec", dumpGraph = true,
-      schedule = false // TODO schedule recursive functions
+    TestHarness("BasicRec",
+      //prefixFilter = "nrec_0",
+      //prefixFilter = "nrec_capt_0",
+      //
+      dumpGraph = true,
     )
     (
       // TODO checks
@@ -45,11 +53,46 @@ class BasicTests extends FunSuite {
     )
   )
   
+  test("HigherOrderRec") (
+    // FIXME graphs of r_1 and others diverge
+    TestHarness("HigherOrderRec",
+      //prefixFilter = "r",
+      //
+      dumpGraph = true,
+    )(
+      // TODO checks
+    )
+  )
+  
+  test("HigherOrderRecPoly") (
+    // Most of the tests below (such as only_p1) generate code where occurs-check fails
+    // (it is polymorphically-recursive, which requires type annotations, which we do not generate...).
+    TestHarness("HigherOrderRecPoly",
+      //prefixFilter = "only_p1",
+      //
+      dumpGraph = true,
+      schedule = false,
+    )(
+      // TODO checks
+    )
+  )
+  
+  test("HigherOrderRecLocal") (
+    // FIXME scheduling of commented foo_2 diverges
+    TestHarness("HigherOrderRecLocal",
+      dumpGraph = true,
+    )(
+      // TODO checks
+      //  check: take 10 (rec2_5 42) == [42,43,44,45,46,47,48,49,50,51] 
+    )
+  )
+  
   test("Church") (
     TestHarness("Church", dumpGraph = true)
     //TestHarness("Church", dumpGraph = true, prefixFilter = "one_id")
-    //TestHarness("Church", dumpGraph = true, prefixFilter = "two")
+    //TestHarness("Church", dumpGraph = true, prefixFilter = "two_")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "one_id")
+    //TestHarness("Church", dumpGraph = true, prefixFilter = "two_p_three")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "two_x_three")
     //TestHarness("Church", dumpGraph = true, prefixFilter = "zero_x_three")
     (
@@ -66,9 +109,30 @@ class BasicTests extends FunSuite {
     //TestHarness("SimpleChurch", prefixFilter = "test_2") // FIXME indirect recursion: propagator does not terminate
     //TestHarness("SimpleChurch", prefixFilter = "test_3") // same as above: does not terminate
     //
-    //TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2I") // TODO reduce one-shots behind virtual nodes
+    //TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2I ") // TODO reduce one-shots behind virtual nodes
+    //TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2II ")
     TestHarness("SimpleChurch", dumpGraph = true, prefixFilter = "_2")
     (
+    )
+  )
+  
+  test("IterCont") (
+    // FIXME graph of nats0 diverges
+    TestHarness("IterCont",
+      dumpGraph = true,
+    )(
+      // TODO checks
+      //  check: take 5 nats1 == [0,1,2,3,4]
+    )
+  )
+  
+  test("IterContLocal") (
+    // FIXME graph of nats0 diverges
+    TestHarness("IterContLocal",
+      dumpGraph = true,
+    )(
+      // TODO checks
+      //  check: take 5 nats1 == [0,1,2,3,4]
     )
   )
   

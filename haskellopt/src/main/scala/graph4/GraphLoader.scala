@@ -56,7 +56,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         val nme = ExternalName.externalName
         if (mod === modName.get) moduleBindings(ExternalName.externalUnique)._2
         else ModuleRef(ExternalName.externalModuleName, (mod, nme) match {
-          case ("GHC.Types", ":") => "(:)" // weirdness of GHC
+          //case ("GHC.Types", ":") => "(:)" // weirdness of GHC // commented — but I seem to remember it may cause problems in pat-mat
           // Not sure if still useful:
           //case ("GHC.Types", "[]") => "[]"
           //case ("GHC.Tuple", tup) // match (); (,); (,,); ...
@@ -189,7 +189,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
           rv.rewireTo(tb.expr)
           setMeaningfulName(tb.expr, nme)
           rv
-        }).toList.reverse.filter(_._1.startsWith(prefixFilter))
+        }).toList.reverse.filter(_._1 + " " startsWith prefixFilter)
     )
     
   }
