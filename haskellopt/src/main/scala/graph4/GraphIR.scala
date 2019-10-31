@@ -66,7 +66,7 @@ class GraphIR extends GraphDefs {
   
   protected var curNodeRefId = 0
   
-  val knownModule = Set("GHC.Num", "GHC.Types", "GHC.Base", "GHC.Real")
+  val knownModule = Set("GHC.Num", "GHC.Types", "GHC.Base", "GHC.Real", "GHC.Maybe", "GHC.Classes")
   
   val DummyVar = new Var("<dummy>", -1)
   val DummyCallId = new CallId(DummyVar, -1) // TODO rm? or use

@@ -146,7 +146,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     def stringify(indent: Str, outerPrec: Int): Str = this match {
       case Vari(id) => printIdent(id)
       case Inline(str) => str
-      case App(App(Inline(op), lhs), rhs) if op.head === '(' && op.last === ')' =>
+      case App(App(Inline(op), lhs), rhs) if op.head === '(' && op.last === ')' && op.tail.head =/= ',' =>
         parens(s"${lhs.stringify(indent, 3)} ${op.tail.init} ${rhs.stringify(indent, 3)}",
           outerPrec > 2)
       case App(lhs, rhs) =>
@@ -164,12 +164,14 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         parens(stringifyLets(indent, s"${d.stringify(indent + letIndent)}" :: Nil, b),
           outerPrec > 1)
       case Case(scrut, arms) =>
-        parens(s"case ${scrut.stringify(indent, 1)} of {${arms.map { case (con, vars, rhs) =>
-            mkCtorStr(con) + vars.map(_.ide |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify(indent, 2)}"
-        }.mkString("; ")}})",
+        parens(s"case ${scrut.stringify(indent, 1)} of { ${arms.map { case (con, vars, rhs) =>
+          mkCtorStr(con) + vars.map(_.ide |> printIdent).map{" "+_}.mkString + s" -> ${rhs.stringify(indent, 2)}"
+        }.mkString("; ")} }",
           outerPrec > 1)
       case CtorField(scrut, ctor, arity, idx) =>
-        parens(s"case ${scrut.stringify(indent, 1)} of ${mkCtorStr(ctor)} ${List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")} -> arg",
+        parens(s"case ${scrut.stringify(indent, 1)} of ${mkCtorStr(ctor)} ${
+          List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")
+        } -> arg",
           outerPrec > 1)
     }
     

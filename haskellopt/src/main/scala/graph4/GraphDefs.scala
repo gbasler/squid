@@ -102,8 +102,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case Branch(c, t, e) => Iterator(t, e)
       case Lam(p, b) => Iterator(b)
       case App(l, r) => Iterator(l, r)
-      case Case(s, as) => Iterator(s) ++ as.iterator.map(_._2)
-      case CtorField(s, c, i) => Iterator(s)
+      case Case(s, as) => Iterator(s) ++ as.iterator.map(_._3)
+      case CtorField(s, c, a, i) => Iterator(s)
       case _: ConstantNode | _: Var => Iterator.empty
     }
     
@@ -123,10 +123,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case _ => false
     }
     
+    import Console.{BOLD, RESET}
     override def toString: Str = this match {
       case Control(Id, b) => s"[]${b.subString}"
       case Control(i, b) => s"[$i]${b.subString}"
-      case Branch(c, t, e) => s"${Condition.show(c)} ${Console.BOLD}?${Console.RESET} $t ${Console.BOLD}¿${Console.RESET} $e"
+      case Branch(c, t, e) => s"${Condition.show(c)} $BOLD?$RESET $t $BOLD¿$RESET $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case IntBoxing(n) => s"$n"
       case App(Ref(App(Ref(ModuleRef(m, op)), lhs)), rhs) if knownModule(m) && !op.head.isLetter =>
@@ -134,8 +135,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case App(Ref(ModuleRef(m, op)), lhs) if knownModule(m) && !op.head.isLetter =>
         s"(${lhs.subString} $op)"
       case App(l, r) => s"$l @ ${r.subString}"
-      case Case(s, as) => ??? // TODO
-      case CtorField(s, c, i) => ??? // TODO
+      case Case(s, as) =>
+        s"${BOLD}case$RESET ${s} ${BOLD}of {$RESET ${
+          as.map{ case (ctor,ari,ref) => s"$ctor $BOLD->$RESET $ref" }.mkString(s"$BOLD; $RESET")} $BOLD}$RESET"
+      case CtorField(s, c, a, i) => s"${s.subString}.$c#$i"
       case ModuleRef(mod,ref) => if (knownModule(mod)) ref else s"$mod.$ref"
       case IntLit(b,n) => (if (b) "" else "#") + n
       case StrLit(b,s) => (if (b) "" else "#") + '"' + s + '"'
@@ -172,11 +175,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
   }
   
-  case class Case(scrut: NodeRef, arms: List[(Str, NodeRef)]) extends ConcreteNode {
+  case class Case(scrut: NodeRef, arms: List[(Str, Int, NodeRef)]) extends ConcreteNode {
     // Maybe point to ctorField accesses for one-step reductions when possible?
   }
   
-  case class CtorField(scrut: NodeRef, ctor: Str, idx: Int) extends ConcreteNode
+  case class CtorField(scrut: NodeRef, ctor: Str, arity: Int, idx: Int) extends ConcreteNode
   
   sealed abstract class ConstantNode extends ConcreteNode
   

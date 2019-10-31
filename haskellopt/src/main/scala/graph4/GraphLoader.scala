@@ -124,36 +124,34 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
       def ECase(e0: Expr, bndr: Binder, alts: Seq[Alt]): Expr =
         // TODO handle special case where the only alt is AltDefault?
       {
-        ??? // TODO
-        /*
-        import reificationContext
         val old = reificationContext
         try {
-          val v = e0.bound
+          val v = bindVal("scrut")
           
-          reificationContext += v -> e0
+          reificationContext += v -> Lazy(e0)
           // ^ It looks like this is sometimes used; probably if the scrutinee variable is accessed directly (instead of the ctor-index-getters)
           bindings += bndr.binderId -> Left(v)
           
           val altValues = alts.map { case (c,r,f) =>
             val rs = f(e0)
             
-            reificationContext ++= rs.map(r => r._2.bound -> r._2)
-            bindings ++= rs.map(r => r._1 -> Left(r._2.bound))
+            val rsv = rs.map(bindVal("dummy") -> _)
+            reificationContext ++= rsv.map(r => r._1 -> Lazy(r._2._2))
+            bindings ++= rsv.map(r => r._2._1 -> Left(r._1))
             
             (c, rs.size, r)
           }
-          mkCase(e0, altValues.map { case (con,arity,rhs) =>
+          Case(e0, altValues.map { case (con,arity,rhs) =>
             (con match {
               case AltDataCon(name) => name
               case AltDefault => "_"
               case AltLit(_) => ??? // TODO
             },
             arity,
-            rhs)
-          })
+            rhs())
+          }.toList)
+            .mkRefNamed("ψ")
         } finally reificationContext = old
-        */
       }
       def EType(ty: Type): Expr = DummyRead
       
@@ -163,7 +161,8 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             r,
             altCon.asInstanceOf[AltDataCon] // FIXME properly handle the alternatives
               .name,
-            b._2).mkRefNamed("σ")
+            altBinders.size,
+            b._2).mkRefNamed("π") // was: σ
         ).toMap)
       }
       

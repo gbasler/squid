@@ -42,8 +42,11 @@ abstract class GraphScheduler { self: GraphIR =>
     protected def constantToExpr(c: ConstantNode): AST.Expr = c match {
       case IntLit(true, n) => AST.Inline(n.toString)
       case IntLit(false, n) => AST.Inline(s"$n#")
-      case StrLit(true, s) => AST.Inline(s.toString)
-      case StrLit(false, s) => AST.Inline(s"$s#")
+      case StrLit(true, s) => AST.Inline('"' + s + '"')
+      case StrLit(false, s) => AST.Inline('"' + s + '"' + '#')
+      case ModuleRef(m, n)
+        if (n startsWith "(") && (n endsWith ")") && n.init.tail.forall(_ === ',')
+        => AST.Inline(n)
       case ModuleRef(m, n) =>
         val str = if (knownModule(m)) n else s"$m.$n"
         AST.Inline(if (n.head.isLetter) str else s"($str)")
@@ -114,8 +117,9 @@ abstract class GraphScheduler { self: GraphIR =>
             AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
           case v: Var => AST.Vari(v)
           case c: ConstantNode => constantToExpr(c)
-          case Case(s,as) => ???
-          case CtorField(s,c,i) => ???
+          case Case(s,as) =>
+            AST.Case(rec(s), as.map{ case (c,a,r) => (c, List.fill(a)(bindVal("ρ") |> AST.Vari), rec(r)) })
+          case CtorField(s,c,a,i) => AST.CtorField(rec(s),c,a,i)
         }
       }
       val e = rec(ref)(Id)
@@ -211,8 +215,11 @@ abstract class GraphScheduler { self: GraphIR =>
         case l @ Lam(_,lbody) => die // we handle lambdas specially
         case v: Var => AST.Vari(v)
         case c: ConstantNode => constantToExpr(c)
-        case Case(s,as) => ???
-        case CtorField(s,c,i) => ???
+        case Case(s,as) =>
+          assert(as.size === children.size - 1)
+          AST.Case(children.head.toExpr, as.zip(children.tail).map {
+            case ((c,a,r),s) => (c, List.fill(a)(bindVal("ρ") |> AST.Vari), s.toExpr) })
+        case CtorField(s,c,a,i) => AST.CtorField(children(0).toExpr, c, a, i)
       }
       override def toString = if (children.isEmpty || nde.isSimple) nde.toString else children.mkString(s"($nde)[",",","]")
     }

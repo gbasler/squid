@@ -137,4 +137,20 @@ class BasicTests extends FunSuite {
     )
   )
   
+  test("Motiv") (
+    TestHarness("Motiv",
+      //prefixFilter = "f",
+      //
+      dumpGraph = true,
+    )(
+    )
+  )
+  
+  test("PatMat") (
+    // FIXME slt0 generates type-ambiguous code
+    TestHarness("PatMat",
+    )(
+    )
+  )
+  
 }
