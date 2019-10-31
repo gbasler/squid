@@ -1,0 +1,14 @@
+-- Beta reductions:  9
+-- Incl. one-shot:  0
+module InterpSimple where
+  test = [x'6:6↑[pgmtail'5:3↑[pgm'4:0↑]]]ψ_30
+    ψ_30 = case _11 of { [] -> x_10; : -> ψ_2f };					(x4)
+    _11 = [↓]pgmtail_f;					(x3)
+    pgmtail_f = pgmtail'5:3 ? [∅]β_c ¿ pgmtail_ε_3e;
+    β_c = True : (False : []);					(x3)
+    pgmtail_ε_3e = pgmtail'5:4 ? [∅]_11.:#1 ¿ pgmtail_ε_40;
+    pgmtail_ε_40 = pgmtail'5:5 ? [∅]_11.:#1 ¿ pgmtail'5;
+    x_10 = x'6:6 ? [∅]123 ¿ x_ε_44;					(x3)
+    x_ε_44 = x'6:7 ? [∅](x_10 * (fromInteger @ 2)) ¿ x_ε_46;
+    x_ε_46 = x'6:8 ? [∅](x_10 + (fromInteger @ 1)) ¿ x'6;
+    ψ_2f = case _11.:#0 of { False -> [x'6:7↑[pgmtail'5:4↑[pgm'4:1↑[↓;↓;↓]]]]ψ_30; True -> [x'6:8↑[pgmtail'5:5↑[pgm'4:2↑[↓;↓;↓]]]]ψ_30 };
