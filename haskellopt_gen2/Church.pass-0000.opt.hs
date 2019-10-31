@@ -15,30 +15,30 @@ module Church (zero_x_three,two_x_zero,two_x_three,mult,two_p_three,plus,three,t
 
 
 
-zero_x_three = \s_ε -> \z_ε -> z_ε
+zero_x_three = \s -> \z -> z
 
-two_x_zero = \s_ε' -> \z_ε' -> z_ε'
+two_x_zero = \s -> \z -> z
 
-two_x_three = \s_ε'2 -> \z_ε'2 -> s_ε'2 (s_ε'2 (s_ε'2 (s_ε'2 (s_ε'2 (s_ε'2 z_ε'2)))))
+two_x_three = \s -> \z -> s (s (s (s (s (s z)))))
 
-mult = \m_ε -> \n_ε -> m_ε (\n_ε' -> \s_ε'3 -> \z_ε'3 -> n_ε s_ε'3 (n_ε' s_ε'3 z_ε'3)) (\s_ε'4 -> \z_ε'4 -> z_ε'4)
+mult = \m -> \n -> m (\n' -> \s -> \z -> n s (n' s z)) (\s' -> \z' -> z')
 
-two_p_three = \s_ε'5 -> \z_ε'5 -> s_ε'5 (s_ε'5 (s_ε'5 (s_ε'5 (s_ε'5 z_ε'5))))
+two_p_three = \s -> \z -> s (s (s (s (s z))))
 
-plus = \m_ε' -> \n_ε'2 -> \s_ε'6 -> \z_ε'6 -> m_ε' s_ε'6 (n_ε'2 s_ε'6 z_ε'6)
+plus = \m -> \n -> \s -> \z -> m s (n s z)
 
-three = \s_ε'7 -> \z_ε'7 -> s_ε'7 (s_ε'7 (s_ε'7 z_ε'7))
+three = \s -> \z -> s (s (s z))
 
-three_id = \z_ε'8 -> z_ε'8
+three_id = \z -> z
 
-two_id = \z_ε'9 -> z_ε'9
+two_id = \z -> z
 
-two = \s_ε'8 -> \z_ε'10 -> s_ε'8 (s_ε'8 z_ε'10)
+two = \s -> \z -> s (s z)
 
 one_id = \z -> z
 
-one = \s_ε'9 -> \z' -> s_ε'9 z'
+one = \s -> \z -> s z
 
-zero = \s_ε'10 -> \z_ε'11 -> z_ε'11
+zero = \s -> \z -> z
 
-_I = \x_ε -> x_ε
+_I = \x -> x

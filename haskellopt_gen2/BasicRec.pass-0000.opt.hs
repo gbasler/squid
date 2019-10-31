@@ -18,15 +18,15 @@ import GHC.Num
 import GHC.Types
 
 nrec_0 = \x -> 
-  let rec β = β : (rec (β + fromInteger 1)) in
+  let rec p = p : (rec (p + fromInteger 1)) in
   x : (rec (x + fromInteger 1))
 
-nrec_1 = \x' -> let
-  rec' β'2 = β'2 : (rec' (β'2 + fromInteger 1))
-  rec'2 β' = β' : (rec'2 (β' + fromInteger 1))
-  in (0 : (rec' (0 + fromInteger 1))) ++ (x' : (rec'2 (x' + fromInteger 1)))
+nrec_1 = \x -> let
+  rec p' = p' : (rec (p' + fromInteger 1))
+  rec' p = p : (rec' (p + fromInteger 1))
+  in (0 : (rec (0 + fromInteger 1))) ++ (x : (rec' (x + fromInteger 1)))
 
-nrec_capt_0 = \x'2 -> let
-  rec'3 β'4 = β'4 : (rec'3 (β'4 + x'2))
-  rec'4 β'3 = β'3 : (rec'4 (β'3 + x'2))
-  in (0 : (rec'3 (0 + x'2))) ++ (x'2 : (rec'4 (x'2 + x'2)))
+nrec_capt_0 = \x -> let
+  rec p' = p' : (rec (p' + x))
+  rec' p = p : (rec' (p + x))
+  in (0 : (rec (0 + x))) ++ (x : (rec' (x + x)))

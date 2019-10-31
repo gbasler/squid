@@ -19,47 +19,47 @@ import GHC.Num
 import GHC.Tuple
 import GHC.Types
 
-s = \f_ε -> \x_ε -> let
-        β = x_ε + fromInteger 1
-        rec β'5 = let
-              β'6 = β'5 + fromInteger 1
-              rec'3 β'7 = 
-                    let β'8 = β'7 + fromInteger 1 in
-                    β'8 - (f_ε (rec β'8) * f_ε (rec'3 β'8))
-              in β'6 - (f_ε (rec β'6) * f_ε (rec'3 β'6))
-        rec' β' = let
-              β'2 = β' + fromInteger 1
-              rec'2 β'3 = 
-                    let β'4 = β'3 + fromInteger 1 in
-                    β'4 - (f_ε (rec'2 β'4) * f_ε (rec' β'4))
-              in β'2 - (f_ε (rec'2 β'2) * f_ε (rec' β'2))
-        in β - (f_ε (rec β) * f_ε (rec' β))
+s = \f -> \x -> let
+        _0 = x + fromInteger 1
+        rec p'2 = let
+              _3 = p'2 + fromInteger 1
+              rec'3 p'3 = 
+                    let _4 = p'3 + fromInteger 1 in
+                    _4 - (f (rec _4) * f (rec'3 _4))
+              in _3 - (f (rec _3) * f (rec'3 _3))
+        rec' p = let
+              _1 = p + fromInteger 1
+              rec'2 p' = 
+                    let _2 = p' + fromInteger 1 in
+                    _2 - (f (rec'2 _2) * f (rec' _2))
+              in _1 - (f (rec'2 _1) * f (rec' _1))
+        in _0 - (f (rec _0) * f (rec' _0))
 
 r_2 = let
-  β'9 = (:) 1
-  rec'4 = β'9 rec'4
-  in GHC.List.take 3 $ β'9 rec'4
+  _0 = (:) 1
+  rec = _0 rec
+  in GHC.List.take 3 $ _0 rec
 
 r_0 = 
-  let β'10 = (+) 1 in
-  \unit_ε -> 
-        let rec'5 = β'10 rec'5 in
-        β'10 rec'5
+  let _0 = (+) 1 in
+  \unit -> 
+        let rec = _0 rec in
+        _0 rec
 
-r = \f_ε' -> \unit_ε' -> 
-        let rec'6 = f_ε' rec'6 in
-        f_ε' rec'6
+r = \f -> \unit -> 
+        let rec = f rec in
+        f rec
 
 only_q = \f -> \x -> \y -> 
-              let rec'7 = f (f x) : rec'7 in
-              f x : (f (f y) : rec'7)
+              let rec = f (f x) : rec in
+              f x : (f (f y) : rec)
 
 q_1 = 
-  let β'11 = (+) 1 in
-  \x_ε' -> \y_ε -> 
-              let rec'8 = β'11 (β'11 y_ε) : rec'8 in
-              β'11 x_ε' : rec'8
+  let _0 = (+) 1 in
+  \x -> \y -> 
+              let rec = _0 (_0 y) : rec in
+              _0 x : rec
 
-q = \f_ε'2 -> \x_ε'2 -> \y_ε' -> 
-              let rec'9 = f_ε'2 (f_ε'2 y_ε') : rec'9 in
-              f_ε'2 x_ε'2 : rec'9
+q = \f -> \x -> \y -> 
+              let rec = f (f y) : rec in
+              f x : rec

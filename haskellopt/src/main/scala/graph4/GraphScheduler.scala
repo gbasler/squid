@@ -16,19 +16,26 @@ abstract class GraphScheduler { self: GraphIR =>
   abstract class Scheduler {
     val mod: GraphModule
     val AST: HaskellAST { type Ident = Var }
-    val modDefs: List[AST.Defn]
+    val modDefStrings: List[Str]
     
     private val nameCounts = mutable.Map.empty[String, Int]
     private val nameAliases = mutable.Map.empty[Var, String]
+    protected def resetVarPrintingState(): Unit = { nameCounts.clear(); nameAliases.clear() }
+    
     protected def printVar(v: Var): String = if (v === WildcardVal) "_" else nameAliases.getOrElseUpdate(v, {
-      val nme = v.name takeWhile (_ =/= '$')
+      val nme = v.name
+        //.takeWhile(_ =/= '$') // don't think I currently use dollar signs
+        .stripPrefix("β") // most intermediate expressions end up having a β name; it's better to just remove it
+        .stripSuffix("_ε") // I use these suffixes to make debugging graph dumps easier, but they're very ugly
       val cnt = nameCounts.getOrElse(nme, 0)
       nameCounts(nme) = cnt+1
-      if (nme.isEmpty) "_"+cnt else
+      if (nme.isEmpty) "_"+cnt else // annoyance with leading underscores is that GHC thinks they are type holes when their definition is missing... 
+      //if (nme.isEmpty) "t"+cnt else
       cnt match {
         case 0 => nme
         case 1 => nme+"'"
         case n => nme+"'"+n
+        //case n => nme+"_"+n
       }
     })
     
@@ -67,7 +74,7 @@ abstract class GraphScheduler { self: GraphIR =>
       |
       |${imports.map("import "+_).mkString("\n")}
       |
-      |${modDefs.map(d => d.stringify).mkString("\n\n")}
+      |${modDefStrings.mkString("\n\n")}
       |""".tail.stripMargin
       //|-- Apps: ${mod.Stats.apps}; Lams: ${mod.Stats.lams}; Unreduced Redexes: ${mod.Stats.unreducedRedexes}
     }
@@ -91,7 +98,7 @@ abstract class GraphScheduler { self: GraphIR =>
       val commonSubexprElim = true
     }
     
-    val modDefs: List[AST.Defn] = mod.modDefs.map { case (name, ref) =>
+    val modDefStrings: List[Str] = mod.modDefs.map { case (name, ref) =>
       Sdebug(s"Scheduling $name")
       def rec(ref: Ref)(implicit ictx: Instr): AST.Expr = ScheduleDebug.nestDbg {
         Sdebug(s"[$ictx] ${ref.show}")
@@ -112,7 +119,7 @@ abstract class GraphScheduler { self: GraphIR =>
         }
       }
       val e = rec(ref)(Id)
-      new AST.Defn(bindVal(name), Nil, Lazy(e))
+      new AST.Defn(bindVal(name), Nil, Lazy(e)).stringify
     }
     
   }
@@ -130,14 +137,14 @@ abstract class GraphScheduler { self: GraphIR =>
       override val mergeLets = true
     }
     
-    val modDefs: List[AST.Defn] = {
-      val withIdents = mod.modDefs.map { case (nme,df) =>
-        val ident = AST.mkIdent(nme)
-        printVar(ident) // allocate the right 'bare' name for each top-level definition
-        (nme,df,ident)
-      }
-      withIdents.map { case (nme,df,ide) =>
+    val modDefStrings: List[Str] = {
+      mod.modDefs.map { case (nme,df) =>
         Sdebug(s"Scheduling $nme")
+        
+        resetVarPrintingState()
+        val ide = AST.mkIdent(nme)
+        printVar(ide) // allocate the right 'bare' name for each top-level definition
+        
         val rootScp = ScheduleDebug.nestDbg {
           val scp = new Scope(DummyCallId, Id, None) {
             override val ident = ide
@@ -186,7 +193,8 @@ abstract class GraphScheduler { self: GraphIR =>
         Sdebug(s">>>>>> FINAL RESULT")
         Sdebug(rootScp.show())
         Sdebug(s">>>>>> /")
-        rootScp.toDefn
+        val defn = rootScp.toDefn
+        defn.stringify
       }
     }
     
@@ -240,13 +248,14 @@ abstract class GraphScheduler { self: GraphIR =>
       lazy val push = Push(cid,payload,Id)
       
       val idents: mutable.Map[Ref, AST.Ident] = mutable.Map.empty
-      def toIdent(ref: Ref): AST.Ident = idents.getOrElseUpdate(ref, AST.mkIdent(ref.name.getOrElse("")))
+      def toIdent(ref: Ref): AST.Ident = idents.getOrElseUpdate(ref, AST.mkIdent(ref.name.getOrElse("t")))
       def toVari(ref: Ref): AST.Vari = AST.Vari(toIdent(ref))
       def printRef(ref: Ref) = printVar(toIdent(ref))
       
       // We separate parameters to avoid clashes with arguments to the same recursive scopes:
       val paramIdents: mutable.Map[Ref, AST.Ident] = mutable.Map.empty
-      def toParamIdent(ref: Ref): AST.Ident = paramIdents.getOrElseUpdate(ref, AST.mkIdent(ref.name.getOrElse("")))
+      def toParamIdent(ref: Ref): AST.Ident = paramIdents.getOrElseUpdate(ref,
+        AST.mkIdent(ref.name.filterNot(_.startsWith("β")).getOrElse("p")))
       
       def toArg(ref: ((Instr,Ref), Scheduled)): AST.Expr = {
         Sdebug(s"?! toArg $ref ${ref._1._2 |> toIdent} ${ref._1._2 |> toIdent |> printVar} ${ref._2.toExpr} ${ref._2.toExpr.stringify}")

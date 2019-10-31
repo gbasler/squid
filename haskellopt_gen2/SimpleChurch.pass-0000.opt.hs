@@ -15,6 +15,6 @@ module Church (_2II,_2I) where
 
 
 
-_2II = \x_ε -> x_ε
+_2II = \x -> x
 
 _2I = \y -> y

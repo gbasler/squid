@@ -20,10 +20,10 @@ nats1 =
   let rec st = st : (rec (st + 1)) in
   (rec 0)
 
-loop1 = \f_ε -> \state_ε -> 
-        let λ = \st_ε -> f_ε λ st_ε in
-        f_ε λ state_ε
+loop1 = \f -> \state -> 
+        let λ = \st -> f λ st in
+        f λ state
 
-loop0 = \f_ε' -> 
-  let rec' f = f (rec' f) in
-  f_ε' (rec' f_ε')
+loop0 = \f -> 
+  let rec f' = f' (rec f') in
+  f (rec f)

@@ -17,29 +17,29 @@ import GHC.Base
 import GHC.Num
 import GHC.Types
 
-foo_5 = \s_ε -> let
-  rec β'2 = 
-        let rec'3 β'3 = β'3 : ((rec (β'3 + 1)) ++ (rec'3 (β'3 * 2))) in
-        β'2 : ((rec (β'2 + 1)) ++ (rec'3 (β'2 * 2)))
-  rec' β = 
-        let rec'2 β' = β' : ((rec'2 (β' + 1)) ++ (rec' (β' * 2))) in
-        β : ((rec'2 (β + 1)) ++ (rec' (β * 2)))
-  in s_ε : ((rec (s_ε + 1)) ++ (rec' (s_ε * 2)))
+foo_5 = \s -> let
+  rec p'2 = 
+        let rec'3 p'3 = p'3 : ((rec (p'3 + 1)) ++ (rec'3 (p'3 * 2))) in
+        p'2 : ((rec (p'2 + 1)) ++ (rec'3 (p'2 * 2)))
+  rec' p = 
+        let rec'2 p' = p' : ((rec'2 (p' + 1)) ++ (rec' (p' * 2))) in
+        p : ((rec'2 (p + 1)) ++ (rec' (p * 2)))
+  in s : ((rec (s + 1)) ++ (rec' (s * 2)))
 
-foo_4 = \s_ε' -> 
-  let rec'4 β'4 = β'4 : (rec'4 (β'4 + 1)) in
-  s_ε' : (rec'4 (s_ε' + 1))
+foo_4 = \s -> 
+  let rec p = p : (rec (p + 1)) in
+  s : (rec (s + 1))
 
-foo_3 = \s_ε'2 -> 
-  let rec'5 s = s : (rec'5 s) in
-  s_ε'2 : (rec'5 s_ε'2)
+foo_3 = \s -> 
+  let rec s' = s' : (rec s') in
+  s : (rec s)
 
 foo_1 = id
 
 foo_0 = 
-  let _ε = id _ε in
-  _ε
+  let _0 = id _0 in
+  _0
 
-foo = \f_ε -> 
-  let _ε' = f_ε _ε' in
-  _ε'
+foo = \f -> 
+  let _0 = f _0 in
+  _0
