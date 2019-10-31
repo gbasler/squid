@@ -37,6 +37,11 @@ final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
   def valueOption: Option[A] = Option(valueOrElse(null.asInstanceOf[A]))
   def valueOrElse[B >: A](default: => B): B = if (!computing) value else default
   
+  override def equals(that: Any): Bool = that match {
+    case that: Lazy[_] => that.value == value
+    case _ => that == value
+  }
+  
   @transparencyPropagating
   def `internal pure value` = value // TODO doc
   def internal_pure_value = value // TODO doc

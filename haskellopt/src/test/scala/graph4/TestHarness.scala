@@ -33,10 +33,14 @@ class TestHarness {
       val liftedArgs = c.args.map(Inter.lift)
       val liftedValue = Inter.lift(c.value)
       //println(s"Eval... $c")
-      val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
-      val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
-      println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
-      assert(applied === liftedValue, s"Interpreter result $applied did not equal expected result $liftedValue")
+      
+      //Inter.debugFor
+      {
+        val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
+        val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
+        println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
+        assert(applied === liftedValue, s"Interpreter result $applied did not equal expected result $liftedValue")
+      }
     }
     
     val loadingEndTime = System.nanoTime

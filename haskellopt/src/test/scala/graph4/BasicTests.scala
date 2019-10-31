@@ -60,7 +60,8 @@ class BasicTests extends FunSuite {
       //
       dumpGraph = true,
     )(
-      // TODO checks
+      check('r_2)(List(1,1,1)),
+      // TODO more checks
     )
   )
   
