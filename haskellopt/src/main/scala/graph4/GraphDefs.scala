@@ -44,8 +44,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       }
       Some(res.toMap) // TODO avoid this conversion cost
     }
-    /** Must have full context; will crash if `ictx` is only partial. */
-    def test_!(cnd: Condition, ictx: Instr): Bool = {
+    
+    protected def test_impl(cnd: Condition, ictx: Instr, canFail: Bool): Bool = {
       //println(s"test [$ictx] $cnd")
       var atLeastOne = false // at least one subcondition could be tested
       var result = true
@@ -54,7 +54,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           case Some(c2) =>
             atLeastOne = true
             result &&= c2 === c
-          case None => result = false
+          case None => if (canFail) scala.util.control.Breaks.break() else result = false
         })
         catch { case _: BadComparison => result = false }
         // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
@@ -63,11 +63,25 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       assert(atLeastOne)
       result
     }
+    
+    /** Must have full context; may crash if `ictx` is only partial. */
+    def test_!(cnd: Condition, ictx: Instr): Bool =
+      test_impl(cnd, ictx, false)
+    
+    /** Returns None if some context is missing to determine the truth of the condition. */
+    def test(cnd: Condition, ictx: Instr): Opt[Bool] = 
+      scala.util.control.Breaks tryBreakable[Opt[Bool]] Some((test_impl(cnd, ictx, true))) catchBreak None
+    // Note: the unprotected version was:
+    /*
     def test(cnd: Condition, ictx: Instr): Opt[Bool] = Some {
       cnd.forall { case (i,c) =>
         (ictx `;` i).lastCallId.getOrElse(return None) === c
       }
     }
+    */
+    
+    def show(c: Condition): Str =
+      c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(Console.BOLD + " & ")
   }
   
   type Path = (Instr, Condition)
@@ -112,8 +126,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     override def toString: Str = this match {
       case Control(Id, b) => s"[]${b.subString}"
       case Control(i, b) => s"[$i]${b.subString}"
-      case Branch(c, t, e) => s"${c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }
-        .mkString(Console.BOLD + " & ")} ${Console.BOLD}?${Console.RESET} $t ${Console.BOLD}¿${Console.RESET} $e"
+      case Branch(c, t, e) => s"${Condition.show(c)} ${Console.BOLD}?${Console.RESET} $t ${Console.BOLD}¿${Console.RESET} $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case IntBoxing(n) => s"$n"
       case App(Ref(App(Ref(ModuleRef(m, op)), lhs)), rhs) if knownModule(m) && !op.head.isLetter =>
@@ -340,6 +353,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   case class BadComparison(msg: Str) extends Exception(msg)
   object BadComparison extends BadComparison("?")
+  BadComparison
+  //class BadComparison(msg: Str) extends Exception(msg)
+  //def BadComparison = new BadComparison("?")
   
   sealed abstract class Instr {
     
