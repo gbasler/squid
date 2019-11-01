@@ -16,7 +16,7 @@ package graph4
 
 import squid.utils._
 import squid.utils.CollectionUtils.MapHelper
-import squid.utils.CollectionUtils.MutSetHelper
+import squid.lib.MutVar
 
 import scala.collection.mutable
 
@@ -37,6 +37,8 @@ object CurriedParameters extends ParameterPassingStrategy {
     (fun :: params).mkString(" ")
 }
 
+// TODO Should find a way to float let bindings into case right-hand-sides when possible,
+//      so we don't end up with CtorField expressions that can't be simplified.
 abstract class HaskellAST(pp: ParameterPassingStrategy) {
   
   val dropUnusedLets: Bool
@@ -55,7 +57,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   def mkIdent(nameHitn: String): Ident
   
   def mkCtorStr(ctor: String) =
-    if (ctor.head.isLetter || ctor === "[]" || ctor.head === '(') ctor else s"($ctor)"
+    if (ctor.head.isLetter || ctor === "[]" || ctor.head === '(' || ctor === "_") ctor else s"($ctor)"
   
   /** Important: `id` is used to uniquely identify the definition. */
   class Defn(val ide: Ident, val params: List[Vari], _body: Lazy[Expr]) {
@@ -91,7 +93,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     
     lazy val simplifiedBody = body.simplify.cse
     
-    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]]) = {
+    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]], changed: MutVar[Bool]) = {
       val s = body.simplifyRec // TODO make simplifyRec eq-preserving in case of no changes
       if (s eq body) this else new Defn(ide, params, Lazy(s))
     }
@@ -135,6 +137,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     
     def isTrivial: Bool = this match {
       case _: Inline | _: Vari | Call(_, Nil) => true
+      case CtorField(s, _, _, _) => s.isTrivial
       case _ => false
     }
     
@@ -169,10 +172,17 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         }.mkString("; ")} }",
           outerPrec > 1)
       case CtorField(scrut, ctor, arity, idx) =>
+        /*
         parens(s"case ${scrut.stringify(indent, 1)} of ${mkCtorStr(ctor)} ${
           List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")
         } -> arg",
           outerPrec > 1)
+        */
+        // Alternative, slightly more lightweight:
+        parens(s"let ${mkCtorStr(ctor)} ${
+          List.tabulate(arity)(i => if (i === idx) "arg" else "_").mkString(" ")
+        } = ${scrut.stringify(indent, 1)} in arg",
+          outerPrec > 0) // > 1 also works but is pretty hard to read, as in `case let (:) _ arg = xs in arg of { ... }`
     }
     
     def freeVars: Set[Vari] = occurrences.keySet
@@ -262,8 +272,13 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case CtorField(scrut, ctor, arity, idx) =>Ite(scrut)
     }
     
-    def simplify: Expr = simplifyRec(Map.empty)
-    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]]): Expr = this match {
+    def simplify: Expr = {
+      val changed = MutVar(true)
+      var res = this
+      while (changed.!) { changed := false; res = res.simplifyRec(Map.empty, changed) }
+      res
+    }
+    def simplifyRec(implicit caseCtx: Map[(Expr,String),List[Vari]], changed: MutVar[Bool]): Expr = this match {
       case _: Inline | _: Vari => this
       case App(lhs, rhs) => App(lhs.simplifyRec, rhs.simplifyRec)
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.simplifyRec), b.simplifyRec.cse)
@@ -271,9 +286,12 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case Let(p, e0, b) => Let(p, e0.simplifyRec, b.simplifyRec)
       case LetDefn(d, b) => LetDefn(d.simplifyRec, b.simplifyRec)
       case Case(scrut, arms) => Case(scrut.simplifyRec, arms.map { case (con,vals,body) =>
-        (con, vals, body.simplifyRec(if (simplifyCases) caseCtx + ((scrut -> con) -> vals) else caseCtx)) })
+        val newCtx = if (simplifyCases) caseCtx + ((scrut -> con) -> vals) else caseCtx
+        (con, vals, body.simplifyRec(newCtx, changed)) })
       case CtorField(scrut, ctor, arity, idx) => caseCtx.get(scrut, ctor) match {
-        case Some(vals) => vals(idx)
+        case Some(vals) =>
+          changed := true
+          vals(idx)
         case None => CtorField(scrut.simplifyRec, ctor, arity, idx)
       }
     }

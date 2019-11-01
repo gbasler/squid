@@ -44,12 +44,12 @@ abstract class GraphScheduler { self: GraphIR =>
       case IntLit(false, n) => AST.Inline(s"$n#")
       case StrLit(true, s) => AST.Inline('"' + s + '"')
       case StrLit(false, s) => AST.Inline('"' + s + '"' + '#')
-      case ModuleRef(m, n)
+      case ModuleRef(m, n) // Q: is this case still useful?
         if (n startsWith "(") && (n endsWith ")") && n.init.tail.forall(_ === ',')
         => AST.Inline(n)
       case ModuleRef(m, n) =>
         val str = if (knownModule(m)) n else s"$m.$n"
-        AST.Inline(if (n.head.isLetter) str else s"($str)")
+        AST.Inline(if (n.head.isLetter || n === "[]") str else s"($str)")
     }
     
     protected val pp: ParameterPassingStrategy =

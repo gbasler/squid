@@ -18,7 +18,6 @@ class PatMatTests extends FunSuite {
   
   test("PatMat") (
     // Note: slt0 used to generate type-ambiguous code (when pattern matching was not reduced)
-    // Q: why does this now look worse than in dd48e627c8f3aeaa5691833260e2dd3b6e3b05bd ?
     TestHarness("PatMat",
       //prefixFilter = "f0",
     )(
