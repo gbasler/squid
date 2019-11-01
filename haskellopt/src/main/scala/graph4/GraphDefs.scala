@@ -349,7 +349,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
     */
     
-    def toBeScheduledInline = node.isSimple && !node.isInstanceOf[VirtualNode]
+    def toBeScheduledInline = node match {
+      //case IntBoxing(_) => true // maybe use this?
+      case _: ConstantNode | _: Var => true
+      case _ => false
+    }
     
     def iterator: Iterator[Ref] = mkIterator(false, mutable.HashSet.empty)
     def mkIterator(implicit rev: Bool, done: mutable.HashSet[Ref]): Iterator[Ref] = done.setAndIfUnset(this, {

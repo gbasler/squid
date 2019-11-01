@@ -20,4 +20,5 @@ t2_ _ = [666]
 t2 [a,b] = (a - b) : t2 [b,a]
 t2 _ = [666]
 t2'0 = t2 [0,1]
-t2'1 = case t2'0 of { a : b : _ -> (a,b); _ -> (66,666) }
+-- FIXME conflicting defs:
+-- t2'1 = case t2'0 of { a : b : _ -> (a,b); _ -> (666,666) }

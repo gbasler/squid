@@ -18,6 +18,7 @@ class PatMatTests extends FunSuite {
   
   test("PatMat") (
     // Note: slt0 used to generate type-ambiguous code (when pattern matching was not reduced)
+    // Q: why does this now look worse than in dd48e627c8f3aeaa5691833260e2dd3b6e3b05bd ?
     TestHarness("PatMat",
       //prefixFilter = "f0",
     )(
@@ -25,18 +26,21 @@ class PatMatTests extends FunSuite {
   )
   
   test("PatMatRec") (
-    // FIXME ordering problem in scheduling
+    // FIXME ordering problem in scheduling of t2'1 due to conflicting defs
     TestHarness("PatMatRec",
-      schedule = false,
+      //prefixFilter = "t2'1",
+      //
+      //schedule = false,
     )(
     )
   )
   
   test("PatMatRec2") (
-    // FIXME unbound π variables in scheduling
     TestHarness("PatMatRec2",
+      //prefixFilter = "usum'2",
+      //prefixFilter = "usum ",
+      //
       dumpGraph = true,
-      schedule = false,
     )(
     )
   )

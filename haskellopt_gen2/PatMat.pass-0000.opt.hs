@@ -57,15 +57,24 @@ u0_0 = 1 + 2
 
 u1_0 = ((1 + 2) + 3) + 4
 
-u1 = \ds -> case ds of { (,) ρ ρ' -> (case ρ' of { (,) ρ'2 ρ'3 -> (case ρ'3 of { (,) ρ'4 ρ'5 -> (case ρ'5 of { (,) ρ'6 ρ'7 -> (case ρ'7 of { () -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+u1 = \ds -> let
+  _fε = case ds of (,) _ arg -> arg
+  _fε' = case _fε of (,) _ arg -> arg
+  in case ds of { (,) ρ ρ' -> (case _fε of { (,) ρ'2 ρ'3 -> (case _fε' of { (,) ρ'4 ρ'5 -> (case case _fε' of (,) _ arg -> arg of { (,) ρ'6 ρ'7 -> (case ρ'7 of { () -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
 
 u0 = \ds -> case ds of { (,) ρ ρ' -> ρ + ρ' }
 
-t1'1 = \xs -> case xs of { (_) -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { (_) -> fromInteger 666; [] -> ((fromInteger 5 + fromInteger 6) + ρ) + ρ'2 }) }) }
+t1'1 = \xs -> case xs of { (_) -> fromInteger 666; (:) ρ ρ' -> (case case xs of (:) _ arg -> arg of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { (_) -> fromInteger 666; [] -> ((fromInteger 5 + fromInteger 6) + ρ) + ρ'2 }) }) }
 
-t1 = \ds -> case ds of { (_) -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case case case ds of (:) _ arg -> arg of (:) _ arg -> arg of { (_) -> fromInteger 666; (:) ρ'4 ρ'5 -> (case ρ'5 of { (_) -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { (_) -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+t1 = \ds -> let
+  _fε = case ds of (:) _ arg -> arg
+  _fε' = case _fε of (:) _ arg -> arg
+  in case ds of { (_) -> fromInteger 666; (:) ρ ρ' -> (case _fε of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case _fε' of { (_) -> fromInteger 666; (:) ρ'4 ρ'5 -> (case case _fε' of (:) _ arg -> arg of { (_) -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { (_) -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
 
-t0 = \ds -> case ds of { (_) -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { (_) -> fromInteger 666; (:) ρ'4 ρ'5 -> (case ρ'5 of { (_) -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { (_) -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+t0 = \ds -> let
+  _fε = case ds of (:) _ arg -> arg
+  _fε' = case _fε of (:) _ arg -> arg
+  in case ds of { (_) -> fromInteger 666; (:) ρ ρ' -> (case _fε of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case _fε' of { (_) -> fromInteger 666; (:) ρ'4 ρ'5 -> (case case _fε' of (:) _ arg -> arg of { (_) -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { (_) -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
 
 t'ls = 1 : (2 : (3 : (4 : ([]))))
 
