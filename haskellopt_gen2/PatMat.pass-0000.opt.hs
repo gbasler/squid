@@ -2,19 +2,20 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  25
+-- Beta reductions:  30
 -- Incl. one-shot:  1
--- Case reductions:  24
--- Field reductions:  29
--- Total nodes: 671; Boxes: 128; Branches: 129
--- Apps: 112; Lams: 11
+-- Case reductions:  34
+-- Field reductions:  48
+-- Total nodes: 841; Boxes: 158; Branches: 166
+-- Apps: 138; Lams: 15
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (f1'2,f1'1,f1'0,f1,f0'3,f0'2,f0'1,f0'0,f0,f2'0,t1'0,t0'0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
+module PatMat (f1'2,f1'1,f1'0,f1,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
 
+import Data.Foldable
 import GHC.Base
 import GHC.Classes
 import GHC.Maybe
@@ -41,11 +42,24 @@ f0'0 = Just (2 + 1)
 
 f0 = \ds -> case ds of { Nothing -> Just 0; Just ρ -> Just (ρ + 1) }
 
-f2'0 = case (,,) 1 2 3 of { (,,) ρ ρ' ρ'2 -> (ρ + ρ') + ρ'2 }
+f2'0 = (1 + 2) + 3
+
+slt0 = \x -> let
+  _0 = Data.Foldable.sum (map (\c' -> c' + x) ([]))
+  _1 = (Data.Foldable.sum . map (\x' -> x' * 2)) (map (\c -> c + (x + 1)) ([]))
+  in (,) ((_0 * _0) + fromInteger 1) ((_1 * _1) + fromInteger 1)
 
 t1'0 = ((1 + 2) + 3) + 4
 
 t0'0 = ((1 + 2) + 3) + 4
+
+u0_0 = 1 + 2
+
+u1_0 = ((1 + 2) + 3) + 4
+
+u1 = \ds -> case ds of { (,) ρ ρ' -> (case ρ' of { (,) ρ'2 ρ'3 -> (case ρ'3 of { (,) ρ'4 ρ'5 -> (case ρ'5 of { (,) ρ'6 ρ'7 -> (case ρ'7 of { () -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+
+u0 = \ds -> case ds of { (,) ρ ρ' -> ρ + ρ' }
 
 t1'1 = \xs -> case xs of { (_) -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { (_) -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { (_) -> fromInteger 666; [] -> ((fromInteger 5 + fromInteger 6) + ρ) + ρ'2 }) }) }
 
@@ -55,7 +69,7 @@ t0 = \ds -> case ds of { (_) -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { (_
 
 t'ls = 1 : (2 : (3 : (4 : ([]))))
 
-slt1 = \ls -> case (,) (\res -> res) 0 of { (,) ρ ρ' -> ρ (map (\c -> ρ')) (map (\c' -> ρ') ls) }
+slt1 = \ls -> map (\c -> 0) (map (\c' -> 0) ls)
 
 f2 = \ds -> case ds of { (,,) ρ ρ' ρ'2 -> (ρ + ρ') + ρ'2 }
 

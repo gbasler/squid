@@ -40,9 +40,9 @@ f2 (a,b,c) = a + b + c
 f2'0 = f2 (1,2,3)
 
 
--- FIXME generates type-ambiguous code
--- slt0 = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
---   bat (sf, arg) = let r = sf ((map (\c -> c + arg)) []) in r * r + 1
+-- Note: used to generate type-ambiguous code:
+slt0 = (\x -> (bat (sum, x), bat (sum . (map (\x -> x * 2)), x + 1))) where
+  bat (sf, arg) = let r = sf ((map (\c -> c + arg)) []) in r * r + 1
 
 slt1 = bat (\res -> res, 0) where
   bat (sf, arg) ls = sf (map (\c -> arg)) (map (\c -> arg) ls)
@@ -61,5 +61,10 @@ t1'0 = t1 t'ls
 t1'1 xs = t1 (5 : 6 : xs)
 
 
+u0 (a, b) = a + b
+u0_0 = u0 (1, 2)
+
+u1 (a, (b, (c, (d, ())))) = a + b + c + d
+u1_0 = u1 (1, (2, (3, (4, ()))))
 
 

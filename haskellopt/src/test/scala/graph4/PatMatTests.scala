@@ -8,9 +8,7 @@ class PatMatTests extends FunSuite {
   import CheckDSL.check
   
   test("Motiv") (
-    // FIXME it seems tuple matches are not reduced
     TestHarness("Motiv",
-      //prefixFilter = "f",
       //prefixFilter = "pgrm",
       //
       dumpGraph = true,
@@ -19,7 +17,7 @@ class PatMatTests extends FunSuite {
   )
   
   test("PatMat") (
-    // FIXME slt0 generates type-ambiguous code
+    // Note: slt0 used to generate type-ambiguous code (when pattern matching was not reduced)
     TestHarness("PatMat",
       //prefixFilter = "f0",
     )(

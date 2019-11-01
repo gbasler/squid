@@ -4,10 +4,10 @@
 --   desugar
 -- Beta reductions:  7
 -- Incl. one-shot:  0
--- Case reductions:  6
--- Field reductions:  2
--- Total nodes: 238; Boxes: 48; Branches: 48
--- Apps: 26; Lams: 6
+-- Case reductions:  7
+-- Field reductions:  4
+-- Total nodes: 234; Boxes: 48; Branches: 56
+-- Apps: 18; Lams: 6
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -20,11 +20,11 @@ import GHC.Num
 import GHC.Tuple
 import GHC.Types
 
-pgrm = (case (,) 2 1 of { (,) ρ ρ' -> ρ * ρ' }) + (0 + 1)
+pgrm = (2 * 1) + (0 + 1)
 
 f = \x -> 
-  let _cε = case case x of { Nothing -> False; Just ρ'3 -> True } of { False -> 0; True -> 1 } in
-  case x of { Nothing -> _cε + 1; Just ρ -> (case (,) (case x of Just arg -> arg) _cε of { (,) ρ' ρ'2 -> ρ' * ρ'2 }) }
+  let _cε = case case x of { Nothing -> False; Just ρ' -> True } of { False -> 0; True -> 1 } in
+  case x of { Nothing -> _cε + 1; Just ρ -> ρ * _cε }
 
 e1 = \ds -> case ds of { (,) ρ ρ' -> ρ * ρ' }
 

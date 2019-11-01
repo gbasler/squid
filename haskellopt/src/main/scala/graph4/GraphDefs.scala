@@ -196,7 +196,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   sealed abstract class ConstantNode extends ConcreteNode
   
   case class ModuleRef(modName: Str, defName: Str) extends ConstantNode {
-    def isCtor: Bool = defName.head === ':' || defName.head === '[' || defName.head.isUpper
+    val isCtor: Bool = {
+      val hd = defName.head
+      hd === ':' || hd === '[' || hd.isUpper ||
+        modName === "GHC.Tuple" && hd === '(' && defName.last === ')' && defName.init.tail.forall(_ === ',')
+    }
   }
   
   sealed abstract class Lit extends ConstantNode {

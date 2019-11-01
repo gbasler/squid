@@ -55,20 +55,12 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         val mod = ExternalName.externalModuleName
         val nme = ExternalName.externalName
         if (mod === modName.get) moduleBindings(ExternalName.externalUnique)._2
-        else ModuleRef(ExternalName.externalModuleName, (mod, nme) match {
-          //case ("GHC.Types", ":") => "(:)" // weirdness of GHC // commented — but I seem to remember it may cause problems in pat-mat
-          // Not sure if still useful:
-          //case ("GHC.Types", "[]") => "[]"
-          //case ("GHC.Tuple", tup) // match (); (,); (,,); ...
-          //  if (tup startsWith "(") && (tup endsWith ")") && tup.init.tail.forall(_ === ',') => tup
-          case _ =>
-            mod match {
-              case "GHC.Integer.Type" =>
-              case _ => imports += mod
-            }
-            // FIXME? use below?
-            //if (nme.head.isLetter) s"$mod.$nme" else s"($mod.$nme)"
-            nme
+        else ModuleRef(ExternalName.externalModuleName, {
+          mod match {
+            case "GHC.Integer.Type" =>
+            case _ => imports += mod
+          }
+          nme
         }).mkRef
       }
       def ELit(Lit: Lit): Expr = Lit.mkRefNamed("κ")
