@@ -40,6 +40,8 @@ class GraphIR extends GraphDefs {
   val inlineScheduledLets = true
   //val inlineScheduledLets = false
   
+  val MaxPropagationDepth = 16
+  
   
   type Ref = NodeRef
   val Ref: NodeRef.type = NodeRef

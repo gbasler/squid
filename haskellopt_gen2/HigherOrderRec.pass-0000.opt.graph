@@ -1,5 +1,7 @@
 -- Beta reductions:  16
 -- Incl. one-shot:  0
+-- Case reductions:  0
+-- Field reductions:  0
 module HigherOrderp where
   s = []λ_6f
     λ_6f = \f'14 -> λ_6e;					(x2)

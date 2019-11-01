@@ -232,7 +232,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case mod: ModuleRef if mod.isCtor => pathsToCtorApps += CtorPath.empty(mod)
       case _ =>
     }
-    children.foreach { c => c.addref(this); c.propagatePaths(this)(mutable.HashSet.empty) }
+    children.foreach { c => c.addref(this); c.propagatePaths(this)(0) }
     
     def children: Iterator[NodeRef] = _node.children
     
@@ -257,8 +257,14 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     //def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
     // ^ If we stop propagating recursively using done.setAndIfUnset, it makes us miss some reductions
     //     For example in HigherOrder.hs ([↓]f_ε_115 @ λ_40) and in Church.hs
-    def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = ({
+    //def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = ({
+    def propagatePaths(ref: NodeRef)(implicit depth: Int): Unit = (depth + 1) |> { implicit depth =>
       //println(s"> $this tells $ref")
+      
+      if (depth > MaxPropagationDepth) {
+        System.err.println(s"WARNING: Maximum propagation deapth reached ($MaxPropagationDepth)")
+        return
+      }
       
       //println(s"> $this tells $ref ${
       //  pathsToLambdas.map("\n\t"+_).mkString
@@ -323,14 +329,14 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case _ =>
       }
       
-    })
+    }
     def node: Node = _node
     def node_=(that: Node)(implicit mod: Module): Unit = {
       val oldChildren = children
       _node = that
       children.foreach(_.addref(this)) // Note: we need to do that before `remrefs` or some counts will drop to 0 prematurely
       remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (_node assignment is done above)
-      children.foreach(_.propagatePaths(this)(mutable.HashSet.empty))
+      children.foreach(_.propagatePaths(this)(0))
     }
     def rewireTo(that: Ref)(implicit mod: Module): Unit = node = Id(that)
     

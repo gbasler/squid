@@ -54,9 +54,9 @@ class BasicTests extends FunSuite {
   )
   
   test("HigherOrderRec") (
-    // FIXME ctor propag diverges
-    /*
-    // FIXME graphs of r_1 and others diverge
+    // Note: propag reaches maximum depth (since I added ctor paths)
+    // FIXME graphs of r_1 and others diverge (create too many paths, which explode with beta reduction)
+    //  We need a way to detect dumb cycles and just not register paths in them... (or only a small number)
     TestHarness("HigherOrderRec",
       //prefixFilter = "r",
       //
@@ -65,7 +65,6 @@ class BasicTests extends FunSuite {
       check('r_2)(List(1,1,1)),
       // TODO more checks
     )
-    */
   )
   
   test("HigherOrderRecPoly") (
