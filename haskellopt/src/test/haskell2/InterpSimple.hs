@@ -10,13 +10,35 @@ module InterpSimple where
 --         "X**" -> run pgm rest (x*2)
 --     [] -> x
 
-test = run pgm pgm 123 where
+-- FIXME propag div due to param cycle
+-- test = run pgm pgm 123 where
+--   -- pgm = []
+--   -- pgm = [True]
+--   pgm = [True,False]
+--   run pgm pgmtail x = case pgmtail of
+--     instr : rest ->
+--       case instr of
+--         True -> run pgm rest (x+1)
+--         False -> run pgm rest (x*2)
+--     [] -> x
+
+test = run pgm 123 where
   -- pgm = []
   -- pgm = [True]
   pgm = [True,False]
-  run pgm pgmtail x = case pgmtail of
+  -- pgm = [True,False,False,False,True,False] -- FIXME sch bug
+  run pgmtail x = case pgmtail of
     instr : rest ->
       case instr of
-        True -> run pgm rest (x+1)
-        False -> run pgm rest (x*2)
+        True -> run rest (x+1)
+        False -> run rest (x*2)
     [] -> x
+
+-- TODO also test:
+-- test = run pgm 123 where
+--   pgm = [(),()]
+--   run pgmtail x = case pgmtail of
+--     instr : rest ->
+--       case instr of
+--         () -> run rest (x+1)
+--     [] -> x

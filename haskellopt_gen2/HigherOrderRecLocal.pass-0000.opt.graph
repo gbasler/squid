@@ -1,5 +1,7 @@
 -- Beta reductions:  21
 -- Incl. one-shot:  0
+-- Case reductions:  0
+-- Field reductions:  0
 module HigherOrderRecLocal where
   foo_5 = [f'2:0↑]β_a
     β_a = f'2:0 ? [k'9:1↑[∅]]λ_40 ¿ _ε_47;					(x8)

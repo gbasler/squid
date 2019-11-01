@@ -14,6 +14,9 @@ class GraphIR extends GraphDefs {
   val showPaths: Bool = false
   //val showPaths: Bool = true
   
+  val showCtorPaths: Bool = false
+  //val showCtorPaths: Bool = true
+  
   val showFull: Bool = false
   //val showFull: Bool = true
   
@@ -91,6 +94,8 @@ class GraphIR extends GraphDefs {
     def nextUnique = uniqueCount alsoDo {uniqueCount += 1} // move somewhere else?
     
     var betaReductions: Int = 0
+    var caseReductions: Int = 0
+    var fieldReductions: Int = 0
     var oneShotBetaReductions: Int = 0
     
     val roots = modDefs.iterator.map(_._2).toSet
@@ -139,6 +144,67 @@ class GraphIR extends GraphDefs {
             ref.node = Control(i0 `;` i1, body)
             again()
             
+          // TODO one-shot reductions for pattern matching too
+            
+          case Case(scrut, arms) =>
+            val ps = scrut.pathsToCtorApps.headOption
+            ps match {
+              case Some((ctor, argsRev, cnd)) =>
+                println(s"CASE $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}")
+                
+                caseReductions += 1
+                
+                val rightArm = arms.filter(_._1 === ctor.defName) |>! {
+                  case arm :: Nil => arm._3
+                  case Nil =>
+                    arms.filter(_._1 === "_") |>! {
+                      case arm :: Nil => arm._3
+                    }
+                }
+                if (cnd.isEmpty) {
+                  ref.rewireTo(rightArm)
+                } else {
+                  val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
+                  val rebuiltCase = Case(rebuiltScrut, arms).mkRefNamed("_cε")
+                  ref.node = Branch(cnd, rightArm, rebuiltCase)
+                }
+                again()
+              case None =>
+                ref.children.foreach(rec)
+            }
+            
+          case CtorField(scrut, ctorName, ari, idx) =>
+            val ps = scrut.pathsToCtorApps.headOption
+            ps match {
+              case Some((ctor, argsRev, cnd)) =>
+                println(s"FIELD $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}")
+                
+                fieldReductions += 1
+                
+                val ctrl = if (ctorName === ctor.defName) Some {
+                  assert(argsRev.size === ari)
+                  val (instr, rightField) = argsRev.reverseIterator.drop(idx).next
+                  Control(instr, rightField)
+                } else None
+                
+                if (cnd.isEmpty) {
+                  //ref.rewireTo(ctrl)
+                  ref.node = ctrl getOrElse ModuleRef("Prelude","undefined") // TODO improve
+                } else {
+                  val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
+                  val rebuiltCtorField = CtorField(rebuiltScrut, ctorName, ari, idx)
+                  ref.node = ctrl match {
+                    case Some(ctrl) =>
+                      val rebuiltCtorFieldRef = rebuiltCtorField.mkRefNamed("_fε")
+                      Branch(cnd, ctrl.mkRef, rebuiltCtorFieldRef) // TODO name mkRef
+                    case None => rebuiltCtorField
+                  }
+                }
+                again()
+              case None =>
+                ref.children.foreach(rec)
+            }
+            
           case App(fun, arg) =>
             val ps = if (smartRewiring) fun.pathsToLambdas.headOption
               // If we are not using smart rewiring, we need to keep track of which reductions have already been done: 
@@ -146,7 +212,7 @@ class GraphIR extends GraphDefs {
             
             ps match {
               case Some((p @ (i, cnd), lr)) =>
-                println(s"$ref -- $cnd -->> [$i]$lr")
+                println(s"$ref -- ${Condition.show(cnd)} -->> [$i]$lr")
                 
                 betaReductions += 1
                 
@@ -183,25 +249,7 @@ class GraphIR extends GraphDefs {
                   if (cnd.isEmpty) {
                     ref.node = ctrl
                   } else {
-                    val rebuiltFun = if (smartRewiring) {
-                      def rec(f: Ref, ictx: Instr, curCnd: Condition): Ref = f.node match {
-                        case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(f)
-                        case Branch(c, t, e) =>
-                          val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
-                          val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
-                          val newCnd = if (accepted) {
-                            val brCnd = brCndOpt.get
-                            assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
-                            curCnd -- brCnd.keysIterator
-                          } else curCnd
-                          if (newCnd.isEmpty) {
-                            if (accepted) e else t
-                          } else
-                          (if (accepted) Branch(c, rec(t, ictx, newCnd), e) else Branch(c, t, rec(e, ictx, newCnd))).mkRefFrom(f)
-                        case _ => die
-                      }
-                      rec(fun, Id, cnd)
-                    } else fun
+                    val rebuiltFun = if (smartRewiring) new RebuildLambdaPaths(cnd)(fun, Id) else fun
                     val rebuiltApp = App(rebuiltFun, arg).mkRefNamed("_ε")
                     if (!smartRewiring) {
                       rebuiltApp.usedPathsToLambdas ++= ref.usedPathsToLambdas
@@ -229,6 +277,37 @@ class GraphIR extends GraphDefs {
       changed
       
     } catchBreak true
+    
+    protected class RebuildPaths(cnd: Condition) {
+      def apply(ref: Ref, ictx: Instr): Ref = rec(ref, ictx, cnd)
+      protected def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = ref.node match {
+        case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(ref)
+        case Branch(c, t, e) =>
+          val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
+          val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
+          val newCnd = if (accepted) {
+            val brCnd = brCndOpt.get
+            assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
+            curCnd -- brCnd.keysIterator
+          } else curCnd
+          if (newCnd.isEmpty) {
+            if (accepted) e else t
+          } else
+            (if (accepted) Branch(c, rec(t, ictx, newCnd), e) else Branch(c, t, rec(e, ictx, newCnd))).mkRefFrom(ref)
+        case App(lhs, rhs) => App(rec(lhs, ictx, curCnd), rhs).mkRefFrom(ref)
+        case _ => lastWords(s"was not supposed to reach ${ref.showDef}")
+      }
+    }
+    
+    class RebuildLambdaPaths(cnd: Condition) extends RebuildPaths(cnd)
+    
+    class RebuildCtorPaths(cnd: Condition) extends RebuildPaths(cnd) {
+      override def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = ref.node match {
+        case App(lhs, rhs) => App(rec(lhs, ictx, curCnd), rhs).mkRefFrom(ref)
+        case _ => super.rec(ref, ictx, curCnd)
+      }
+    }
+    
     
     def showGraph: Str = showGraph()
     def showGraph(showRefCounts: Bool = showRefCounts, showRefs: Bool = showRefs): Str =

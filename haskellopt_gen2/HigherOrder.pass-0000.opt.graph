@@ -1,5 +1,7 @@
 -- Beta reductions:  58
 -- Incl. one-shot:  0
+-- Case reductions:  0
+-- Field reductions:  0
 module HigherOrder where
   hTest5 = [f'17:0↑]β_aa
     β_aa = β_a4 * β_a9;					(x7)

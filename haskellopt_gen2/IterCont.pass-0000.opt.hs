@@ -4,6 +4,8 @@
 --   desugar
 -- Beta reductions:  7
 -- Incl. one-shot:  0
+-- Case reductions:  0
+-- Field reductions:  0
 -- Total nodes: 76; Boxes: 24; Branches: 13
 -- Apps: 15; Lams: 5
 

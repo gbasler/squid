@@ -66,6 +66,8 @@ abstract class GraphScheduler { self: GraphIR =>
       |${mod.modPhase |> commentLines}
       |-- Beta reductions:  ${mod.betaReductions}
       |-- Incl. one-shot:  ${mod.oneShotBetaReductions}
+      |-- Case reductions:  ${mod.caseReductions}
+      |-- Field reductions:  ${mod.fieldReductions}
       |-- Total nodes: ${mod.Stats.tot}; Boxes: ${mod.Stats.boxes}; Branches: ${mod.Stats.brans}
       |-- Apps: ${mod.Stats.apps}; Lams: ${mod.Stats.lams}
       |

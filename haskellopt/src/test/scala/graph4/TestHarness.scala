@@ -105,7 +105,9 @@ class TestHarness {
     
     val graphStr = mod.showGraph
     println(graphStr)
-    val infoText = s"-- Beta reductions:  ${mod.betaReductions}\n-- Incl. one-shot:  ${mod.oneShotBetaReductions}\n"
+    val infoText = s"-- Beta reductions:  ${mod.betaReductions}\n-- Incl. one-shot:  ${mod.oneShotBetaReductions}\n" +
+      s"-- Case reductions:  ${mod.caseReductions}\n" +
+      s"-- Field reductions:  ${mod.fieldReductions}\n"
     val graphText = infoText + 
       graphStr.replaceAll("\u001B\\[[;\\d]*m", "") + // remove ASCII color codes (https://stackoverflow.com/a/14652763/1518588)
       "\n"

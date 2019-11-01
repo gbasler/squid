@@ -1,5 +1,7 @@
 -- Beta reductions:  16
 -- Incl. one-shot:  0
+-- Case reductions:  0
+-- Field reductions:  0
 module HigherOrderp where
   p1_5 = [f'12:0↑]β_3e
     β_3e = f'12:0 ? [h'19:1↑[∅]]λ_69 ¿ _ε_70;					(x7)

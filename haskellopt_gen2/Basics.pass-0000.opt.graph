@@ -1,5 +1,7 @@
 -- Beta reductions:  54
 -- Incl. one-shot:  2
+-- Case reductions:  0
+-- Field reductions:  0
 module Basics where
   foo_0 = []λ_11f
     λ_11f = \x'19 -> β_11a + β_11a;

@@ -8,8 +8,10 @@ class PatMatTests extends FunSuite {
   import CheckDSL.check
   
   test("Motiv") (
+    // FIXME it seems tuple matches are not reduced
     TestHarness("Motiv",
       //prefixFilter = "f",
+      //prefixFilter = "pgrm",
       //
       dumpGraph = true,
     )(
@@ -19,24 +21,31 @@ class PatMatTests extends FunSuite {
   test("PatMat") (
     // FIXME slt0 generates type-ambiguous code
     TestHarness("PatMat",
+      //prefixFilter = "f0",
     )(
     )
   )
   
   test("PatMatRec") (
+    // FIXME ordering problem in scheduling
     TestHarness("PatMatRec",
+      schedule = false,
     )(
     )
   )
   
   test("PatMatRec2") (
-    // FIXME unbound π variables
-    //TestHarness("PatMatRec2",
-    //)(
-    //)
+    // FIXME unbound π variables in scheduling
+    TestHarness("PatMatRec2",
+      dumpGraph = true,
+      schedule = false,
+    )(
+    )
   )
   
   test("InterpSimple") (
+    // FIXME graph diverges in version with two params and a param cycle
+    // FIXME scheduling becomes wrong when making the list bigger — probably due to no proper checks testing
     TestHarness("InterpSimple",
       dumpGraph = true,
     )(

@@ -1,5 +1,7 @@
 -- Beta reductions:  6
 -- Incl. one-shot:  1
+-- Case reductions:  0
+-- Field reductions:  0
 module IterContLocal where
   nats1 = [state'3:4↑[f'2:0↑];st'5:1↑;s'7:5↑[k'6:2↑[↓;↓;∅]]]β_1b
     β_1b = s_11 : β_1a;					(x3)

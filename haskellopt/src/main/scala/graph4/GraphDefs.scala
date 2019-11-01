@@ -91,8 +91,20 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       val newCond = Condition.throughControl(in, p._2).getOrElse(return None)
       Some((in `;` p._1, newCond))
     }
-    def throughBranchLHS(cnd: Condition, p: Path): Option[Path] =
+    def throughBranchLHS(cnd: Condition, p: Path): Opt[Path] =
       Condition.merge(cnd, p._2).map((p._1, _))
+  }
+  
+  type CtorPath = (ModuleRef, List[Instr -> Ref], Condition)
+  object CtorPath {
+    def empty(mod: ModuleRef): CtorPath = (mod, Nil, Map.empty)
+    def throughControl(in: Instr, p: CtorPath): Opt[CtorPath] = {
+      val newCond = Condition.throughControl(in, p._3).getOrElse(return None)
+      Some((p._1, p._2.map(arg => (in `;` arg._1, arg._2)), newCond))
+    }
+    def throughBranchLHS(cnd: Condition, p: CtorPath): Opt[CtorPath] =
+      Condition.merge(cnd, p._3).map((p._1, p._2, _))
+    def throughRef(ref: Ref, p: CtorPath): CtorPath = (p._1, (Id -> ref) :: p._2, p._3)
   }
   
   sealed abstract class Node {
@@ -183,7 +195,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   sealed abstract class ConstantNode extends ConcreteNode
   
-  case class ModuleRef(modName: Str, defName: Str) extends ConstantNode
+  case class ModuleRef(modName: Str, defName: Str) extends ConstantNode {
+    def isCtor: Bool = defName.head === ':' || defName.head === '[' || defName.head.isUpper
+  }
   
   sealed abstract class Lit extends ConstantNode {
     val boxed: Bool
@@ -206,8 +220,12 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     val pathsToLambdas: mutable.Map[Path, NodeRef] = mutable.Map.empty
     val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
     
+    /** Handles unsaturated ctors by keeping one distinct instr for each ctor app argument */
+    val pathsToCtorApps: mutable.Set[CtorPath] = mutable.Set.empty
+    
     node match {
       case _: Lam => pathsToLambdas += Path.empty -> this
+      case mod: ModuleRef if mod.isCtor => pathsToCtorApps += CtorPath.empty(mod)
       case _ =>
     }
     children.foreach { c => c.addref(this); c.propagatePaths(this)(mutable.HashSet.empty) }
@@ -254,7 +272,14 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToLambdas += newPath -> l
             }
           }
-          if (ref.pathsToLambdas.size > oldSize)
+          val oldSize2 = ref.pathsToCtorApps.size
+          pathsToCtorApps.foreach { p =>
+            //println(s"> $this tells $ref about $p")
+            CtorPath.throughControl(i, p).foreach { newPath =>
+              ref.pathsToCtorApps += newPath
+            }
+          }
+          if (ref.pathsToLambdas.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
             ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>
           assert((t eq this) || (e eq this))
@@ -268,8 +293,29 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToLambdas += newPath -> l
             }
           }
-          if (ref.pathsToLambdas.size > oldSize)
+          val oldSize2 = ref.pathsToCtorApps.size
+          pathsToCtorApps.foreach { p =>
+            val newPath = if (t eq this) {
+              CtorPath.throughBranchLHS(c, p)
+            } else Some(p)
+            newPath.foreach { newPath =>
+              ref.pathsToCtorApps += newPath
+            }
+          }
+          if (ref.pathsToLambdas.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
             ref.references.foreach(ref.propagatePaths(_))
+        case App(lhs, rhs) =>
+          if (lhs eq this) {
+            val oldSize2 = ref.pathsToCtorApps.size
+            pathsToCtorApps.foreach { p =>
+              val newPath = CtorPath.throughRef(rhs, p)
+              ref.pathsToCtorApps += newPath
+            }
+            if (ref.pathsToCtorApps.size > oldSize2)
+              ref.references.foreach(ref.propagatePaths(_))
+          } else {
+            assert(rhs eq this)
+          }
         case _ =>
       }
       
@@ -321,8 +367,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       if (defsStr.isEmpty) "" else " where:" + defsStr
     }
     
-    /** This is just a debugging help. */
+    /** This is just a debugging help,
+      * and to stabilize the hashCode — since Ref-s are now used as part of keys in pathsToCtorApps. */
     protected val id = curNodeRefId alsoDo (curNodeRefId += 1)
+    
+    override def hashCode = id
     
     override def toString =
       if (toBeShownInline)
@@ -357,11 +406,12 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     ) ++ (for { i <- 90 to 96 } yield s"\u001b[$i;1m") // Some alternative color versions (https://misc.flogisoft.com/bash/tip_colors_and_formatting#colors)
   }
   
-  case class BadComparison(msg: Str) extends Exception(msg)
-  object BadComparison extends BadComparison("?")
+  class BadComparison(msg: Str) extends Exception(msg)
+  object BadComparison extends BadComparison("switch to commented badComparison for a useful message and stack trace")
   BadComparison
-  //class BadComparison(msg: Str) extends Exception(msg)
-  //def BadComparison = new BadComparison("?")
+  
+  def badComparison(msg: => Str) = throw BadComparison // faster, but no info on failure
+  //def badComparison(msg: Str) = throw new BadComparison(msg) // better diagnostic, but slower
   
   sealed abstract class Instr {
     
@@ -405,24 +455,18 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def apply(cid: CallId, payload: Instr, rest: TransitiveControl): TransitiveControl = new Push(cid, payload, rest){}
     def apply(cid: CallId, payload: Instr, rest: Instr): Instr = rest match {
       case p @ Pop(rest2) =>
-        val assertion = !strictCallIdChecking || cid === DummyCallId || cid.v === p.originalVar
-        //assert(assertion)
-        if (!assertion) throw BadComparison
-        //if (!assertion) throw BadComparison(s"${cid.v} === ${p.originalVar} in Push($cid, $payload, $rest)")
-        // ^ better diagnostic, but slower
+        if (strictCallIdChecking && cid =/= DummyCallId && cid.v =/= p.originalVar)
+          badComparison(s"${cid.v} === ${p.originalVar} in Push($cid, $payload, $rest)")
         payload `;` rest2
       case d @ Drop(rest2) =>
-        val assertion = (!strictCallIdChecking || cid === DummyCallId ||
-          // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
-          // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible. 
-          cid === d.originalCid//, s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)"
-          // A less drastic version:
-          //cid.v === d.originalCid.v//, s"${cid.v} === ${d.originalCid.v} in Push($cid, $payload, $rest)"
-        )
-        //assert(assertion)
-        if (!assertion) throw BadComparison
-        //if (!assertion) throw BadComparison(s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)")
-        // ^ better diagnostic, but slower
+        val baseAssertion = strictCallIdChecking && cid =/= DummyCallId
+        // Note that the following assertion is quite drastic, and prevents us from blindly pushing boxes into branches.
+        // It would be sufficient to only check cid.v, but I prefer to make assertions as strict as possible.
+        if (baseAssertion && cid =/= d.originalCid)
+          badComparison(s"$cid === ${d.originalCid} in Push($cid, $payload, $rest)")
+        // A less drastic version:
+        //if (baseAssertion && cid.v =/= d.originalCid.v)
+        //  badComparison(s"${cid.v} === ${d.originalCid.v} in Push($cid, $payload, $rest)")
         rest2
       case rest: TransitiveControl => apply(cid, payload, rest)
     }
@@ -465,9 +509,13 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(", ")}}"
             else if (printRefCounts && r.references.size > 1) s"$headStr\t\t\t\t\t(x${r.references.size})"
             else headStr
+          assert(!showPaths || !showCtorPaths)
           if (showPaths) (str
-            + r.pathsToLambdas.map(pl => s"\n\t  -- ${pl._1._2} --> [${pl._1._1}]${pl._2}").mkString
-            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${p._2} --> [${p._1}]").mkString
+            + r.pathsToLambdas.map(pl => s"\n\t  -- ${Condition.show(pl._1._2)} --> [${pl._1._1}]${pl._2}").mkString
+            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${Condition.show(p._2)} --> [${p._1}]").mkString
+          ) else if (showCtorPaths) (str
+            + r.pathsToCtorApps.map(pc => s"\n\t  -- ${Condition.show(pc._3)} --> ${pc._1}${
+                pc._2.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}").mkString
           ) else str
         } :: Nil
         else Nil

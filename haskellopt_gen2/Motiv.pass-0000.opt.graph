@@ -1,20 +1,27 @@
 -- Beta reductions:  7
 -- Incl. one-shot:  0
+-- Case reductions:  6
+-- Field reductions:  2
 module Motiv where
   pgrm = []([x'13:0↑;a'5:1↑]a_f + [x'13:6↑;a'5:1↑]a_f)
     a_f = a'5:1 ? [∅]ψ_30 ¿ a'5;					(x4)
-    ψ_30 = case x_26 of { Nothing -> [z'8:2↑]β_1b; Just -> [ds'9:5↑]ψ_24 };
-    x_26 = x'13:0 ? [∅](Just @ 2) ¿ x_ε_3d;					(x3)
-    x_ε_3d = x'13:6 ? [∅]Nothing ¿ x'13;
-    β_1b = z_16 + 1;					(x2)
-    z_16 = z'8:2 ? [∅;c'6:3↑]ψ_14 ¿ z'8;
-    ψ_14 = case c_11 of { False -> 0; True -> 1 };					(x3)
-    c_11 = c'6:3 ? [∅;ds'2:4↑]ψ_d ¿ c'6;
-    ψ_d = case ds_9 of { Nothing -> False; Just -> True };					(x2)
-    ds_9 = ds'2:4 ? [∅]x_26 ¿ ds'2;					(x2)
+    ψ_30 = x'13:0 ? β_2f ¿ _cε_41;
+    β_2f = [ds'9:2↑]ψ_24;					(x2)
     ψ_24 = case ds_1d of { (,) -> ds_1d.(,)#0 * ds_1d.(,)#1 };					(x2)
-    ds_1d = ds'9:5 ? [∅](GHC.Tuple.(,) @ x_26.Just#0 @ β_29) ¿ ds'9;					(x3)
+    ds_1d = ds'9:2 ? [∅](GHC.Tuple.(,) @ π_2a @ β_29) ¿ ds'9;					(x3)
+    π_2a = x'13:0 ? [∅]2 ¿ x'13.Just#0;
     β_29 = [c'6:3↑]ψ_14;					(x2)
+    ψ_14 = c'6:3 & [∅]x'13:0 ? 1 ¿ _cε_54;					(x3)
+    _cε_54 = c'6:3 & [∅]x'13:6 ? 0 ¿ _cε_5b;
+    _cε_5b = case c_5a of { False -> 0; True -> 1 };
+    c_5a = c'6:3 ? [∅;ds'2:4↑]_cε_57 ¿ c'6;
+    _cε_57 = case ds_56 of { Nothing -> False; Just -> True };					(x2)
+    ds_56 = ds'2:4 ? [∅]x'13 ¿ ds'2;
+    _cε_41 = x'13:6 ? β_2b ¿ _cε_58;
+    β_2b = [z'8:5↑]β_1b;					(x2)
+    β_1b = z_16 + 1;					(x2)
+    z_16 = z'8:5 ? [∅;c'6:3↑]ψ_14 ¿ z'8;
+    _cε_58 = case x'13 of { Nothing -> β_2b; Just -> β_2f };
   f = []λ_32
     λ_32 = \x'13 -> [a'5:1↑]a_f;
   e1 = []λ_25
@@ -27,3 +34,5 @@ module Motiv where
     λ_10 = \a'5 -> a_f;
   isJust = []λ_e
     λ_e = \ds'2 -> ψ_d;
+    ψ_d = ds'2:4 & [∅]x'13:0 ? True ¿ _cε_4c;
+    _cε_4c = ds'2:4 & [∅]x'13:6 ? False ¿ _cε_57;
