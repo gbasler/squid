@@ -50,4 +50,12 @@ class PatMatTests extends FunSuite {
     )
   )
   
+  test("InterpTrivial") (
+    TestHarness("InterpTrivial",
+      //prefixFilter = "test1",
+      dumpGraph = true,
+    )(
+    )
+  )
+  
 }

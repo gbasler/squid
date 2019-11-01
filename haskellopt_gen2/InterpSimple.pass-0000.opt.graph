@@ -1,29 +1,41 @@
 -- Beta reductions:  6
 -- Incl. one-shot:  0
--- Case reductions:  10
--- Field reductions:  14
+-- Case reductions:  22
+-- Field reductions:  30
 module InterpSimple where
   test = [x'4:3↑[pgmtail'3:0↑]]ψ_20
-    ψ_20 = [↓]pgmtail'3:0 ? ψ_1f ¿ _cε_32;					(x4)
-    ψ_1f = [↓]pgmtail'3:0 ? β_1e ¿ _cε_3c;					(x4)
+    ψ_20 = [↓]pgmtail'3:0 ? ψ_1f ¿ _cε_36;					(x4)
+    ψ_1f = [↓]pgmtail'3:0 ? β_1e ¿ _cε_40;					(x8)
     β_1e = [x'4:4↑[pgmtail'3:2↑[↓;↓]]]ψ_20;					(x2)
-    _cε_3c = [↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:0 ? β_14 ¿ _cε_9a;
-    β_14 = [x'4:5↑[pgmtail'3:1↑[↓;↓]]]ψ_20;					(x3)
-    _cε_9a = [↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:0 ? β_14 ¿ _cε_9b;
-    _cε_9b = case [↓]pgmtail_ε_97.:#0 of { False -> β_14; True -> β_1e };
-    pgmtail_ε_97 = pgmtail'3:1 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail_ε_93;
-    pgmtail_ε_5b = pgmtail'3:1 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail_ε_57;
-    pgmtail_ε_57 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail'3;
-    pgmtail_ε_93 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail'3;
-    _cε_32 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_64;
-    x_5 = x'4:3 ? [∅]123 ¿ x_ε_3a;					(x7)
-    x_ε_3a = x'4:4 ? [∅](x_5 + (fromInteger @ 1)) ¿ x_ε_3d;
-    x_ε_3d = x'4:5 ? [∅](x_5 * (fromInteger @ 2)) ¿ x'4;
-    _cε_64 = [↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:0 ? ψ_1f ¿ _cε_68;
-    _cε_68 = [↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:0 ? ψ_1f ¿ _cε_6d;
-    _cε_6d = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_73;
-    _cε_73 = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_78;
-    _cε_78 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_7c;
-    _cε_7c = case [↓]pgmtail_ε_7a of { [] -> x_5; : -> ψ_1f };
-    pgmtail_ε_7a = pgmtail'3:1 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail_ε_75;
-    pgmtail_ε_75 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_5b.:#1 ¿ pgmtail'3;
+    _cε_40 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? β_14 ¿ _cε_131;
+    β_14 = [x'4:5↑[pgmtail'3:1↑[↓;↓]]]ψ_20;					(x7)
+    _cε_131 = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? β_14 ¿ _cε_135;
+    _cε_135 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? β_14 ¿ _cε_139;
+    _cε_139 = [↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:0 ? β_14 ¿ _cε_13c;
+    _cε_13c = [↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:0 ? β_14 ¿ _cε_13d;
+    _cε_13d = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? β_14 ¿ _cε_13e;
+    _cε_13e = case [↓]pgmtail_ε_12a.:#0 of { False -> β_14; True -> β_1e };
+    pgmtail_ε_12a = pgmtail'3:1 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail_ε_129;
+    pgmtail_ε_88 = pgmtail'3:1 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail_ε_87;
+    pgmtail_ε_87 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail'3;
+    pgmtail_ε_129 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail'3;
+    _cε_36 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_91;
+    x_5 = x'4:3 ? [∅]123 ¿ x_ε_3e;					(x11)
+    x_ε_3e = x'4:4 ? [∅](x_5 + (fromInteger @ 1)) ¿ x_ε_41;
+    x_ε_41 = x'4:5 ? [∅](x_5 * (fromInteger @ 2)) ¿ x'4;
+    _cε_91 = [↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:0 ? ψ_1f ¿ _cε_95;
+    _cε_95 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_9d;
+    _cε_9d = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_a7;
+    _cε_a7 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_ae;
+    _cε_ae = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? ψ_1f ¿ _cε_b4;
+    _cε_b4 = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:1 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_ba;
+    _cε_ba = [↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:0 ? ψ_1f ¿ _cε_bf;
+    _cε_bf = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? ψ_1f ¿ _cε_c4;
+    _cε_c4 = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_ca;
+    _cε_ca = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:1 ? ψ_1f ¿ _cε_ce;
+    _cε_ce = [↓]pgmtail'3:1 & [↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓]pgmtail'3:2 ? ψ_1f ¿ _cε_d2;
+    _cε_d2 = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:2 ? x_5 ¿ _cε_d7;
+    _cε_d7 = [↓]pgmtail'3:2 & [↓;∅;↓;∅;↓;∅;↓]pgmtail'3:0 & [↓;∅;↓;∅;↓]pgmtail'3:2 & [↓;∅;↓]pgmtail'3:1 ? x_5 ¿ _cε_dc;
+    _cε_dc = case [↓]pgmtail_ε_da of { [] -> x_5; : -> ψ_1f };
+    pgmtail_ε_da = pgmtail'3:1 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail_ε_d9;
+    pgmtail_ε_d9 = pgmtail'3:2 ? [∅][↓]pgmtail_ε_88.:#1 ¿ pgmtail'3;

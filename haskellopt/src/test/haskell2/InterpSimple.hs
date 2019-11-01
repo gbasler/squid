@@ -25,7 +25,9 @@ module InterpSimple where
 test = run pgm 123 where
   -- pgm = []
   -- pgm = [True]
-  pgm = [True,False]
+  -- pgm = [True,False]
+  pgm = [True,False,False]
+  -- pgm = [True,False,False,False] -- FIXME sch bug
   -- pgm = [True,False,False,False,True,False] -- FIXME sch bug
   run pgmtail x = case pgmtail of
     instr : rest ->
@@ -33,12 +35,3 @@ test = run pgm 123 where
         True -> run rest (x+1)
         False -> run rest (x*2)
     [] -> x
-
--- TODO also test:
--- test = run pgm 123 where
---   pgm = [(),()]
---   run pgmtail x = case pgmtail of
---     instr : rest ->
---       case instr of
---         () -> run rest (x+1)
---     [] -> x
