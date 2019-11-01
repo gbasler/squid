@@ -25,11 +25,8 @@ class PatMatTests extends FunSuite {
   )
   
   test("PatMatRec") (
-    // FIXME ordering problem in scheduling of t2'1 due to conflicting defs
     TestHarness("PatMatRec",
       //prefixFilter = "t2'1",
-      //
-      //schedule = false,
     )(
     )
   )

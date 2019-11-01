@@ -2,26 +2,29 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  26
+-- Beta reductions:  28
 -- Incl. one-shot:  0
--- Case reductions:  24
--- Field reductions:  24
--- Total nodes: 578; Boxes: 116; Branches: 148
--- Apps: 93; Lams: 8
+-- Case reductions:  26
+-- Field reductions:  27
+-- Total nodes: 609; Boxes: 125; Branches: 154
+-- Apps: 97; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMatRec (t2_,t2'0,t2,t1_,t1'2,t1'1,t1'0,t1,t0_,t0'1,t0'0,t0) where
+module PatMatRec (t2_,t2'1,t2'0,t2,t1_,t1'2,t1'1,t1'0,t1,t0_,t0'1,t0'0,t0) where
 
 import GHC.Num
 import GHC.Prim
+import GHC.Tuple
 import GHC.Types
 
 t2_ = \ds -> 
   let rec π π' = (π' - π) : (rec π' π) in
   case ds of { _ -> fromInteger 666 : []; (:) ρ ρ' -> (case ρ' of { _ -> fromInteger 666 : []; (:) ρ'2 ρ'3 -> (case ρ'3 of { _ -> fromInteger 666 : []; [] -> (ρ - ρ'2) : ((ρ'2 - ρ) : (rec ρ'2 ρ)) }) }) }
+
+t2'1 = (,) (0 - 1) (1 - 0)
 
 t2'0 = 
   let rec π π' = (π' - π) : (rec π' π) in
