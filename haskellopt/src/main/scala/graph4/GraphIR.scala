@@ -8,6 +8,10 @@ import squid.utils.CollectionUtils.IteratorHelper
 
 class GraphIR extends GraphDefs {
   
+  val debugScheduling: Bool = false
+  //val debugScheduling: Bool = true
+  
+  
   val showInlineNames: Bool = false
   //val showInlineNames: Bool = true
   
@@ -37,7 +41,7 @@ class GraphIR extends GraphDefs {
   val multiStepReductions = true
   //val multiStepReductions = false
   
-  val inlineScheduledLets = true
+  val inlineScheduledLets = !debugScheduling
   //val inlineScheduledLets = false
   
   val MaxPropagationDepth = 16

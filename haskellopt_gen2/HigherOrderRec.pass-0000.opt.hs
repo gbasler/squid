@@ -23,18 +23,18 @@ import GHC.Types
 
 s = \f -> \x -> let
         _0 = x + fromInteger 1
-        rec p'2 = let
+        rec' p'2 = let
               _3 = p'2 + fromInteger 1
               rec'3 p'3 = 
                     let _4 = p'3 + fromInteger 1 in
-                    _4 - (f (rec _4) * f (rec'3 _4))
-              in _3 - (f (rec _3) * f (rec'3 _3))
-        rec' p = let
+                    _4 - (f (rec'3 _4) * f (rec' _4))
+              in _3 - (f (rec'3 _3) * f (rec' _3))
+        rec p = let
               _1 = p + fromInteger 1
               rec'2 p' = 
                     let _2 = p' + fromInteger 1 in
-                    _2 - (f (rec'2 _2) * f (rec' _2))
-              in _1 - (f (rec'2 _1) * f (rec' _1))
+                    _2 - (f (rec _2) * f (rec'2 _2))
+              in _1 - (f (rec _1) * f (rec'2 _1))
         in _0 - (f (rec _0) * f (rec' _0))
 
 r_2 = let

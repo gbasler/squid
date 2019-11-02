@@ -81,8 +81,10 @@ class BasicTests extends FunSuite {
   )
   
   test("HigherOrderRecLocal") (
+    // FIXME foo and foo_0 produce indirectly-recursive values leading to ordering problems
     // FIXME scheduling of commented foo_2 diverges
     TestHarness("HigherOrderRecLocal",
+      prefixFilter = "foo_",
       dumpGraph = true,
     )(
       // TODO checks
@@ -138,5 +140,7 @@ class BasicTests extends FunSuite {
       //  check: take 5 nats1 == [0,1,2,3,4]
     )
   )
+  
+  // TODO IterContMaybe
   
 }

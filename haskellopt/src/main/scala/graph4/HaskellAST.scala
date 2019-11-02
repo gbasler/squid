@@ -383,50 +383,38 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     def reorder(defs: List[Binding], body: Expr): Expr = {
       // Require that binding idents be unique:
       //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
-      
       val used = mutable.Set.empty[Ident] // probably more efficient than groupBy
-      
-      /*
-      // in the meantime, ensure uniqueness with this:
-      val nodes = defs.flatMap { d =>
-        val ide = Binding.ident(d)
-        if (used(ide)) Nil else {
-          used += ide
-          (ide, d) :: Nil
-        }
-      }
-      */
       val nodes = defs.map { d =>
         val ide = Binding.ident(d)
-        require(!used(ide))
+        require(!used(ide), ide)
         used += ide
         (ide, d)
-      }
-      
-      val deps = defs.toIterator.map {
-        case Left((v,e)) => (v.ide, mutable.Set.empty[Ident])
-        case Right(dfn) => (dfn.ide, mutable.Set.empty[Ident])
       }.toMap
       
-      defs.foreach {
-        case Left((v,e)) => deps.get(v.ide).foreach(_ ++= e.freeIdents - v.ide)
-        case Right(dfn) => deps.get(dfn.ide).foreach(_ ++= dfn.freeIdents - dfn.ide)
+      // Topological sort of the let bindings (which are possibly recursive)
+      
+      val visited = mutable.Set.empty[Ident]
+      var ordered: List[Ident] = Nil
+      
+      // TODO mark loop breakers in cyclic definitions so they are not inlined
+      def go(xs: List[Ident]): Unit = xs match {
+        case x :: xs =>
+          if (nodes.isDefinedAt(x) && !visited(x)) {
+            visited += x
+            val next = (nodes(x) match {
+              case Left((v,e)) => e.freeIdents
+              case Right(dfn) => dfn.freeIdents
+            }).iterator.filterNot(visited).toList
+            go(next)
+            ordered ::= x
+          }
+          go(xs)
+        case Nil =>
       }
+      go(body.freeIdents.filter(nodes.isDefinedAt).toList)
       
-      var changed = true
-      while (changed) {
-        changed = false
-        deps.foreach { case (id, dep) =>
-          val oldSize = dep.size
-          dep.foreach { id2 => deps get id2 foreach { set => dep ++= set } }
-          if (dep.size > oldSize) changed = true
-        }
-      }
-      //println("!!! "+deps.map(kv => s"\n\t${kv._1|>printIdent} -> ${kv._2.map(_ |> printIdent).mkString(", ")}").mkString)
-      
-      val sorted = nodes.sortWith { (lhs,rhs) => deps(rhs._1)(lhs._1) && !deps(lhs._1)(rhs._1) }
-      
-      multiple(sorted.map(_._2), body)
+      assert(ordered.size === defs.size)
+      multiple(ordered.reverse.map(nodes), body)
     }
   }
   case class LetDefn(defn: Defn, body: Expr) extends Expr

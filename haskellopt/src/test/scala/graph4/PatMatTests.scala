@@ -43,9 +43,8 @@ class PatMatTests extends FunSuite {
   
   test("InterpSimple") (
     // FIXME graph diverges in version with two params and a param cycle
-    // FIXME scheduling becomes wrong when making the list bigger — probably due to no proper checks testing
     TestHarness("InterpSimple",
-      dumpGraph = true,
+      //dumpGraph = true,
     )(
     )
   )

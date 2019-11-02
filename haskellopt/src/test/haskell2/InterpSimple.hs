@@ -26,9 +26,9 @@ test = run pgm 123 where
   -- pgm = []
   -- pgm = [True]
   -- pgm = [True,False]
-  pgm = [True,False,False]
-  -- pgm = [True,False,False,False] -- FIXME sch bug
-  -- pgm = [True,False,False,False,True,False] -- FIXME sch bug
+  -- pgm = [True,False,False]
+  pgm = [True,False,False,True]
+  -- pgm = [True,False,False,False,True,False]
   run pgmtail x = case pgmtail of
     instr : rest ->
       case instr of

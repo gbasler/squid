@@ -140,7 +140,8 @@ abstract class GraphScheduler { self: GraphIR =>
       val inlineOneShotLets = inlineScheduledLets
       val inlineTrivialLets = inlineScheduledLets
       val commonSubexprElim = false
-      override val mergeLets = true
+      //override val mergeLets = true
+      override val mergeLets = !debugScheduling
     }
     
     val modDefStrings: List[Str] = {
