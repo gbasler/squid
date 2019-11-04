@@ -18,6 +18,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         val l = lhs(k)
         val r = rhs(k)
         assert(l.v === r.v)
+        // ^ perhaps this is too restrictive; may need to change to:
+        //if (l.v =/= r.v) return None
         if (l =/= r) return None
         k -> r
       }
@@ -277,6 +279,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case Control(i, b) =>
           assert(b eq this)
           val oldSize = ref.pathsToLambdas.size
+          if (oldSize < MaxPropagationWidth)
           pathsToLambdas.foreach { case (p, l) =>
             //println(s"> $this tells $ref about $p")
             Path.throughControl(i, p).foreach { newPath =>
@@ -285,6 +288,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
+          if (oldSize2 < MaxPropagationWidth)
           pathsToCtorApps.foreach { p =>
             //println(s"> $this tells $ref about $p")
             CtorPath.throughControl(i, p).foreach { newPath =>
@@ -296,6 +300,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case Branch(c, t, e) =>
           assert((t eq this) || (e eq this))
           val oldSize = ref.pathsToLambdas.size
+          if (oldSize < MaxPropagationWidth)
           pathsToLambdas.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
@@ -306,6 +311,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
+          if (oldSize2 < MaxPropagationWidth)
           pathsToCtorApps.foreach { p =>
             val newPath = if (t eq this) {
               CtorPath.throughBranchLHS(c, p)
@@ -319,6 +325,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case App(lhs, rhs) =>
           if (lhs eq this) {
             val oldSize2 = ref.pathsToCtorApps.size
+            if (oldSize2 < MaxPropagationWidth)
             pathsToCtorApps.foreach { p =>
               val newPath = CtorPath.throughRef(rhs, p)
               ref.pathsToCtorApps += newPath

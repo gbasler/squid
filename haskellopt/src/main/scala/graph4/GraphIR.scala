@@ -45,6 +45,7 @@ class GraphIR extends GraphDefs {
   //val inlineScheduledLets = false
   
   val MaxPropagationDepth = 16
+  val MaxPropagationWidth = 16
   
   val useOnlyIntLits = true
   

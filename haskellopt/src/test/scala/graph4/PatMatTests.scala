@@ -41,20 +41,14 @@ class PatMatTests extends FunSuite {
     )
   )
   
-  test("InterpSimple") (
-    // FIXME graph diverges in version with two params and a param cycle
-    TestHarness("InterpSimple",
-      //dumpGraph = true,
-    )(
-    )
-  )
-  
-  test("InterpTrivial") (
-    TestHarness("InterpTrivial",
-      //prefixFilter = "test1",
+  test("IterEither") (
+    // TODO test commented defs
+    TestHarness("IterEither",
       dumpGraph = true,
     )(
     )
   )
+  
+  // TODO test rec producer feeding into rec consumer
   
 }
