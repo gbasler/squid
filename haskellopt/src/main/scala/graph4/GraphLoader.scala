@@ -133,7 +133,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             
             (c, rs.size, r)
           }
-          Case(e0, altValues.map { case (con,arity,rhs) =>
+          Case(e0, altValues.reverseIterator.map { case (con,arity,rhs) =>
             (con match {
               case AltDataCon(name) => name
               case AltDefault => "_"
@@ -172,15 +172,18 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
       GraphDumpInterpreter.bindings += tb.bndr.binderId -> Right(rv)
     }
     
-    GraphModule(mod.moduleName, mod.modulePhase,
+    GraphModule(mod.moduleName, mod.modulePhase, {
+      var foundMain = false
       mod.moduleTopBindings.iterator
-        .filter(_.bndr.binderName =/= "$trModule")
+        .filter(b =>
+          b.bndr.binderName =/= "$trModule" && (b.bndr.binderName =/= "main" || {!foundMain alsoDo {foundMain = true}}))
         .map(tb => tb.bndr.binderName -> {
           val (nme,rv) = moduleBindings(tb.bndr.binderId)
           rv.rewireTo(tb.expr)
           setMeaningfulName(tb.expr, nme)
           rv
         }).toList.reverse.filter(_._1 + " " startsWith prefixFilter)
+      }
     )
     
   }

@@ -5,8 +5,8 @@
 module Motiv where
   pgrm = []([x'13:0↑;a'5:1↑]a_f + [x'13:6↑;a'5:1↑]a_f)
     a_f = a'5:1 ? [∅]ψ_30 ¿ a'5;					(x4)
-    ψ_30 = x'13:0 ? β_2f ¿ _cε_41;
-    β_2f = [ds'9:2↑]ψ_24;					(x2)
+    ψ_30 = x'13:0 ? β_2e ¿ _cε_41;
+    β_2e = [ds'9:2↑]ψ_24;					(x2)
     ψ_24 = ds'9:2 ? β_23 ¿ _cε_44;					(x2)
     β_23 = π_1e * π_1f;					(x2)
     π_1e = ds'9:2 ? [∅]π_2a ¿ ds'9.(,)#0;
@@ -14,16 +14,16 @@ module Motiv where
     π_1f = ds'9:2 ? [∅;c'6:3↑]ψ_14 ¿ ds'9.(,)#1;
     ψ_14 = c'6:3 & [∅]x'13:0 ? 1 ¿ _cε_59;					(x4)
     _cε_59 = c'6:3 & [∅]x'13:6 ? 0 ¿ _cε_60;
-    _cε_60 = case c_5f of { False -> 0; True -> 1 };
+    _cε_60 = case c_5f of { True -> 1; False -> 0 };
     c_5f = c'6:3 ? [∅;ds'2:4↑]_cε_5c ¿ c'6;
-    _cε_5c = case ds_5b of { Nothing -> False; Just -> True };					(x2)
+    _cε_5c = case ds_5b of { Just -> True; Nothing -> False };					(x2)
     ds_5b = ds'2:4 ? [∅]x'13 ¿ ds'2;
     _cε_44 = case ds'9 of { (,) -> β_23 };
-    _cε_41 = x'13:6 ? β_2b ¿ _cε_5d;
-    β_2b = [z'8:5↑]β_1b;					(x2)
+    _cε_41 = x'13:6 ? β_2f ¿ _cε_5d;
+    β_2f = [z'8:5↑]β_1b;					(x2)
     β_1b = z_16 + 1;					(x2)
     z_16 = z'8:5 ? [∅;c'6:3↑]ψ_14 ¿ z'8;
-    _cε_5d = case x'13 of { Nothing -> β_2b; Just -> β_2f };
+    _cε_5d = case x'13 of { Just -> β_2e; Nothing -> β_2f };
   f = []λ_32
     λ_32 = \x'13 -> [a'5:1↑]a_f;
   e1 = []λ_25

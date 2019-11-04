@@ -24,13 +24,13 @@ import GHC.Prim
 import GHC.Tuple
 import GHC.Types
 
-f1'2 = case case 5 > 0 of { False -> Nothing; True -> Just 5 } of { Nothing -> 0; Just ρ -> ρ }
+f1'2 = case case 5 > 0 of { True -> Just 5; False -> Nothing } of { Just ρ -> ρ; Nothing -> 0 }
 
-f1'1 = case case 5 > 0 of { False -> Nothing; True -> Just 5 } of { Nothing -> False; Just ρ -> True }
+f1'1 = case case 5 > 0 of { True -> Just 5; False -> Nothing } of { Just ρ -> True; Nothing -> False }
 
-f1'0 = case 4 > 0 of { False -> Nothing; True -> Just 4 }
+f1'0 = case 4 > 0 of { True -> Just 4; False -> Nothing }
 
-f1 = \x -> case x > 0 of { False -> Nothing; True -> Just x }
+f1 = \x -> case x > 0 of { True -> Just x; False -> Nothing }
 
 f0'3 = Just (0 + 1)
 
@@ -40,7 +40,7 @@ f0'1 = Just 0
 
 f0'0 = Just (2 + 1)
 
-f0 = \ds -> case ds of { Nothing -> Just 0; Just ρ -> Just (ρ + 1) }
+f0 = \ds -> case ds of { Just ρ -> Just (ρ + 1); Nothing -> Just 0 }
 
 f2'0 = (1 + 2) + 3
 
@@ -61,11 +61,11 @@ u1 = \ds -> case ds of { (,) ρ ρ' -> (case ρ' of { (,) ρ'2 ρ'3 -> (case ρ'
 
 u0 = \ds -> case ds of { (,) ρ ρ' -> ρ + ρ' }
 
-t1'1 = \xs -> case xs of { _ -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { _ -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { _ -> fromInteger 666; [] -> ((fromInteger 5 + fromInteger 6) + ρ) + ρ'2 }) }) }
+t1'1 = \xs -> case xs of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case ρ'3 of { [] -> ((fromInteger 5 + fromInteger 6) + ρ) + ρ'2; _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }
 
-t1 = \ds -> case ds of { _ -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { _ -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { _ -> fromInteger 666; (:) ρ'4 ρ'5 -> (case ρ'5 of { _ -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { _ -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+t1 = \ds -> case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case ρ'3 of { (:) ρ'4 ρ'5 -> (case ρ'5 of { (:) ρ'6 ρ'7 -> (case ρ'7 of { [] -> ((ρ + ρ'2) + ρ'4) + ρ'6; _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }
 
-t0 = \ds -> case ds of { _ -> fromInteger 666; (:) ρ ρ' -> (case ρ' of { _ -> fromInteger 666; (:) ρ'2 ρ'3 -> (case ρ'3 of { _ -> fromInteger 666; (:) ρ'4 ρ'5 -> (case ρ'5 of { _ -> fromInteger 666; (:) ρ'6 ρ'7 -> (case ρ'7 of { _ -> fromInteger 666; [] -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
+t0 = \ds -> case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case ρ'3 of { (:) ρ'4 ρ'5 -> (case ρ'5 of { (:) ρ'6 ρ'7 -> (case ρ'7 of { [] -> ((ρ + ρ'2) + ρ'4) + ρ'6; _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }); _ -> fromInteger 666 }
 
 t'ls = 1 : (2 : (3 : (4 : [])))
 
@@ -73,7 +73,7 @@ slt1 = \ls -> map (\c -> 0) (map (\c' -> 0) ls)
 
 f2 = \ds -> case ds of { (,,) ρ ρ' ρ'2 -> (ρ + ρ') + ρ'2 }
 
-orZero = \ds -> case ds of { Nothing -> 0; Just ρ -> ρ }
+orZero = \ds -> case ds of { Just ρ -> ρ; Nothing -> 0 }
 
 e1'1 = 0
 

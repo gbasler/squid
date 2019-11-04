@@ -180,7 +180,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   case class App(lhs: Ref, rhs: Ref) extends ConcreteNode
   
   class Var(val name: Str, val unique: Int) extends ConcreteNode {
-    override def hashCode() = unique
+    override def hashCode: Int = unique
   }
   
   case class Lam(var paramRef: NodeRef, body: Ref) extends ConcreteNode {

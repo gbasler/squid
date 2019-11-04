@@ -95,6 +95,7 @@ class GraphIR extends GraphDefs {
   /* Better to keep the `modDefs` definitions ordered, for easier reading of output code.
    * Unfortunately, it seems we get them in mangled order from GHC. */
   case class GraphModule(modName: Str, modPhase: Str, modDefs: List[Str -> NodeRef]) extends Module {
+    require(modDefs.map(_._1).distinct.size === modDefs.size)
     private implicit def self: this.type = this
     private var uniqueCount = 0
     def nextUnique = uniqueCount alsoDo {uniqueCount += 1} // move somewhere else?
@@ -163,7 +164,7 @@ class GraphIR extends GraphDefs {
                 val rightArm = arms.filter(_._1 === ctor.defName) |>! {
                   case arm :: Nil => arm._3
                   case Nil =>
-                    arms.filter(_._1 === "_") |>! {
+                    arms.filter(_._1 === "_") |>! { // FIXME handle this failing
                       case arm :: Nil => arm._3
                     }
                 }

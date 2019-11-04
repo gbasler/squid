@@ -23,12 +23,12 @@ import GHC.Types
 
 foo_6 = \s -> let
   rec' p'2 = 
-        let rec'3 p'3 = p'3 : (case mod p'3 2 == 0 of { False -> (rec'3 (p'3 * 2)); True -> (rec' (p'3 + 1)) }) in
-        p'2 : (case mod p'2 2 == 0 of { False -> (rec'3 (p'2 * 2)); True -> (rec' (p'2 + 1)) })
+        let rec'3 p'3 = p'3 : (case mod p'3 2 == 0 of { True -> (rec'3 (p'3 + 1)); False -> (rec' (p'3 * 2)) }) in
+        p'2 : (case mod p'2 2 == 0 of { True -> (rec'3 (p'2 + 1)); False -> (rec' (p'2 * 2)) })
   rec p = 
-        let rec'2 p' = p' : (case mod p' 2 == 0 of { False -> (rec (p' * 2)); True -> (rec'2 (p' + 1)) }) in
-        p : (case mod p 2 == 0 of { False -> (rec (p * 2)); True -> (rec'2 (p + 1)) })
-  in s : (case mod s 2 == 0 of { False -> (rec (s * 2)); True -> (rec' (s + 1)) })
+        let rec'2 p' = p' : (case mod p' 2 == 0 of { True -> (rec (p' + 1)); False -> (rec'2 (p' * 2)) }) in
+        p : (case mod p 2 == 0 of { True -> (rec (p + 1)); False -> (rec'2 (p * 2)) })
+  in s : (case mod s 2 == 0 of { True -> (rec (s + 1)); False -> (rec' (s * 2)) })
 
 foo_5 = \s -> let
   rec p'2 = 

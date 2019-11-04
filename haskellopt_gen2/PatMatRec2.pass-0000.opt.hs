@@ -25,5 +25,5 @@ usum'1 = 1 + fromInteger 0
 usum'0 = fromInteger 0
 
 usum = \ds -> 
-  let rec _fε = case _fε of { [] -> fromInteger 0; (:) ρ'2 ρ'3 -> ρ'2 + (rec ρ'3) } in
-  case ds of { [] -> fromInteger 0; (:) ρ ρ' -> ρ + (rec ρ') }
+  let rec _fε = case _fε of { (:) ρ'2 ρ'3 -> ρ'2 + (rec ρ'3); [] -> fromInteger 0 } in
+  case ds of { (:) ρ ρ' -> ρ + (rec ρ'); [] -> fromInteger 0 }

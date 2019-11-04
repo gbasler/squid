@@ -23,15 +23,15 @@ import GHC.Types
 pgrm = (2 * 1) + (0 + 1)
 
 f = \x -> 
-  let _cε = case case x of { Nothing -> False; Just ρ' -> True } of { False -> 0; True -> 1 } in
-  case x of { Nothing -> _cε + 1; Just ρ -> ρ * _cε }
+  let _cε = case case x of { Just ρ' -> True; Nothing -> False } of { True -> 1; False -> 0 } in
+  case x of { Just ρ -> ρ * _cε; Nothing -> _cε + 1 }
 
 e1 = \ds -> case ds of { (,) ρ ρ' -> ρ * ρ' }
 
 e2 = \z -> z + 1
 
-e3 = \c -> case c of { False -> 0; True -> 1 }
+e3 = \c -> case c of { True -> 1; False -> 0 }
 
 e0 = \a -> a
 
-isJust = \ds -> case ds of { Nothing -> False; Just ρ -> True }
+isJust = \ds -> case ds of { Just ρ -> True; Nothing -> False }
