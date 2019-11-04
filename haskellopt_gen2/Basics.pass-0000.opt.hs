@@ -6,8 +6,8 @@
 -- Incl. one-shot:  2
 -- Case reductions:  0
 -- Field reductions:  0
--- Total nodes: 1639; Boxes: 416; Branches: 372
--- Apps: 293; Lams: 8
+-- Total nodes: 1637; Boxes: 416; Branches: 372
+-- Apps: 292; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -20,52 +20,52 @@ import GHC.Real
 import GHC.Types
 
 foo_0 = \x -> 
-  let _0 = x * 2 in
+  let _0 = x * (2::Int) in
   _0 + _0
 
-foo_1 = \x -> (x + 1) * fromInteger 2
+foo_1 = \x -> (x + (1::Int)) * (2::Int)
 
-foo_2 = \x -> (x + 1) * x
+foo_2 = \x -> (x + (1::Int)) * x
 
 foo_3 = \x -> let
-  _0 = (x + 1) * x
   _1 = x * x
+  _0 = (x + (1::Int)) * x
   in (_0 ^ _0) - (_1 ^ _1)
 
 fTest4 = let
-  _0 = 77 * 77
-  _1 = 66 * 66
-  in (_1 * _1) + (_0 * _0)
+  _0 = (66::Int) * (66::Int)
+  _1 = (77::Int) * (77::Int)
+  in (_0 * _0) + (_1 * _1)
 
 fTest3 = let
-  _0 = 66 * 66
-  _1 = 77 * 77
-  in (_0 * _0) * (_1 * _1)
+  _0 = (77::Int) * (77::Int)
+  _1 = (66::Int) * (66::Int)
+  in (_1 * _1) * (_0 * _0)
 
 fTest2 = 
-  let _0 = 55 * 55 in
-  (44 * 44) + (_0 * _0)
+  let _0 = (55::Int) * (55::Int) in
+  ((44::Int) * (44::Int)) + (_0 * _0)
 
 fTest1 = 
-  let _0 = 33 * 33 in
+  let _0 = (33::Int) * (33::Int) in
   _0 * _0
 
-fTest0 = (11 * 11) * (22 * 22)
+fTest0 = ((11::Int) * (11::Int)) * ((22::Int) * (22::Int))
 
 f = \x -> x * x
 
-gTest6 = (44 * 33) * 11
+gTest6 = ((44::Int) * (33::Int)) * (11::Int)
 
-gTest5 = ((11 * 30) * (30 * 22)) + ((11 * 40) * (40 * 22))
+gTest5 = (((11::Int) * (30::Int)) * ((30::Int) * (22::Int))) + (((11::Int) * (40::Int)) * ((40::Int) * (22::Int)))
 
-gTest4 = (2 * 3) * (4 * 5)
+gTest4 = ((2::Int) * (3::Int)) * ((4::Int) * (5::Int))
 
-gTest3 = (2 * 3) * 4
+gTest3 = ((2::Int) * (3::Int)) * (4::Int)
 
-gTest2 = \y -> (2 * 3) * y
+gTest2 = \y -> ((2::Int) * (3::Int)) * y
 
-gTest1 = 4 * (2 * 3)
+gTest1 = (4::Int) * ((2::Int) * (3::Int))
 
-gTest0 = (2 * 3) * 4
+gTest0 = ((2::Int) * (3::Int)) * (4::Int)
 
 g = \x -> \y -> x * y

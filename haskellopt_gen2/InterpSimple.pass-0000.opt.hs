@@ -6,8 +6,8 @@
 -- Incl. one-shot:  0
 -- Case reductions:  46
 -- Field reductions:  62
--- Total nodes: 89; Boxes: 15; Branches: 55
--- Apps: 6; Lams: 0
+-- Total nodes: 85; Boxes: 15; Branches: 55
+-- Apps: 4; Lams: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -18,4 +18,4 @@ module InterpSimple (test) where
 import GHC.Num
 import GHC.Types
 
-test = (((123 + fromInteger 1) * fromInteger 2) * fromInteger 2) + fromInteger 1
+test = ((((123::Int) + (1::Int)) * (2::Int)) * (2::Int)) + (1::Int)

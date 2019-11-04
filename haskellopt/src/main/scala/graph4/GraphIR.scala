@@ -46,6 +46,8 @@ class GraphIR extends GraphDefs {
   
   val MaxPropagationDepth = 16
   
+  val useOnlyIntLits = true
+  
   
   type Ref = NodeRef
   val Ref: NodeRef.type = NodeRef

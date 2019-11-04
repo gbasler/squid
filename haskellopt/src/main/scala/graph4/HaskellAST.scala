@@ -45,6 +45,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   val inlineOneShotLets: Bool
   val inlineTrivialLets: Bool
   val commonSubexprElim: Bool
+  val useOnlyIntLits: Bool
   
   val simplifyCases = true
   val mergeLets = false

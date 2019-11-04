@@ -18,35 +18,35 @@ module HigherOrder (hTest5,hTest4,hTest3,h,gTest1,gTest0,g,m1,iTest2,iTest1,iTes
 import GHC.Num
 import GHC.Types
 
-hTest5 = (2 * ((2 - 2) * (2 - 3))) * (3 * ((3 - 2) * (3 - 3)))
+hTest5 = ((2::Int) * (((2::Int) - (2::Int)) * ((2::Int) - (3::Int)))) * ((3::Int) * (((3::Int) - (2::Int)) * ((3::Int) - (3::Int))))
 
-hTest4 = ((2 + 1) * (3 + 1)) - ((2 * 2) * (3 * 2))
+hTest4 = (((2::Int) + (1::Int)) * ((3::Int) + (1::Int))) - (((2::Int) * (2::Int)) * ((3::Int) * (2::Int)))
 
 hTest3 = let
-  _0 = (+) 1
-  _1 = (*) 2
-  in (_0 2 * _0 3) - (_1 2 * _1 3)
+  _0 = (+) (1::Int)
+  _1 = (*) (2::Int)
+  in (_0 (2::Int) * _0 (3::Int)) - (_1 (2::Int) * _1 (3::Int))
 
-h = \f -> f 2 * f 3
+h = \f -> f (2::Int) * f (3::Int)
 
-gTest1 = (((4 - 1) + (3 - 1)) - 1) + (3 - 1)
+gTest1 = ((((4::Int) - (1::Int)) + ((3::Int) - (1::Int))) - (1::Int)) + ((3::Int) - (1::Int))
 
-gTest0 = (2 - 1) + (3 - 1)
+gTest0 = ((2::Int) - (1::Int)) + ((3::Int) - (1::Int))
 
-g = \f -> \x -> f x + f 3
+g = \f -> \x -> f x + f (3::Int)
 
-m1 = \x -> x - 1
+m1 = \x -> x - (1::Int)
 
-iTest2 = ((11 + 1) + (22 + 1)) + ((11 * 2) + (22 * 2))
+iTest2 = (((11::Int) + (1::Int)) + ((22::Int) + (1::Int))) + (((11::Int) * (2::Int)) + ((22::Int) * (2::Int)))
 
-iTest1 = ((11 + 1) + (22 + 1)) + ((11 * 2) + (22 * 2))
+iTest1 = (((11::Int) + (1::Int)) + ((22::Int) + (1::Int))) + (((11::Int) * (2::Int)) + ((22::Int) * (2::Int)))
 
-iTest0 = \x -> ((11 + 1) + (22 + 1)) + ((11 * 2) + (22 * 2))
+iTest0 = \x -> (((11::Int) + (1::Int)) + ((22::Int) + (1::Int))) + (((11::Int) * (2::Int)) + ((22::Int) * (2::Int)))
 
-i = \f -> \x -> f (\ds -> ds + 1) + f (\ds' -> ds' * 2)
+i = \f -> \x -> f (\ds -> ds + (1::Int)) + f (\ds' -> ds' * (2::Int))
 
-f0 = \f -> f 11 + f 22
+f0 = \f -> f (11::Int) + f (22::Int)
 
-ls1 = (+) (11 + 22)
+ls1 = (+) ((11::Int) + (22::Int))
 
 lol = \x -> \y -> x + y

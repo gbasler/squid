@@ -69,7 +69,10 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         case Control(_,Ref(TypeBinding)) => e0
         case ModuleRef(mod,nme) if nme.contains("$f") => e0
         case Control(_,Ref(ModuleRef(mod,nme))) if nme.contains("$f") => e0 // TODO more robust?
-        case _ => App(e0, e1).mkRefNamed("β") // ("α")
+        case _ => e0.node match {
+          case ModuleRef("GHC.Num", "fromInteger") if useOnlyIntLits => e1
+          case _ => App(e0, e1).mkRefNamed("β") // ("α")
+        }
       }
       def ETyLam(bndr: Binder, e0: Expr): Expr = e0 // Don't represent type lambdas...
       def ELam(bndr: Binder, mkE: => Expr): Expr = {

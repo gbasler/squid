@@ -23,25 +23,25 @@ import GHC.Types
 
 foo_6 = \s -> let
   rec' p'2 = 
-        let rec'3 p'3 = p'3 : (case mod p'3 2 == 0 of { True -> (rec'3 (p'3 + 1)); False -> (rec' (p'3 * 2)) }) in
-        p'2 : (case mod p'2 2 == 0 of { True -> (rec'3 (p'2 + 1)); False -> (rec' (p'2 * 2)) })
+        let rec'3 p'3 = p'3 : (case mod p'3 (2::Int) == (0::Int) of { True -> (rec'3 (p'3 + (1::Int))); False -> (rec' (p'3 * (2::Int))) }) in
+        p'2 : (case mod p'2 (2::Int) == (0::Int) of { True -> (rec'3 (p'2 + (1::Int))); False -> (rec' (p'2 * (2::Int))) })
   rec p = 
-        let rec'2 p' = p' : (case mod p' 2 == 0 of { True -> (rec (p' + 1)); False -> (rec'2 (p' * 2)) }) in
-        p : (case mod p 2 == 0 of { True -> (rec (p + 1)); False -> (rec'2 (p * 2)) })
-  in s : (case mod s 2 == 0 of { True -> (rec (s + 1)); False -> (rec' (s * 2)) })
+        let rec'2 p' = p' : (case mod p' (2::Int) == (0::Int) of { True -> (rec (p' + (1::Int))); False -> (rec'2 (p' * (2::Int))) }) in
+        p : (case mod p (2::Int) == (0::Int) of { True -> (rec (p + (1::Int))); False -> (rec'2 (p * (2::Int))) })
+  in s : (case mod s (2::Int) == (0::Int) of { True -> (rec (s + (1::Int))); False -> (rec' (s * (2::Int))) })
 
 foo_5 = \s -> let
   rec p'2 = 
-        let rec'3 p'3 = p'3 : ((rec (p'3 + 1)) ++ (rec'3 (p'3 * 2))) in
-        p'2 : ((rec (p'2 + 1)) ++ (rec'3 (p'2 * 2)))
+        let rec'3 p'3 = p'3 : ((rec (p'3 + (1::Int))) ++ (rec'3 (p'3 * (2::Int)))) in
+        p'2 : ((rec (p'2 + (1::Int))) ++ (rec'3 (p'2 * (2::Int))))
   rec' p = 
-        let rec'2 p' = p' : ((rec'2 (p' + 1)) ++ (rec' (p' * 2))) in
-        p : ((rec'2 (p + 1)) ++ (rec' (p * 2)))
-  in s : ((rec (s + 1)) ++ (rec' (s * 2)))
+        let rec'2 p' = p' : ((rec'2 (p' + (1::Int))) ++ (rec' (p' * (2::Int)))) in
+        p : ((rec'2 (p + (1::Int))) ++ (rec' (p * (2::Int))))
+  in s : ((rec (s + (1::Int))) ++ (rec' (s * (2::Int))))
 
 foo_4 = \s -> 
-  let rec p = p : (rec (p + 1)) in
-  s : (rec (s + 1))
+  let rec p = p : (rec (p + (1::Int))) in
+  s : (rec (s + (1::Int)))
 
 foo_3 = \s -> 
   let rec s' = s' : (rec s') in

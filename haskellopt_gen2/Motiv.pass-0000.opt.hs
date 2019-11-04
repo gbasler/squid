@@ -20,17 +20,17 @@ import GHC.Num
 import GHC.Tuple
 import GHC.Types
 
-pgrm = (2 * 1) + (0 + 1)
+pgrm = ((2::Int) * (1::Int)) + ((0::Int) + (1::Int))
 
 f = \x -> 
-  let _cε = case case x of { Just ρ' -> True; Nothing -> False } of { True -> 1; False -> 0 } in
-  case x of { Just ρ -> ρ * _cε; Nothing -> _cε + 1 }
+  let _cε = case case x of { Just ρ' -> True; Nothing -> False } of { True -> (1::Int); False -> (0::Int) } in
+  case x of { Just ρ -> ρ * _cε; Nothing -> _cε + (1::Int) }
 
 e1 = \ds -> case ds of { (,) ρ ρ' -> ρ * ρ' }
 
-e2 = \z -> z + 1
+e2 = \z -> z + (1::Int)
 
-e3 = \c -> case c of { True -> 1; False -> 0 }
+e3 = \c -> case c of { True -> (1::Int); False -> (0::Int) }
 
 e0 = \a -> a
 

@@ -40,7 +40,7 @@ abstract class GraphScheduler { self: GraphIR =>
     })
     
     protected def constantToExpr(c: ConstantNode): AST.Expr = c match {
-      case IntLit(true, n) => AST.Inline(n.toString)
+      case IntLit(true, n) => if (useOnlyIntLits) AST.Inline(s"($n::Int)") else AST.Inline(n.toString)
       case IntLit(false, n) => AST.Inline(s"$n#")
       case StrLit(true, s) => AST.Inline('"' + s + '"')
       case StrLit(false, s) => AST.Inline('"' + s + '"' + '#')
@@ -101,6 +101,7 @@ abstract class GraphScheduler { self: GraphIR =>
       val inlineOneShotLets = inlineScheduledLets
       val inlineTrivialLets = inlineScheduledLets
       val commonSubexprElim = true
+      val useOnlyIntLits = self.useOnlyIntLits
     }
     
     val modDefStrings: List[Str] = mod.modDefs.map { case (name, ref) =>
@@ -112,7 +113,7 @@ abstract class GraphScheduler { self: GraphIR =>
             rec(b)(ictx `;` i)
           case Branch(c,t,e) =>
             if (Condition.test_!(c,ictx)) rec(t) else rec(e)
-          case IntBoxing(n) => AST.Inline(n.toString)
+          case IntBoxing(n) => constantToExpr(IntLit(true, n))
           case App(l,r) =>
             AST.App(rec(l), rec(r))
           case l @ Lam(_,b) =>
@@ -141,6 +142,7 @@ abstract class GraphScheduler { self: GraphIR =>
       val inlineTrivialLets = inlineScheduledLets
       val commonSubexprElim = false
       //override val mergeLets = true
+      val useOnlyIntLits = self.useOnlyIntLits
       override val mergeLets = !debugScheduling
     }
     
@@ -225,7 +227,7 @@ abstract class GraphScheduler { self: GraphIR =>
       assert(nde.children.size === children.size)
       assert(!nde.isInstanceOf[Lam])
       def toExpr: AST.Expr = nde match {
-        case IntBoxing(n) => AST.Inline(n.toString)
+        case IntBoxing(n) => constantToExpr(IntLit(true, n))
         case App(l, r) => AST.App(children(0).toExpr, children(1).toExpr)
         case l @ Lam(_,lbody) => die // we handle lambdas specially
         case v: Var => AST.Vari(v)

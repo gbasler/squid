@@ -19,5 +19,5 @@ import GHC.Num
 import GHC.Types
 
 nats1 = 
-  let rec st = st : (rec (st + 1)) in
-  (rec 0)
+  let rec st = st : (rec (st + (1::Int))) in
+  (rec (0::Int))

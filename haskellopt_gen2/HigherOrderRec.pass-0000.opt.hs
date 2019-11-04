@@ -6,8 +6,8 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
--- Total nodes: 209; Boxes: 65; Branches: 34
--- Apps: 43; Lams: 13
+-- Total nodes: 207; Boxes: 65; Branches: 34
+-- Apps: 42; Lams: 13
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -22,28 +22,28 @@ import GHC.Tuple
 import GHC.Types
 
 s = \f -> \x -> let
-        _0 = x + fromInteger 1
-        rec' p'2 = let
-              _3 = p'2 + fromInteger 1
+        _0 = x + (1::Int)
+        rec p'2 = let
+              _3 = p'2 + (1::Int)
               rec'3 p'3 = 
-                    let _4 = p'3 + fromInteger 1 in
-                    _4 - (f (rec'3 _4) * f (rec' _4))
-              in _3 - (f (rec'3 _3) * f (rec' _3))
-        rec p = let
-              _1 = p + fromInteger 1
+                    let _4 = p'3 + (1::Int) in
+                    _4 - (f (rec _4) * f (rec'3 _4))
+              in _3 - (f (rec _3) * f (rec'3 _3))
+        rec' p = let
+              _1 = p + (1::Int)
               rec'2 p' = 
-                    let _2 = p' + fromInteger 1 in
-                    _2 - (f (rec _2) * f (rec'2 _2))
-              in _1 - (f (rec _1) * f (rec'2 _1))
+                    let _2 = p' + (1::Int) in
+                    _2 - (f (rec'2 _2) * f (rec' _2))
+              in _1 - (f (rec'2 _1) * f (rec' _1))
         in _0 - (f (rec _0) * f (rec' _0))
 
 r_2 = let
-  _0 = (:) 1
+  _0 = (:) (1::Int)
   rec = _0 rec
-  in GHC.List.take 3 $ _0 rec
+  in GHC.List.take (3::Int) $ _0 rec
 
 r_0 = 
-  let _0 = (+) 1 in
+  let _0 = (+) (1::Int) in
   \unit -> 
         let rec = _0 rec in
         _0 rec
@@ -57,7 +57,7 @@ only_q = \f -> \x -> \y ->
               f x : (f (f y) : rec)
 
 q_1 = 
-  let _0 = (+) 1 in
+  let _0 = (+) (1::Int) in
   \x -> \y -> 
               let rec = _0 (_0 y) : rec in
               _0 x : rec

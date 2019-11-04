@@ -6,8 +6,8 @@
 -- Incl. one-shot:  0
 -- Case reductions:  29
 -- Field reductions:  30
--- Total nodes: 121; Boxes: 30; Branches: 44
--- Apps: 13; Lams: 0
+-- Total nodes: 111; Boxes: 30; Branches: 44
+-- Apps: 8; Lams: 0
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -19,10 +19,10 @@ import GHC.Num
 import GHC.Tuple
 import GHC.Types
 
-test3 = (((123 + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1
+test3 = ((((123::Int) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)
 
-test2 = ((((123 + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1
+test2 = (((((123::Int) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)
 
-test1 = ((123 + fromInteger 1) + fromInteger 1) + fromInteger 1
+test1 = (((123::Int) + (1::Int)) + (1::Int)) + (1::Int)
 
-test0 = ((((((((fromInteger 0 + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1) + fromInteger 1
+test0 = (((((((((0::Int) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)) + (1::Int)
