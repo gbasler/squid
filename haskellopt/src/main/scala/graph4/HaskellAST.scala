@@ -382,9 +382,11 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       }
     }
     def reorder(defs: List[Binding], body: Expr): Expr = {
+      
       // Require that binding idents be unique:
       //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
       val used = mutable.Set.empty[Ident] // probably more efficient than groupBy
+      
       val nodes = defs.map { d =>
         val ide = Binding.ident(d)
         require(!used(ide), ide)
@@ -414,7 +416,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       }
       go(body.freeIdents.filter(nodes.isDefinedAt).toList)
       
-      assert(ordered.size === defs.size)
+      assert(ordered.size === defs.size, (ordered.size, defs.size))
       multiple(ordered.reverse.map(nodes), body)
     }
   }

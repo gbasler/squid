@@ -146,11 +146,14 @@ abstract class GraphScheduler { self: GraphIR =>
       override val mergeLets = !debugScheduling
     }
     
+    /** Did anything significant change? — as in: a parameter, return, or performed test was added to a scope... */
+    var anythingChanged = true
+    
     val modDefStrings: List[Str] = {
       mod.modDefs.map { case (nme,df) =>
         Sdebug(s"Scheduling $nme")
         
-        resetVarPrintingState()
+        if (!debugScheduling) resetVarPrintingState()
         val ide = AST.mkIdent(nme)
         printVar(ide) // allocate the right 'bare' name for each top-level definition
         
@@ -161,52 +164,59 @@ abstract class GraphScheduler { self: GraphIR =>
           scp.enter(Id, df)
           scp
         }
-        // While there are potential recursive scopes, check their tests and expand them if the test results differ;
-        // then only the truly recursive scopes will still have non-empty `potentiallyRecursiveParents`.
-        var changed = true
-        while (changed) {
-          changed = false
-          Sdebug(s">>>>>> RESULT")
-          Sdebug(rootScp.show())
-          Sdebug(s">>>>>> /")
-          rootScp.iterator.foreach { scp =>
-            val ps = scp.potentiallyRecursiveParents
-            if (ps.nonEmpty) Sdebug(s"$scp has potentially recursive parents") thenReturn ScheduleDebug.nestDbg {
-              assert(scp.returns.isEmpty)
-              scp.potentiallyRecursiveParents = ps.filter { p =>
-                Sdebug(s"Parent $p has tests: ${p.testsPerformed.map(cb => Condition.show(cb._1) + " == " + cb._2).mkString("; ")}")
-                val fails = ScheduleDebug.nestDbg { p.testsPerformed.exists { case (c, res) =>
-                  val truth = Condition.test_!(c, scp.ictx)
-                  Sdebug(s"Here: ${Condition.show(c)} == ${truth}")
-                  scp.addTest(c, truth)
-                  truth =/= res also { b => if (b) Sdebug(s"This was not a real recursive parent") }
-                }}
-                !fails
-              }
-              if (scp.potentiallyRecursiveParents.isEmpty) Sdebug(s"Performing delayed entries of ${scp}") thenReturn ScheduleDebug.nestDbg {
-                changed = true
-                val es = scp.delayedEntries
-                scp.delayedEntries = Nil
-                es.foreach{ case (in,ref) => scp.enter(in,ref) }
+        while (anythingChanged) { // TODO something more fine-grained that tracks changes in each scopes and possibly dependencies...
+          anythingChanged = false
+          // While there are potential recursive scopes, check their tests and expand them if the test results differ;
+          // then only the truly recursive scopes will still have non-empty `potentiallyRecursiveParents`.
+          var changed = true
+          while (changed) {
+            changed = false
+            Sdebug(s">>>>>> RESULT")
+            Sdebug(rootScp.show())
+            Sdebug(s">>>>>> /")
+            rootScp.iterator.foreach { scp =>
+              val ps = scp.potentiallyRecursiveParents
+              if (ps.nonEmpty) Sdebug(s"$scp has potentially recursive parents") thenReturn ScheduleDebug.nestDbg {
+                assert(scp.returns.isEmpty)
+                scp.potentiallyRecursiveParents = ps.filter { p =>
+                  Sdebug(s"Parent $p has tests: ${p.testsPerformed.map(cb => Condition.show(cb._1) + " == " + cb._2).mkString("; ")}")
+                  val fails = ScheduleDebug.nestDbg { p.testsPerformed.exists { case (c, res) =>
+                    val truth = Condition.test_!(c, scp.ictx)
+                    Sdebug(s"Here: ${Condition.show(c)} == ${truth}")
+                    scp.addTest(c, truth)
+                    truth =/= res also { b => if (b) Sdebug(s"This was not a real recursive parent") }
+                  }}
+                  !fails
+                }
+                //if (scp.potentiallyRecursiveParents.isEmpty) Sdebug(s"Performing delayed entries of ${scp}") thenReturn ScheduleDebug.nestDbg {
+                if (scp.potentiallyRecursiveParents.nonEmpty) {
+                  //scp.params = Nil // erasing what was potentially done in the loop below ("Now doing param..."), as it may no longer be valid
+                } else Sdebug(s"Performing delayed entries of ${scp}") thenReturn ScheduleDebug.nestDbg {
+                  changed = true
+                  scp.params = Nil // erasing what was potentially done in the loop below ("Now doing param..."), as it may no longer be valid
+                  val es = scp.delayedEntries
+                  scp.delayedEntries = Nil
+                  es.foreach{ case (in,ref) => scp.enter(in,ref) }
+                }
               }
             }
           }
-        }
-        rootScp.iterator.foreach { scp =>
-          val ps = scp.potentiallyRecursiveParents
-          if (ps.nonEmpty) {
-            Sdebug(s"Truly recursive scope: ${scp}")
-            ScheduleDebug.nestDbg {
-              val recScp = ps.last
-              scp.recursiveParent = Some(recScp)
-              recScp.isRecursive = true
-              recScp.params.foreach { case ((i,r),sch) =>
-                Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} ($sch (${sch.toExpr.stringify}))")
-                // Should be the same as scp.parent.get.rec(i, r):
-                // (But note that scp.parent.get may very well NOT be recScp.)
-                scp.rec(Drop(i)(scp.cid), r)
-                //val res = scp.rec(Drop(i)(scp.cid), r)
-                //Sdebug(s"Got: $res a.k.a. ${res.toExpr} a.k.a. ${res.toExpr.stringify}")
+          rootScp.iterator.foreach { scp =>
+            val ps = scp.potentiallyRecursiveParents
+            if (ps.nonEmpty) {
+              Sdebug(s"Apparently truly recursive scope: ${scp}")
+              ScheduleDebug.nestDbg {
+                val recScp = ps.last
+                scp.recursiveParent = Some(recScp)
+                recScp.isRecursive = true
+                recScp.params.foreach { case ((i,r),sch) =>
+                  Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} ($sch (${sch.toExpr.stringify}))")
+                  // Should be the same as scp.parent.get.rec(i, r):
+                  // (But note that scp.parent.get may very well NOT be recScp.)
+                  scp.rec(Drop(i)(scp.cid), r)
+                  //val res = scp.rec(Drop(i)(scp.cid), r)
+                  //Sdebug(s"Got: $res a.k.a. ${res.toExpr} a.k.a. ${res.toExpr.stringify}")
+                }
               }
             }
           }
@@ -307,9 +317,13 @@ abstract class GraphScheduler { self: GraphIR =>
       
       val testsPerformed: mutable.Map[Condition, Bool] = mutable.Map.empty
       def addTest(c: Condition, truth: Bool): Unit = if (Condition.test(c,push).isEmpty) { // if the condition is not trivial
-        assert(testsPerformed.get(c).forall(_ === truth))
-        testsPerformed += c -> truth
-        parent.foreach(p => Condition.throughControl(push,c).foreach(c => p.addTest(c, truth)))
+        testsPerformed.get(c) match {
+          case Some(t) => assert(t === truth)
+          case None =>
+            anythingChanged = true
+            testsPerformed += c -> truth
+            parent.foreach(p => Condition.throughControl(push,c).foreach(c => p.addTest(c, truth)))
+        }
       }
       
       var params: List[Instr -> Ref -> Scheduled] = Nil
@@ -330,7 +344,7 @@ abstract class GraphScheduler { self: GraphIR =>
         bindings ::= Left(iref -> sch)
       }
       
-      /* Important remark: each NodeRef can be associated with a unique ConcreteNode per scope (possibly a variable) */
+      /* Important remark: each distinct IRef=(Instr,NodeRef) can be associated with a unique ConcreteNode per scope (possibly a variable) */
       def rec(in: Instr, body: Ref): Scheduled = ScheduleDebug.nestDbg {
         Sdebug(s"<${ident}> [$in] ${body.showDef}")
         //if (ScheduleDebug.isDebugEnabled) Thread.sleep(50)
@@ -343,7 +357,7 @@ abstract class GraphScheduler { self: GraphIR =>
           case Id =>
             body.node match {
               case c: ConcreteNode =>
-                if (bound(Id->body)) asVar else {
+                if (bound(iref)) asVar else {
                   if (!body.toBeScheduledInline)
                     bound += Id->body
                   val res = c match {
@@ -394,10 +408,11 @@ abstract class GraphScheduler { self: GraphIR =>
             if (params.exists(_._1._2 === body)) {
               Sdebug(s"PARAM<$ident> ${body} already exists")
             } else {
-            val res = parent.get.rec(i, body)
-            params ::= i -> body -> res
-            Sdebug(s"PARAM<$ident> ${body} ==> ${res} ==> ${toParamIdent(body)} (${toParamIdent(body)|>printVar})")
-            //Sdebug(s"?Drop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
+              anythingChanged = true
+              val res = parent.get.rec(i, body)
+              params ::= i -> body -> res
+              Sdebug(s"PARAM<$ident> ${body} ==> ${res} ==> ${toParamIdent(body)} (${toParamIdent(body)|>printVar})")
+              //Sdebug(s"?Drop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
             }
             Concrete(toParamIdent(body), Nil)
             
@@ -429,6 +444,7 @@ abstract class GraphScheduler { self: GraphIR =>
         val ret = rec(in, body)
         //Sdebug(s"Return $ret")
         Sdebug(s"Return $ret ${ret.toExpr} ${ret.toExpr.stringify} ${in->body|>toIdent} ${in->body|>toIdent|>printVar}")
+        anythingChanged = true // Q: needed here?
         returns ::= (in, body) -> ret
       }
       def foldBindings(ret: List[AST.Binding]): List[AST.Binding] = {
