@@ -27,6 +27,7 @@ class BasicTests extends FunSuite {
   test("BasicRec") (
     TestHarness("BasicRec",
       //prefixFilter = "nrec_0",
+      //prefixFilter = "trec_0",
       //prefixFilter = "nrec_capt_0",
       //
       dumpGraph = true,

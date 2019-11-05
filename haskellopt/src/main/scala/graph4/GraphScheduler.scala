@@ -207,13 +207,13 @@ abstract class GraphScheduler { self: GraphIR =>
             val ps = scp.potentiallyRecursiveParents
             //if (ps.nonEmpty) {
             if (ps.size > UnrollingFactor) {
-              Sdebug(s"Apparently truly recursive scope: ${scp}")
+              val recScp = ps.last
+              Sdebug(s"Apparently recursive scope: ${scp} -> ${ps.last}")
               ScheduleDebug.nestDbg {
-                val recScp = ps.last
                 scp.recursiveParent = Some(recScp)
                 recScp.isRecursive = true
                 recScp.params.foreach { case ((i,r),sch) =>
-                  Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} ($sch (${sch.toExpr.stringify}))")
+                  Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toParamIdent(r)|>printVar} ($sch (${sch.toExpr.stringify}))")
                   // Should be the same as scp.parent.get.rec(i, r):
                   // (But note that scp.parent.get may very well NOT be recScp.)
                   scp.rec(Drop(i)(scp.cid), r)
@@ -329,12 +329,12 @@ abstract class GraphScheduler { self: GraphIR =>
         }
       }
       
-      var params: List[Instr -> Ref -> Scheduled] = Nil
+      var params: List[IRef -> Scheduled] = Nil
       var returns: List[IRef -> Scheduled] = Nil
+      var delayedEntries: List[IRef] = Nil
+      
       var bindings: List[Either[IRef -> Scheduled, Call]] = Nil
       val bound: mutable.Set[IRef] = mutable.Set.empty
-      
-      var delayedEntries: List[Instr -> Ref] = Nil
       
       def bind(iref: IRef, sch: Scheduled): Unit = if (!bound(iref)) { // we test again here as sometimes things are bound during calls to `rec`
         assert(!bound(iref))
@@ -470,6 +470,7 @@ abstract class GraphScheduler { self: GraphIR =>
                   //Sdebug(s"!!! LET ${p}=$sch ${toIdent(p)} ${toIdent(p)|>printVar}")
                   //if (sch.isVari) rest else // FIXME?
                   Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: rest2
+                  //Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: Left((scp.toIdent((i,p))|>AST.Vari, scp.toParamIdent(p)|>AST.Vari)) :: rest2
               }
             }
             else if (scp.isRecursive) {
@@ -493,7 +494,7 @@ abstract class GraphScheduler { self: GraphIR =>
           val ret = returns match {
             case Nil => die
             case (_, r) :: Nil => r.toExpr
-            case _ => returns.foldLeft[AST.Expr](AST.Inline("(" + "," * returns.size + ")")) {
+            case _ => returns.foldLeft[AST.Expr](AST.Inline("(" + "," * (returns.size - 1) + ")")) {
               case (app, (_, r)) => AST.App(app, r.toExpr) }
           }
           Sdebug(s"Ret: ${ret.stringify}")

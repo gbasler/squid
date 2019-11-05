@@ -2,18 +2,16 @@ module BasicRec where
 
 ------ Top-level recursion ------
 
--- TODO try
+trec_0 :: Int -> [Int]
+trec_0 y = y : (trec_0 (y + 1))
 
--- rec_0 :: Int -> [Int]
--- rec_0 y = y : (rec_0 (y + 1))
+trec_0_0 = trec_0 27 ++ trec_0 32
+trec_0_1 = trec_0 (head (trec_0 32))
 
--- rec_0_0 = rec_0 27 ++ rec_0 32
--- rec_0_1 = rec_0 (head (rec_0 32))
-
--- rec_1 :: Int -> [Int]
--- rec_1 x =
---   let f y = y : (f (y + 1))
---   in f 0 ++ f x
+trec_1 :: Int -> [Int]
+trec_1 x =
+  let f y = y : (f (y + 1))
+  in f 0 ++ f x
 
 
 ------ Nested recursion ------
