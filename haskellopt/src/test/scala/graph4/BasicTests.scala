@@ -81,6 +81,7 @@ class BasicTests extends FunSuite {
   )
   
   test("HigherOrderRecLocal") (
+    // TODO counteract scheduled code regression since <this commit>, due to unrolling up to UnrollingFactor
     // FIXME foo and foo_0 produce indirectly-recursive values leading to ordering problems
     // FIXME scheduling of commented foo_2 diverges
     TestHarness("HigherOrderRecLocal",
@@ -126,8 +127,7 @@ class BasicTests extends FunSuite {
     TestHarness("IterCont",
       dumpGraph = true,
     )(
-      // TODO checks
-      //  check: take 5 nats1 == [0,1,2,3,4]
+      check('nats0_5)(List(0,1,2,3,4)),
     )
   )
   

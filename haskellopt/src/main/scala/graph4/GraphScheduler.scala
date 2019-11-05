@@ -176,7 +176,8 @@ abstract class GraphScheduler { self: GraphIR =>
             Sdebug(s">>>>>> /")
             rootScp.iterator.foreach { scp =>
               val ps = scp.potentiallyRecursiveParents
-              if (ps.nonEmpty) Sdebug(s"$scp has potentially recursive parents") thenReturn ScheduleDebug.nestDbg {
+              //if (ps.nonEmpty) Sdebug(s"$scp has potentially recursive parents") thenReturn ScheduleDebug.nestDbg {
+              if (ps.size > UnrollingFactor) Sdebug(s"$scp has potentially recursive parents") thenReturn ScheduleDebug.nestDbg {
                 assert(scp.returns.isEmpty)
                 scp.potentiallyRecursiveParents = ps.filter { p =>
                   Sdebug(s"Parent $p has tests: ${p.testsPerformed.map(cb => Condition.show(cb._1) + " == " + cb._2).mkString("; ")}")
@@ -189,7 +190,8 @@ abstract class GraphScheduler { self: GraphIR =>
                   !fails
                 }
                 //if (scp.potentiallyRecursiveParents.isEmpty) Sdebug(s"Performing delayed entries of ${scp}") thenReturn ScheduleDebug.nestDbg {
-                if (scp.potentiallyRecursiveParents.nonEmpty) {
+                //if (scp.potentiallyRecursiveParents.nonEmpty) {
+                if (scp.potentiallyRecursiveParents.size > UnrollingFactor) {
                   //scp.params = Nil // erasing what was potentially done in the loop below ("Now doing param..."), as it may no longer be valid
                 } else Sdebug(s"Performing delayed entries of ${scp}") thenReturn ScheduleDebug.nestDbg {
                   changed = true
@@ -203,7 +205,8 @@ abstract class GraphScheduler { self: GraphIR =>
           }
           rootScp.iterator.foreach { scp =>
             val ps = scp.potentiallyRecursiveParents
-            if (ps.nonEmpty) {
+            //if (ps.nonEmpty) {
+            if (ps.size > UnrollingFactor) {
               Sdebug(s"Apparently truly recursive scope: ${scp}")
               ScheduleDebug.nestDbg {
                 val recScp = ps.last
@@ -436,7 +439,8 @@ abstract class GraphScheduler { self: GraphIR =>
             
         }
       }
-      def enter(in: Instr, body: Ref): Unit = if (potentiallyRecursiveParents.nonEmpty) {
+      //def enter(in: Instr, body: Ref): Unit = if (potentiallyRecursiveParents.nonEmpty) {
+      def enter(in: Instr, body: Ref): Unit = if (potentiallyRecursiveParents.size > UnrollingFactor) {
         Sdebug(s"Cannot enter $this yet, as it's possibly recursive (${potentiallyRecursiveParents.mkString(", ")})")
         delayedEntries ::= (in,body)
       } else {

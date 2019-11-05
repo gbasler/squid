@@ -24,6 +24,7 @@ class InterpTests extends FunSuite {
   )
   
   test("InterpTrivialRec") (
+    // TODO counteract scheduled code regression since <this commit>, due to unrolling up to UnrollingFactor
     TestHarness("InterpTrivialRec",
       //prefixFilter = "test1",
       dumpGraph = true,
