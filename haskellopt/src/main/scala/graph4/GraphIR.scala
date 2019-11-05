@@ -11,6 +11,9 @@ class GraphIR extends GraphDefs {
   val debugScheduling: Bool = false
   //val debugScheduling: Bool = true
   
+  val debugRewriting = false
+  //val debugRewriting = true
+  
   
   val showInlineNames: Bool = false
   //val showInlineNames: Bool = true
@@ -18,10 +21,10 @@ class GraphIR extends GraphDefs {
   val showPaths: Bool = false
   //val showPaths: Bool = true
   
-  val showCtorPaths: Bool = false
+  val showCtorPaths: Bool = debugRewriting
   //val showCtorPaths: Bool = true
   
-  val showFull: Bool = false
+  val showFull: Bool = debugRewriting
   //val showFull: Bool = true
   
   val showRefCounts: Bool = true
@@ -38,14 +41,16 @@ class GraphIR extends GraphDefs {
   /** Determines whether multiple reductions are performed with each simplification pass.
     * If logging of the rewritten graphs is enabled, doing only one step at a time will be much slower,
     * but it will make things easier to understand and debug. */
-  val multiStepReductions = true
+  val multiStepReductions = !debugRewriting
   //val multiStepReductions = false
   
   val inlineScheduledLets = !debugScheduling
   //val inlineScheduledLets = false
   
-  val MaxPropagationDepth = 16
-  val MaxPropagationWidth = 16
+  val UnrollingFactor = 1
+  
+  val MaxPropagationDepth = 64
+  val MaxPropagationWidth = 128
   
   val useOnlyIntLits = true
   
@@ -137,7 +142,7 @@ class GraphIR extends GraphDefs {
       var changed = false
       val traversed = mutable.Set.empty[NodeRef]
       
-      def rec(ref: NodeRef): Unit = {
+      def rec(ref: NodeRef): Unit = { // TODO make stack-safe
         
         def again(): Unit = {
           changed = true
@@ -148,10 +153,10 @@ class GraphIR extends GraphDefs {
           //ref.children.foreach(rec)
         }
         
-        traversed.setAndIfUnset(ref, ref.node match {
+        traversed.setAndIfUnset(ref, ref.node match { // TODO simplify obvious things like boxes that resolve branches...
             
-          case Control(i0, r @ NodeRef(Control(i1, body))) =>
-            ref.node = Control(i0 `;` i1, body)
+          case c0 @ Control(i0, r @ NodeRef(c1 @ Control(i1, body))) =>
+            ref.node = Control(i0 `;` i1, body)(c0.recIntros + c1.recIntros, c0.recElims + c1.recElims)
             again()
             
           // TODO one-shot reductions for pattern matching too
@@ -159,8 +164,11 @@ class GraphIR extends GraphDefs {
           case Case(scrut, arms) =>
             val ps = scrut.pathsToCtorApps.headOption
             ps match {
-              case Some((ctor, argsRev, cnd)) =>
-                println(s"CASE $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}")
+              case Some(CtorPath(ctor, argsRev, cnd, ri, re)) =>
+                println(s"CASE $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
+                  }${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]${arg._2}").mkString}")
+                
+                // ASSUMPTION: no need to use ri/re here; they will be used in CtorField reductions, which should be enough...
                 
                 caseReductions += 1
                 
@@ -186,15 +194,20 @@ class GraphIR extends GraphDefs {
           case CtorField(scrut, ctorName, ari, idx) =>
             val ps = scrut.pathsToCtorApps.headOption
             ps match {
-              case Some((ctor, argsRev, cnd)) =>
-                println(s"FIELD $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}")
+              case Some(CtorPath(ctor, argsRev, cnd, ri, re)) =>
+                println(s"FIELD $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
+                  }${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]${arg._2}").mkString}")
                 
                 fieldReductions += 1
                 
                 val ctrl = if (ctorName === ctor.defName) Some {
                   assert(argsRev.size === ari)
                   val (instr, rightField) = argsRev.reverseIterator.drop(idx).next
-                  Control(instr, rightField)
+                  Control(instr, rightField)(ri,
+                    re min ri)
+                    // ^ The idea is that if we did not match across a recursive PRODUCER,
+                    //   there is no need to prevent further reductions on this path.
+                    //   This allows reducing static structures, such as lists given extensionally in the source.
                 } else None
                 
                 if (cnd.isEmpty) {
@@ -221,8 +234,8 @@ class GraphIR extends GraphDefs {
               else fun.pathsToLambdas.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
             
             ps match {
-              case Some((p @ (i, cnd), lr)) =>
-                println(s"$ref -- ${Condition.show(cnd)} -->> [$i]$lr")
+              case Some((p @ Path(i, cnd, ri, re), lr)) =>
+                println(s"$ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$lr")
                 
                 betaReductions += 1
                 
@@ -231,7 +244,7 @@ class GraphIR extends GraphDefs {
                 
                 val v = l.param
                 val cid = new CallId(v, nextUnique)
-                val ctrl = Control(Push(cid,i,Id), l.body)
+                val ctrl = Control(Push(cid,i,Id), l.body)(ri, re)
                 
                 // TODO generalize to lr.nonBoxReferences.size === 1 to one-shot reduce across boxes
                 //      or more generally one-shot reduce across boxes and ONE level of branches...
@@ -243,10 +256,11 @@ class GraphIR extends GraphDefs {
                   println(s"One shot!")
                   assert(cnd.isEmpty)
                   assert(lr.references.head === ref)
+                  assert(ri === 0 && re === 0)
                   
                   oneShotBetaReductions += 1
                   
-                  l.paramRef.node = Control(Drop(Id)(cid), arg)
+                  l.paramRef.node = Control(Drop(Id)(cid), arg)(ri, re)
                   ref.node = ctrl
                   // no need to update l.paramRef since the lambda is now supposed to be unused
                   assert(lr.references.isEmpty, lr.references)
@@ -254,7 +268,10 @@ class GraphIR extends GraphDefs {
                 } else {
                   
                   val newOcc = v.mkRefNamed(v.name+"_ε")
-                  l.paramRef.node = Branch(Map(Id -> cid), Control.mkRef(Drop(Id)(cid), arg), newOcc)
+                  l.paramRef.node = Branch(Map(Id -> cid),
+                    Control.mkRef(Drop(Id)(cid), arg,
+                      re, ri), // NOTE inversion of ri/re here! Because this is the consumer part of the recursion...
+                    newOcc)
                   l.paramRef = newOcc
                   if (cnd.isEmpty) {
                     ref.node = ctrl
@@ -291,7 +308,7 @@ class GraphIR extends GraphDefs {
     protected class RebuildPaths(cnd: Condition) {
       def apply(ref: Ref, ictx: Instr): Ref = rec(ref, ictx, cnd)
       protected def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = ref.node match {
-        case Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd)).mkRefFrom(ref)
+        case c @ Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd))(c.recIntros, c.recElims).mkRefFrom(ref)
         case Branch(c, t, e) =>
           val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
           val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}

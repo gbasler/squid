@@ -87,7 +87,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         }
         else {
           val occ = param.mkRefNamed(name)
-          reificationContext = reificationContext.map { case(v,r) => (v, Lazy(Control.mkRef(Pop.it(param),r.value))) }
+          reificationContext = reificationContext.map { case(v,r) => (v, Lazy(Control.mkRef(Pop.it(param),r.value, 0, 0))) }
           reificationContext += param -> Lazy(occ)
           Lam(occ, mkE).mkRefNamed("λ")
         } finally reificationContext = old
@@ -106,9 +106,11 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             bindings += bndr.binderId -> Left(v)
             () => {
               //println(s"LET' ${name} ${reificationContext}")
+              val parNum = rv.references.size
               val bod = rhs()
               setMeaningfulName(bod, name)
-              rv.rewireTo(bod)
+              rv.rewireTo(bod,
+                if (rv.references.size > parNum) 1 else 0) // If there are more parents now, it means the binding is recursive.
               // Change context to point directly to the let-bound def (the indirection was only needed for recursive occurrences):
               reificationContext += v -> Lazy(bod)
               body()
@@ -182,7 +184,10 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
           b.bndr.binderName =/= "$trModule" && (b.bndr.binderName =/= "main" || {!foundMain alsoDo {foundMain = true}}))
         .map(tb => tb.bndr.binderName -> {
           val (nme,rv) = moduleBindings(tb.bndr.binderId)
-          rv.rewireTo(tb.expr)
+          val parNum = rv.references.size
+          val e = tb.expr // compute the lazy value
+          rv.rewireTo(e,
+            if (rv.references.size > parNum) 1 else 0) // If there are more parents now, it means the binding is recursive.
           setMeaningfulName(tb.expr, nme)
           rv
         }).toList.reverse.filter(_._1 + " " startsWith prefixFilter)

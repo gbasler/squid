@@ -2,9 +2,8 @@ module IterCont where
 
 loop0 f = f (loop0 f)
 
--- FIXME graph diverges!
--- nats0 =
---     loop0 (\k s -> s : k (s + 1)) 0
+nats0 =
+    loop0 (\k s -> s : k (s + 1)) 0
 
 loop1 f state =
     rec state where

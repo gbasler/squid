@@ -86,27 +86,34 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(Console.BOLD + " & ")
   }
   
-  type Path = (Instr, Condition)
+  case class Path(in: Instr, cnd: Condition,throughRecIntros: Int, throughRecElims: Int )
   object Path {
-    def empty: Path = (Id, Map.empty)
-    def throughControl(in: Instr, p: Path): Opt[Path] = {
-      val newCond = Condition.throughControl(in, p._2).getOrElse(return None)
-      Some((in `;` p._1, newCond))
+    def empty: Path = Path(Id, Map.empty, 0, 0)
+    def throughControl(cnt: Control, p: Path): Opt[Path] = {
+      val tre = p.throughRecElims + cnt.recElims
+      val tri = p.throughRecIntros + cnt.recIntros
+      if (tre > UnrollingFactor || tri > UnrollingFactor) return None
+      val newCond = Condition.throughControl(cnt.i, p.cnd).getOrElse(return None)
+      Some(Path(cnt.i `;` p.in, newCond, tri, tre))
     }
     def throughBranchLHS(cnd: Condition, p: Path): Opt[Path] =
-      Condition.merge(cnd, p._2).map((p._1, _))
+      Condition.merge(cnd, p.cnd).map(Path(p.in, _, p.throughRecIntros, p.throughRecElims))
   }
   
-  type CtorPath = (ModuleRef, List[Instr -> Ref], Condition)
+  case class CtorPath(modRef: ModuleRef, refs: List[Instr -> Ref], cnd: Condition, throughRecIntros: Int, throughRecElims: Int)
   object CtorPath {
-    def empty(mod: ModuleRef): CtorPath = (mod, Nil, Map.empty)
-    def throughControl(in: Instr, p: CtorPath): Opt[CtorPath] = {
-      val newCond = Condition.throughControl(in, p._3).getOrElse(return None)
-      Some((p._1, p._2.map(arg => (in `;` arg._1, arg._2)), newCond))
+    def empty(mod: ModuleRef): CtorPath = CtorPath(mod, Nil, Map.empty, 0, 0)
+    def throughControl(cnt: Control, p: CtorPath): Opt[CtorPath] = {
+      val tre = p.throughRecElims + cnt.recElims
+      val tri = p.throughRecIntros + cnt.recIntros
+      if (tre > UnrollingFactor || tri > UnrollingFactor) return None
+      val newCond = Condition.throughControl(cnt.i, p.cnd).getOrElse(return None)
+      Some(CtorPath(p.modRef, p.refs.map(arg => (cnt.i `;` arg._1, arg._2)), newCond, tri, tre))
     }
     def throughBranchLHS(cnd: Condition, p: CtorPath): Opt[CtorPath] =
-      Condition.merge(cnd, p._3).map((p._1, p._2, _))
-    def throughRef(ref: Ref, p: CtorPath): CtorPath = (p._1, (Id -> ref) :: p._2, p._3)
+      Condition.merge(cnd, p.cnd).map(CtorPath(p.modRef, p.refs, _, p.throughRecIntros, p.throughRecElims))
+    def throughRef(ref: Ref, p: CtorPath): CtorPath =
+      CtorPath(p.modRef, (Id -> ref) :: p.refs, p.cnd, p.throughRecIntros, p.throughRecElims)
   }
   
   sealed abstract class Node {
@@ -139,8 +146,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     
     import Console.{BOLD, RESET}
     override def toString: Str = this match {
-      case Control(Id, b) => s"[]${b.subString}"
-      case Control(i, b) => s"[$i]${b.subString}"
+      case c @ Control(i, b) =>
+        var iStr = if (i === Id) "" else i.toString
+        if (c.recIntros > 0) iStr += "+" + c.recIntros
+        if (c.recElims > 0) iStr += "-" + c.recElims
+        s"[$iStr]${b.subString}"
       case Branch(c, t, e) => s"${Condition.show(c)} $BOLD?$RESET $t $BOLD¿$RESET $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case IntBoxing(n) => s"$n"
@@ -165,11 +175,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   sealed abstract class VirtualNode extends Node
   
-  case class Control(i: Instr, body: NodeRef) extends VirtualNode
+  case class Control(i: Instr, body: NodeRef)(val recIntros: Int, val recElims: Int) extends VirtualNode
   object Control {
-    @tailrec def mkRef(i: Instr, body: NodeRef): NodeRef = if (i === Id) body else body.node match {
-      case Control(i2, body2) => Control.mkRef(i `;` i2, body2)
-      case _ => Control(i, body).mkRef
+    @tailrec def mkRef(i: Instr, body: NodeRef, recIntros: Int, recElims: Int): NodeRef = if (i === Id) body else body.node match {
+      case c @ Control(i2, body2) => Control.mkRef(i `;` i2, body2, recIntros + c.recIntros, recElims + c.recElims)
+      case _ => Control(i, body)(recIntros, recElims).mkRef
     }
   }
   
@@ -229,7 +239,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
     
     /** Handles unsaturated ctors by keeping one distinct instr for each ctor app argument */
-    val pathsToCtorApps: mutable.Set[CtorPath] = mutable.Set.empty
+    val pathsToCtorApps: mutable.Set[CtorPath] = mutable.Set.empty  // TODO should it really be a Set?
     
     node match {
       case _: Lam => pathsToLambdas += Path.empty -> this
@@ -266,9 +276,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       //println(s"> $this tells $ref")
       
       if (depth > MaxPropagationDepth) {
-        System.err.println(s"WARNING: Maximum propagation deapth reached ($MaxPropagationDepth)")
+        System.err.println(s"WARNING: Maximum propagation depth reached ($MaxPropagationDepth)")
         return
       }
+      def warnWidth = System.err.println(s"WARNING: Maximum propagation width reached ($MaxPropagationDepth)")
       
       //println(s"> $this tells $ref ${
       //  pathsToLambdas.map("\n\t"+_).mkString
@@ -276,22 +287,22 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       
       // If the new reference is a control or branch, we need to inform them of our known paths to lambdas:
       ref.node match {
-        case Control(i, b) =>
+        case cnt @ Control(i, b) =>
           assert(b eq this)
           val oldSize = ref.pathsToLambdas.size
-          if (oldSize < MaxPropagationWidth)
+          if (oldSize >= MaxPropagationWidth) warnWidth else
           pathsToLambdas.foreach { case (p, l) =>
             //println(s"> $this tells $ref about $p")
-            Path.throughControl(i, p).foreach { newPath =>
+            Path.throughControl(cnt, p).foreach { newPath =>
               assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
               ref.pathsToLambdas += newPath -> l
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
-          if (oldSize2 < MaxPropagationWidth)
+          if (oldSize2 >= MaxPropagationWidth) warnWidth else
           pathsToCtorApps.foreach { p =>
             //println(s"> $this tells $ref about $p")
-            CtorPath.throughControl(i, p).foreach { newPath =>
+            CtorPath.throughControl(cnt, p).foreach { newPath =>
               ref.pathsToCtorApps += newPath
             }
           }
@@ -300,7 +311,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case Branch(c, t, e) =>
           assert((t eq this) || (e eq this))
           val oldSize = ref.pathsToLambdas.size
-          if (oldSize < MaxPropagationWidth)
+          if (oldSize >= MaxPropagationWidth) warnWidth else
           pathsToLambdas.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
@@ -311,7 +322,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
-          if (oldSize2 < MaxPropagationWidth)
+          if (oldSize2 >= MaxPropagationWidth) warnWidth else
           pathsToCtorApps.foreach { p =>
             val newPath = if (t eq this) {
               CtorPath.throughBranchLHS(c, p)
@@ -325,7 +336,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         case App(lhs, rhs) =>
           if (lhs eq this) {
             val oldSize2 = ref.pathsToCtorApps.size
-            if (oldSize2 < MaxPropagationWidth)
+            if (oldSize2 >= MaxPropagationWidth) warnWidth else
             pathsToCtorApps.foreach { p =>
               val newPath = CtorPath.throughRef(rhs, p)
               ref.pathsToCtorApps += newPath
@@ -347,7 +358,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (_node assignment is done above)
       children.foreach(_.propagatePaths(this)(0))
     }
-    def rewireTo(that: Ref)(implicit mod: Module): Unit = node = Id(that)
+    def rewireTo(that: Ref, recIntros: Int = 0)(implicit mod: Module): Unit = node = Id(that, recIntros)
     
     /*
     def nonSimpleReferences: List[NodeRef] = {
@@ -511,7 +522,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   }
   case object Id extends TransitiveControl {
     /** It's sometimes useful to rewire a node to another node, without having to duplicate its Def! */
-    def apply(r: NodeRef) = Control(Id,r)
+    def apply(r: NodeRef, recIntros: Int = 0) = Control(Id,r)(recIntros, 0)
   }
   
   
@@ -534,11 +545,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             else headStr
           assert(!showPaths || !showCtorPaths)
           if (showPaths) (str
-            + r.pathsToLambdas.map(pl => s"\n\t  -- ${Condition.show(pl._1._2)} --> [${pl._1._1}]${pl._2}").mkString
-            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${Condition.show(p._2)} --> [${p._1}]").mkString
+            + r.pathsToLambdas.map(pl => s"\n\t  -- ${Condition.show(pl._1.cnd)} --> [${pl._1.in}]${pl._2}").mkString
+            + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${Condition.show(p.cnd)} --> [${p.in}]").mkString
           ) else if (showCtorPaths) (str
-            + r.pathsToCtorApps.map(pc => s"\n\t  -- ${Condition.show(pc._3)} --> ${pc._1}${
-                pc._2.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}").mkString
+            + r.pathsToCtorApps.map(pc => s"\n\t  -- ${Condition.show(pc.cnd)} --> ${pc.modRef}${
+                pc.refs.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}").mkString
           ) else str
         } :: Nil
         else Nil

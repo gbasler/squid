@@ -35,6 +35,7 @@ class PatMatTests extends FunSuite {
     TestHarness("PatMatRec2",
       //prefixFilter = "usum'2",
       //prefixFilter = "usum ",
+      //prefixFilter = "oops'0",
       //
       dumpGraph = true,
     )(

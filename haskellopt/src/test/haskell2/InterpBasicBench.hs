@@ -5,9 +5,10 @@ module Main where
 
 import Criterion.Main
 
--- src = [Just (Just 3), Nothing, Just (Just 5), Nothing, Just Nothing]
 -- src = [Nothing, Just Nothing]
 src = [Nothing, Just (Just 2), Just Nothing]
+-- src = [Nothing, Just (Just 2), Just Nothing, Just (Just 3)]
+-- src = [Just (Just 3), Nothing, Just (Just 5), Nothing, Just Nothing]
 
 k = -1000*100
 

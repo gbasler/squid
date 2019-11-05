@@ -10,7 +10,7 @@ module InterpSimple where
 --         "X**" -> run pgm rest (x*2)
 --     [] -> x
 
--- FIXME propag div due to param cycle
+-- TODO test (used to propag div due to param cycle)
 -- test = run pgm pgm 123 where
 --   -- pgm = []
 --   -- pgm = [True]

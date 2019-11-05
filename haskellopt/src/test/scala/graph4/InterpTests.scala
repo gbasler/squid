@@ -8,7 +8,7 @@ class InterpTests extends FunSuite {
   import CheckDSL.check
   
   test("InterpSimple") (
-    // FIXME graph diverges in version with two params and a param cycle
+    // TODO test version with two params and a param cycle (graph used to diverge)
     TestHarness("InterpSimple",
       //dumpGraph = true,
     )(

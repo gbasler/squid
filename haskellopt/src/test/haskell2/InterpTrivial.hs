@@ -1,6 +1,7 @@
 module InterpTrivial where
 
 test0 = run pgm where
+  -- pgm = [()]
   -- pgm = [(),()]
   -- pgm = [(),(),()]
   -- pgm = [(),(),(),()]

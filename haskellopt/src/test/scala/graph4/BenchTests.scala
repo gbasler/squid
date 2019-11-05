@@ -9,25 +9,26 @@ class BenchTests extends FunSuite {
   
   test("InterpBench") (
     // TODO better scheduling to avoid code explosion
-    TestHarness("InterpBench",
-      //dumpGraph = true,
-    )(
-    )
+    // FIXME now graph diverges
+    //TestHarness("InterpBench",
+    //  //dumpGraph = true,
+    //)(
+    //)
   )
   
   test("InterpIntermediateBench") (
-    // TOOD test
-    //TestHarness("InterpIntermediate",
+    // TODO test
+    // FIXME graph diverges
+    //TestHarness("InterpIntermediateBench",
     //)(
     //)
   )
   
   test("InterpBasicBench") (
-    // FIXME now graph diverges
-    // TOOD alleviate scheduling code explosion
-    //TestHarness("InterpBasic",
-    //)(
-    //)
+    // TODO make it work with bigger `src` by fixing stack overflow
+    TestHarness("InterpBasicBench",
+    )(
+    )
   )
   
 }

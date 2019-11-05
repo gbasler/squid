@@ -122,7 +122,7 @@ class BasicTests extends FunSuite {
   )
   
   test("IterCont") (
-    // FIXME graph of nats0 diverges
+    // FIXME scheduling of nats0 is wrong
     TestHarness("IterCont",
       dumpGraph = true,
     )(
