@@ -21,6 +21,8 @@ class PatMatTests extends FunSuite {
     TestHarness("PatMat",
       //prefixFilter = "f0",
     )(
+      check(Symbol("e1'0"))(0),
+      check('u1_0)(1 + 2 + 3 + 4),
     )
   )
   
@@ -28,6 +30,8 @@ class PatMatTests extends FunSuite {
     TestHarness("PatMatRec",
       //prefixFilter = "t2'1",
     )(
+      check(Symbol("t2'0'5"))(List(-1, 1, -1, 1, -1)),
+      check(Symbol("t2'1'5"))(-1),
     )
   )
   
@@ -47,6 +51,7 @@ class PatMatTests extends FunSuite {
     TestHarness("IterEither",
       dumpGraph = true,
     )(
+      check('count, 4)(4),
     )
   )
   

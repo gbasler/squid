@@ -8,11 +8,26 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     
     sealed abstract class Value {
       def app(arg: Thunk): Thunk = lastWords(s"not a known function: $this")
-      def int = asInstanceOf[Const].c.asInstanceOf[IntLit].value
+      def int: Int = asInstanceOf[Const].c.asInstanceOf[IntLit].value
+      def ctor: Ctor = this match {
+        case ctor: Ctor => ctor
+        case Const(ModuleRef(_, nme)) =>
+          // This case is for nullary constructors like GHC.Types.True;
+          // it has false positives as it will return module definitions that are not constructors, which in principle should crash.
+          Ctor(nme, Nil)
+      }
     }
     case class Fun(f: Thunk => Thunk) extends Value {
       override def app(arg: Thunk): Thunk = f(arg)
       override def toString = s"<fun>"
+    }
+    private object KnownUnaryCtor {
+      val emptyStrSet = Set.empty[Str]
+      val known = Map(
+        "Data.Either" -> Set("Left", "Right")
+      ).withDefaultValue(emptyStrSet)
+      def unapply(arg: ModuleRef): Opt[Str] =
+        arg.defName optionIf known(arg.modName)(arg.defName)
     }
     case class Const(c: ConstantNode) extends Value {
       override def app(arg: Thunk): Thunk = {
@@ -24,6 +39,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
           case ModuleRef("GHC.Num","-") => intBinOp(_ - _)
           case ModuleRef("GHC.Num","*") => intBinOp(_ * _)
           case ModuleRef("GHC.Real","^") => intBinOp(scala.math.pow(_, _).toInt)
+          case ModuleRef("GHC.Classes",">") => Fun(rhs => Bool(arg.value.int > rhs.value.int))
           case ModuleRef("GHC.Types","I#") => arg
           case ModuleRef("GHC.List","take") => Fun(rhs =>
             // I regret thinking it would be a good idea to implement functions like this...
@@ -36,6 +52,8 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
             })
           case ModuleRef("GHC.Base","$") => arg
           case ModuleRef("GHC.Types",":") => Fun(rhs => Ctor(":", arg :: rhs :: Nil))
+          case ModuleRef("GHC.Tuple","(,)") => Fun(rhs => Ctor("(,)", arg :: rhs :: Nil))
+          case KnownUnaryCtor(nme) => Ctor(nme, arg :: Nil)
           case _ => super.app(arg)
         }
       }
@@ -51,6 +69,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     implicit def toThunk(v: => Value): Thunk = Lazy(v)
     
     def Int(n: Int): Value = Const(IntLit(true,n))
+    def Bool(b: Bool): Value = Ctor(if (b) "True" else "False", Nil)
     
     def apply(r: Ref): Thunk = rec(r)(Id, Map.empty)
     
@@ -67,6 +86,17 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
           Fun(x => rec(b)(ictx push DummyCallId, vctx + (l.param -> x)))
         case v: Var =>
           vctx(v).value
+        case Case(scrut, arms) =>
+          val ctor = rec(scrut).value.ctor
+          val armBody = arms.collectFirst {
+            case (ctorName, ari, body) if ctorName === ctor.name || ctorName === "_" => body
+          }.getOrElse(lastWords(s"Value $ctor does not match any of: ${arms.map(_._1).mkString(", ")}"))
+          rec(armBody).value
+        case CtorField(scrut, ctorName, arity, idx) =>
+          val ctor = rec(scrut).value.ctor
+          assert(ctor.name === ctorName)
+          assert(ctor.fields.size === arity)
+          ctor.fields(idx).value
       }
     }}
     

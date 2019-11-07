@@ -4,17 +4,18 @@
 --   desugar
 -- Beta reductions:  28
 -- Incl. one-shot:  0
--- Case reductions:  26
--- Field reductions:  27
--- Total nodes: 559; Boxes: 125; Branches: 154
--- Apps: 72; Lams: 8
+-- Case reductions:  28
+-- Field reductions:  29
+-- Total nodes: 648; Boxes: 146; Branches: 175
+-- Apps: 85; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMatRec (t2_,t2'1,t2'0,t2,t1_,t1'2,t1'1,t1'0,t1,t0_,t0'1,t0'0,t0) where
+module PatMatRec (t2_,t2'0'5,t2'1'5,t2'1,t2'0,t2,t1_,t1'2,t1'1,t1'0,t1,t0_,t0'1,t0'0,t0) where
 
+import GHC.List
 import GHC.Num
 import GHC.Prim
 import GHC.Tuple
@@ -23,6 +24,12 @@ import GHC.Types
 t2_ = \ds -> 
   let rec π π' = (π' - π) : ((π - π') : (rec π π')) in
   case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case ρ'3 of { [] -> (ρ - ρ'2) : ((ρ'2 - ρ) : (rec ρ'2 ρ)); _ -> (666::Int) : [] }); _ -> (666::Int) : [] }); _ -> (666::Int) : [] }
+
+t2'0'5 = 
+  let rec π π' = (π' - π) : ((π - π') : (rec π π')) in
+  GHC.List.take (5::Int) (((0::Int) - (1::Int)) : (rec (0::Int) (1::Int)))
+
+t2'1'5 = ((0::Int) - (1::Int)) * ((1::Int) - (0::Int))
 
 t2'1 = (,) ((0::Int) - (1::Int)) ((1::Int) - (0::Int))
 
