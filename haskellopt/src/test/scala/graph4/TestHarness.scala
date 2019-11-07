@@ -12,6 +12,10 @@ class TestHarness {
   val sanityCheckFuel = 20
   //val sanityCheckFuel = 100
   
+  val traceInterpreter = false
+  //val traceInterpreter = true
+  
+  
   def mkGraph =
     new GraphIR
   
@@ -32,14 +36,17 @@ class TestHarness {
     def check(c: CheckDSL): Unit = if (c.fname.name + " " startsWith prefixFilter) {
       val liftedArgs = c.args.map(Inter.lift)
       val liftedValue = Inter.lift(c.value)
-      //println(s"Eval... $c")
       
-      //Inter.debugFor
+      Inter.setDebugFor(traceInterpreter)
       {
-        val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
-        val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
-        println(s"Eval:  $c  ~~>  $applied  =?=  $liftedValue")
-        assert(applied === liftedValue, s"Interpreter result $applied did not equal expected result $liftedValue")
+        Inter.debug(s"Evaluating... $c")
+        val result = Inter.nestDbg {
+          val fun = Inter(mod.modDefs.toMap.apply(c.fname.name))
+          val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
+          applied
+        }
+        println(s"Evaluated:  $c  ~~>  $result  =?=  $liftedValue")
+        assert(result === liftedValue, s"Interpreter result $result did not equal expected result $liftedValue")
       }
     }
     
@@ -217,8 +224,9 @@ object Clean extends scala.App {
 }
 
 case class CheckDSL(fname: Symbol, args: Seq[Any], value: Any) {
-  override def toString = fname.name + args.map(" "+_).mkString
+  override def toString = fname.name + args.map(" ("+_+")").mkString
 }
 object CheckDSL {
   def check(fname: Symbol, args: Any*)(value: Any): CheckDSL = CheckDSL(fname, args, value)
+  implicit def strToSym(str: Str): Symbol = Symbol(str)
 }

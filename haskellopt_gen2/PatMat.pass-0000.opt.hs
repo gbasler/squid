@@ -2,18 +2,18 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  30
+-- Beta reductions:  32
 -- Incl. one-shot:  1
 -- Case reductions:  34
 -- Field reductions:  48
--- Total nodes: 817; Boxes: 158; Branches: 166
--- Apps: 126; Lams: 15
+-- Total nodes: 890; Boxes: 176; Branches: 200
+-- Apps: 130; Lams: 16
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (f1'2,f1'1,f1'0,f1,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
+module PatMat (f1'2,f1'1,f1'0,f1,f0'4,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
 
 import Data.Foldable
 import GHC.Base
@@ -31,6 +31,8 @@ f1'1 = case case (5::Int) > (0::Int) of { True -> Just (5::Int); False -> Nothin
 f1'0 = case (4::Int) > (0::Int) of { True -> Just (4::Int); False -> Nothing }
 
 f1 = \x -> case x > (0::Int) of { True -> Just x; False -> Nothing }
+
+f0'4 = \x -> case case x of { Just ρ -> Just (ρ + (1::Int)); Nothing -> Just (0::Int) } of { Just ρ' -> Just (ρ' + (1::Int)); Nothing -> Just (0::Int) }
 
 f0'3 = Just ((0::Int) + (1::Int))
 

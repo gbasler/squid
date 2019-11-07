@@ -244,7 +244,7 @@ class GraphIR extends GraphDefs {
             
             ps match {
               case Some((p @ Path(i, cnd, ri, re), lr)) =>
-                println(s"$ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$lr")
+                println(s"LAMBDA $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$lr")
                 
                 betaReductions += 1
                 
@@ -330,7 +330,6 @@ class GraphIR extends GraphDefs {
             if (accepted) e else t
           } else
             (if (accepted) Branch(c, rec(t, ictx, newCnd), e) else Branch(c, t, rec(e, ictx, newCnd))).mkRefFrom(ref)
-        case App(lhs, rhs) => App(rec(lhs, ictx, curCnd), rhs).mkRefFrom(ref)
         case _ => lastWords(s"was not supposed to reach ${ref.showDef}")
       }
     }
@@ -341,6 +340,13 @@ class GraphIR extends GraphDefs {
       override def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = ref.node match {
         case App(lhs, rhs) => App(rec(lhs, ictx, curCnd), rhs).mkRefFrom(ref)
         case _ => super.rec(ref, ictx, curCnd)
+      }
+    }
+    
+    trait RebuildDebug extends RebuildPaths {
+      override def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = {
+        println(s"Rebuild [$ictx] ${ref.showDef}   with  ${Condition.show(curCnd)}")
+        super.rec(ref: Ref, ictx, curCnd)
       }
     }
     

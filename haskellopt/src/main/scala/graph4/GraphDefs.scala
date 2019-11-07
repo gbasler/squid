@@ -86,7 +86,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(Console.BOLD + " & ")
   }
   
-  case class Path(in: Instr, cnd: Condition,throughRecIntros: Int, throughRecElims: Int )
+  case class Path(in: Instr, cnd: Condition, throughRecIntros: Int, throughRecElims: Int)
   object Path {
     def empty: Path = Path(Id, Map.empty, 0, 0)
     def throughControl(cnt: Control, p: Path): Opt[Path] = {
@@ -184,6 +184,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   }
   
   case class Branch(cnd: Condition, thn: Ref, els: Ref) extends VirtualNode {
+    assert(cnd.nonEmpty)
     cnd.foreach{case(i,c) => assert(i.lastCallId.isEmpty, s"condition was not simplified: ${i->c}")}
   }
   
@@ -201,7 +202,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
   }
   
-  case class Case(scrut: NodeRef, arms: List[(Str, Int, NodeRef)]) extends ConcreteNode {
+  type Arm = (Str, Int, NodeRef)
+  case class Case(scrut: NodeRef, arms: List[Arm]) extends ConcreteNode {
+    // TODO only allow single-arm if the arm has vars
     assert(!ignoreSingleArmCases && arms.nonEmpty || arms.size > 1)
     // Maybe point to ctorField accesses for one-step reductions when possible?
   }

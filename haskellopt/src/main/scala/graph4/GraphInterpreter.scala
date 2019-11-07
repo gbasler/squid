@@ -11,10 +11,11 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
       def int: Int = asInstanceOf[Const].c.asInstanceOf[IntLit].value
       def ctor: Ctor = this match {
         case ctor: Ctor => ctor
-        case Const(ModuleRef(_, nme)) =>
+        case Const(mod: ModuleRef) if mod.isCtor =>
           // This case is for nullary constructors like GHC.Types.True;
           // it has false positives as it will return module definitions that are not constructors, which in principle should crash.
-          Ctor(nme, Nil)
+          Ctor(mod.defName, Nil)
+        case _ => lastWords(s"Not a data constructor: $this")
       }
     }
     case class Fun(f: Thunk => Thunk) extends Value {
@@ -24,7 +25,8 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     private object KnownUnaryCtor {
       val emptyStrSet = Set.empty[Str]
       val known = Map(
-        "Data.Either" -> Set("Left", "Right")
+        "Data.Either" -> Set("Left", "Right"),
+        "GHC.Maybe" -> Set("Just"),
       ).withDefaultValue(emptyStrSet)
       def unapply(arg: ModuleRef): Opt[Str] =
         arg.defName optionIf known(arg.modName)(arg.defName)
@@ -73,9 +75,10 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     
     def apply(r: Ref): Thunk = rec(r)(Id, Map.empty)
     
-    def rec(r: Ref)(implicit ictx: Instr, vctx: Map[Var, Thunk]): Thunk = Lazy { nestDbg {
-      debug(s"Eval [$ictx] $r {${vctx.mkString(", ")}}")
-      r.node match {
+    def rec(r: Ref)(implicit ictx: Instr, vctx: Map[Var, Thunk]): Thunk = Lazy {
+      //debug(s"Eval [$ictx] $r {${vctx.mkString(", ")}}")
+      debug(s"Eval [$ictx] ${r.showDef}\n${Debug.GREY}{${vctx.mkString(", ")}}${Console.RESET}")
+      val res = nestDbg { r.node match {
         case Control(i, b) => rec(b)(ictx `;` i, vctx).value
         case Branch(c, t, e) =>
           if (Condition.test_!(c, ictx)) rec(t).value else rec(e).value
@@ -94,16 +97,23 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
           rec(armBody).value
         case CtorField(scrut, ctorName, arity, idx) =>
           val ctor = rec(scrut).value.ctor
-          assert(ctor.name === ctorName)
-          assert(ctor.fields.size === arity)
+          assert(ctor.name === ctorName, (ctor, ctorName))
+          assert(ctor.fields.size === arity, (ctor, arity))
           ctor.fields(idx).value
-      }
-    }}
+      }}
+      debug(s"= "+res)
+      res
+    }
     
     /** Convert a Scala value into a value understood by the interpreter */
     def lift(value: Any): Value = value match {
       case n: Int => Int(n)
       case 'S => Fun(x => Int(x.value.int + 1))
+      // For things like `true`, we don't use Ctor("True", Nil) because they will actually be represented as ModuleRef-s in the graph
+      case true => Const(ModuleRef("GHC.Types", "True"))
+      case false => Const(ModuleRef("GHC.Types", "False"))
+      case None => Const(ModuleRef("GHC.Maybe", "Nothing"))
+      case Some(v) => Ctor("Just", lift(v) :: Nil)
       case ls: List[_] =>
         ls.foldRight[Value](Ctor("[]",Nil)) { case (x, acc) => Ctor(":", Lazy(lift(x)) :: Lazy(acc) :: Nil) }
       case _ => lastWords(s"don't know how to lift $value")

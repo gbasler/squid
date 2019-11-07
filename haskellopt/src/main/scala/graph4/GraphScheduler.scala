@@ -445,11 +445,15 @@ abstract class GraphScheduler { self: GraphIR =>
         delayedEntries ::= (in,body)
       } else {
         Sdebug(s"Enter $this")
-        val ret = rec(in, body)
-        //Sdebug(s"Return $ret")
-        Sdebug(s"Return $ret ${ret.toExpr} ${ret.toExpr.stringify} ${in->body|>toIdent} ${in->body|>toIdent|>printVar}")
-        anythingChanged = true // Q: needed here?
-        returns ::= (in, body) -> ret
+        if (returns.exists(_._1 === (in, body))) {
+          Sdebug(s"Return for [$in] $body already exists as ${in->body|>toIdent|>printVar}")
+        } else {
+          val ret = rec(in, body)
+          //Sdebug(s"Return $ret")
+          Sdebug(s"Return $ret ${ret.toExpr} ${ret.toExpr.stringify} ${in->body|>toIdent} ${in->body|>toIdent|>printVar}")
+          anythingChanged = true // Q: needed here?
+          returns ::= (in, body) -> ret
+        }
       }
       def foldBindings(ret: List[AST.Binding]): List[AST.Binding] = {
         bindings.foldLeft[List[AST.Binding]](ret) {
