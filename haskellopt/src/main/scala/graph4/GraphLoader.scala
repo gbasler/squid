@@ -138,7 +138,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             
             (c, rs.size, r)
           }
-          Case(e0, altValues.reverseIterator.map { case (con,arity,rhs) =>
+          val arms = altValues.reverseIterator.map { case (con,arity,rhs) =>
             (con match {
               case AltDataCon(name) => name
               case AltDefault => "_"
@@ -146,8 +146,11 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
             },
             arity,
             rhs())
-          }.toList)
-            .mkRefNamed("ψ")
+          }.toList
+          assert(arms.nonEmpty)
+          if (ignoreSingleArmCases && arms.size === 1)
+            arms.head._3
+          else Case(e0, arms).mkRefNamed("ψ")
         } finally reificationContext = old
       }
       def EType(ty: Type): Expr = DummyRead

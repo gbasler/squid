@@ -202,6 +202,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   }
   
   case class Case(scrut: NodeRef, arms: List[(Str, Int, NodeRef)]) extends ConcreteNode {
+    assert(!ignoreSingleArmCases && arms.nonEmpty || arms.size > 1)
     // Maybe point to ctorField accesses for one-step reductions when possible?
   }
   

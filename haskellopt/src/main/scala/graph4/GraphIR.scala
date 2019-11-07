@@ -44,6 +44,15 @@ class GraphIR extends GraphDefs {
   val multiStepReductions = !debugRewriting
   //val multiStepReductions = false
   
+  /** Setting this to `true` sounds like a good idea,
+    * and it does simplify the graph since it removes control-flow case nodes with a single arm...
+    * However, this ends up making scheduled programs more clumsy, as things like:
+    *   `case ds of { (,) ρ ρ' -> ρ + ρ' }`
+    * end up looking like:
+    *   `(let (,) arg _ = ds in arg) + (let (,) _ arg = ds in arg)` */
+  val ignoreSingleArmCases = false
+  //val ignoreSingletonCases = true
+  
   val inlineScheduledLets = !debugScheduling
   //val inlineScheduledLets = false
   
