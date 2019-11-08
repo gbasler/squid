@@ -3,9 +3,9 @@
 -- Optimized after GHC phase:
 --   desugar
 -- Beta reductions:  28
--- Incl. one-shot:  0
+-- Incl. one-shot:   0
 -- Case reductions:  28
--- Field reductions:  29
+-- Field reductions: 29
 -- Total nodes: 648; Boxes: 146; Branches: 175
 -- Apps: 85; Lams: 8
 
