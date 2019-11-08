@@ -37,6 +37,7 @@ object CurriedParameters extends ParameterPassingStrategy {
     (fun :: params).mkString(" ")
 }
 
+// TODO never try to share field accesses themselves! — treat them as zero size?
 // TODO Should find a way to float let bindings into case right-hand-sides when possible,
 //      so we don't end up with CtorField expressions that can't be simplified.
 abstract class HaskellAST(pp: ParameterPassingStrategy) {
@@ -160,7 +161,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         parens(s"\\${p.ide |> printIdent} -> ${stringifyLets(indent, ds.map(_.stringify(indent)), b)}",
           outerPrec > 1)
       case Call(d, args) =>
-        s"${pp.mkArgs(d.value.ide |> printIdent, args.map(_.stringify(indent, if (pp.requiresParens) 3 else 0)))}"
+        s"${pp.mkArgs(d.value.ide |> printIdent, args.map(_.stringify(indent, if (pp.requiresParens) 4 else 0)))}"
       case Let(v,e,b) =>
         parens(stringifyLets(indent, s"${v.stringify(indent, 1)} = ${e.stringify(indent + letIndent, 1)}" :: Nil, b),
           outerPrec > 1)

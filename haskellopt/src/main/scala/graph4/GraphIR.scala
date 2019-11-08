@@ -51,12 +51,14 @@ class GraphIR extends GraphDefs {
     * end up looking like:
     *   `(let (,) arg _ = ds in arg) + (let (,) _ arg = ds in arg)` */
   val ignoreSingleArmCases = false
-  //val ignoreSingletonCases = true
+  //val ignoreSingleArmCases = true
   
   val inlineScheduledLets = !debugScheduling
   //val inlineScheduledLets = false
   
+  //val UnrollingFactor = 0  // does not even reduce recursive calls
   val UnrollingFactor = 1
+  //val UnrollingFactor = 2
   
   val MaxPropagationDepth = 64
   val MaxPropagationWidth = 128
