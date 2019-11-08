@@ -10,25 +10,28 @@ import scala.annotation.tailrec
 
 abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
-  type Condition = Map[Instr, CallId]
+  type Condition = Map[Instr, CallMaybe]
   object Condition {
     def merge(lhs: Condition, rhs: Condition): Opt[Condition] = Some {
       val commonKeys = lhs.keySet & rhs.keySet
       lhs ++ (rhs -- commonKeys) ++ commonKeys.iterator.map { k =>
         val l = lhs(k)
         val r = rhs(k)
+        /*
         assert(l.v === r.v)
         // ^ perhaps this is too restrictive; may need to change to:
         //if (l.v =/= r.v) return None
         if (l =/= r) return None
         k -> r
+        */
+        k -> (l merge r getOrElse (return None))
       }
     }
     /** Note that a condition might be incompatible with a given ambient instruction
       * (for example, instruction `Push[a0]` and condition `a1?`);
       * so in these cases this will return None. */
     def throughControl(in: Instr, c: Condition): Opt[Condition] = {
-      val res = mutable.Map.empty[Instr, CallId]
+      val res = mutable.Map.empty[Instr, CallMaybe]
       val ite = c.iterator
       while (ite.hasNext) {
         val (i, c) = ite.next
@@ -36,16 +39,25 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           catch { case _: BadComparison => return None }
         newInstr.lastCallId match {
           case Some(c2) =>
-            if (c2 =/= c) return None
+            //if (c2 =/= c) return None
+            if (c2 isIncompatibleWith c) return None
+            // ^ Unless the uncovered CallId is incompatilbe, we can discharge the condition c
           case None =>
             res.get(newInstr) match {
-              case Some(c2) => if (c2 =/= c) return None
+              //case Some(c2) => if (c2 =/= c) return None
+              case Some(c2) => res(newInstr) = c2 merge c getOrElse {return None}
               case None => res(newInstr) = c
             }
         }
       }
       Some(res.toMap) // TODO avoid this conversion cost
     }
+    
+    // TODO make this function complete? We'd need to add disjunctions to branch conditions...
+    def tryNegate(cnd: Condition): Opt[Condition] = cnd.map {
+      case (i,CallNot(cids)) => (i, if (cids.size > 1) return None else cids.head)
+      case (i,cid:CallId) => (i, CallNot(cid::Nil))
+    } optionIf (cnd.size <= 1)
     
     protected def test_impl(cnd: Condition, ictx: Instr, canFail: Bool): Bool = {
       //println(s"test [$ictx] $cnd")
@@ -55,14 +67,17 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         try ((ictx `;` i).lastCallId match {
           case Some(c2) =>
             atLeastOne = true
-            result &&= c2 === c
+            result &&= (c match {
+              case CallNot(cids) => !(cids contains c2)
+              case c: CallId => c2 === c
+            })
           case None => if (canFail) scala.util.control.Breaks.break() else result = false
         })
         catch { case _: BadComparison => result = false }
         // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
         // TODO perhaps it's better to just use a List or ListMap for Condition
       }
-      assert(atLeastOne)
+      assert(atLeastOne, (ictx, cnd))
       result
     }
     
@@ -319,7 +334,12 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           pathsToLambdas.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
-            } else Some(p)
+            } else {
+              //if (Condition.merge(p.cnd, c).isEmpty) Some(p) else None
+              // ^ Coarse approximation if we didn't have negatives 
+              Condition.tryNegate(c).flatMap(nc =>
+                Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
+            }
             newPath.foreach { newPath =>
               assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
               ref.pathsToLambdas += newPath -> l
@@ -428,13 +448,28 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   import CallId._, Console.{BOLD,RESET}
   
-  class CallId(val v: Var, val uid: Int) {
+  sealed abstract class CallMaybe {
+    def isIncompatibleWith(cim: CallMaybe): Bool = merge(cim).isEmpty
+    def merge(cim: CallMaybe): Opt[CallMaybe] = (this, cim) match {
+      case (CallNot(cids0), CallNot(cids1)) => Some(CallNot((cids0 ++ cids1).distinct))
+      case (CallNot(c0), c1: CallId) => c1 optionUnless (c0 contains c1)
+      case (c1: CallId, CallNot(c0)) => c1 optionUnless (c0 contains c1)
+      case (c0: CallId, c1: CallId) => c0 optionIf c0 === c1
+    }
+  }
+  case class CallNot(cids: List[CallId]) extends CallMaybe {
+    assert(cids.nonEmpty)
+    override def toString = s"!{${cids.mkString(",")}}"
+  }
+  class CallId(val v: Var, val uid: Int) extends CallMaybe {
     def color = if (uid === -1) Debug.GREY else
       //colors((uid + colors.size - 1) % colors.size)
       colors(uid % colors.size)
     override def toString = s"$color$v:${uid.toHexString}$RESET"
     override def hashCode = uid.hashCode
-    override def equals(that: Any) = that match { case that: CallId => that.uid === uid; case _ => false }
+    override def equals(that: Any) =
+      //that match { case that: CallId => that.uid === uid; case _ => false }
+      this eq that.asInstanceOf[AnyRef] // probably more efficient than the condition above
   }
   object CallId {
     private val colors = List(
