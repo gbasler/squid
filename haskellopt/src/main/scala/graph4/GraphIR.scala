@@ -154,18 +154,27 @@ class GraphIR extends GraphDefs {
       var changed = false
       val traversed = mutable.Set.empty[NodeRef]
       
-      def rec(ref: NodeRef): Unit = { // TODO make stack-safe
+      var next = modDefs.map(_._2) // TODO use an ArrayBuffer to generate less garbage
+      
+      while (next.nonEmpty) {
+        val ref = next.head
+        next = next.tail
+        
+        traversed += ref
         
         def again(): Unit = {
           changed = true
           if (!multiStepReductions)
             scala.util.control.Breaks.break()
           // Note: commenting the following (or worse, enabling the above) will make some tests slow as they will print many more steps
-          traversed -= ref; rec(ref)
-          //ref.children.foreach(rec)
+          traversed -= ref; next = ref :: next
+          //continue()
+        }
+        def continue(): Unit = {
+          next :::= ref.children.filterNot(traversed).toList
         }
         
-        traversed.setAndIfUnset(ref, ref.node match { // TODO simplify obvious things like boxes that resolve branches...
+        ref.node match { // TODO simplify obvious things like boxes that resolve branches...
             
           case c0 @ Control(i0, r @ NodeRef(c1 @ Control(i1, body))) =>
             ref.node = Control(i0 `;` i1, body)(c0.recIntros + c1.recIntros, c0.recElims + c1.recElims)
@@ -195,8 +204,9 @@ class GraphIR extends GraphDefs {
                 val rightArm = arms.filter(_._1 === ctor.defName) |>! {
                   case arm :: Nil => arm._3
                   case Nil =>
-                    arms.filter(_._1 === "_") |>! { // FIXME handle this failing
+                    arms.filter(_._1 === "_") |>! {
                       case arm :: Nil => arm._3
+                      case Nil => Bottom.mkRef
                     }
                 }
                 val rightArmAndControl = if (ri > 0 || re > 0) Left(Control(Id, rightArm)(ri,re)) else Right(rightArm)
@@ -237,7 +247,7 @@ class GraphIR extends GraphDefs {
               case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
                 println(s"WAT-CASE $p ${cse.showDef}")
                 ??? // FIXME? unexpected
-                ref.children.foreach(rec)
+                continue()
                 //scrut.pathsToLambdasAndCases -= p
                 //again()
               case None =>
@@ -252,9 +262,12 @@ class GraphIR extends GraphDefs {
                     }
                     again()
                   }
-                  else ref.children.foreach(rec)
+                  else continue()
                 }
             }
+            
+          case CtorField(Ref(Bottom), ctorName, ari, idx) =>
+            Bottom
             
           case CtorField(scrut, ctorName, ari, idx) =>
             val ps = scrut.pathsToCtorApps.headOption orElse scrut.realPathsToCases.headOption
@@ -315,11 +328,11 @@ class GraphIR extends GraphDefs {
               case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
                 println(s"WAT-FIELD $p ${cse.showDef}")
                 ??? // FIXME? unexpected
-                ref.children.foreach(rec)
+                continue()
                 //scrut.pathsToLambdasAndCases -= p
                 //again()
               case None =>
-                ref.children.foreach(rec)
+                continue()
             }
           case App(fun, arg) =>
             val ps = if (smartRewiring) fun.pathsToLambdasAndCases.headOption // TODO check path correct
@@ -384,17 +397,16 @@ class GraphIR extends GraphDefs {
                 ??? // make it bottom? this case is meaningless...
                 again()
               case None =>
-                ref.children.foreach(rec)
+                continue()
             }
             
           case _ =>
             //println(s"Users of $ref: ${ref.references}")
-            ref.children.foreach(rec)
+            continue()
             
-        })
+        }
         
       }
-      modDefs.foreach(_._2 |> rec)
       
       changed
       

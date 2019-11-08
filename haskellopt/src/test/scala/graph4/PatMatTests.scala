@@ -74,15 +74,18 @@ class PatMatTests extends FunSuite {
   )
   
   test("IterEither") (
-    // FIXME fix assertion failure arising when removing prefixFilter
+    // FIXME big scalability issues when uncommenting more simpleX defs
+    //   — uncommenting all leads to 40k nodes!
+    //   Most of these nodes are most likely dead, due to messed up invalid Case paths,
+    //   since the output programs are actually small.
     TestHarness("IterEither",
-      prefixFilter = "count ",
+      //prefixFilter = "count ",
     )(
       check('count, 4)(4),
-      check('simple0)(42),
+      //check('simple0)(42),
       check('simple1)(20),
       check('simple5)(0),
-      check('simple8)(3),
+      //check('simple8)(3),
       check('simple9)(false),
     )
   )

@@ -2,19 +2,19 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  5
+-- Beta reductions:  14
 -- Incl. one-shot:   0
--- Case reductions:  8
--- Field reductions: 9
--- Case commutings:  13
--- Total nodes: 135; Boxes: 44; Branches: 38
--- Apps: 15; Lams: 1
+-- Case reductions:  119
+-- Field reductions: 70
+-- Case commutings:  185
+-- Total nodes: 5610; Boxes: 2147; Branches: 2020
+-- Apps: 140; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module IterEither (count) where
+module IterEither (count,simple9,simple5,simple1,loop) where
 
 import Data.Either
 import GHC.Classes
@@ -23,22 +23,35 @@ import GHC.Tuple
 import GHC.Types
 
 count = \start -> let
-  _0 = start > (0::Int)
   _4 = start - (1::Int)
-  _fε' = case _0 of { True -> _4; False -> (let (,) arg _ = Prelude.undefined in arg) }
-  _1 = _fε' > (0::Int)
+  _0 = start > (0::Int)
   _5 = (0::Int) + (1::Int)
   _fε = case _0 of { True -> _5; False -> (let (,) _ arg = Prelude.undefined in arg) }
   _3 = _fε + (1::Int)
-  _2 = (,) (_fε' - (1::Int)) _3
+  _2 = (,) (_4 - (1::Int)) _3
   rec π π' p p' ds π'2 π'3 π'4 = let
         _6 = (let (,) arg _ = π'3 in arg) > (0::Int)
-        _cfε' = case ds of { (,) ρ'14 ρ'15 -> (case p' of { True -> p; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
-        _9 = _cfε' + (1::Int)
+        _cε' = case ds of { (,) ρ'14 ρ'15 -> (case p' of { True -> p; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
+        _9 = _cε' + (1::Int)
         _ccε = case π' of { (,) ρ'12 ρ'13 -> (,) ((let (,) arg _ = π'3 in arg) - (1::Int)) _9 }
         _7 = (let (,) arg _ = _ccε in arg) > (0::Int)
-        _cfε = case π of { (,) ρ'10 ρ'11 -> (case _6 of { True -> _9; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
-        _8 = _cfε + (1::Int)
+        _cε = case π of { (,) ρ'10 ρ'11 -> (case _6 of { True -> _9; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
+        _8 = _cε + (1::Int)
         _ccε' = case _ccε of { (,) ρ'8 ρ'9 -> (,) (ρ'8 - (1::Int)) _8 }
-        in case π'4 of { (,) ρ ρ' -> (case _6 of { True -> (case _ccε of { (,) ρ'2 ρ'3 -> (case _7 of { True -> (rec _ccε' _ccε' _8 _7 _ccε _ccε' _ccε' _ccε'); False -> (case _ccε of { (,) ρ'4 ρ'5 -> _cfε }) }) }); False -> (case π'2 of { (,) ρ'6 ρ'7 -> _cfε' }) }) }
+        in case π'4 of { (,) ρ ρ' -> (case _6 of { True -> (case _ccε of { (,) ρ'2 ρ'3 -> (case _7 of { True -> (rec _ccε' _ccε' _8 _7 _ccε _ccε' _ccε' _ccε'); False -> (case _ccε of { (,) ρ'4 ρ'5 -> _cε }) }) }); False -> (case π'2 of { (,) ρ'6 ρ'7 -> _cε' }) }) }
+  _1 = _4 > (0::Int)
   in case _0 of { True -> (case _1 of { True -> (rec _2 _2 _3 _1 ((,) _4 _5) _2 _2 _2); False -> _fε }); False -> (0::Int) }
+
+simple9 = False
+
+simple5 = 
+  let rec π = 
+        let _0 = π - (1::Int) in
+        case π > (0::Int) of { True -> (case _0 > (0::Int) of { True -> (rec (_0 - (1::Int))); False -> _0 }); False -> π } in
+  case (5::Int) > (0::Int) of { True -> (rec ((5::Int) - (1::Int))); False -> (5::Int) }
+
+simple1 = (20::Int)
+
+loop = \k -> \x -> 
+        let rec π = case k π of { Right ρ'2 -> ρ'2; Left ρ'3 -> (case k ρ'3 of { Right ρ'4 -> ρ'4; Left ρ'5 -> (rec ρ'5) }) } in
+        case k x of { Right ρ -> ρ; Left ρ' -> (rec ρ') }

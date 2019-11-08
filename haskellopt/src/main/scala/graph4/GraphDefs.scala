@@ -288,7 +288,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           else r.realPathsToCasesImpl(ri,re,depth+1).flatMap { case (p2, r2) => p concat p2 map (_ -> r2) }
         case (p, r @ Ref(_: Branch)) => r.realPathsToCasesImpl(tI,tE,depth+1).flatMap { case (p2, r2) => p concat p2 map (_ -> r2) }
         case (p, r @ Ref(_: Lam)) => None
-        case _ => die
+        //case _ => die
+        case _ => Iterator.empty
       }
     
     /** Handles unsaturated ctors by keeping one distinct instr for each ctor app argument */
@@ -605,7 +606,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   
   def showGraphOf(refs: Iterator[Ref], modDefNames: Map[Ref, Str], printRefCounts: Bool, showRefs: Bool): Str = {
-    val iterator = refs.flatMap(_.iterator)
+    val done = mutable.HashSet.empty[Ref]
+    val iterator = refs.flatMap(_.mkIterator(false, done))
     iterator.toList.distinct.flatMap { r =>
       (modDefNames.get(r) match {
         case Some(defName) =>
