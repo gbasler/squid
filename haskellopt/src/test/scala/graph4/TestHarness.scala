@@ -15,6 +15,9 @@ class TestHarness {
   val traceInterpreter = false
   //val traceInterpreter = true
   
+  val slowDownGraphPrints = false
+  //val slowDownGraphPrints = true
+  
   
   def mkGraph =
     new GraphIR
@@ -69,7 +72,7 @@ class TestHarness {
         println(s"--- Graph ${ite} ---")
         println(mod.showGraph)
         println(s"--- / ---")
-        Thread.sleep(100)
+        if (slowDownGraphPrints) Thread.sleep(100)
       }
       
       // TODO sanity checks
