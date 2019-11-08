@@ -101,7 +101,20 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       c.map{ case (Id, c) => s"$c"; case (i, c) => s"[$i]$c" }.mkString(Console.BOLD + " & ")
   }
   
-  case class Path(in: Instr, cnd: Condition, throughRecIntros: Int, throughRecElims: Int)
+  sealed abstract class AnyPath
+  
+  case class Path(in: Instr, cnd: Condition, throughRecIntros: Int, throughRecElims: Int) extends AnyPath {
+    def concat(that: Path): Opt[Path] = {
+      //println(s">>> $this + $that")
+      val tre = throughRecElims + that.throughRecElims
+      val tri = throughRecIntros + that.throughRecIntros
+      if (tre > UnrollingFactor || tri > UnrollingFactor) return None
+      val p = Path(in `;` that.in,
+        Condition.merge(cnd, Condition.throughControl(in, that.cnd).getOrElse(return None)).getOrElse(return None),
+        tri, tre) // also (res => s">>> == $res")
+      Some(p)
+    }
+  }
   object Path {
     def empty: Path = Path(Id, Map.empty, 0, 0)
     def throughControl(cnt: Control, p: Path): Opt[Path] = {
@@ -115,7 +128,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       Condition.merge(cnd, p.cnd).map(Path(p.in, _, p.throughRecIntros, p.throughRecElims))
   }
   
-  case class CtorPath(modRef: ModuleRef, refs: List[Instr -> Ref], cnd: Condition, throughRecIntros: Int, throughRecElims: Int)
+  case class CtorPath(modRef: ModuleRef, refs: List[Instr -> Ref], cnd: Condition, throughRecIntros: Int, throughRecElims: Int) extends AnyPath
   object CtorPath {
     def empty(mod: ModuleRef): CtorPath = CtorPath(mod, Nil, Map.empty, 0, 0)
     def throughControl(cnt: Control, p: CtorPath): Opt[CtorPath] = {
@@ -130,6 +143,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def throughRef(ref: Ref, p: CtorPath): CtorPath =
       CtorPath(p.modRef, (Id -> ref) :: p.refs, p.cnd, p.throughRecIntros, p.throughRecElims)
   }
+  
+  val Bottom = ModuleRef("Prelude", "undefined")
   
   sealed abstract class Node {
     
@@ -254,14 +269,33 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     var references: List[NodeRef] = Nil
     
     /** Only control and branch nodes maintain their known paths to lambdas. */
-    val pathsToLambdas: mutable.Map[Path, NodeRef] = mutable.Map.empty
+    val pathsToLambdasAndCases: mutable.Map[Path, NodeRef] = mutable.Map.empty
     val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
+    
+    // TODO clean this up; find a better way of dealing with outdated Case paths...
+    def realPathsToCases: Iterator[Path -> Ref] = realPathsToCasesImpl(0,0,0)
+    def realPathsToCasesImpl(tI: Int, tE: Int, depth: Int): Iterator[Path -> Ref] =
+      if (depth > 8) Iterator.empty
+      else pathsToLambdasAndCases.iterator.flatMap {
+        case (p, r @ Ref(_: Case)) => Some((p, r))
+        case (p, r @ Ref(c: Control)) =>
+          //println(s"...${depth}.", this, p, r)
+          val ri = tI + c.recIntros
+          val re = tE + c.recElims
+          if (
+            (r eq this) || // hacky check to avoid useless computation
+            ri > UnrollingFactor || re > UnrollingFactor) Iterator.empty
+          else r.realPathsToCasesImpl(ri,re,depth+1).flatMap { case (p2, r2) => p concat p2 map (_ -> r2) }
+        case (p, r @ Ref(_: Branch)) => r.realPathsToCasesImpl(tI,tE,depth+1).flatMap { case (p2, r2) => p concat p2 map (_ -> r2) }
+        case (p, r @ Ref(_: Lam)) => None
+        case _ => die
+      }
     
     /** Handles unsaturated ctors by keeping one distinct instr for each ctor app argument */
     val pathsToCtorApps: mutable.Set[CtorPath] = mutable.Set.empty  // TODO should it really be a Set?
     
     node match {
-      case _: Lam => pathsToLambdas += Path.empty -> this
+      case _: Lam | _: Case => pathsToLambdasAndCases += Path.empty -> this
       case mod: ModuleRef if mod.isCtor => pathsToCtorApps += CtorPath.empty(mod)
       case _ =>
     }
@@ -308,13 +342,15 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       ref.node match {
         case cnt @ Control(i, b) =>
           assert(b eq this)
-          val oldSize = ref.pathsToLambdas.size
+          var oldSize = ref.pathsToLambdasAndCases.size
           if (oldSize >= MaxPropagationWidth) warnWidth else
-          pathsToLambdas.foreach { case (p, l) =>
+          pathsToLambdasAndCases.foreach { case (p, l) =>
             //println(s"> $this tells $ref about $p")
             Path.throughControl(cnt, p).foreach { newPath =>
-              assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
-              ref.pathsToLambdas += newPath -> l
+              //assert(ref.pathsToLambdasAndCases.get(newPath).forall(_ eq l))
+              if (!ref.pathsToLambdasAndCases.get(newPath).forall(_ eq l)) oldSize = 0
+              // ^ It's possible that paths to Case nodes change, and override previous paths...
+              ref.pathsToLambdasAndCases += newPath -> l
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
@@ -325,13 +361,13 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToCtorApps += newPath
             }
           }
-          if (ref.pathsToLambdas.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
+          if (ref.pathsToLambdasAndCases.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
             ref.references.foreach(ref.propagatePaths(_))
         case Branch(c, t, e) =>
           assert((t eq this) || (e eq this))
-          val oldSize = ref.pathsToLambdas.size
+          var oldSize = ref.pathsToLambdasAndCases.size
           if (oldSize >= MaxPropagationWidth) warnWidth else
-          pathsToLambdas.foreach { case (p, l) =>
+          pathsToLambdasAndCases.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
             } else {
@@ -341,8 +377,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
                 Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
             }
             newPath.foreach { newPath =>
-              assert(ref.pathsToLambdas.get(newPath).forall(_ eq l))
-              ref.pathsToLambdas += newPath -> l
+              //assert(ref.pathsToLambdasAndCases.get(newPath).forall(_ eq l))
+              if (!ref.pathsToLambdasAndCases.get(newPath).forall(_ eq l)) oldSize = 0
+              ref.pathsToLambdasAndCases += newPath -> l
             }
           }
           val oldSize2 = ref.pathsToCtorApps.size
@@ -355,7 +392,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               ref.pathsToCtorApps += newPath
             }
           }
-          if (ref.pathsToLambdas.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
+          if (ref.pathsToLambdasAndCases.size > oldSize || ref.pathsToCtorApps.size > oldSize2)
             ref.references.foreach(ref.propagatePaths(_))
         case App(lhs, rhs) =>
           if (lhs eq this) {
@@ -411,7 +448,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }, Iterator.empty)
     
     def toBeShownInline: Bool = (
-      !showFull
+      //!showFull
+      (!showFull || node.isInstanceOf[ConstantNode])
       && node.canBeShownInline
       && (
         node.isSimple && !node.isInstanceOf[Control]
@@ -516,6 +554,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     override def toString: Str = this match {
       case Id => s"Id"
       case Pop(i) => s"$BOLD↓$RESET${i.thenString}"
+      //case p @ Pop(i) => s"$BOLD(${p.originalVar})↓$RESET${i.thenString}"
       case d @ Drop(i) => s"$BOLD${d.originalCid.color}∅$RESET${i.thenString}" // also see: Ø
       case Push(c,Id,i) => s"$BOLD$c↑$RESET${i.thenString}"
       case Push(c,p,i) => s"$BOLD$c↑$RESET$BOLD[$RESET${p}$BOLD]$RESET${i.thenString}"
@@ -577,18 +616,19 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       }) ::: (
         if (showFull || !r.toBeShownInline) {
           val rhs = r.node
-          val headStr = s"\n    $r = $rhs;"
+          val headStr = s"\n    ${r.showName} = $rhs;"
           val str =
             if (showRefs) s"$headStr\t\t\t\t{${r.references.mkString(", ")}}"
             else if (printRefCounts && r.references.size > 1) s"$headStr\t\t\t\t\t(x${r.references.size})"
             else headStr
           assert(!showPaths || !showCtorPaths)
           if (showPaths) (str
-            + r.pathsToLambdas.map(pl => s"\n\t  -- ${Condition.show(pl._1.cnd)} --> [${pl._1.in}]${pl._2}").mkString
+            + r.pathsToLambdasAndCases.map(pl =>
+            s"\n\t  -- ${Condition.show(pl._1.cnd)} --> [${pl._1.in}]${pl._2}  +${pl._1.throughRecIntros} -${pl._1.throughRecElims}").mkString
             + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${Condition.show(p.cnd)} --> [${p.in}]").mkString
           ) else if (showCtorPaths) (str
             + r.pathsToCtorApps.map(pc => s"\n\t  -- ${Condition.show(pc.cnd)} --> ${pc.modRef}${
-                pc.refs.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}").mkString
+                pc.refs.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}  +${pc.throughRecIntros} -${pc.throughRecElims}").mkString
           ) else str
         } :: Nil
         else Nil

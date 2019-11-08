@@ -2,6 +2,7 @@
 -- Incl. one-shot:  2
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module Church where
   _2II = [y'8:6↑[x'7:0↑];x'6:1↑[↓;∅]]x_12
     x_12 = x'6:1 ? [∅;x'6:2↑[↓;∅]]x_12 ¿ x_ε_43;					(x3)

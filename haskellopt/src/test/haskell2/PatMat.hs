@@ -37,6 +37,9 @@ f1'1 = case f1 5 of { Just x -> True; Nothing -> False }
 f1'2 = orZero (f1 5)
 -- f1'3 = f0 (f1 6)
 
+f0'f1 = f0 (f1 42)
+f0'f1' = f0 (f1 24)
+
 f2 (a,b,c) = a + b + c
 f2'0 = f2 (1,2,3)
 

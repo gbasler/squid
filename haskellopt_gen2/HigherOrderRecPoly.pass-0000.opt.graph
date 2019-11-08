@@ -2,6 +2,7 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module HigherOrderp where
   p1_5 = [f'12:0↑]β_3d
     β_3d = f'12:0 ? [h'19:1↑[∅]]λ_68 ¿ _ε_6f;					(x7)

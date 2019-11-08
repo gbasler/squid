@@ -6,6 +6,7 @@
 -- Incl. one-shot:   0
 -- Case reductions:  0
 -- Field reductions: 0
+-- Case commutings:  0
 -- Total nodes: 194; Boxes: 61; Branches: 45
 -- Apps: 35; Lams: 11
 

@@ -2,6 +2,7 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module IterCont where
   nats1 = [state'7:8↑[f'6:0↑];st'9:1↑]β_2c
     β_2c = [↓;↓]f'6:0 ? [s'11:9↑[k'10:2↑[↓;↓;∅]]]β_3c ¿ [↓;↓]f'6 @ [↓+1]λ_2d @ st_27;					(x4)

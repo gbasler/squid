@@ -4,9 +4,10 @@
 --   desugar
 -- Beta reductions:  7
 -- Incl. one-shot:   0
--- Case reductions:  7
+-- Case reductions:  9
 -- Field reductions: 4
--- Total nodes: 234; Boxes: 48; Branches: 56
+-- Case commutings:  1
+-- Total nodes: 234; Boxes: 60; Branches: 56
 -- Apps: 18; Lams: 6
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -23,7 +24,7 @@ import GHC.Types
 pgrm = ((2::Int) * (1::Int)) + ((0::Int) + (1::Int))
 
 f = \x -> 
-  let _cε = case case x of { Just ρ' -> True; Nothing -> False } of { True -> (1::Int); False -> (0::Int) } in
+  let _cε = case x of { Just ρ' -> (1::Int); Nothing -> (0::Int) } in
   case x of { Just ρ -> ρ * _cε; Nothing -> _cε + (1::Int) }
 
 e1 = \ds -> case ds of { (,) ρ ρ' -> ρ * ρ' }

@@ -68,6 +68,7 @@ abstract class GraphScheduler { self: GraphIR =>
       |-- Incl. one-shot:   ${mod.oneShotBetaReductions}
       |-- Case reductions:  ${mod.caseReductions}
       |-- Field reductions: ${mod.fieldReductions}
+      |-- Case commutings:  ${mod.caseCommutings}
       |-- Total nodes: ${mod.Stats.tot}; Boxes: ${mod.Stats.boxes}; Branches: ${mod.Stats.brans}
       |-- Apps: ${mod.Stats.apps}; Lams: ${mod.Stats.lams}
       |

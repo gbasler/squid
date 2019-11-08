@@ -1,0 +1,27 @@
+-- Beta reductions:  2
+-- Incl. one-shot:  0
+-- Case reductions:  2
+-- Field reductions:  6
+-- Case commutings:  7
+module Statistics where
+  maxMaybe1 = []λ_2b
+    λ_2b = \ds'13 -> ψ_2a;
+    ψ_2a = case ds_19 of { : -> [+1]ψ_53; [] -> Nothing };					(x4)
+    ds_19 = ds'13:0 ? [∅-1]ds_19.:#1 ¿ ds'13;					(x4)
+    ψ_53 = case [ds'13:0↑[↓]+1]ds_19 of { : -> ψ_4f; [] -> [+1]β_27 };					(x2)
+    ψ_4f = case [ds'13:0↑[↓]+2]ψ_53 of { Just -> ψ_25; Nothing -> β_27 };
+    ψ_25 = case β_22 of { True -> Just @ ds_19.:#0; False -> [ds'13:0↑[↓]+1]ψ_2a };
+    β_22 = ds_19.:#0 > []π_39;					(x2)
+    π_39 = case [ds'13:0↑[↓];ds'13:0↑[↓]+2]ψ_2a of { Just -> []π_3f; Nothing -> [ds'13:0↑[↓]+1]ds_19.:#0 };
+    π_3f = case [ds'13:0↑[↓]+1]β_22 of { True -> [ds'13:0↑[↓]+1]ds_19.:#0; False -> [ds'13:0↑[↓];ds'13:0↑[↓]+2]ψ_2a.Just#0 };
+    β_27 = Just @ ds_19.:#0;					(x2)
+  maxMaybe0 = []λ_17
+    λ_17 = \ds'4 -> ψ_16;
+    ψ_16 = case ds_5 of { : -> [+1]ψ_59; [] -> Nothing };					(x2)
+    ds_5 = ds'4:1 ? [∅-1]ds_5.:#1 ¿ ds'4;					(x4)
+    ψ_59 = case [ds'4:1↑[↓]+1]ds_5 of { : -> ψ_55; [] -> [+1]β_13 };					(x2)
+    ψ_55 = case [ds'4:1↑[↓]+2]ψ_59 of { Just -> Just @ ψ_10; Nothing -> β_13 };
+    ψ_10 = case ds_5.:#0 > π_a of { True -> ds_5.:#0; False -> π_a };					(x2)
+    π_a = []π_4d;					(x2)
+    π_4d = case [ds'4:1↑[↓];ds'4:1↑[↓]+2]ψ_16 of { Just -> [ds'4:1↑[↓]+1]ψ_10; Nothing -> [ds'4:1↑[↓]+1]ds_5.:#0 };
+    β_13 = Just @ ds_5.:#0;					(x2)

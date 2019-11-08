@@ -2,6 +2,7 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module BasicRec where
   trec_0_1 = [y'19:0↑+1]β_74
     β_74 = y_69 : [y'19:2↑+1]β_74;					(x6)

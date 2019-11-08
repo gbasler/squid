@@ -2,6 +2,7 @@
 -- Incl. one-shot:  2
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module Basics where
   foo_0 = []λ_11e
     λ_11e = \x'19 -> β_119 + β_119;

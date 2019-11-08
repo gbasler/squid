@@ -2,11 +2,12 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  28
+-- Beta reductions:  27
 -- Incl. one-shot:   0
--- Case reductions:  28
--- Field reductions: 29
--- Total nodes: 648; Boxes: 146; Branches: 175
+-- Case reductions:  106
+-- Field reductions: 38
+-- Case commutings:  52
+-- Total nodes: 661; Boxes: 159; Branches: 175
 -- Apps: 85; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}

@@ -2,18 +2,19 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  32
+-- Beta reductions:  36
 -- Incl. one-shot:   1
--- Case reductions:  34
--- Field reductions: 48
--- Total nodes: 890; Boxes: 176; Branches: 200
--- Apps: 130; Lams: 16
+-- Case reductions:  44
+-- Field reductions: 56
+-- Case commutings:  9
+-- Total nodes: 1400; Boxes: 376; Branches: 336
+-- Apps: 159; Lams: 16
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (f1'2,f1'1,f1'0,f1,f0'4,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
+module PatMat (f0'f1',f0'f1,f1'2,f1'1,f1'0,f1,f0'4,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
 
 import Data.Foldable
 import GHC.Base
@@ -24,15 +25,21 @@ import GHC.Prim
 import GHC.Tuple
 import GHC.Types
 
-f1'2 = case case (5::Int) > (0::Int) of { True -> Just (5::Int); False -> Nothing } of { Just ρ -> ρ; Nothing -> (0::Int) }
+f0'f1' = case (24::Int) > (0::Int) of { True -> Just ((24::Int) + (1::Int)); False -> Just (0::Int) }
 
-f1'1 = case case (5::Int) > (0::Int) of { True -> Just (5::Int); False -> Nothing } of { Just ρ -> True; Nothing -> False }
+f0'f1 = case (42::Int) > (0::Int) of { True -> Just ((42::Int) + (1::Int)); False -> Just (0::Int) }
+
+f1'2 = case (5::Int) > (0::Int) of { True -> (5::Int); False -> (0::Int) }
+
+f1'1 = case (5::Int) > (0::Int) of { True -> True; False -> False }
 
 f1'0 = case (4::Int) > (0::Int) of { True -> Just (4::Int); False -> Nothing }
 
 f1 = \x -> case x > (0::Int) of { True -> Just x; False -> Nothing }
 
-f0'4 = \x -> case case x of { Just ρ -> Just (ρ + (1::Int)); Nothing -> Just (0::Int) } of { Just ρ' -> Just (ρ' + (1::Int)); Nothing -> Just (0::Int) }
+f0'4 = \x -> 
+  let _0 = Just ((case x of { Just ρ' -> ρ' + (1::Int); Nothing -> (0::Int) }) + (1::Int)) in
+  case x of { Just ρ -> _0; Nothing -> _0 }
 
 f0'3 = Just ((0::Int) + (1::Int))
 
@@ -47,8 +54,8 @@ f0 = \ds -> case ds of { Just ρ -> Just (ρ + (1::Int)); Nothing -> Just (0::In
 f2'0 = ((1::Int) + (2::Int)) + (3::Int)
 
 slt0 = \x -> let
-  _1 = (Data.Foldable.sum . map (\x' -> x' * (2::Int))) (map (\c' -> c' + (x + (1::Int))) [])
-  _0 = Data.Foldable.sum (map (\c -> c + x) [])
+  _0 = Data.Foldable.sum (map (\c' -> c' + x) [])
+  _1 = (Data.Foldable.sum . map (\x' -> x' * (2::Int))) (map (\c -> c + (x + (1::Int))) [])
   in (,) ((_0 * _0) + (1::Int)) ((_1 * _1) + (1::Int))
 
 t1'0 = (((1::Int) + (2::Int)) + (3::Int)) + (4::Int)

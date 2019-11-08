@@ -2,6 +2,7 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module HigherOrderp where
   s = []λ_6e
     λ_6e = \f'14 -> λ_6d;					(x2)

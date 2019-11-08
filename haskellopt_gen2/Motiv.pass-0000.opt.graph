@@ -1,7 +1,8 @@
 -- Beta reductions:  7
 -- Incl. one-shot:  0
--- Case reductions:  7
+-- Case reductions:  9
 -- Field reductions:  4
+-- Case commutings:  1
 module Motiv where
   pgrm = []([x'13:0↑;a'5:1↑]a_f + [x'13:6↑;a'5:1↑]a_f)
     a_f = a'5:1 ? [∅]ψ_30 ¿ a'5;					(x4)
@@ -13,17 +14,18 @@ module Motiv where
     π_2a = x'13:0 ? [∅]2 ¿ x'13.Just#0;
     π_1f = ds'9:2 ? [∅;c'6:3↑]ψ_14 ¿ ds'9.(,)#1;
     ψ_14 = c'6:3 & [∅]x'13:0 ? 1 ¿ _cε_59;					(x4)
-    _cε_59 = c'6:3 & [∅]x'13:6 ? 0 ¿ _cε_60;
-    _cε_60 = case c_5f of { True -> 1; False -> 0 };
-    c_5f = c'6:3 ? [∅;ds'2:4↑]_cε_5c ¿ c'6;
-    _cε_5c = case ds_5b of { Just -> True; Nothing -> False };					(x2)
-    ds_5b = ds'2:4 ? [∅]x'13 ¿ ds'2;
+    _cε_59 = c'6:3 ? _60 ¿ _ccε_5f;
+    _60 = [∅]x'13:6 ? _cε_5d ¿ _cε_64;
+    _cε_5d = []0;					(x2)
+    _cε_64 = case [∅;ds'2:4↑]ds_62 of { Just -> []1; Nothing -> _cε_5d };
+    ds_62 = ds'2:4 ? [∅]x'13 ¿ ds'2;
+    _ccε_5f = case c'6 of { True -> 1; False -> 0 };
     _cε_44 = case ds'9 of { (,) -> β_23 };
-    _cε_41 = x'13:6 ? β_2f ¿ _cε_5d;
+    _cε_41 = x'13:6 ? β_2f ¿ _cε_65;
     β_2f = [z'8:5↑]β_1b;					(x2)
     β_1b = z_16 + 1;					(x2)
     z_16 = z'8:5 ? [∅;c'6:3↑]ψ_14 ¿ z'8;
-    _cε_5d = case x'13 of { Just -> β_2e; Nothing -> β_2f };
+    _cε_65 = case x'13 of { Just -> β_2e; Nothing -> β_2f };
   f = []λ_32
     λ_32 = \x'13 -> [a'5:1↑]a_f;
   e1 = []λ_25
@@ -37,4 +39,6 @@ module Motiv where
   isJust = []λ_e
     λ_e = \ds'2 -> ψ_d;
     ψ_d = ds'2:4 & [∅]x'13:0 ? True ¿ _cε_51;
-    _cε_51 = ds'2:4 & [∅]x'13:6 ? False ¿ _cε_5c;
+    _cε_51 = ds'2:4 & [∅]x'13:6 ? False ¿ _cε_68;
+    _cε_68 = case ds_67 of { Just -> True; Nothing -> False };
+    ds_67 = ds'2:4 ? [∅]x'13 ¿ ds'2;

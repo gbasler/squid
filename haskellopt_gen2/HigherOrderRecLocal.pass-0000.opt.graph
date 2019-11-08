@@ -2,6 +2,7 @@
 -- Incl. one-shot:  0
 -- Case reductions:  0
 -- Field reductions:  0
+-- Case commutings:  0
 module HigherOrderRecLocal where
   foo_6 = [f'2:0↑]β_a
     β_a = f'2:0 ? [k'11:1↑[∅]]λ_5e ¿ _ε_65;					(x7)

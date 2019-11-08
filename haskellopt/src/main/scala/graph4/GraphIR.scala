@@ -121,6 +121,7 @@ class GraphIR extends GraphDefs {
     
     var betaReductions: Int = 0
     var caseReductions: Int = 0
+    var caseCommutings: Int = 0
     var fieldReductions: Int = 0
     var oneShotBetaReductions: Int = 0
     
@@ -170,16 +171,24 @@ class GraphIR extends GraphDefs {
             ref.node = Control(i0 `;` i1, body)(c0.recIntros + c1.recIntros, c0.recElims + c1.recElims)
             again()
             
+          case c0 @ Control(i0, r @ NodeRef(Bottom)) =>
+            ref.node = Bottom
+            
+          // TODO should we remove controls over constants? How do scheduled programs look like then?
+            
           // TODO one-shot reductions for pattern matching too
             
+          // TODO only insert boxes when necessary (e.g., not over mere constants), and push them into branches
+            
           case Case(scrut, arms) =>
-            val ps = scrut.pathsToCtorApps.headOption
+            val ps = scrut.pathsToCtorApps.headOption orElse scrut.realPathsToCases.headOption
             ps match {
               case Some(CtorPath(ctor, argsRev, cnd, ri, re)) =>
-                println(s"CASE $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
+                println(s"CASE/CTOR $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
                   }${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]${arg._2}").mkString}")
                 
                 // ASSUMPTION: no need to use ri/re here; they will be used in CtorField reductions, which should be enough...
+                //   TODO test the assumption again later
                 
                 caseReductions += 1
                 
@@ -190,23 +199,68 @@ class GraphIR extends GraphDefs {
                       case arm :: Nil => arm._3
                     }
                 }
+                val rightArmAndControl = if (ri > 0 || re > 0) Left(Control(Id, rightArm)(ri,re)) else Right(rightArm)
+                
                 if (cnd.isEmpty) {
-                  ref.rewireTo(rightArm)
+                  rightArmAndControl.fold(ref.node = _, ref rewireTo _)
                 } else {
                   val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
                   val rebuiltCase = Case(rebuiltScrut, arms).mkRefNamed("_cε")
-                  ref.node = Branch(cnd, rightArm, rebuiltCase)
+                  ref.node = Branch(cnd, rightArmAndControl.fold(_.mkRef, id), rebuiltCase)
                 }
                 again()
-              case None =>
+              case Some((p @ Path(i, cnd, ri, re), lr @ Ref(l: Lam))) =>
+                ??? // make it bottom? this case is meaningless...
+                again()
+              case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) =>
+                println(s"CASE/CASE $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$cse")
+                
+                caseCommutings += 1
+                
+                val newArms = c.arms.map { case (armCtorName, armArity, armBody) =>
+                  val cntrl = Control.mkRef(i, armBody, ri, re)
+                  (armCtorName, armArity, Case(cntrl, arms).mkRefFrom(ref))
+                }
+                
+                val cScrut = Control.mkRef(i, c.scrut, ri, re)
+                val commutedCase = Case(cScrut, newArms)
+                val commutedCaseWithControl = if (ri > 0  || re > 0) Control(Id, commutedCase.mkRefFrom(cse))(ri, re) else commutedCase
+                
+                if (cnd.isEmpty) {
+                  ref.node = commutedCaseWithControl
+                } else {
+                  val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
+                  val rebuiltCase = Case(rebuiltScrut, arms).mkRefNamed("_ccε")
+                  ref.node = Branch(cnd, commutedCaseWithControl.mkRef, rebuiltCase)
+                }
+                again()
+              case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
+                println(s"WAT-CASE $p ${cse.showDef}")
+                ??? // FIXME? unexpected
                 ref.children.foreach(rec)
+                //scrut.pathsToLambdasAndCases -= p
+                //again()
+              case None =>
+                if (scrut.node === Bottom) ref.node = Bottom
+                else {
+                  val newArms = arms.filter(_._3.node =/= Bottom)
+                  if (newArms.size < arms.size) {
+                    newArms match {
+                      case Nil => ref.node = Bottom
+                      case arm :: Nil => ref.rewireTo(arm._3)
+                      case _ => ref.node = Case(scrut, newArms)
+                    }
+                    again()
+                  }
+                  else ref.children.foreach(rec)
+                }
             }
             
           case CtorField(scrut, ctorName, ari, idx) =>
-            val ps = scrut.pathsToCtorApps.headOption
+            val ps = scrut.pathsToCtorApps.headOption orElse scrut.realPathsToCases.headOption
             ps match {
               case Some(CtorPath(ctor, argsRev, cnd, ri, re)) =>
-                println(s"FIELD $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
+                println(s"FIELD/CTOR $ref -- ${Condition.show(cnd)} -->> $ctor${argsRev.reverseIterator.map(arg => s" [${arg._1
                   }${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]${arg._2}").mkString}")
                 
                 fieldReductions += 1
@@ -222,8 +276,7 @@ class GraphIR extends GraphDefs {
                 } else None
                 
                 if (cnd.isEmpty) {
-                  //ref.rewireTo(ctrl)
-                  ref.node = ctrl getOrElse ModuleRef("Prelude","undefined") // TODO improve
+                  ref.node = ctrl getOrElse Bottom
                 } else {
                   val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
                   val rebuiltCtorField = CtorField(rebuiltScrut, ctorName, ari, idx)
@@ -235,23 +288,51 @@ class GraphIR extends GraphDefs {
                   }
                 }
                 again()
+              case Some((p @ Path(i, cnd, ri, re), lr @ Ref(l: Lam))) =>
+                ??? // make it bottom? this case is meaningless...
+                again()
+              case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) =>
+                println(s"FIELD/CASE $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$cse")
+                
+                caseCommutings += 1
+                
+                val newArms = c.arms.map { case (armCtorName, armArity, armBody) =>
+                  val cntrl = Control.mkRef(i, armBody, ri, re)
+                  (armCtorName, armArity, CtorField(cntrl, ctorName, ari, idx).mkRefFrom(ref))
+                }
+                
+                val cScrut = Control.mkRef(i, c.scrut, ri, re)
+                val commuted = Case(cScrut, newArms).mkRefFrom(ref)
+                
+                if (cnd.isEmpty) {
+                  ref.rewireTo(commuted)
+                } else {
+                  val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
+                  val rebuiltCtorField = CtorField(rebuiltScrut, ctorName, ari, idx).mkRefNamed("_cfε")
+                  ref.node = Branch(cnd, commuted, rebuiltCtorField)
+                }
+                again()
+              case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
+                println(s"WAT-FIELD $p ${cse.showDef}")
+                ??? // FIXME? unexpected
+                ref.children.foreach(rec)
+                //scrut.pathsToLambdasAndCases -= p
+                //again()
               case None =>
                 ref.children.foreach(rec)
             }
-            
           case App(fun, arg) =>
-            val ps = if (smartRewiring) fun.pathsToLambdas.headOption
+            val ps = if (smartRewiring) fun.pathsToLambdasAndCases.headOption // TODO check path correct
               // If we are not using smart rewiring, we need to keep track of which reductions have already been done: 
-              else fun.pathsToLambdas.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
+              else fun.pathsToLambdasAndCases.iterator.filterNot(_._1 |> ref.usedPathsToLambdas).headOption
             
             ps match {
-              case Some((p @ Path(i, cnd, ri, re), lr)) =>
+              case Some((p @ Path(i, cnd, ri, re), lr @ Ref(l: Lam))) =>
                 println(s"LAMBDA $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$lr")
                 
                 betaReductions += 1
                 
-                val l = lr.node.asInstanceOf[Lam]
-                assert(l.paramRef.pathsToLambdas.isEmpty)
+                assert(l.paramRef.pathsToLambdasAndCases.isEmpty)
                 
                 val v = l.param
                 val cid = new CallId(v, nextUnique)
@@ -298,6 +379,9 @@ class GraphIR extends GraphDefs {
                   }
                   
                 }
+                again()
+              case Some((p @ Path(i, cnd, ri, re), lr @ Ref(c: Case))) =>
+                ??? // make it bottom? this case is meaningless...
                 again()
               case None =>
                 ref.children.foreach(rec)
