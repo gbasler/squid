@@ -4,10 +4,10 @@
 --   desugar
 -- Beta reductions:  14
 -- Incl. one-shot:   0
--- Case reductions:  76
--- Field reductions: 50
--- Case commutings:  96
--- Total nodes: 3165; Boxes: 1177; Branches: 1075
+-- Case reductions:  80
+-- Field reductions: 52
+-- Case commutings:  206
+-- Total nodes: 5375; Boxes: 2052; Branches: 1695
 -- Apps: 140; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -32,22 +32,24 @@ count = \start -> let
   _2 = (,) (_fε' - (1::Int)) _3
   _1 = _fε' > (0::Int)
   rec π π' p p' ds π'2 π'3 π'4 = let
-        _cε = case ds of { (,) ρ ρ' -> (case p' of { True -> p; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
-        _9 = _cε + (1::Int)
-        _cε' = case π' of { (,) ρ'14 ρ'15 -> (,) ((let (,) arg _ = π'3 in arg) - (1::Int)) _9 }
         _6 = (let (,) arg _ = π'3 in arg) > (0::Int)
-        _cε'3 = case π of { (,) ρ'12 ρ'13 -> (case _6 of { True -> _9; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
-        _7 = (let (,) arg _ = _cε' in arg) > (0::Int)
-        _8 = _cε'3 + (1::Int)
-        _cε'2 = case _cε' of { (,) ρ'10 ρ'11 -> (,) (ρ'10 - (1::Int)) _8 }
-        in case π'4 of { (,) ρ'2 ρ'3 -> (case _6 of { True -> (case _cε' of { (,) ρ'4 ρ'5 -> (case _7 of { True -> (rec _cε'2 _cε'2 _8 _7 _cε' _cε'2 _cε'2 _cε'2); False -> (case _cε' of { (,) ρ'6 ρ'7 -> _cε'3 }) }) }); False -> (case π'2 of { (,) ρ'8 ρ'9 -> _cε }) }) }
+        _cε' = case ds of { (,) ρ'14 ρ'15 -> (case p' of { True -> p; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
+        _9 = _cε' + (1::Int)
+        _ccε = case π' of { (,) ρ'12 ρ'13 -> (,) ((let (,) arg _ = π'3 in arg) - (1::Int)) _9 }
+        _7 = (let (,) arg _ = _ccε in arg) > (0::Int)
+        _cε = case π of { (,) ρ'10 ρ'11 -> (case _6 of { True -> _9; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
+        _8 = _cε + (1::Int)
+        _ccε' = case _ccε of { (,) ρ'8 ρ'9 -> (,) (ρ'8 - (1::Int)) _8 }
+        in case π'4 of { (,) ρ ρ' -> (case _6 of { True -> (case _ccε of { (,) ρ'2 ρ'3 -> (case _7 of { True -> (rec _ccε' _ccε' _8 _7 _ccε _ccε' _ccε' _ccε'); False -> (case _ccε of { (,) ρ'4 ρ'5 -> _cε }) }) }); False -> (case π'2 of { (,) ρ'6 ρ'7 -> _cε' }) }) }
   in case _0 of { True -> (case _1 of { True -> (rec _2 _2 _3 _1 ((,) _4 _5) _2 _2 _2); False -> _fε }); False -> (0::Int) }
 
-simple9 = 
-  let rec _cfε = 
-        let _cε = case _cfε of { (,) ρ ρ' -> (,) ρ' ρ } in
-        case _cfε of { (,) ρ'2 ρ'3 -> (case ρ'3 of { True -> (case _cε of { (,) ρ'4 ρ'5 -> (case ρ'5 of { True -> (rec (case _cε of { (,) ρ'6 ρ'7 -> (,) ρ'7 ρ'6 })); False -> (case _cε of { (,) ρ'8 ρ'9 -> ρ'9 }) }) }); False -> (case _cfε of { (,) ρ'10 ρ'11 -> ρ'11 }) }) } in
-  (rec ((,) True False))
+simple9 = let
+  rec _cfε _cfε' _cfε'2 _cfε'3 _cfε'4 = let
+        _ccε = case _cfε'2 of { (,) ρ ρ' -> (,) (let (,) _ arg = _cfε'3 in arg) (let (,) arg _ = _cfε' in arg) }
+        _ccε' = case _ccε of { (,) ρ'10 ρ'11 -> (,) ρ'11 ρ'10 }
+        in case _cfε'4 of { (,) ρ'2 ρ'3 -> (case (let (,) _ arg = _cfε'3 in arg) of { True -> (case _ccε of { (,) ρ'4 ρ'5 -> (case ρ'5 of { True -> (rec _ccε' _ccε' _ccε' _ccε' _ccε'); False -> (case _ccε of { (,) ρ'6 ρ'7 -> ρ'7 }) }) }); False -> (case _cfε of { (,) ρ'8 ρ'9 -> (let (,) _ arg = _cfε'3 in arg) }) }) }
+  _0 = (,) True False
+  in (rec _0 _0 _0 _0 _0)
 
 simple5 = 
   let rec π = 

@@ -412,12 +412,16 @@ class GraphIR extends GraphDefs {
       
     } catchBreak true
     
-    protected class RebuildPaths(cnd: Condition) {
-      def apply(ref: Ref, ictx: Instr): Ref = rec(ref, ictx, cnd)
+    
+    /* TODO this is quite complex and essentially needs to be kept in sync with `propagatePaths`;
+         it may be much easier to just store all the rebuilding info in the paths themselves,
+         but that may also be more dangerous and difficult to debug (if the graph was changed in unexpected ways). */
+    protected class RebuildPaths(fullCnd: Condition) {
+      def apply(ref: Ref, ictx: Instr): Ref = rec(ref, ictx, fullCnd)
       protected def rec(ref: Ref, ictx: Instr, curCnd: Condition): Ref = ref.node match {
         case c @ Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd))(c.recIntros, c.recElims).mkRefFrom(ref)
-        case Branch(c, t, e) =>
-          val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
+        case Branch(brCnd, t, e) =>
+          val brCndUpdatedOpt = Condition.throughControl(ictx, brCnd) // I've seen this fail (in test Church.hs)... not sure that's legit
           /*
           //val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
           val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cim) => cnd.get(i).exists(_.isCompatibleWith(cim))}
@@ -428,12 +432,19 @@ class GraphIR extends GraphDefs {
             curCnd -- brCnd.keysIterator
           } else curCnd
           */
-          val mrgCnd = brCndOpt.flatMap(brCnd => Condition.merge(brCnd, cnd))
-          val accepted = mrgCnd.isDefined // implies brCndOpt.isDefined (if it's not, ofc the branch condition is not accepted)
-          val adaptedBrCnd = if (accepted) brCndOpt.get else {
-            val brCndElse = Condition.tryNegate(c)
-            assert(brCndElse.isDefined, (ref,c,cnd))
-            Condition.throughControl(ictx, brCndElse.get).get
+          val mrgCnd = brCndUpdatedOpt.flatMap(brCnd => Condition.merge(brCnd, fullCnd))
+          val accepted = mrgCnd.isDefined // implies brCndUpdatedOpt.isDefined (if it's not, ofc the branch condition is not accepted)
+          def rebuild(newCnd: Condition): Ref =
+            (if (accepted) Branch(brCnd, rec(t, ictx, newCnd), e) else Branch(brCnd, t, rec(e, ictx, newCnd))).mkRefFrom(ref)
+          val adaptedBrCnd = if (accepted) brCndUpdatedOpt.get else {
+            if (brCndUpdatedOpt.nonEmpty && Condition.merge(brCndUpdatedOpt.get, fullCnd).isEmpty) {
+              // This corresponds to the case, in `propagatePaths`,
+              // where the path coming from the else arm is already incompatible with the branch's condition.
+              return rebuild(curCnd)
+            } else {
+              val brCndElse = Condition.tryNegate(brCnd).get
+              Condition.throughControl(ictx, brCndElse).get
+            }
           }
           val newCnd = curCnd.flatMap {
             case b @ (i, cid: CallId) => adaptedBrCnd.get(i) match {
@@ -452,8 +463,7 @@ class GraphIR extends GraphDefs {
           }
           if (newCnd.isEmpty) {
             if (accepted) e else t
-          } else
-            (if (accepted) Branch(c, rec(t, ictx, newCnd), e) else Branch(c, t, rec(e, ictx, newCnd))).mkRefFrom(ref)
+          } else rebuild(newCnd)
         case _ => lastWords(s"was not supposed to reach ${ref.showDef}")
       }
     }

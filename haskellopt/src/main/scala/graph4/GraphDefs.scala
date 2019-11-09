@@ -371,9 +371,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           pathsToLambdasAndCases.foreach { case (p, l) =>
             val newPath = if (t eq this) {
               Path.throughBranchLHS(c, p)
+            } else // if we come from the else arm, we need to make sure that the propagated path is incompatible with c 
+            if (Condition.merge(c, p.cnd).isEmpty) {
+              Some(p) // If the path's condition is already incompatible with the branch, we don't need to add anything to it
             } else {
-              //if (Condition.merge(p.cnd, c).isEmpty) Some(p) else None
-              // ^ Coarse approximation if we didn't have negatives
               Condition.tryNegate(c).flatMap(nc =>
                 Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
             }
@@ -388,6 +389,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           pathsToCtorApps.foreach { p =>
             val newPath = if (t eq this) {
               CtorPath.throughBranchLHS(c, p)
+            } else // if we come from the else arm, we need to make sure that the propagated path is incompatible with c 
+            if (Condition.merge(c, p.cnd).isEmpty) {
+              Some(p) // If the path's condition is already incompatible with the branch, we don't need to add anything to it
             } else {
               Condition.tryNegate(c).flatMap(nc =>
                 Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
