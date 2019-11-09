@@ -126,6 +126,7 @@ class BasicTests extends FunSuite {
   test("IterCont") (
     // FIXME scheduling of nats0 is wrong
     TestHarness("IterCont",
+      //prefixFilter = "nats0",
       dumpGraph = true,
     )(
       check('nats0_5)(List(0,1,2,3,4)),

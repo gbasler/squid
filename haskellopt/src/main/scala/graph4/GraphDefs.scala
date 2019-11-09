@@ -373,7 +373,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
               Path.throughBranchLHS(c, p)
             } else {
               //if (Condition.merge(p.cnd, c).isEmpty) Some(p) else None
-              // ^ Coarse approximation if we didn't have negatives 
+              // ^ Coarse approximation if we didn't have negatives
               Condition.tryNegate(c).flatMap(nc =>
                 Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
             }
@@ -388,7 +388,10 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           pathsToCtorApps.foreach { p =>
             val newPath = if (t eq this) {
               CtorPath.throughBranchLHS(c, p)
-            } else Some(p)
+            } else {
+              Condition.tryNegate(c).flatMap(nc =>
+                Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))
+            }
             newPath.foreach { newPath =>
               ref.pathsToCtorApps += newPath
             }
@@ -488,7 +491,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   import CallId._, Console.{BOLD,RESET}
   
   sealed abstract class CallMaybe {
-    def isIncompatibleWith(cim: CallMaybe): Bool = merge(cim).isEmpty
+    def isCompatibleWith(cim: CallMaybe): Bool = merge(cim).isDefined
+    def isIncompatibleWith(cim: CallMaybe): Bool = !isCompatibleWith(cim)
     def merge(cim: CallMaybe): Opt[CallMaybe] = (this, cim) match {
       case (CallNot(cids0), CallNot(cids1)) => Some(CallNot((cids0 ++ cids1).distinct))
       case (CallNot(c0), c1: CallId) => c1 optionUnless (c0 contains c1)

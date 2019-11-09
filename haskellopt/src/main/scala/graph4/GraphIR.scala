@@ -418,12 +418,38 @@ class GraphIR extends GraphDefs {
         case c @ Control(i, b) => Control(i, rec(b, ictx `;` i, curCnd))(c.recIntros, c.recElims).mkRefFrom(ref)
         case Branch(c, t, e) =>
           val brCndOpt = Condition.throughControl(ictx, c) // I've seen this fail (in test Church.hs)... not sure that's legit
-          val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
+          /*
+          //val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cid) => cnd.get(i).contains(cid)}
+          val accepted = brCndOpt.isDefined && brCndOpt.get.forall{case(i,cim) => cnd.get(i).exists(_.isCompatibleWith(cim))}
           val newCnd = if (accepted) {
             val brCnd = brCndOpt.get
-            assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
+            //assert(brCnd.forall{case(i,cid) => curCnd.get(i).contains(cid)}, (brCnd,curCnd,cnd))
+            assert(brCnd.forall{case(i,cim) => curCnd.get(i).exists(_.isCompatibleWith(cim))}, (brCnd,curCnd,cnd))
             curCnd -- brCnd.keysIterator
           } else curCnd
+          */
+          val mrgCnd = brCndOpt.flatMap(brCnd => Condition.merge(brCnd, cnd))
+          val accepted = mrgCnd.isDefined // implies brCndOpt.isDefined (if it's not, ofc the branch condition is not accepted)
+          val adaptedBrCnd = if (accepted) brCndOpt.get else {
+            val brCndElse = Condition.tryNegate(c)
+            assert(brCndElse.isDefined, (ref,c,cnd))
+            Condition.throughControl(ictx, brCndElse.get).get
+          }
+          val newCnd = curCnd.flatMap {
+            case b @ (i, cid: CallId) => adaptedBrCnd.get(i) match {
+              case Some(cid2: CallId) => assert(cid2 === cid, (i, cid, cid2)); None
+              case Some(CallNot(cids)) => assert(!cids.contains(cid)); Some(b)
+              case None => Some(b)
+            }
+            case b @ (i, CallNot(cids)) => adaptedBrCnd.get(i) match {
+              case Some(cid: CallId) => die
+              case Some(CallNot(cids2)) =>
+                val cids2s = cids2.toSet
+                assert((cids2s -- cids).isEmpty)
+                Some((i, CallNot(cids.filterNot(cids2s))))
+              case None => Some(b)
+            }
+          }
           if (newCnd.isEmpty) {
             if (accepted) e else t
           } else

@@ -39,6 +39,7 @@ class PatMatTests extends FunSuite {
     // TODO investigate: t2'1'5 used to take much fewer rewritings before CASE commutings, but had the same result!
     //   Perhaps commuting should only be done if there's nothing else to do...
     TestHarness("PatMatRec",
+      //prefixFilter = "t1",
       //prefixFilter = "t2'1 ",
       //prefixFilter = "t2'1'5",
     )(
@@ -74,12 +75,14 @@ class PatMatTests extends FunSuite {
   )
   
   test("IterEither") (
+    // TODO recover opt of simple9, which used to schedule to just `False`
     // FIXME big scalability issues when uncommenting more simpleX defs
-    //   — uncommenting all leads to 40k nodes!
+    //   — uncommenting all leads to 40k nodes! (EDIT: now probably slightly fewer)
     //   Most of these nodes are most likely dead, due to messed up invalid Case paths,
     //   since the output programs are actually small.
     TestHarness("IterEither",
       //prefixFilter = "count ",
+      //prefixFilter = "simple",
     )(
       check('count, 4)(4),
       //check('simple0)(42),
