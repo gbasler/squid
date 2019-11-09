@@ -279,7 +279,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     val pathsToLambdasAndCases: mutable.Map[Path, NodeRef] = mutable.Map.empty
     val usedPathsToLambdas: mutable.Set[Path] = mutable.Set.empty
     
-    // TODO clean this up; find a better way of dealing with outdated Case paths...
+    def realPathsToCases: Iterator[Path -> Ref] = pathsToLambdasAndCases.iterator
+    /* // I found a better way of dealing with outdated Case paths: removing them when a node changes
     def realPathsToCases: Iterator[Path -> Ref] = realPathsToCasesImpl(0,0,0)
     def realPathsToCasesImpl(tI: Int, tE: Int, depth: Int): Iterator[Path -> Ref] =
       if (depth > 8) Iterator.empty
@@ -298,15 +299,20 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         //case _ => die
         case _ => Iterator.empty
       }
+    */
     
     /** Handles unsaturated ctors by keeping one distinct instr for each ctor app argument */
     val pathsToCtorApps: mutable.Set[CtorPath] = mutable.Set.empty  // TODO should it really be a Set?
     
-    node match {
-      case _: Lam | _: Case => pathsToLambdasAndCases += Path.empty -> this
-      case mod: ModuleRef if mod.isCtor => pathsToCtorApps += CtorPath.empty(mod)
-      case _ =>
+    def createPaths(): Unit = {
+      node match {
+        case _: Lam | _: Case => pathsToLambdasAndCases += Path.empty -> this
+        case mod: ModuleRef if mod.isCtor => pathsToCtorApps += CtorPath.empty(mod)
+        case _ =>
+      }
+      assert(!node.isInstanceOf[Lam] && !node.isInstanceOf[Case] || pathsToLambdasAndCases.size === 1, (showDef, pathsToLambdasAndCases))
     }
+    createPaths()
     children.foreach { c => c.addref(this); c.propagatePaths(this)(0) }
     
     def children: Iterator[NodeRef] = _node.children
@@ -428,13 +434,56 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     }
     def node: Node = _node
     def node_=(that: Node)(implicit mod: Module): Unit = {
+      
+      //println(s"($showDef) := $that   ${pathsToLambdasAndCases}")
+      
       val oldChildren = children
       _node = that
+      
+      // Remove old paths from this node:
+      val oldPaths = pathsToLambdasAndCases.keysIterator.toBuffer
+      if (oldPaths.nonEmpty && !that.isInstanceOf[Lam] && !that.isInstanceOf[Case]) {
+        pathsToLambdasAndCases.clear()
+        references.foreach(_.removePaths(this, oldPaths))
+      }
+      // Note: we're not removing paths to ctor apps, because these should (in principle) be stable
+      
       children.foreach(_.addref(this)) // Note: we need to do that before `remrefs` or some counts will drop to 0 prematurely
       remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (_node assignment is done above)
       children.foreach(_.propagatePaths(this)(0))
+      
+      // This does not seem necessary, weirdly:
+      //createPaths()
+      //references.foreach(propagatePaths(_)(0))
+      
     }
     def rewireTo(that: Ref, recIntros: Int = 0)(implicit mod: Module): Unit = node = Id(that, recIntros)
+    
+    def removePaths(child: Ref, paths: mutable.Buffer[Path]): Unit = {
+      val oldSize = pathsToLambdasAndCases.size
+      node match {
+        case cnt @ Control(i, b) =>
+          val toRemove = paths.flatMap(Path.throughControl(cnt, _))
+          pathsToLambdasAndCases --= toRemove
+          if (pathsToLambdasAndCases.size < oldSize) references.foreach(_.removePaths(this, toRemove))
+        case Branch(c, t, e) =>
+          val toRemove = if (t eq child) {
+            paths.flatMap(Path.throughBranchLHS(c, _))
+          } else {
+            paths.flatMap { p =>
+              p :: (Condition.tryNegate(c).flatMap(nc =>
+                Condition.merge(p.cnd, nc).map(newCond => p.copy(cnd = newCond)))).toList
+            }
+          }
+          pathsToLambdasAndCases --= toRemove
+          if (pathsToLambdasAndCases.size < oldSize) references.foreach(_.removePaths(this, toRemove))
+        case _: Lam | _: Case =>
+          assert(pathsToLambdasAndCases.size === 1, (showDef, pathsToLambdasAndCases))
+        case _ =>
+          assert(pathsToLambdasAndCases.isEmpty, (showDef, pathsToLambdasAndCases))
+          // ^ No concrete nodes should have paths, except for lambdas and cases (which have only paths to themselves)
+      }
+    }
     
     /*
     def nonSimpleReferences: List[NodeRef] = {

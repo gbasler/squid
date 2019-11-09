@@ -18,10 +18,10 @@ class GraphIR extends GraphDefs {
   val showInlineNames: Bool = false
   //val showInlineNames: Bool = true
   
-  val showPaths: Bool = false
+  val showPaths: Bool = debugRewriting
   //val showPaths: Bool = true
   
-  val showCtorPaths: Bool = debugRewriting
+  val showCtorPaths: Bool = false
   //val showCtorPaths: Bool = true
   
   val showFull: Bool = debugRewriting
@@ -245,7 +245,7 @@ class GraphIR extends GraphDefs {
                 }
                 again()
               case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
-                println(s"WAT-CASE $p ${cse.showDef}")
+                println(s"WAT-CASE $ref $p ${cse.showDef}")
                 ??? // FIXME? unexpected
                 continue()
                 //scrut.pathsToLambdasAndCases -= p
@@ -326,7 +326,7 @@ class GraphIR extends GraphDefs {
                 }
                 again()
               case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
-                println(s"WAT-FIELD $p ${cse.showDef}")
+                println(s"WAT-FIELD $ref $p ${cse.showDef}")
                 ??? // FIXME? unexpected
                 continue()
                 //scrut.pathsToLambdasAndCases -= p

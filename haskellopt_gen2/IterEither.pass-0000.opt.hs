@@ -7,7 +7,7 @@
 -- Case reductions:  80
 -- Field reductions: 52
 -- Case commutings:  206
--- Total nodes: 5375; Boxes: 2052; Branches: 1695
+-- Total nodes: 5325; Boxes: 2052; Branches: 1645
 -- Apps: 140; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -45,9 +45,9 @@ count = \start -> let
 
 simple9 = let
   rec _cfε _cfε' _cfε'2 _cfε'3 _cfε'4 = let
-        _ccε = case _cfε'2 of { (,) ρ ρ' -> (,) (let (,) _ arg = _cfε'3 in arg) (let (,) arg _ = _cfε' in arg) }
-        _ccε' = case _ccε of { (,) ρ'10 ρ'11 -> (,) ρ'11 ρ'10 }
-        in case _cfε'4 of { (,) ρ'2 ρ'3 -> (case (let (,) _ arg = _cfε'3 in arg) of { True -> (case _ccε of { (,) ρ'4 ρ'5 -> (case ρ'5 of { True -> (rec _ccε' _ccε' _ccε' _ccε' _ccε'); False -> (case _ccε of { (,) ρ'6 ρ'7 -> ρ'7 }) }) }); False -> (case _cfε of { (,) ρ'8 ρ'9 -> (let (,) _ arg = _cfε'3 in arg) }) }) }
+        _cε = case _cfε'2 of { (,) ρ ρ' -> (,) (let (,) _ arg = _cfε'3 in arg) (let (,) arg _ = _cfε' in arg) }
+        _cε' = case _cε of { (,) ρ'10 ρ'11 -> (,) ρ'11 ρ'10 }
+        in case _cfε'4 of { (,) ρ'2 ρ'3 -> (case (let (,) _ arg = _cfε'3 in arg) of { True -> (case _cε of { (,) ρ'4 ρ'5 -> (case ρ'5 of { True -> (rec _cε' _cε' _cε' _cε' _cε'); False -> (case _cε of { (,) ρ'6 ρ'7 -> ρ'7 }) }) }); False -> (case _cfε of { (,) ρ'8 ρ'9 -> (let (,) _ arg = _cfε'3 in arg) }) }) }
   _0 = (,) True False
   in (rec _0 _0 _0 _0 _0)
 
