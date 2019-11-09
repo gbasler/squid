@@ -12,7 +12,14 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   
   type Condition = Map[Instr, CallMaybe]
   object Condition {
-    def merge(lhs: Condition, rhs: Condition): Opt[Condition] = Some {
+    def merge(lhs: Condition, rhs: Condition): Opt[Condition] = {
+      val res = mergeImpl(lhs, rhs)
+      // A sanity check; can be useful to enable:
+      //val res2 = mergeImpl(rhs, lhs)
+      //assert(res === res2, (lhs,rhs,res,res2))
+      res
+    }
+    private def mergeImpl(lhs: Condition, rhs: Condition): Opt[Condition] = Some {
       val commonKeys = lhs.keySet & rhs.keySet
       lhs ++ (rhs -- commonKeys) ++ commonKeys.iterator.map { k =>
         val l = lhs(k)
@@ -504,9 +511,13 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case (c0: CallId, c1: CallId) => c0 optionIf c0 === c1
     }
   }
-  case class CallNot(cids: List[CallId]) extends CallMaybe {
+  abstract case class CallNot(cids: List[CallId]) extends CallMaybe {
     assert(cids.nonEmpty)
     override def toString = s"!{${cids.mkString(",")}}"
+  }
+  object CallNot {
+    // We sort the cids so that we can later compare CallNot-s by simple structural equality
+    def apply(cids: List[CallId]): CallNot = new CallNot(cids.sortBy(_.uid)){}
   }
   class CallId(val v: Var, val uid: Int) extends CallMaybe {
     def color = if (uid === -1) Debug.GREY else
