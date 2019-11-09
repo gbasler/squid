@@ -7,8 +7,8 @@
 -- Case reductions:  10
 -- Field reductions: 20
 -- Case commutings:  0
--- Total nodes: 194; Boxes: 48; Branches: 61
--- Apps: 17; Lams: 4
+-- Total nodes: 198; Boxes: 48; Branches: 61
+-- Apps: 19; Lams: 4
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -27,7 +27,7 @@ alternate'0 =
 
 alternate = \ds -> 
   let rec π π' = π' : (rec π' π) in
-  case ds of { (,) ρ ρ' -> ρ : (rec ρ ρ') }
+  (case ds of { (,) ρ ρ' -> ρ }) : (case ds of { (,) ρ'2 ρ'3 -> (rec ρ'2 ρ'3) })
 
 oops'0 = 
   let rec xs xs' xs'2 = 

@@ -318,7 +318,41 @@ class GraphIR extends GraphDefs {
                     }
                     again()
                   }
-                  else continue()
+                  else {
+                    val ctorArms = arms.flatMap { case (c,a,r) =>
+                      val paths = r.pathsToCtorApps.filter(_.cnd.isEmpty) // TODO generalize to paths having branches
+                      assert(paths.size <= 1, paths) // Note: I've seen this fail when paths used to get messed up
+                      paths.take(1).map(p => (c,a,p))
+                    }
+                    if (ctorArms.size === arms.size) {
+                      val sameCtorArmGroups = ctorArms.groupBy(_._3.modRef)
+                      //println(sameCtorArmGroups)
+                      if (sameCtorArmGroups.size === 1 && sameCtorArmGroups.head._2.forall(p =>
+                        p._3.throughRecElims < UnrollingFactor && p._3.throughRecIntros < UnrollingFactor))
+                      {
+                        val (sameCtor, sameCtorArms) = sameCtorArmGroups.head
+                        println(s"CASE-ARM/CTOR (${sameCtor}) ${sameCtorArms.map(x =>
+                          "<<"+x._3.refsRev.reverse.map(cr => s"[${cr._1}]${cr._2}")
+                            .mkString(" ")+s" +${x._3.throughRecIntros} -${x._3.throughRecElims}>>").mkString(" ")}")
+                        assert(sameCtorArms.size === arms.size)
+                        assert(sameCtorArms.nonEmpty)
+                        val argsNum = sameCtorArms.head._3.refsRev.size
+                        assert(sameCtorArms.tail.forall(_._3.refsRev.size === argsNum))
+                        ref.node = sameCtorArms.head._3.refsRev.indices.foldLeft[ConcreteNode](sameCtor) {
+                          case (apps, idx) =>
+                            val newCase = Case(scrut, sameCtorArms.map { case (ctorName, arity, cPath) =>
+                              val (i,r) = cPath.refsRev(argsNum - idx - 1) // the refs are reversed in CtorPath
+                              val ctrl = Control.mkRef(i, r, cPath.throughRecIntros, cPath.throughRecElims)
+                              (ctorName, arity, ctrl)
+                            })
+                            App(apps.mkRef, newCase.mkRef)
+                        }
+                        again()
+                      }
+                      else continue()
+                    }
+                    else continue()
+                  }
                 }
             }
             

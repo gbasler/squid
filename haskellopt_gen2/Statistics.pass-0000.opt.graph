@@ -1,21 +1,17 @@
 -- Beta reductions:  5
 -- Incl. one-shot:  0
--- Case reductions:  11
--- Field reductions:  18
--- Case commutings:  11
+-- Case reductions:  15
+-- Field reductions:  16
+-- Case commutings:  9
 module Statistics where
   lastWeird = []λ_5e
     λ_5e = \ds'28 -> ψ_5d;
-    ψ_5d = case ds_4b of { : -> ψ_5b; [] -> Nothing };					(x2)
+    ψ_5d = case ds_4b of { : -> Just @ _cf; [] -> Nothing };
     ds_4b = ds'28:0 ? [∅-1]ds_4b.:#1 ¿ ds'28;					(x3)
-    ψ_5b = case ds_4b.:#1 of { [] -> Just @ ds_4b.:#0; _ -> [+1]ψ_db };
-    ψ_db = case [+1-1]ds_4b.:#1 of { : -> [+1]ψ_e1; [] -> [+1]β_59 };					(x2)
-    ψ_e1 = case [ds'28:0↑[↓]+1]ds_4b.:#1 of { [] -> [+1]β_54; _ -> ψ_df };
-    β_54 = Just @ []π_6c;					(x2)
-    π_6c = case [ds'28:0↑[↓]+1]ds_4b.:#1 of { [] -> [ds'28:0↑[↓]+1]ds_4b.:#0; _ -> []π_72 };					(x2)
-    π_72 = case [ds'28:0↑[↓];ds'28:0↑[↓]+2]ψ_5d of { Just -> [ds'28:0↑[↓]+1]π_6c; Nothing -> 666 };
-    ψ_df = case [ds'28:0↑[↓]+2]ψ_db of { Just -> β_54; Nothing -> β_59 };
-    β_59 = Just @ 666;					(x2)
+    _cf = case ds_4b.:#1 of { [] -> ds_4b.:#0; _ -> _60 };
+    _60 = [+1]ψ_d5;					(x2)
+    ψ_d5 = case [+1-1]ds_4b.:#1 of { : -> [+1]π_6e; [] -> 666 };
+    π_6e = case [ds'28:0↑[↓]+1]ds_4b.:#1 of { [] -> [ds'28:0↑[↓]+1]ds_4b.:#0; _ -> [ds'28:0↑[↓]+1]_60 };
   lastMaybe = []λ_49
     λ_49 = \ds'21 -> ψ_48;
     ψ_48 = case ds_3f of { : -> ψ_46; [] -> Nothing };					(x2)
@@ -25,35 +21,36 @@ module Statistics where
     λ_3d = \ds'13 -> ψ_3c;
     ψ_3c = case ds_2b of { : -> ψ_3a; [] -> Nothing };					(x4)
     ds_2b = ds'13:2 ? [∅-1]ds_2b.:#1 ¿ ds'13;					(x3)
-    ψ_3a = [+1]ψ_e7;					(x2)
-    ψ_e7 = case [+1-1]ds_2b.:#1 of { : -> ψ_e3; [] -> [+1]β_39 };
-    ψ_e3 = case [ds'13:2↑[↓]+1]ψ_3a of { Just -> ψ_37; Nothing -> β_39 };
+    ψ_3a = [+1]ψ_db;					(x2)
+    ψ_db = case [+1-1]ds_2b.:#1 of { : -> ψ_d7; [] -> [+1]β_39 };
+    ψ_d7 = case [ds'13:2↑[↓]+1]ψ_3a of { Just -> ψ_37; Nothing -> β_39 };
     ψ_37 = case β_34 of { True -> Just @ ds_2b.:#0; False -> [ds'13:2↑[↓]+1]ψ_3c };
-    β_34 = ds_2b.:#0 > []π_82;					(x2)
-    π_82 = case [ds'13:2↑[↓];ds'13:2↑[↓]+2]ψ_3c of { Just -> []π_88; Nothing -> [ds'13:2↑[↓]+1]ds_2b.:#0 };
-    π_88 = case [ds'13:2↑[↓]+1]β_34 of { True -> [ds'13:2↑[↓]+1]ds_2b.:#0; False -> [ds'13:2↑[↓];ds'13:2↑[↓]+2]ψ_3c.Just#0 };
+    β_34 = ds_2b.:#0 > []π_7e;					(x2)
+    π_7e = case [ds'13:2↑[↓];ds'13:2↑[↓]+2]ψ_3c of { Just -> []π_84; Nothing -> [ds'13:2↑[↓]+1]ds_2b.:#0 };
+    π_84 = case [ds'13:2↑[↓]+1]β_34 of { True -> [ds'13:2↑[↓]+1]ds_2b.:#0; False -> [ds'13:2↑[↓];ds'13:2↑[↓]+2]ψ_3c.Just#0 };
     β_39 = Just @ ds_2b.:#0;					(x2)
-  maxTest'0 = [ds'4:3↑]_cε_ea
-    _cε_ea = case β_e9 of { Just -> Just @ ψ_13; Nothing -> β_16 };					(x2)
-    β_e9 = [∅]ds'4:3 & ds'4:4 ? [ds'4:4↑[↓]+1-1]ψ_17 ¿ [ds'4:4↑[↓]+1]_cε_d0;
-    ψ_17 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? [+1-1]β_16 ¿ _cε_ea;					(x5)
-    β_16 = Just @ π_9;					(x2)
-    π_9 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? 3 ¿ _fε_9e;					(x4)
-    _fε_9e = ds'4:4 & [∅]ds'4:3 ? 2 ¿ _fε_a7;
-    _fε_a7 = ds'4:3 ? 1 ¿ ds_ε_a5.:#0;
-    ds_ε_a5 = ds'4:4 ? [∅-1]ds_ε_99.:#1 ¿ ds'4;
-    ds_ε_99 = ds'4:4 ? [∅-1]ds_ε_99.:#1 ¿ ds'4;
-    _cε_d0 = ds'4:4 & [∅]ds'4:3 ? [-1]ψ_17 ¿ _cε_d4;					(x2)
-    _cε_d4 = case ds_ε_d3 of { : -> ψ_17; [] -> Nothing };
-    ds_ε_d3 = ds'4:4 ? [∅-1]ds_ε_99.:#1 ¿ ds'4;
-    ψ_13 = case π_9 > π_d of { True -> π_9; False -> π_d };					(x2)
-    π_d = []π_b0;					(x2)
-    π_b0 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? Prelude.undefined ¿ _cε_b6;
-    _cε_b6 = ds'4:3 ? [+1-1]π_c2 ¿ _cε_bb;
-    π_c2 = case [ds'4:4↑[↓];ds'4:4↑[↓]+2]_cε_8b of { Just -> [ds'4:4↑[↓]+1]ψ_13; Nothing -> [ds'4:4↑[↓]+1]π_9 };					(x3)
-    _cε_8b = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? [-1]ψ_17 ¿ _cε_cb;					(x2)
-    _cε_cb = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:4 & [∅;∅;∅]ds'4:3 ? Nothing ¿ _cε_d0;
-    _cε_bb = [∅]ds'4:3 & ds'4:4 ? [+1-1]π_c2 ¿ []π_c2;
+  maxTest'0 = [ds'4:3↑]ψ_17
+    ψ_17 = Just @ _89;					(x5)
+    _89 = ds'4:3 ? [+1-1]ψ_13 ¿ _cε_df;
+    ψ_13 = case π_9 > π_d of { True -> π_9; False -> π_d };					(x3)
+    π_9 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? 3 ¿ _fε_9c;					(x4)
+    _fε_9c = ds'4:4 & [∅]ds'4:3 ? 2 ¿ _fε_a5;
+    _fε_a5 = ds'4:3 ? 1 ¿ ds_ε_a3.:#0;
+    ds_ε_a3 = ds'4:4 ? [∅-1]ds_ε_97.:#1 ¿ ds'4;
+    ds_ε_97 = ds'4:4 ? [∅-1]ds_ε_97.:#1 ¿ ds'4;
+    π_d = []π_ae;					(x2)
+    π_ae = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? Prelude.undefined ¿ _cε_b4;
+    _cε_b4 = ds'4:3 ? [+1-1]π_aa ¿ _cε_b9;
+    π_aa = [ds'4:4↑[↓]+1]_cε_df;					(x2)
+    _cε_df = [∅]ds'4:3 & ds'4:4 ? [+1-1]ψ_13 ¿ _cε_e2;					(x3)
+    _cε_e2 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? [+1-1]π_9 ¿ [+1]_cε_ec;
+    _cε_ec = case [+1-1]ds_ε_97.:#1 of { : -> [+1]ψ_13; [] -> [+1]π_9 };
+    _cε_b9 = [∅]ds'4:3 & ds'4:4 ? [+1-1]π_aa ¿ [ds'4:4↑[↓]+1]_cε_df;
   maxMaybe0 = []λ_1a
     λ_1a = \ds'4 -> ψ_19;
-    ψ_19 = ds'4:3 ? ψ_17 ¿ _cε_8b;
+    ψ_19 = ds'4:3 ? ψ_17 ¿ _cε_87;
+    _cε_87 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? [-1]ψ_17 ¿ _cε_c3;
+    _cε_c3 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:4 & [∅;∅;∅]ds'4:3 ? Nothing ¿ _cε_c8;
+    _cε_c8 = ds'4:4 & [∅]ds'4:3 ? [-1]ψ_17 ¿ _cε_cc;
+    _cε_cc = case ds_ε_cb of { : -> ψ_17; [] -> Nothing };
+    ds_ε_cb = ds'4:4 ? [∅-1]ds_ε_97.:#1 ¿ ds'4;

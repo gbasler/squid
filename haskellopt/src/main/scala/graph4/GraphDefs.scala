@@ -138,7 +138,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       Condition.merge(cnd, p.cnd).map(Path(p.in, _, p.throughRecIntros, p.throughRecElims))
   }
   
-  case class CtorPath(modRef: ModuleRef, refs: List[Instr -> Ref], cnd: Condition, throughRecIntros: Int, throughRecElims: Int) extends AnyPath
+  case class CtorPath(modRef: ModuleRef, refsRev: List[Instr -> Ref], cnd: Condition, throughRecIntros: Int, throughRecElims: Int) extends AnyPath
   object CtorPath {
     def empty(mod: ModuleRef): CtorPath = CtorPath(mod, Nil, Map.empty, 0, 0)
     def throughControl(cnt: Control, p: CtorPath): Opt[CtorPath] = {
@@ -146,12 +146,12 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       val tri = p.throughRecIntros + cnt.recIntros
       if (tre > UnrollingFactor || tri > UnrollingFactor) return None
       val newCond = Condition.throughControl(cnt.i, p.cnd).getOrElse(return None)
-      Some(CtorPath(p.modRef, p.refs.map(arg => (cnt.i `;` arg._1, arg._2)), newCond, tri, tre))
+      Some(CtorPath(p.modRef, p.refsRev.map(arg => (cnt.i `;` arg._1, arg._2)), newCond, tri, tre))
     }
     def throughBranchLHS(cnd: Condition, p: CtorPath): Opt[CtorPath] =
-      Condition.merge(cnd, p.cnd).map(CtorPath(p.modRef, p.refs, _, p.throughRecIntros, p.throughRecElims))
+      Condition.merge(cnd, p.cnd).map(CtorPath(p.modRef, p.refsRev, _, p.throughRecIntros, p.throughRecElims))
     def throughRef(ref: Ref, p: CtorPath): CtorPath =
-      CtorPath(p.modRef, (Id -> ref) :: p.refs, p.cnd, p.throughRecIntros, p.throughRecElims)
+      CtorPath(p.modRef, (Id -> ref) :: p.refsRev, p.cnd, p.throughRecIntros, p.throughRecElims)
   }
   
   val Bottom = ModuleRef("Prelude", "undefined")
@@ -706,7 +706,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
             + r.usedPathsToLambdas.map(p => s"\n\t  -X- ${Condition.show(p.cnd)} --> [${p.in}]").mkString
           ) else if (showCtorPaths) (str
             + r.pathsToCtorApps.map(pc => s"\n\t  -- ${Condition.show(pc.cnd)} --> ${pc.modRef}${
-                pc.refs.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}  +${pc.throughRecIntros} -${pc.throughRecElims}").mkString
+                pc.refsRev.reverseIterator.map(arg => s" [${arg._1}]${arg._2}").mkString}  +${pc.throughRecIntros} -${pc.throughRecElims}").mkString
           ) else str
         } :: Nil
         else Nil

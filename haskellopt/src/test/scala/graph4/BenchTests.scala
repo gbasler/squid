@@ -30,4 +30,11 @@ class BenchTests extends FunSuite {
     )
   )
   
+  test("StatisticsBench") (
+    TestHarness("StatisticsBench",
+    )(
+      check('maxMaybe, List(1,3,2,0))(Some(3)),
+    )
+  )
+  
 }

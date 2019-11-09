@@ -4,11 +4,11 @@
 --   desugar
 -- Beta reductions:  36
 -- Incl. one-shot:   1
--- Case reductions:  46
--- Field reductions: 56
--- Case commutings:  11
--- Total nodes: 848; Boxes: 95; Branches: 181
--- Apps: 134; Lams: 16
+-- Case reductions:  43
+-- Field reductions: 55
+-- Case commutings:  7
+-- Total nodes: 1040; Boxes: 105; Branches: 284
+-- Apps: 143; Lams: 16
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -25,9 +25,9 @@ import GHC.Prim
 import GHC.Tuple
 import GHC.Types
 
-f0'f1' = case (24::Int) > (0::Int) of { True -> Just ((24::Int) + (1::Int)); False -> Just (0::Int) }
+f0'f1' = Just (case (24::Int) > (0::Int) of { True -> (24::Int) + (1::Int); False -> (0::Int) })
 
-f0'f1 = case (42::Int) > (0::Int) of { True -> Just ((42::Int) + (1::Int)); False -> Just (0::Int) }
+f0'f1 = Just (case (42::Int) > (0::Int) of { True -> (42::Int) + (1::Int); False -> (0::Int) })
 
 f1'2 = case (5::Int) > (0::Int) of { True -> (5::Int); False -> (0::Int) }
 
@@ -37,9 +37,7 @@ f1'0 = case (4::Int) > (0::Int) of { True -> Just (4::Int); False -> Nothing }
 
 f1 = \x -> case x > (0::Int) of { True -> Just x; False -> Nothing }
 
-f0'4 = \x -> 
-  let _0 = Just ((case x of { Just ρ' -> ρ' + (1::Int); Nothing -> (0::Int) }) + (1::Int)) in
-  case x of { Just ρ -> _0; Nothing -> _0 }
+f0'4 = \x -> Just ((case x of { Just ρ -> ρ + (1::Int); Nothing -> (0::Int) }) + (1::Int))
 
 f0'3 = Just ((0::Int) + (1::Int))
 
@@ -49,7 +47,7 @@ f0'1 = Just (0::Int)
 
 f0'0 = Just ((2::Int) + (1::Int))
 
-f0 = \ds -> case ds of { Just ρ -> Just (ρ + (1::Int)); Nothing -> Just (0::Int) }
+f0 = \ds -> Just (case ds of { Just ρ -> ρ + (1::Int); Nothing -> (0::Int) })
 
 f2'0 = ((1::Int) + (2::Int)) + (3::Int)
 

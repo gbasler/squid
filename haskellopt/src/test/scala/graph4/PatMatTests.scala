@@ -66,12 +66,10 @@ class PatMatTests extends FunSuite {
   )
   
   test("Statistics") (
-    // Note: Seems like we can't optimize this, because the case scrutinizes itself recursively...
-    //       We can't commute it past an arbitrary number of cases).
+    // Note: Optimized `maxMaybe0` thanks to case-arm/ctor commuting!
+    //       However, `maxMaybe1` is harder to optimize because it resuses the scrutinee; would require some flow analysis!
+    // Note: nicely, maxTest'0 gets fully partially evaluated!
     TestHarness("Statistics",
-      // FIXME scheduled `maxMaybe0` returns the wrong result: ignores last elt of even-sized lists and crashes on odd-sized ones!
-      //   See the simpler function `lastMaybe`, which exhibits the same problem...
-      // TODO the `maxTest'0` function is not fully PE'd
       //prefixFilter = "maxMaybe0",
       //prefixFilter = "lastMaybe",
       //prefixFilter = "lastWeird",
