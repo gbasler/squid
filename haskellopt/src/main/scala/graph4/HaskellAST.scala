@@ -417,6 +417,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       }
       go(body.freeIdents.filter(nodes.isDefinedAt).toList)
       
+      //assert(ordered.size <= defs.size, (ordered.size, defs.size))
       assert(ordered.size === defs.size, (ordered.size, defs.size))
       multiple(ordered.reverse.map(nodes), body)
     }

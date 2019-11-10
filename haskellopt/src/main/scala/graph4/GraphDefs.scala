@@ -187,7 +187,11 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         var iStr = if (i === Id) "" else i.toString
         if (c.recIntros > 0) iStr += "+" + c.recIntros
         if (c.recElims > 0) iStr += "-" + c.recElims
-        s"[$iStr]${b.subString}"
+        s"[$iStr]${b.subString}" // Note that this is not ambiguous: [i]x#f is [i](x#f) and not ([i]x)#f
+        //s"[$iStr]${b.node match {
+        //  case _: CtorField => "("+b.subString+")"
+        //  case _ => b.subString
+        //}}"
       case Branch(c, t, e) => s"${Condition.show(c)} $BOLD?$RESET $t $BOLD¿$RESET $e"
       case l @ Lam(p, b) => s"\\${l.param} -> $b"
       case IntBoxing(n) => s"$n"

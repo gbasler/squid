@@ -18,6 +18,10 @@ abstract class GraphScheduler { self: GraphIR =>
     val AST: HaskellAST { type Ident = Var }
     val modDefStrings: List[Str]
     
+    def usesLenses: Bool
+    def mayUseLenses: Bool
+    def usesTupleSelectors: Bool
+    
     private val nameCounts = mutable.Map.empty[String, Int]
     private val nameAliases = mutable.Map.empty[Var, String]
     protected def resetVarPrintingState(): Unit = { nameCounts.clear(); nameAliases.clear() }
@@ -26,10 +30,16 @@ abstract class GraphScheduler { self: GraphIR =>
       val nme = v.name
         //.takeWhile(_ =/= '$') // don't think I currently use dollar signs
         .stripPrefix("β") // most intermediate expressions end up having a β name; it's better to just remove it
+        //.stripPrefix("π")
+        //.replaceAll("π", "c")
         .stripSuffix("_ε") // I use these suffixes to make debugging graph dumps easier, but they're very ugly
       val cnt = nameCounts.getOrElse(nme, 0)
       nameCounts(nme) = cnt+1
-      if (nme.isEmpty) "_"+cnt else // annoyance with leading underscores is that GHC thinks they are type holes when their definition is missing... 
+      if (nme.isEmpty) {
+        // Note: an annoyance with leading underscores is that GHC thinks they are type holes when their definition is missing...
+        if (mayUseLenses) "_t"+cnt // lens selectors use _1, _2, etc. so we shouldn't use these names
+        else "_"+cnt
+      } else
       //if (nme.isEmpty) "t"+cnt else
       cnt match {
         case 0 => nme
@@ -57,6 +67,10 @@ abstract class GraphScheduler { self: GraphIR =>
       CurriedParameters
     
     def toHaskell(imports: List[String], ghcVersion: String): String = {
+      val allImports: List[Str] = List(
+        "Control.Lens" optionIf usesLenses,
+        "Data.Tuple.Select" optionIf usesTupleSelectors, 
+      ).flatten ::: imports
       def commentLines(str: String) = str.split("\n").map("--   "+_).mkString("\n")
       //HaskellScheduleDebug debugFor
       s"""
@@ -78,7 +92,7 @@ abstract class GraphScheduler { self: GraphIR =>
       |
       |module ${mod.modName} (${mod.modDefs.map(_._1).mkString(",")}) where
       |
-      |${imports.map("import "+_).mkString("\n")}
+      |${allImports.map("import "+_).mkString("\n")}
       |
       |${modDefStrings.mkString("\n\n")}
       |""".tail.stripMargin
@@ -93,6 +107,10 @@ abstract class GraphScheduler { self: GraphIR =>
   
   /** Does not work with recursive functions! */
   class NaiveScheduler(val mod: GraphModule) extends Scheduler {
+    
+    val usesLenses = false
+    val mayUseLenses = false
+    val usesTupleSelectors = false
     
     object AST extends HaskellAST(pp) {
       type Ident = Var
@@ -133,6 +151,18 @@ abstract class GraphScheduler { self: GraphIR =>
   }
   
   class SmartScheduler(val mod: GraphModule) extends Scheduler { scheduler =>
+    
+    object ScopeAccessMethod extends Enumeration {
+      val Case, Selector, Lens = Value
+    }
+    val scopeAccessMethod: ScopeAccessMethod.Value =
+      ScopeAccessMethod.Selector
+      //scopeAccessMethod.Lens
+      //scopeAccessMethod.Case
+    
+    var usesLenses = false
+    val mayUseLenses = scopeAccessMethod === ScopeAccessMethod.Lens
+    var usesTupleSelectors = false
     
     object AST extends HaskellAST(pp) {
       type Ident = Var
@@ -255,13 +285,43 @@ abstract class GraphScheduler { self: GraphIR =>
       override def toString = if (children.isEmpty || nde.isSimple) nde.toString else children.mkString(s"($nde)[",",","]")
     }
     case class ScopeAccess(scp: Scope, v: Var, in: Instr, r: Ref) extends Scheduled {
+      private def mkSelection(prefix: AST.Expr, idx: Int) = {
+        if (scopeAccessMethod === ScopeAccessMethod.Lens) {
+          usesLenses = true
+          AST.App(AST.App(AST.Inline("(^.)"), prefix), AST.Inline(s"_${idx+1}"))
+        }
+        else if (scopeAccessMethod === ScopeAccessMethod.Selector) {
+          usesTupleSelectors = true
+          AST.App(AST.Inline(s"sel${idx+1}"), prefix)
+        }
+        else AST.CtorField(prefix, scp.returnsTupleCtor, scp.returns.size, idx)
+      }
       def toExpr: AST.Expr = scp.recursiveParent match {
-        case Some(rec) =>
-          assert(rec.returns.size === 1) // TODO actually index into the callIdent if several returns
-          AST.Vari(scp.callIdent)
-        case None => if (scp.isRecursive) {
-          assert(scp.returns.size === 1) // TODO actually index into the callIdent if several returns
-          AST.Vari(scp.callIdent)
+        case Some(rec) => // recursive function call
+          val scp = rec
+          val callVari = AST.Vari(this.scp.callIdent)
+          if (scp.returns.size > 1) {
+            
+            // FIXME the following does not work, weirdly — to investigate!
+            //val idx = scp.returns.indexWhere(_._1 === (in,r))
+            val idx = scp.returns.indexWhere(_._1._2 === r) // BAD: could lead to confusion!
+            
+            assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
+            
+            //assert(scp.returns.count(_._1._2 === r) === 1) // seems to fail with higher unrolling factors
+            // ^ FIXME fails for maxMaybe1
+            
+            mkSelection(callVari, idx)
+          }
+          else callVari
+        case None => if (scp.isRecursive) { // call to recursive function
+          val callVari = AST.Vari(scp.callIdent)
+          if (scp.returns.size > 1) {
+            val idx = scp.returns.indexWhere(_._1 === (in,r))
+            assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
+            mkSelection(callVari, idx)
+          }
+          else callVari
         } else AST.Vari(scp.toIdent(in,r))
       }
     }
@@ -333,6 +393,8 @@ abstract class GraphScheduler { self: GraphIR =>
       var params: List[IRef -> Scheduled] = Nil
       var returns: List[IRef -> Scheduled] = Nil
       var delayedEntries: List[IRef] = Nil
+      
+      def returnsTupleCtor: Str = "(" + "," * (returns.size - 1) + ")"
       
       var bindings: List[Either[IRef -> Scheduled, Call]] = Nil
       val bound: mutable.Set[IRef] = mutable.Set.empty
@@ -499,7 +561,7 @@ abstract class GraphScheduler { self: GraphIR =>
           val ret = returns match {
             case Nil => die
             case (_, r) :: Nil => r.toExpr
-            case _ => returns.foldLeft[AST.Expr](AST.Inline("(" + "," * (returns.size - 1) + ")")) {
+            case _ => returns.foldLeft[AST.Expr](AST.Inline(returnsTupleCtor)) {
               case (app, (_, r)) => AST.App(app, r.toExpr) }
           }
           Sdebug(s"Ret: ${ret.stringify}")

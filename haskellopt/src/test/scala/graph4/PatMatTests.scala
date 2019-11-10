@@ -64,14 +64,23 @@ class PatMatTests extends FunSuite {
     // Note: Seems like we can't optimize this, because the case scrutinizes itself recursively...
     //       We can't commute it past an arbitrary number of cases).
     TestHarness("Statistics",
+      // FIXME scheduled `maxMaybe0` returns the wrong result: ignores last elt of even-sized lists and crashes on odd-sized ones!
+      //   See the simpler function `lastMaybe`, which exhibits the same problem...
+      // TODO the `maxTest'0` function is not fully PE'd
       //prefixFilter = "maxMaybe0",
+      //prefixFilter = "lastMaybe",
       dumpGraph = true,
-      schedule = false // TODO handle scheduling of multi-returns
     )(
       check('maxMaybe0, Nil)(None),
+      check('maxMaybe0, List(1,2,3))(Some(3)),
       check('maxMaybe0, List(1,2,3,1))(Some(3)),
       check('maxMaybe1, List(1,2,3,1))(Some(3)),
+      check('lastMaybe, Nil)(None),
+      check('lastMaybe, List(1,2,3))(Some(3)),
+      check('lastWeird, Nil)(None),
+      check('lastWeird, List(1,2,3,4))(Some(4)),
     )
+    // TODO test by shelling out: ghci -e "lastMaybeWeird [1,2,3,4]" Statistics.pass-0000.opt.hs
   )
   
   test("IterEither") (
