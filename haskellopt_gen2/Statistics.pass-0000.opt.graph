@@ -34,10 +34,9 @@ module Statistics where
     π_88 = case [ds'13:2↑[↓]+1]β_34 of { True -> [ds'13:2↑[↓]+1]ds_2b.:#0; False -> [ds'13:2↑[↓];ds'13:2↑[↓]+2]ψ_3c.Just#0 };
     β_39 = Just @ ds_2b.:#0;					(x2)
   maxTest'0 = [ds'4:3↑]_cε_ea
-    _cε_ea = case [ds'4:4↑[↓]+1]_cε_e8 of { Just -> Just @ ψ_13; Nothing -> β_16 };					(x2)
-    _cε_e8 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? _cc ¿ _cε_d0;
-    _cc = [-1]ψ_17;					(x2)
-    ψ_17 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? [+1-1]β_16 ¿ _cε_ea;					(x4)
+    _cε_ea = case β_e9 of { Just -> Just @ ψ_13; Nothing -> β_16 };					(x2)
+    β_e9 = [∅]ds'4:3 & ds'4:4 ? [ds'4:4↑[↓]+1-1]ψ_17 ¿ [ds'4:4↑[↓]+1]_cε_d0;
+    ψ_17 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? [+1-1]β_16 ¿ _cε_ea;					(x5)
     β_16 = Just @ π_9;					(x2)
     π_9 = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? 3 ¿ _fε_9e;					(x4)
     _fε_9e = ds'4:4 & [∅]ds'4:3 ? 2 ¿ _fε_a7;
@@ -52,7 +51,7 @@ module Statistics where
     π_b0 = [∅]ds'4:4 & [∅;∅]ds'4:3 & ds'4:4 ? Prelude.undefined ¿ _cε_b6;
     _cε_b6 = ds'4:3 ? [+1-1]π_c2 ¿ _cε_bb;
     π_c2 = case [ds'4:4↑[↓];ds'4:4↑[↓]+2]_cε_8b of { Just -> [ds'4:4↑[↓]+1]ψ_13; Nothing -> [ds'4:4↑[↓]+1]π_9 };					(x3)
-    _cε_8b = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? _cc ¿ _cε_cb;					(x2)
+    _cε_8b = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:3 ? [-1]ψ_17 ¿ _cε_cb;					(x2)
     _cε_cb = ds'4:4 & [∅]ds'4:4 & [∅;∅]ds'4:4 & [∅;∅;∅]ds'4:3 ? Nothing ¿ _cε_d0;
     _cε_bb = [∅]ds'4:3 & ds'4:4 ? [+1-1]π_c2 ¿ []π_c2;
   maxMaybe0 = []λ_1a

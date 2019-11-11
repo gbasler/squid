@@ -63,6 +63,14 @@ class GraphIR extends GraphDefs {
   val MaxPropagationDepth = 64
   val MaxPropagationWidth = 128
   
+  /** Whether to push control nodes into other nodes which are only referenced once (so it's okay to copy them).
+    * This sometimes overall increases the number of nodes, and in IterCont it turned a:
+    *   `rec f = f (rec f)`
+    * into a:
+    *   `rec f = f (f (rec f))` */
+  val rewriteSingleReferenced = true
+  //val rewriteSingleReferenced = false
+  
   val useOnlyIntLits = true
   
   
@@ -197,8 +205,31 @@ class GraphIR extends GraphDefs {
                 ref.node = Control(i, if (b) t else e)(cn.recIntros, cn.recElims)
                 again()
               case None =>
-                continue()
+                if (rewriteSingleReferenced && i.isInstanceOf[Push] && br.references.size === 1) {
+                  Condition.throughControl(i,c) match {
+                    case Some(newCnd) =>
+                      println(s"CONTROL/BRANCHx1 ${ref.showDef}")
+                      ref.node = Branch(newCnd,
+                        Control(i, t)(cn.recIntros, cn.recElims).mkRefFrom(ref),
+                        Control(i, e)(cn.recIntros, cn.recElims).mkRefFrom(ref))
+                      again()
+                    case None => continue()
+                  }
+                }
+                else continue()
             }
+            
+          case cn @ Control(i: Push, ap @ NodeRef(App(lhs,rhs))) if rewriteSingleReferenced && ap.references.size === 1 =>
+            println(s"CONTROL/APPx1 ${ref.showDef}")
+            ref.node = App(Control(i, lhs)(cn.recIntros, cn.recElims).mkRefFrom(ref), Control(i, rhs)(cn.recIntros, cn.recElims).mkRefFrom(ref))
+            again()
+          case cn @ Control(i: Push, cs @ NodeRef(Case(scrut,arms))) if rewriteSingleReferenced && cs.references.size === 1 =>
+            println(s"CONTROL/CASEx1 ${ref.showDef}")
+            ref.node = Case(Control(i, scrut)(cn.recIntros, cn.recElims).mkRefFrom(ref), arms.map {
+              case (ctorName, ctorArity, armBody) =>
+                (ctorName, ctorArity, Control(i, armBody)(cn.recIntros, cn.recElims).mkRefFrom(ref))
+            })
+            again()
             
           case c0 @ Control(i0, r @ NodeRef(k: ConstantNode)) =>
             ref.node = k

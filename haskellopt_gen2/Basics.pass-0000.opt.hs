@@ -7,7 +7,7 @@
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 1637; Boxes: 416; Branches: 372
+-- Total nodes: 1635; Boxes: 414; Branches: 372
 -- Apps: 292; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -29,8 +29,8 @@ foo_1 = \x -> (x + (1::Int)) * (2::Int)
 foo_2 = \x -> (x + (1::Int)) * x
 
 foo_3 = \x -> let
-  _1 = x * x
   _0 = (x + (1::Int)) * x
+  _1 = x * x
   in (_0 ^ _0) - (_1 ^ _1)
 
 fTest4 = let

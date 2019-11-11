@@ -7,7 +7,7 @@
 -- Case reductions:  11
 -- Field reductions: 18
 -- Case commutings:  11
--- Total nodes: 183; Boxes: 62; Branches: 32
+-- Total nodes: 185; Boxes: 64; Branches: 32
 -- Apps: 16; Lams: 4
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -63,11 +63,11 @@ maxMaybe1 = \ds -> let
   in case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case sel5 rec_call of { Just ρ'4 -> (case ρ > (case sel4 rec_call of { Just ρ'5 -> (case sel3 rec_call of { True -> π; False -> ρ'5 }); Nothing -> π }) of { True -> Just ρ; False -> sel1 rec_call }); Nothing -> _0 }); [] -> _0 }); [] -> Nothing }
 
 maxTest'0 = let
-  π = case Nothing of { Just ρ -> (case (3::Int) > Prelude.undefined of { True -> (3::Int); False -> Prelude.undefined }); Nothing -> (3::Int) }
-  ψ = case (2::Int) > π of { True -> (2::Int); False -> π }
   _0 = Just (3::Int)
-  π' = case _0 of { Just ρ'3 -> ψ; Nothing -> (2::Int) }
-  in case case _0 of { Just ρ' -> Just ψ; Nothing -> Just (2::Int) } of { Just ρ'2 -> Just (case (1::Int) > π' of { True -> (1::Int); False -> π' }); Nothing -> Just (1::Int) }
+  π' = case Nothing of { Just ρ'3 -> (case (3::Int) > Prelude.undefined of { True -> (3::Int); False -> Prelude.undefined }); Nothing -> (3::Int) }
+  ψ = case (2::Int) > π' of { True -> (2::Int); False -> π' }
+  π = case _0 of { Just ρ'2 -> ψ; Nothing -> (2::Int) }
+  in case case _0 of { Just ρ -> Just ψ; Nothing -> Just (2::Int) } of { Just ρ' -> Just (case (1::Int) > π of { True -> (1::Int); False -> π }); Nothing -> Just (1::Int) }
 
 maxMaybe0 = \ds -> let
   rec _fε = let
