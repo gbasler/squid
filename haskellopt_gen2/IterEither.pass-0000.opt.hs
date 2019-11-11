@@ -7,7 +7,7 @@
 -- Case reductions:  80
 -- Field reductions: 52
 -- Case commutings:  206
--- Total nodes: 5325; Boxes: 2052; Branches: 1645
+-- Total nodes: 5320; Boxes: 1997; Branches: 1645
 -- Apps: 140; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}

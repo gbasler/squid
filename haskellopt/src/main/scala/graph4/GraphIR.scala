@@ -180,8 +180,8 @@ class GraphIR extends GraphDefs {
             ref.node = Control(i0 `;` i1, body)(c0.recIntros + c1.recIntros, c0.recElims + c1.recElims)
             again()
             
-          case c0 @ Control(i0, r @ NodeRef(Bottom)) =>
-            ref.node = Bottom
+          case c0 @ Control(i0, r @ NodeRef(k: ConstantNode)) =>
+            ref.node = k
             
           // TODO should we remove controls over constants? How do scheduled programs look like then?
             
