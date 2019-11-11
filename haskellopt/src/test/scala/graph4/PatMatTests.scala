@@ -72,6 +72,8 @@ class PatMatTests extends FunSuite {
       // TODO the `maxTest'0` function is not fully PE'd
       //prefixFilter = "maxMaybe0",
       //prefixFilter = "lastMaybe",
+      //prefixFilter = "lastWeird",
+      //prefixFilter = "maxTest'0",
       dumpGraph = true,
     )(
       check('maxMaybe0, Nil)(None),

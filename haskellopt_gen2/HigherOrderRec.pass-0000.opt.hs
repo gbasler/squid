@@ -48,10 +48,10 @@ s = \f -> \x -> let
                     in _8 - (f (_9 - (f (rec'3 _9) * f (rec' _9))) * f (rec' _8))
               rec'2 p' = let
                     _3 = p' + (1::Int)
-                    _4 = _3 + (1::Int)
-                    _5 = _4 + (1::Int)
                     _6 = _3 + (1::Int)
                     _7 = _6 + (1::Int)
+                    _4 = _3 + (1::Int)
+                    _5 = _4 + (1::Int)
                     in _3 - (f (_4 - (f (rec'2 _4) * f (_5 - (f (rec'2 _5) * f (rec' _5))))) * f (_6 - (f (_7 - (f (rec'2 _7) * f (rec' _7))) * f (rec' _6))))
               in _1 - (f (rec'2 _1) * f (_2 - (f (rec'3 _2) * f (rec' _2))))
         in _0 - (f (rec _0) * f (rec' _0))
@@ -72,10 +72,10 @@ r = \f -> \unit ->
         f rec
 
 only_q = \f -> \x -> \y -> let
-              _0 = f y
               rec x' = 
                     let _1 = f x' in
                     f (f x) : (f _1 : (rec _1))
+              _0 = f y
               in f x : (f _0 : (rec _0))
 
 q_1 = 
