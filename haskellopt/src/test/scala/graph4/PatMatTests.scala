@@ -7,6 +7,8 @@ class PatMatTests extends FunSuite {
   object TestHarness extends TestHarness
   import CheckDSL._
   
+  // TODO: investigate why some tests raise the HaskellAST.Let.reorder warning
+  
   test("Motiv") (
     TestHarness("Motiv",
       //prefixFilter = "pgrm",
@@ -41,6 +43,7 @@ class PatMatTests extends FunSuite {
     TestHarness("PatMatRec",
       //prefixFilter = "t1",
       //prefixFilter = "t2'1 ",
+      //prefixFilter = "t1'2 ",
       //prefixFilter = "t2'1'5",
     )(
       check("t2'0'5")(List(-1, 1, -1, 1, -1)),

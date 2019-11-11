@@ -24,36 +24,36 @@ import GHC.Types
 
 s = \f -> \x -> let
         _0 = x + (1::Int)
-        rec' p'3 = let
+        rec p'3 = let
               _10 = p'3 + (1::Int)
               _11 = _10 + (1::Int)
-              rec'5 p'5 = let
+              rec'4 p'5 = let
                     _17 = p'5 + (1::Int)
                     _18 = _17 + (1::Int)
-                    in _17 - (f (_18 - (f (rec'5 _18) * f (rec' _18))) * f (rec' _17))
-              rec'4 p'4 = let
+                    in _17 - (f (rec _17) * f (_18 - (f (rec _18) * f (rec'4 _18))))
+              rec'5 p'4 = let
                     _12 = p'4 + (1::Int)
                     _15 = _12 + (1::Int)
                     _16 = _15 + (1::Int)
                     _13 = _12 + (1::Int)
                     _14 = _13 + (1::Int)
-                    in _12 - (f (_13 - (f (rec'4 _13) * f (_14 - (f (rec'4 _14) * f (rec' _14))))) * f (_15 - (f (_16 - (f (rec'4 _16) * f (rec' _16))) * f (rec' _15))))
-              in _10 - (f (rec'4 _10) * f (_11 - (f (rec'5 _11) * f (rec' _11))))
-        rec p = let
+                    in _12 - (f (_13 - (f (rec _13) * f (_14 - (f (rec _14) * f (rec'5 _14))))) * f (_15 - (f (_16 - (f (rec _16) * f (rec'5 _16))) * f (rec'5 _15))))
+              in _10 - (f (_11 - (f (rec _11) * f (rec'4 _11))) * f (rec'5 _10))
+        rec' p = let
               _1 = p + (1::Int)
               _2 = _1 + (1::Int)
-              rec'2 p'2 = let
+              rec'3 p'2 = let
                     _8 = p'2 + (1::Int)
                     _9 = _8 + (1::Int)
-                    in _8 - (f (rec _8) * f (_9 - (f (rec _9) * f (rec'2 _9))))
-              rec'3 p' = let
+                    in _8 - (f (_9 - (f (rec'3 _9) * f (rec' _9))) * f (rec' _8))
+              rec'2 p' = let
                     _3 = p' + (1::Int)
                     _4 = _3 + (1::Int)
                     _5 = _4 + (1::Int)
                     _6 = _3 + (1::Int)
                     _7 = _6 + (1::Int)
-                    in _3 - (f (_4 - (f (rec _4) * f (_5 - (f (rec _5) * f (rec'3 _5))))) * f (_6 - (f (_7 - (f (rec _7) * f (rec'3 _7))) * f (rec'3 _6))))
-              in _1 - (f (_2 - (f (rec _2) * f (rec'2 _2))) * f (rec'3 _1))
+                    in _3 - (f (_4 - (f (rec'2 _4) * f (_5 - (f (rec'2 _5) * f (rec' _5))))) * f (_6 - (f (_7 - (f (rec'2 _7) * f (rec' _7))) * f (rec' _6))))
+              in _1 - (f (rec'2 _1) * f (_2 - (f (rec'3 _2) * f (rec' _2))))
         in _0 - (f (rec _0) * f (rec' _0))
 
 r_2 = let

@@ -45,6 +45,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   val dropUnusedLets: Bool
   val inlineOneShotLets: Bool
   val inlineTrivialLets: Bool
+  val inlineCalls: Bool
   val commonSubexprElim: Bool
   val useOnlyIntLits: Bool
   
@@ -356,7 +357,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   }
   object Call {
     def apply(d: Lazy[Defn], args: List[Expr]): Expr =
-      if (!d.isComputing && d.value.toBeInlined) d.value.inline(args) else 
+      if (inlineCalls && !d.isComputing && d.value.toBeInlined) d.value.inline(args) else 
         new Call(d, args) {}
   }
   sealed abstract case class Let(v: Vari, e: Expr, body: Expr) extends Expr
@@ -382,7 +383,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         case (Right(dfn), acc) => LetDefn(dfn,acc)
       }
     }
-    def reorder(defs: List[Binding], body: Expr): Expr = {
+    def reorder(defs: List[Binding], body: Expr, dbg: Bool = false): Expr = {
       
       // Require that binding idents be unique:
       //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
@@ -417,9 +418,24 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       }
       go(body.freeIdents.filter(nodes.isDefinedAt).toList)
       
-      //assert(ordered.size <= defs.size, (ordered.size, defs.size))
-      assert(ordered.size === defs.size, (ordered.size, defs.size))
-      multiple(ordered.reverse.map(nodes), body)
+      //assert(ordered.size === defs.size, (ordered.size, defs.size, ordered, defs))
+      //multiple(ordered.reverse.map(nodes), body)
+      assert(ordered.size <= defs.size, (ordered.size, defs.size))
+      if (ordered.size =/= defs.size) {
+        //System.err.println(s"!!! ${ordered.size} =/= ${defs.size} for\n\t${ordered.map(printIdent)}\n\t${defs.map(d => printIdent(Binding.ident(d)))}")
+        val err = new AssertionError(
+          s"!!! WARNING !!! ${ordered.size} =/= ${defs.size} for" + (
+            if (dbg) s"\n\t${ordered.map(printIdent)}\n\t${defs.map(d => printIdent(Binding.ident(d)))}"
+            else s"\n\t${ordered}\n\t${defs.map(d => Binding.ident(d))}"
+          ))
+        //if (dbg) System.err.println(err.getMessage)
+        
+        // TODO solve problem and put this back:
+        //if (dbg) err.printStackTrace()
+        //else throw err
+        err.printStackTrace()
+      }
+      multiple(ordered.reverse.map(nodes) ::: defs.filterNot(d => ordered.contains(Binding.ident(d))), body)
     }
   }
   case class LetDefn(defn: Defn, body: Expr) extends Expr

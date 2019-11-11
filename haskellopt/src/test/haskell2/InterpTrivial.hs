@@ -12,6 +12,7 @@ test0 = run pgm where
   run (unit : rest) = run rest + 1
 
 test1 = run pgm 123 where
+  -- pgm = []
   -- pgm = [(),()]
   pgm = [(),(),()]
   -- pgm = [(),(),(),()]

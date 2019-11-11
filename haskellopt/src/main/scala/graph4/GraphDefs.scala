@@ -506,7 +506,8 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     
     def toBeScheduledInline = node match {
       //case IntBoxing(_) => true // maybe use this?
-      case _: ConstantNode | _: Var => true
+      //case _: ConstantNode | _: Var => true
+      case _: Var => true // TODO rm?!
       case _ => false
     }
     

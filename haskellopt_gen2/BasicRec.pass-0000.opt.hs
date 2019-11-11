@@ -38,7 +38,7 @@ trec_0_0 = let
   rec' p' = 
         let _1 = p' + (1::Int) in
         p' : (_1 : (rec' (_1 + (1::Int))))
-  in ((27::Int) : (rec ((27::Int) + (1::Int)))) ++ ((32::Int) : (rec' ((32::Int) + (1::Int))))
+  in ((27::Int) : (rec' ((27::Int) + (1::Int)))) ++ ((32::Int) : (rec ((32::Int) + (1::Int))))
 
 trec_0 = \y -> 
   let rec p = 
@@ -62,12 +62,12 @@ nrec_0 = \x ->
   x : (rec (x + (1::Int)))
 
 nrec_1 = \x -> let
-  rec p' = 
+  rec' p' = 
         let _1 = p' + (1::Int) in
-        p' : (_1 : (rec (_1 + (1::Int))))
-  rec' p = 
+        p' : (_1 : (rec' (_1 + (1::Int))))
+  rec p = 
         let _0 = p + (1::Int) in
-        p : (_0 : (rec' (_0 + (1::Int))))
+        p : (_0 : (rec (_0 + (1::Int))))
   in ((0::Int) : (rec ((0::Int) + (1::Int)))) ++ (x : (rec' (x + (1::Int))))
 
 nrec_capt_0 = \x -> let

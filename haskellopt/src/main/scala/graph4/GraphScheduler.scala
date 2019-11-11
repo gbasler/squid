@@ -119,6 +119,7 @@ abstract class GraphScheduler { self: GraphIR =>
       val dropUnusedLets = true
       val inlineOneShotLets = inlineScheduledLets
       val inlineTrivialLets = inlineScheduledLets
+      val inlineCalls = inlineScheduledLets
       val commonSubexprElim = true
       val useOnlyIntLits = self.useOnlyIntLits
     }
@@ -152,13 +153,16 @@ abstract class GraphScheduler { self: GraphIR =>
   
   class SmartScheduler(val mod: GraphModule) extends Scheduler { scheduler =>
     
+    val FlattenScopes = !debugScheduling
+    //val FlattenScopes = false
+    
     object ScopeAccessMethod extends Enumeration {
       val Case, Selector, Lens = Value
     }
     val scopeAccessMethod: ScopeAccessMethod.Value =
-      ScopeAccessMethod.Selector
-      //scopeAccessMethod.Lens
-      //scopeAccessMethod.Case
+      ScopeAccessMethod.Selector // note that sometimes, I've seen this create type inference errors (where using Case works)
+      //ScopeAccessMethod.Lens
+      //ScopeAccessMethod.Case
     
     var usesLenses = false
     val mayUseLenses = scopeAccessMethod === ScopeAccessMethod.Lens
@@ -171,6 +175,8 @@ abstract class GraphScheduler { self: GraphIR =>
       val dropUnusedLets = false // TODO make unused lets an error?
       val inlineOneShotLets = inlineScheduledLets
       val inlineTrivialLets = inlineScheduledLets
+      //val inlineCalls = inlineScheduledLets // Causes assertion to fail in HaskellAST.Let.reorder since it may remove usages of some defs
+      val inlineCalls = false
       val commonSubexprElim = false
       //override val mergeLets = true
       val useOnlyIntLits = self.useOnlyIntLits
@@ -181,11 +187,14 @@ abstract class GraphScheduler { self: GraphIR =>
     var anythingChanged = true
     
     val modDefStrings: List[Str] = {
-      mod.modDefs.map { case (nme,df) =>
+      val modDefsWithIdents = mod.modDefs.map { case (nme,df) => (nme,AST.mkIdent(nme),df) }
+      if (debugScheduling) modDefsWithIdents.foreach { d =>
+        printVar(d._2)  // allocate the right 'bare' name for each top-level definition
+      }
+      modDefsWithIdents.map { case (nme,ide,df) =>
         Sdebug(s"Scheduling $nme")
         
         if (!debugScheduling) resetVarPrintingState()
-        val ide = AST.mkIdent(nme)
         printVar(ide) // allocate the right 'bare' name for each top-level definition
         
         val rootScp = ScheduleDebug.nestDbg {
@@ -285,7 +294,7 @@ abstract class GraphScheduler { self: GraphIR =>
       override def toString = if (children.isEmpty || nde.isSimple) nde.toString else children.mkString(s"($nde)[",",","]")
     }
     case class ScopeAccess(scp: Scope, v: Var, in: Instr, r: Ref) extends Scheduled {
-      private def mkSelection(prefix: AST.Expr, idx: Int) = {
+      private def mkSelection(scp: Scope, prefix: AST.Expr, idx: Int) = {
         if (scopeAccessMethod === ScopeAccessMethod.Lens) {
           usesLenses = true
           AST.App(AST.App(AST.Inline("(^.)"), prefix), AST.Inline(s"_${idx+1}"))
@@ -309,17 +318,18 @@ abstract class GraphScheduler { self: GraphIR =>
             assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
             
             //assert(scp.returns.count(_._1._2 === r) === 1) // seems to fail with higher unrolling factors
+            System.err.println(s"WARNING: SELECTION MAY BE WRONG! — $idx of $in/$r in ${scp.returns}")
             // ^ FIXME fails for maxMaybe1
             
-            mkSelection(callVari, idx)
+            mkSelection(scp, callVari, idx)
           }
           else callVari
-        case None => if (scp.isRecursive) { // call to recursive function
+        case None => if (scp.isRecursive || !FlattenScopes) { // call to recursive function
           val callVari = AST.Vari(scp.callIdent)
           if (scp.returns.size > 1) {
             val idx = scp.returns.indexWhere(_._1 === (in,r))
             assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
-            mkSelection(callVari, idx)
+            mkSelection(scp, callVari, idx)
           }
           else callVari
         } else AST.Vari(scp.toIdent(in,r))
@@ -358,6 +368,7 @@ abstract class GraphScheduler { self: GraphIR =>
       
       def toArg(ref: (IRef, Scheduled)): AST.Expr = {
         Sdebug(s"?! toArg $ref ${ref._1 |> toIdent} ${ref._1 |> toIdent |> printVar} ${ref._2.toExpr} ${ref._2.toExpr.stringify}")
+        assert(idents.contains(ref._1))
         AST.Vari(toIdent(ref._1))
         //ref._2.toExpr // refers to the wrong one!
       }
@@ -394,7 +405,10 @@ abstract class GraphScheduler { self: GraphIR =>
       var returns: List[IRef -> Scheduled] = Nil
       var delayedEntries: List[IRef] = Nil
       
-      def returnsTupleCtor: Str = "(" + "," * (returns.size - 1) + ")"
+      def returnsTupleCtor: Str = {
+        assert(returns.size > 1)
+        "(" + "," * (returns.size - 1) + ")"
+      }
       
       var bindings: List[Either[IRef -> Scheduled, Call]] = Nil
       val bound: mutable.Set[IRef] = mutable.Set.empty
@@ -446,7 +460,11 @@ abstract class GraphScheduler { self: GraphIR =>
                   }
                 }
               case Control(i,b) =>
-                rec(i,b)
+                //rec(i,b) // TOOD try to put back?
+                if (bound(iref)) asVar else {
+                  bind(iref,rec(i,b))
+                  asVar
+                }
               case Branch(c,t,e) =>
                 if (bound(Id->body)) {
                   Sdebug(s"BRANCH—already bound! $c $body ${toIdent(iref)|>printVar} ${asVar.toExpr.stringify}  as  ${asVar} / ${asVar.toExpr.stringify}")
@@ -480,7 +498,12 @@ abstract class GraphScheduler { self: GraphIR =>
               Sdebug(s"PARAM<$ident> ${body} ==> ${res} ==> ${toParamIdent(body)} (${toParamIdent(body)|>printVar})")
               //Sdebug(s"?Drop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
             }
-            Concrete(toParamIdent(body), Nil)
+            //Concrete(toParamIdent(body), Nil)
+            val res = Concrete(toParamIdent(body), Nil)
+            if (!bound(iref)) {
+              bind(iref, res)
+            }
+            asVar
             
           case Push(cid,p,r) =>
             Sdebug(s"Push ${cid}")
@@ -524,12 +547,13 @@ abstract class GraphScheduler { self: GraphIR =>
             val e = b.toExpr
             Left((toVari(r), e)) :: rest //also (res => Sdebug(s"LET ${r|>printRef} / ${e.stringify} / ${rest.stringify}  ==>  ${res.stringify}"))
           case (rest, Right(Call(scp))) =>
-            if (!scp.isRecursive && scp.recursiveParent.isEmpty) {
+            if (!scp.isRecursive && scp.recursiveParent.isEmpty && FlattenScopes) {
               val ret = scp.returns.foldRight(rest) {
                 case ((ref, sch), rest) =>
                   Sdebug(s"BIND RETURN ${scp.toVari(ref)}:${scp.printRef(ref)} = ${sch} (${sch.toExpr.stringify})")
                   if (sch.isVari) rest // if it's already a variable, no need to bind it again
                   else Left((scp.toVari(ref), sch.toExpr)) :: rest
+                  //Left((scp.toVari(ref), sch.toExpr)) :: rest
               }
               val rest2 = scp.foldBindings(ret)
               scp.params.foldRight(rest2) {
@@ -540,7 +564,7 @@ abstract class GraphScheduler { self: GraphIR =>
                   //Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: Left((scp.toIdent((i,p))|>AST.Vari, scp.toParamIdent(p)|>AST.Vari)) :: rest2
               }
             }
-            else if (scp.isRecursive) {
+            else if (scp.isRecursive || !FlattenScopes && scp.recursiveParent.isEmpty) {
               assert(scp.recursiveParent.isEmpty)
               val d = scp.defn
               Sdebug(s"CALL REC $scp")
@@ -564,11 +588,15 @@ abstract class GraphScheduler { self: GraphIR =>
             case _ => returns.foldLeft[AST.Expr](AST.Inline(returnsTupleCtor)) {
               case (app, (_, r)) => AST.App(app, r.toExpr) }
           }
-          Sdebug(s"Ret: ${ret.stringify}")
           Sdebug(s"Bindings: ${bindings.reverse}")
+          //Sdebug(s"Bindings:${bindings.reverse.map{
+          //  case Left((iref,sch)) => s"\n\t${printRef(iref)} = ${sch.toExpr.stringify}      i.e., $sch"
+          //  case Right(c) => s"\n\t${c.scp.callIdent|>printVar} = CALL ${c.scp}"
+          //}.mkString}")
+          Sdebug(s"Ret: ${ret.stringify}")
           val defs = foldBindings(Nil)
           
-          val body = AST.Let.reorder(defs, ret) // note: will access the Defn of recursive definitions that are being defined here...
+          val body = AST.Let.reorder(defs, ret, debugScheduling) // note: will access the Defn of recursive definitions that are being defined here...
           //val body = AST.Let.multiple(defs, ret)
           
           body
@@ -590,7 +618,7 @@ abstract class GraphScheduler { self: GraphIR =>
         def defs = bindings.reverse.map{
           case Left((r,Lambda(v, scp))) => s"$pre${printRef(r)} = \\${v|>printVar} -> ${scp.show(indent + 1)}"
           case Left((r,s)) => s"$pre${printRef(r)} = "+s.toExpr.stringify //+ s"   \t\t(${s})"
-          case Right(c) => pre + c.scp.show(indent + 1)
+          case Right(c) => pre + s"${c.scp.callIdent}: " + c.scp.show(indent + 1)
         }.mkString
         s"$toString: (${params.map(_._1._2 |> toParamIdent |> printVar).mkString(", ")}) -> ($rets) where$aliases$outerTests${defs}"
       }

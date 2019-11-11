@@ -54,8 +54,8 @@ f0 = \ds -> case ds of { Just ρ -> Just (ρ + (1::Int)); Nothing -> Just (0::In
 f2'0 = ((1::Int) + (2::Int)) + (3::Int)
 
 slt0 = \x -> let
-  _0 = Data.Foldable.sum (map (\c' -> c' + x) [])
-  _1 = (Data.Foldable.sum . map (\x' -> x' * (2::Int))) (map (\c -> c + (x + (1::Int))) [])
+  _1 = (Data.Foldable.sum . map (\x' -> x' * (2::Int))) (map (\c' -> c' + (x + (1::Int))) [])
+  _0 = Data.Foldable.sum (map (\c -> c + x) [])
   in (,) ((_0 * _0) + (1::Int)) ((_1 * _1) + (1::Int))
 
 t1'0 = (((1::Int) + (2::Int)) + (3::Int)) + (4::Int)

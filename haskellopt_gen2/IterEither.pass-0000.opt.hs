@@ -23,14 +23,14 @@ import GHC.Tuple
 import GHC.Types
 
 count = \start -> let
+  _4 = start - (1::Int)
   _0 = start > (0::Int)
+  _fε' = case _0 of { True -> _4; False -> (let (,) arg _ = Prelude.undefined in arg) }
+  _1 = _fε' > (0::Int)
   _5 = (0::Int) + (1::Int)
   _fε = case _0 of { True -> _5; False -> (let (,) _ arg = Prelude.undefined in arg) }
   _3 = _fε + (1::Int)
-  _4 = start - (1::Int)
-  _fε' = case _0 of { True -> _4; False -> (let (,) arg _ = Prelude.undefined in arg) }
   _2 = (,) (_fε' - (1::Int)) _3
-  _1 = _fε' > (0::Int)
   rec π π' p p' ds π'2 π'3 π'4 = let
         _6 = (let (,) arg _ = π'3 in arg) > (0::Int)
         _cε' = case ds of { (,) ρ'14 ρ'15 -> (case p' of { True -> p; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
@@ -44,11 +44,11 @@ count = \start -> let
   in case _0 of { True -> (case _1 of { True -> (rec _2 _2 _3 _1 ((,) _4 _5) _2 _2 _2); False -> _fε }); False -> (0::Int) }
 
 simple9 = let
+  _0 = (,) True False
   rec _cfε _cfε' _cfε'2 _cfε'3 _cfε'4 = let
         _cε = case _cfε'2 of { (,) ρ ρ' -> (,) (let (,) _ arg = _cfε'3 in arg) (let (,) arg _ = _cfε' in arg) }
         _cε' = case _cε of { (,) ρ'10 ρ'11 -> (,) ρ'11 ρ'10 }
         in case _cfε'4 of { (,) ρ'2 ρ'3 -> (case (let (,) _ arg = _cfε'3 in arg) of { True -> (case _cε of { (,) ρ'4 ρ'5 -> (case ρ'5 of { True -> (rec _cε' _cε' _cε' _cε' _cε'); False -> (case _cε of { (,) ρ'6 ρ'7 -> ρ'7 }) }) }); False -> (case _cfε of { (,) ρ'8 ρ'9 -> (let (,) _ arg = _cfε'3 in arg) }) }) }
-  _0 = (,) True False
   in (rec _0 _0 _0 _0 _0)
 
 simple5 = 
