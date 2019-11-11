@@ -7,8 +7,8 @@
 -- Case reductions:  106
 -- Field reductions: 38
 -- Case commutings:  52
--- Total nodes: 639; Boxes: 132; Branches: 175
--- Apps: 85; Lams: 8
+-- Total nodes: 483; Boxes: 124; Branches: 95
+-- Apps: 73; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -43,10 +43,10 @@ t2 = \ds ->
   case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case ρ'3 of { [] -> (ρ - ρ'2) : (rec ρ ρ'2); _ -> (666::Int) : [] }); _ -> (666::Int) : [] }); _ -> (666::Int) : [] }
 
 t1_ = \ds -> let
-  _0 = (let (:) arg _ = ds in arg) + (1::Int)
   rec p = 
         let _1 = p + (1::Int) in
         p : (_1 : (rec (_1 + (1::Int))))
+  _0 = (let (:) arg _ = ds in arg) + (1::Int)
   in case ds of { (:) ρ ρ' -> (case ρ' of { [] -> ρ : (_0 : (rec (_0 + (1::Int)))); _ -> (666::Int) : [] }); _ -> (666::Int) : [] }
 
 t1'2 = 

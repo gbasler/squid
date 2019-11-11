@@ -7,8 +7,8 @@
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 2946; Boxes: 1232; Branches: 1330
--- Apps: 136; Lams: 74
+-- Total nodes: 2060; Boxes: 887; Branches: 880
+-- Apps: 109; Lams: 57
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}

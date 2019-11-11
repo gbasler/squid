@@ -7,8 +7,8 @@
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 980; Boxes: 330; Branches: 325
--- Apps: 155; Lams: 20
+-- Total nodes: 785; Boxes: 264; Branches: 260
+-- Apps: 124; Lams: 16
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -52,11 +52,11 @@ foo_6 = \s -> let
 foo_5 = \s -> let
   rec p'3 = let
         rec'4 p'4 = let
-              _6 = p'4 * (2::Int)
-              _9 = _6 + (1::Int)
-              _7 = p'4 + (1::Int)
-              _8 = _7 * (2::Int)
-              in p'4 : ((_7 : ((rec (_7 + (1::Int))) ++ (_8 : ((rec (_8 + (1::Int))) ++ (rec'4 (_8 * (2::Int))))))) ++ (_6 : ((_9 : ((rec (_9 + (1::Int))) ++ (rec'4 (_9 * (2::Int))))) ++ (rec'4 (_6 * (2::Int))))))
+              _6 = p'4 + (1::Int)
+              _7 = _6 * (2::Int)
+              _8 = p'4 * (2::Int)
+              _9 = _8 + (1::Int)
+              in p'4 : ((_6 : ((rec (_6 + (1::Int))) ++ (_7 : ((rec (_7 + (1::Int))) ++ (rec'4 (_7 * (2::Int))))))) ++ (_8 : ((_9 : ((rec (_9 + (1::Int))) ++ (rec'4 (_9 * (2::Int))))) ++ (rec'4 (_8 * (2::Int))))))
         _10 = p'3 + (1::Int)
         rec'5 p'5 = 
               let _11 = p'5 * (2::Int) in

@@ -177,8 +177,28 @@ class GraphIR extends GraphDefs {
         ref.node match { // TODO simplify obvious things like boxes that resolve branches...
             
           case c0 @ Control(i0, r @ NodeRef(c1 @ Control(i1, body))) =>
-            ref.node = Control(i0 `;` i1, body)(c0.recIntros + c1.recIntros, c0.recElims + c1.recElims)
-            again()
+            // if we do control/branch reduction as below, the following tests become necessary to prevent divergence:
+            val ri = c0.recIntros + c1.recIntros
+            val re = c0.recElims + c1.recElims
+            //if (ri > UnrollingFactor || re > UnrollingFactor) {
+            if (ri > UnrollingFactor) { // Less stringent than the above, but seems to be sufficient
+              continue()
+            } else {
+              //val old = ref.showDef
+              ref.node = Control(i0 `;` i1, body)(ri, re)
+              //println(s"BOX ${old} (${r.showDef}) ~~~> ${ref.show}")
+              again()
+            }
+            
+          case cn @ Control(i, br @ NodeRef(Branch(c, t, e))) =>
+            Condition.test(c, i) match {
+              case Some(b) =>
+                println(s"BRANCH ${ref.showName} = [$i] ${br.showDef} ~~~> [...] ${if (b) t else e}")
+                ref.node = Control(i, if (b) t else e)(cn.recIntros, cn.recElims)
+                again()
+              case None =>
+                continue()
+            }
             
           case c0 @ Control(i0, r @ NodeRef(k: ConstantNode)) =>
             ref.node = k

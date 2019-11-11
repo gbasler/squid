@@ -4,11 +4,11 @@
 --   desugar
 -- Beta reductions:  36
 -- Incl. one-shot:   1
--- Case reductions:  44
+-- Case reductions:  46
 -- Field reductions: 56
--- Case commutings:  9
--- Total nodes: 1259; Boxes: 196; Branches: 336
--- Apps: 159; Lams: 16
+-- Case commutings:  11
+-- Total nodes: 848; Boxes: 95; Branches: 181
+-- Apps: 134; Lams: 16
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}

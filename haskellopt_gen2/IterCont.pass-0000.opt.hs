@@ -7,7 +7,7 @@
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 189; Boxes: 56; Branches: 45
+-- Total nodes: 182; Boxes: 54; Branches: 40
 -- Apps: 35; Lams: 11
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -36,8 +36,8 @@ nats0_5 = let
   in GHC.List.take (5::Int) ((0::Int) : (_0 : (rec (\k -> \s -> s : k (s + (1::Int)))) (_0 + (1::Int))))
 
 nats0 = let
-  rec f = f (rec f)
   _0 = (0::Int) + (1::Int)
+  rec f = f (rec f)
   in (0::Int) : (_0 : (rec (\k -> \s -> s : k (s + (1::Int)))) (_0 + (1::Int)))
 
 loop0 = \f -> 
