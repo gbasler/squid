@@ -5,7 +5,7 @@ import org.scalatest.FunSuite
 
 class BasicTests extends FunSuite {
   object TestHarness extends TestHarness
-  import CheckDSL.check
+  import CheckDSL._
   
   // TODO find a way to test the checks on the GHC-compiled programs! — e.g., generate an executable Main module
   
@@ -29,11 +29,15 @@ class BasicTests extends FunSuite {
       //prefixFilter = "nrec_0",
       //prefixFilter = "trec_0",
       //prefixFilter = "nrec_capt_0",
+      //prefixFilter = "alternateTF",
+      //prefixFilter = "alternateZO1",
       //
       dumpGraph = true,
     )
     (
-      // TODO checks
+      //check("alternateTF'0")(List(true,false,true,false,true)) // FIXME scheduling of alternateTF
+      //check("alternateZO0'0")(List(0,1,0,1,0)), // FIXME the graph becomes wrong!
+      //check("alternateZO1'0")(List(0,1,0,1,0)), // FIXME scheduling of alternateZO1
     )
   )
   

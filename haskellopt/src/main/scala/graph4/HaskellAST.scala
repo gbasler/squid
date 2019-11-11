@@ -448,12 +448,13 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
             if (dbg) s"\n\t${ordered.map(printIdent)}\n\t${defs.map(d => printIdent(Binding.ident(d)))}"
             else s"\n\t${ordered}\n\t${defs.map(d => Binding.ident(d))}"
           ))
-        //if (dbg) System.err.println(err.getMessage)
         
         // TODO solve problem and put this back:
         //if (dbg) err.printStackTrace()
         //else throw err
-        err.printStackTrace()
+        
+        //err.printStackTrace()
+        System.err.println(err.getMessage)
       }
       multiple(ordered.reverse.map(nodes) ::: defs.filterNot(d => ordered.contains(Binding.ident(d))), body)
     }

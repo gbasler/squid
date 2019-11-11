@@ -253,7 +253,7 @@ abstract class GraphScheduler { self: GraphIR =>
                 scp.recursiveParent = Some(recScp)
                 recScp.isRecursive = true
                 recScp.params.foreach { case ((i,r),sch) =>
-                  Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toParamIdent(r)|>printVar} ($sch (${sch.toExpr.stringify}))")
+                  Sdebug(s"Now doing param $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toParamIdent((i,r))|>printVar} ($sch (${sch.toExpr.stringify}))")
                   // Should be the same as scp.parent.get.rec(i, r):
                   // (But note that scp.parent.get may very well NOT be recScp.)
                   scp.rec(Drop(i)(scp.cid), r)
@@ -362,9 +362,9 @@ abstract class GraphScheduler { self: GraphIR =>
       def printRef(iref: IRef) = printVar(toIdent(iref))
       
       // We separate parameters to avoid clashes with arguments to the same recursive scopes:
-      val paramIdents: mutable.Map[Ref, AST.Ident] = mutable.Map.empty // TODO should it also be indexed with the Instr?
-      def toParamIdent(ref: Ref): AST.Ident = paramIdents.getOrElseUpdate(ref,
-        AST.mkIdent(ref.name.filterNot(_.startsWith("β")).getOrElse("p")))
+      val paramIdents: mutable.Map[IRef, AST.Ident] = mutable.Map.empty // TODO should it also be indexed with the Instr?
+      def toParamIdent(ref: IRef): AST.Ident = paramIdents.getOrElseUpdate(ref,
+        AST.mkIdent(ref._2.name.filterNot(_.startsWith("β")).getOrElse("p")))
       
       def toArg(ref: (IRef, Scheduled)): AST.Expr = {
         Sdebug(s"?! toArg $ref ${ref._1 |> toIdent} ${ref._1 |> toIdent |> printVar} ${ref._2.toExpr} ${ref._2.toExpr.stringify}")
@@ -489,17 +489,17 @@ abstract class GraphScheduler { self: GraphIR =>
             
           case Drop(i) =>
             Sdebug(s"Drop to ${parent.get}")
-            if (params.exists(_._1._2 === body)) {
+            if (params.exists(_._1 === (i -> body))) { // Q: why not use iref here?
               Sdebug(s"PARAM<$ident> ${body} already exists")
             } else {
               anythingChanged = true
               val res = parent.get.rec(i, body)
               params ::= i -> body -> res
-              Sdebug(s"PARAM<$ident> ${body} ==> ${res} ==> ${toParamIdent(body)} (${toParamIdent(body)|>printVar})")
+              Sdebug(s"PARAM<$ident> ${body} ==> ${res} ==> ${toParamIdent((i,body))} (${toParamIdent((i,body))|>printVar})")
               //Sdebug(s"?Drop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
             }
             //Concrete(toParamIdent(body), Nil)
-            val res = Concrete(toParamIdent(body), Nil)
+            val res = Concrete(toParamIdent((i,body)), Nil)
             if (!bound(iref)) {
               bind(iref, res)
             }
@@ -560,7 +560,7 @@ abstract class GraphScheduler { self: GraphIR =>
                 case (((i,p),sch), rest2) =>
                   //Sdebug(s"!!! LET ${p}=$sch ${toIdent(p)} ${toIdent(p)|>printVar}")
                   //if (sch.isVari) rest else // FIXME?
-                  Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: rest2
+                  Left((scp.toParamIdent((i,p))|>AST.Vari, sch.toExpr)) :: rest2
                   //Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: Left((scp.toIdent((i,p))|>AST.Vari, scp.toParamIdent(p)|>AST.Vari)) :: rest2
               }
             }
@@ -581,7 +581,7 @@ abstract class GraphScheduler { self: GraphIR =>
       }
       
       def toDefn: AST.Defn = Sdebug(s"Defn of $this") thenReturn ScheduleDebug.nestDbg {
-        new AST.Defn(ident, params.map(_._1._2 |> toParamIdent |> AST.Vari), Lazy {
+        new AST.Defn(ident, params.map(_._1 |> toParamIdent |> AST.Vari), Lazy {
           val ret = returns match {
             case Nil => die
             case (_, r) :: Nil => r.toExpr
@@ -609,7 +609,7 @@ abstract class GraphScheduler { self: GraphIR =>
           case (r,s) => (if (!s.isVari) s"${printRef(r)}=" else "") + s.toExpr.stringify
         }.mkString(", ")
         val aliases = (idents.iterator.map{ case (ref, ide) => s"${ide|>printVar} = [${ref._1}]${ref._2.showName}" }
-          ++ paramIdents.iterator.map { case (ref, ide) => s"${ide|>printVar} = ${ref.showName}" }
+          ++ paramIdents.iterator.map { case ((i,ref), ide) => s"${ide|>printVar} = ${ref.showName}" }
         ).mkString(s"   [ "," ; "," ]")
         val outerTests = if (testsPerformed.isEmpty) "" else s"${pre}Outer-tests: ${testsPerformed.map{
             case (c, b) => (if (b) "" else "!")+Condition.show(c)
@@ -620,7 +620,7 @@ abstract class GraphScheduler { self: GraphIR =>
           case Left((r,s)) => s"$pre${printRef(r)} = "+s.toExpr.stringify //+ s"   \t\t(${s})"
           case Right(c) => pre + s"${c.scp.callIdent}: " + c.scp.show(indent + 1)
         }.mkString
-        s"$toString: (${params.map(_._1._2 |> toParamIdent |> printVar).mkString(", ")}) -> ($rets) where$aliases$outerTests${defs}"
+        s"$toString: (${params.map(_._1 |> toParamIdent |> printVar).mkString(", ")}) -> ($rets) where$aliases$outerTests${defs}"
       }
       
       override def toString = s"<${ident.toString}>(${Push(cid,payload,Id)})"

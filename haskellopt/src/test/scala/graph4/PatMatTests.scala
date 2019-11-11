@@ -56,6 +56,7 @@ class PatMatTests extends FunSuite {
       //prefixFilter = "usum'2",
       //prefixFilter = "usum ",
       //prefixFilter = "oops'0",
+      //prefixFilter = "alternate'0",
       //
       dumpGraph = true,
     )(

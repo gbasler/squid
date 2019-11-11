@@ -190,6 +190,7 @@ class GraphIR extends GraphDefs {
             val re = c0.recElims + c1.recElims
             //if (ri > UnrollingFactor || re > UnrollingFactor) {
             if (ri > UnrollingFactor) { // Less stringent than the above, but seems to be sufficient
+              // ^ note: using UnrollingFactor * K where K > 1 seems to help, but I'm not sure scheduling can handle it
               continue()
             } else {
               //val old = ref.showDef
@@ -206,6 +207,9 @@ class GraphIR extends GraphDefs {
                 again()
               case None =>
                 if (rewriteSingleReferenced && i.isInstanceOf[Push] && br.references.size === 1) {
+                // Note: Using this less restrictive condition is not a good idea (will lose work sharing),
+                //       but it should work; currently however it crashes some tests.
+                //if (rewriteSingleReferenced && br.references.size === 1) {
                   Condition.throughControl(i,c) match {
                     case Some(newCnd) =>
                       println(s"CONTROL/BRANCHx1 ${ref.showDef}")
