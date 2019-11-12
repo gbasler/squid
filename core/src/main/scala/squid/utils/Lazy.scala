@@ -36,6 +36,7 @@ final class Lazy[+A <: AnyRef](vl: () => A, computeWhenShow: Boolean) {
   }
   def valueOption: Option[A] = Option(valueOrElse(null.asInstanceOf[A]))
   def valueOrElse[B >: A](default: => B): B = if (!computing) value else default
+  def valueIfComputed: Option[A] = value optionIf isComputed
   
   override def equals(that: Any): Bool = that match {
     case that: Lazy[_] => that.value == value

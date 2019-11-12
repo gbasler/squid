@@ -17,6 +17,13 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
           Ctor(mod.defName, Nil)
         case _ => lastWords(s"Not a data constructor: $this")
       }
+      def nf: this.type = {
+        this match {
+          case ctor: Ctor => ctor.fields.foreach(_.value.nf)
+          case _: Const | _: Fun =>
+        }
+        this
+      }
     }
     case class Fun(f: Thunk => Thunk) extends Value {
       override def app(arg: Thunk): Thunk = f(arg)
@@ -65,17 +72,23 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
       }
     }
     case class Ctor(name: String, fields: List[Thunk]) extends Value {
-      override def toString = s"$name${fields.map("("+_.value+")").mkString}"
+      override def toString = s"$name${fields.map("("+_.valueIfComputed.getOrElse("...")+")").mkString}"
     }
     type Thunk = Lazy[Value]
-    implicit def toThunk(v: => Value): Thunk = Lazy(v)
+    implicit def Thunk(v: => Value): Thunk =
+      Lazy.mk(v, computeWhenShow = false)
+      //Lazy.mk(v, computeWhenShow = true)
     
     def Int(n: Int): Value = Const(IntLit(true,n))
     def Bool(b: Bool): Value = Ctor(if (b) "True" else "False", Nil)
     
     def apply(r: Ref): Thunk = rec(r)(Id, Map.empty)
     
-    def rec(r: Ref)(implicit ictx: Instr, vctx: Map[Var, Thunk]): Thunk = Lazy {
+    // Note: vctx used to be a Map[Var, Thunk],
+    //       but this would confuse different recursive instances of the same variables;
+    //       in fact, we need to keep track of the Instr context of the variable to disambiguate.
+    //       It's not actually necessary to keep the variable as a key, but I do it for easier debugging.
+    def rec(r: Ref)(implicit ictx: Instr, vctx: Map[(Var,Instr), Thunk]): Thunk = Thunk {
       //debug(s"Eval [$ictx] $r {${vctx.mkString(", ")}}")
       debug(s"Eval [$ictx] ${r.showDef}\n${Debug.GREY}{${vctx.mkString(", ")}}${Console.RESET}")
       val res = nestDbg { r.node match {
@@ -86,9 +99,13 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
         case App(f,a) =>
           rec(f).value.app(rec(a)).value
         case l @ Lam(pr, b) =>
-          Fun(x => rec(b)(ictx push DummyCallId, vctx + (l.param -> x)))
+          val newCtx = ictx push DummyCallId
+          Fun(x => rec(b)(newCtx,
+            //assert(!vctx.contains((l.param,newCtx)),(newCtx,l.param,vctx)) thenReturn
+            // ^ Nope, since sometimes we pop all the way to the top and then shadow...
+            vctx + ((l.param,newCtx) -> x)))
         case v: Var =>
-          vctx(v).value
+          vctx((v,ictx)).value
         case Case(scrut, arms) =>
           val ctor = rec(scrut).value.ctor
           val armBody = arms.collectFirst {
@@ -115,7 +132,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
       case None => Const(ModuleRef("GHC.Maybe", "Nothing"))
       case Some(v) => Ctor("Just", lift(v) :: Nil)
       case ls: List[_] =>
-        ls.foldRight[Value](Ctor("[]",Nil)) { case (x, acc) => Ctor(":", Lazy(lift(x)) :: Lazy(acc) :: Nil) }
+        ls.foldRight[Value](Ctor("[]",Nil)) { case (x, acc) => Ctor(":", Thunk(lift(x)) :: Thunk(acc) :: Nil) }
       case _ => lastWords(s"don't know how to lift $value")
     }
     

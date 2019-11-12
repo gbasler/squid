@@ -190,6 +190,7 @@ class GraphIR extends GraphDefs {
             val re = c0.recElims + c1.recElims
             //if (ri > UnrollingFactor || re > UnrollingFactor) {
             if (ri > UnrollingFactor) { // Less stringent than the above, but seems to be sufficient
+            //if (ri > UnrollingFactor * 3) { // TODO experiment with this
               // ^ note: using UnrollingFactor * K where K > 1 seems to help, but I'm not sure scheduling can handle it
               continue()
             } else {

@@ -38,7 +38,7 @@ class TestHarness {
     val Inter = new go.Graph.Interpreter
     def check(c: CheckDSL): Unit = if (c.fname.name + " " startsWith prefixFilter) {
       val liftedArgs = c.args.map(Inter.lift)
-      val liftedValue = Inter.lift(c.value)
+      val liftedValue = Inter.lift(c.value).nf
       
       Inter.setDebugFor(traceInterpreter)
       {
@@ -48,7 +48,7 @@ class TestHarness {
           val applied = liftedArgs.foldLeft(fun){ (f,a) => f.value.app(Lazy(a)) }.value
           applied
         }
-        println(s"Evaluated:  $c  ~~>  $result  =?=  $liftedValue")
+        println(s"Evaluated:  $c  ~~>  ${result.nf}  =?=  ${liftedValue}")
         assert(result === liftedValue, s"Interpreter result $result did not equal expected result $liftedValue")
       }
     }
