@@ -2,19 +2,19 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  16
+-- Beta reductions:  18
 -- Incl. one-shot:   0
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 207; Boxes: 65; Branches: 34
--- Apps: 42; Lams: 13
+-- Total nodes: 274; Boxes: 86; Branches: 49
+-- Apps: 51; Lams: 15
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module HigherOrderp (s,r_2,r_0,r,only_q,q_1,q) where
+module HigherOrderp (s,r_2,r_0,r,only_q,q_1_0,q_1,q) where
 
 import GHC.Base
 import GHC.List
@@ -41,18 +41,18 @@ s = \f -> \x -> let
               in _10 - (f (_11 - (f (rec _11) * f (rec'4 _11))) * f (rec'5 _10))
         rec' p = let
               _1 = p + (1::Int)
-              _2 = _1 + (1::Int)
-              rec'3 p'2 = let
-                    _8 = p'2 + (1::Int)
-                    _9 = _8 + (1::Int)
-                    in _8 - (f (_9 - (f (rec'3 _9) * f (rec' _9))) * f (rec' _8))
-              rec'2 p' = let
-                    _3 = p' + (1::Int)
-                    _6 = _3 + (1::Int)
+              rec'2 p'2 = let
+                    _5 = p'2 + (1::Int)
+                    _6 = _5 + (1::Int)
                     _7 = _6 + (1::Int)
+                    _8 = _5 + (1::Int)
+                    _9 = _8 + (1::Int)
+                    in _5 - (f (_6 - (f (rec'2 _6) * f (_7 - (f (rec'2 _7) * f (rec' _7))))) * f (_8 - (f (_9 - (f (rec'2 _9) * f (rec' _9))) * f (rec' _8))))
+              _2 = _1 + (1::Int)
+              rec'3 p' = let
+                    _3 = p' + (1::Int)
                     _4 = _3 + (1::Int)
-                    _5 = _4 + (1::Int)
-                    in _3 - (f (_4 - (f (rec'2 _4) * f (_5 - (f (rec'2 _5) * f (rec' _5))))) * f (_6 - (f (_7 - (f (rec'2 _7) * f (rec' _7))) * f (rec' _6))))
+                    in _3 - (f (_4 - (f (rec'3 _4) * f (rec' _4))) * f (rec' _3))
               in _1 - (f (rec'2 _1) * f (_2 - (f (rec'3 _2) * f (rec' _2))))
         in _0 - (f (rec _0) * f (rec' _0))
 
@@ -77,6 +77,13 @@ only_q = \f -> \x -> \y -> let
                     f (f x) : (f _1 : (rec _1))
               _0 = f y
               in f x : (f _0 : (rec _0))
+
+q_1_0 = \x -> \y -> let
+        _0 = (+) (1::Int)
+        rec x' = 
+              let _1 = _0 x' in
+              _0 (_0 y) : (_0 _1 : (rec _1))
+        in GHC.List.take (8::Int) (_0 x : (rec x))
 
 q_1 = 
   let _0 = (+) (1::Int) in

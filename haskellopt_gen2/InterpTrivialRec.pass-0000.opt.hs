@@ -7,21 +7,30 @@
 -- Case reductions:  20
 -- Field reductions: 20
 -- Case commutings:  0
--- Total nodes: 305; Boxes: 130; Branches: 114
--- Apps: 20; Lams: 1
+-- Total nodes: 437; Boxes: 182; Branches: 158
+-- Apps: 34; Lams: 1
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module InterpTrivialRec (test3,test2,test1,test0,exec) where
+module InterpTrivialRec (test3_10,test3,test2_10,test2,test1,test0,exec) where
 
+import GHC.List
 import GHC.Tuple
 import GHC.Types
+
+test3_10 = 
+  let rec = False : (True : (True : (True : (False : (True : rec))))) in
+  GHC.List.take (10::Int) (True : (True : (True : rec)))
 
 test3 = 
   let rec = False : (True : (True : (True : (False : (True : rec))))) in
   True : (True : (True : rec))
+
+test2_10 = 
+  let rec = False : (True : (True : (False : (True : rec)))) in
+  GHC.List.take (10::Int) (True : (True : rec))
 
 test2 = 
   let rec = False : (True : (True : (False : (True : rec)))) in

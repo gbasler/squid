@@ -7,8 +7,6 @@ class BasicTests extends FunSuite {
   object TestHarness extends TestHarness
   import CheckDSL._
   
-  // TODO find a way to test the checks on the GHC-compiled programs! — e.g., generate an executable Main module
-  
   test("Basics") (
     TestHarness("Basics", dumpGraph = true)
     //TestHarness("Basics", dumpGraph = true, prefixFilter = "f")
@@ -68,20 +66,20 @@ class BasicTests extends FunSuite {
       dumpGraph = true,
     )(
       check('r_2)(List(1,1,1)),
-      // TODO more checks
+      check('q_1_0, 11, 22)(List(12,24,13,25,14,26,15,27)).doNotExecute, // FIXME wrong sched
     )
   )
   
   test("HigherOrderRecPoly") (
-    // Most of the tests below (such as only_p1) generate code where occurs-check fails
-    // (it is polymorphically-recursive, which requires type annotations, which we do not generate...).
+    // Most of the tests below (such as only_p1) USED TO generate code where occurs-check fails
+    // (it was polymorphically-recursive, which requires type annotations, which we do not generate...).
     TestHarness("HigherOrderRecPoly",
       //prefixFilter = "only_p1",
       //
-      dumpGraph = true,
-      schedule = false,
+      //dumpGraph = true,
+      //schedule = false,
     )(
-      // TODO checks
+      check('p1_6_5, 12)(List(12,14,16,18,20))
     )
   )
   
@@ -92,8 +90,9 @@ class BasicTests extends FunSuite {
       //prefixFilter = "foo_",
       dumpGraph = true,
     )(
-      // TODO checks
-      //  check: take 10 (rec2_5 42) == [42,43,44,45,46,47,48,49,50,51] 
+      check('foo_1, 23)(23),
+      check('foo_5_10)(List(23,24,25,26,27,28,29,30,31,32)),
+      check('foo_6_5, 23)(List(23,46,47,94,95)),
     )
   )
   
@@ -133,6 +132,7 @@ class BasicTests extends FunSuite {
       dumpGraph = true,
     )(
       check('nats0_5)(List(0,1,2,3,4)),
+      check('nats1_5)(List(0,1,2,3,4)),
     )
   )
   
@@ -141,8 +141,7 @@ class BasicTests extends FunSuite {
     TestHarness("IterContLocal",
       dumpGraph = true,
     )(
-      // TODO checks
-      //  check: take 5 nats1 == [0,1,2,3,4]
+      check('nats1_5)(List(0,1,2,3,4)),
     )
   )
   

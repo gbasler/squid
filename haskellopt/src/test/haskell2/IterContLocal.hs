@@ -16,6 +16,8 @@ nats1 =
         -- rec st = f (\new_st -> rec new_st) st
         rec st = f rec st
 
+nats1_5 = take 5 nats1
+
 -- TODO impl pattern matching
 -- (count, nats) =
 --     ( loop (\k s -> k s) 0

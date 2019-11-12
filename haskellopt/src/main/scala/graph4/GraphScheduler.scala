@@ -58,7 +58,8 @@ abstract class GraphScheduler { self: GraphIR =>
         if (n startsWith "(") && (n endsWith ")") && n.init.tail.forall(_ === ',')
         => AST.Inline(n)
       case ModuleRef(m, n) =>
-        val str = if (knownModule(m)) n else s"$m.$n"
+        val str = if (knownModule(m) || m === "") n // we use an empty `m` in the TestHarness as a hack to generate code
+          else s"$m.$n"
         AST.Inline(if (n.head.isLetter || n === "[]") str else s"($str)")
     }
     
@@ -124,28 +125,28 @@ abstract class GraphScheduler { self: GraphIR =>
       val useOnlyIntLits = self.useOnlyIntLits
     }
     
-    val modDefStrings: List[Str] = mod.modDefs.map { case (name, ref) =>
-      Sdebug(s"Scheduling $name")
-      def rec(ref: Ref)(implicit ictx: Instr): AST.Expr = ScheduleDebug.nestDbg {
-        Sdebug(s"[$ictx] ${ref.show}")
-        ref.node match {
-          case Control(i,b) =>
-            rec(b)(ictx `;` i)
-          case Branch(c,t,e) =>
-            if (Condition.test_!(c,ictx)) rec(t) else rec(e)
-          case IntBoxing(n) => constantToExpr(IntLit(true, n))
-          case App(l,r) =>
-            AST.App(rec(l), rec(r))
-          case l @ Lam(_,b) =>
-            AST.Lam(AST.Vari(l.param), Nil, rec(b)(ictx push DummyCallId))
-          case v: Var => AST.Vari(v)
-          case c: ConstantNode => constantToExpr(c)
-          case Case(s,as) =>
-            AST.Case(rec(s), as.map{ case (c,a,r) => (c, List.fill(a)(bindVal("ρ") |> AST.Vari), rec(r)) })
-          case CtorField(s,c,a,i) => AST.CtorField(rec(s),c,a,i)
-        }
+    def liftRef(ref: Ref)(implicit ictx: Instr): AST.Expr = ScheduleDebug.nestDbg {
+      Sdebug(s"[$ictx] ${ref.show}")
+      ref.node match {
+        case Control(i,b) =>
+          liftRef(b)(ictx `;` i)
+        case Branch(c,t,e) =>
+          if (Condition.test_!(c,ictx)) liftRef(t) else liftRef(e)
+        case IntBoxing(n) => constantToExpr(IntLit(true, n))
+        case App(l,r) =>
+          AST.App(liftRef(l), liftRef(r))
+        case l @ Lam(_,b) =>
+          AST.Lam(AST.Vari(l.param), Nil, liftRef(b)(ictx push DummyCallId))
+        case v: Var => AST.Vari(v)
+        case c: ConstantNode => constantToExpr(c)
+        case Case(s,as) =>
+          AST.Case(liftRef(s), as.map{ case (c,a,r) => (c, List.fill(a)(bindVal("ρ") |> AST.Vari), liftRef(r)) })
+        case CtorField(s,c,a,i) => AST.CtorField(liftRef(s),c,a,i)
       }
-      val e = rec(ref)(Id)
+    }
+    lazy val modDefStrings: List[Str] = mod.modDefs.map { case (name, ref) =>
+      Sdebug(s"Scheduling $name")
+      val e = liftRef(ref)(Id)
       new AST.Defn(bindVal(name), Nil, Lazy(e)).stringify
     }
     

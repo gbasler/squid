@@ -7,18 +7,24 @@
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 182; Boxes: 54; Branches: 40
--- Apps: 35; Lams: 11
+-- Total nodes: 221; Boxes: 64; Branches: 46
+-- Apps: 45; Lams: 12
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module IterCont (nats1,loop1,nats0_5,nats0,loop0) where
+module IterCont (nats1_5,nats1,loop1,nats0_5,nats0,loop0) where
 
 import GHC.List
 import GHC.Num
 import GHC.Types
+
+nats1_5 = 
+  let rec st = 
+        let _0 = st + (1::Int) in
+        st : (_0 : (rec (_0 + (1::Int)))) in
+  GHC.List.take (5::Int) (rec (0::Int))
 
 nats1 = 
   let rec st = 

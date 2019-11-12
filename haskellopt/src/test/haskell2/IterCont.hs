@@ -15,6 +15,8 @@ loop1 f state =
 nats1 =
     loop1 (\k s -> s : k (s + 1)) 0
 
+nats1_5 = take 5 nats1
+
 -- TODO impl pattern matching
 -- (count, nats) =
 --     ( loop (\k s -> k s) 0

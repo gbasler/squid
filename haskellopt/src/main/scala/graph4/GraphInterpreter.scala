@@ -25,7 +25,8 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
         this
       }
     }
-    case class Fun(f: Thunk => Thunk) extends Value {
+    // haskellStr is used when we try to recover a Haskell term from a Value, in the TestHarness
+    case class Fun(f: Thunk => Thunk, haskellStr: Opt[Str] = None) extends Value {
       override def app(arg: Thunk): Thunk = f(arg)
       override def toString = s"<fun>"
     }
@@ -47,6 +48,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
           case ModuleRef("GHC.Num","+") => intBinOp(_ + _)
           case ModuleRef("GHC.Num","-") => intBinOp(_ - _)
           case ModuleRef("GHC.Num","*") => intBinOp(_ * _)
+          case ModuleRef("GHC.Real","mod") => intBinOp(_ % _)
           case ModuleRef("GHC.Real","^") => intBinOp(scala.math.pow(_, _).toInt)
           case ModuleRef("GHC.Classes",">") => Fun(rhs => Bool(arg.value.int > rhs.value.int))
           case ModuleRef("GHC.Types","I#") => arg
@@ -54,11 +56,17 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
             // I regret thinking it would be a good idea to implement functions like this...
             if (arg.value === Const(IntLit(true,0))) Ctor("[]", Nil)
             else rhs.value |>! {
-              case Ctor(":", x :: xs :: Nil) => Ctor(":", x :: Const(ModuleRef("GHC.List","take")).app(
+              case Ctor(":", x :: xs :: Nil) => Ctor(":", x :: app(
                 Const(ModuleRef("GHC.Num","-")).app(arg).value.app(Const(IntLit(true,1)))
               ).value.app(xs) :: Nil)
               case nil @ Ctor("[]", Nil) => nil
             })
+          case ModuleRef("GHC.Base","++") => Fun(rhs => arg.value |>! {
+              case Ctor(":", x :: xs :: Nil) =>
+                Ctor(":", x :: Thunk(app(xs).value.app(rhs).value) :: Nil)
+              case Ctor("[]", Nil) => rhs
+            })
+          case ModuleRef("GHC.Classes","==") => Fun(rhs => Bool(arg.value.int === rhs.value.int))
           case ModuleRef("GHC.Base","$") => arg
           case ModuleRef("GHC.Types",":") => Fun(rhs => Ctor(":", arg :: rhs :: Nil))
           case ModuleRef("GHC.Tuple","(,)") => Fun(rhs => Ctor("(,)", arg :: rhs :: Nil))
@@ -125,7 +133,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     /** Convert a Scala value into a value understood by the interpreter */
     def lift(value: Any): Value = value match {
       case n: Int => Int(n)
-      case 'S => Fun(x => Int(x.value.int + 1))
+      case 'S => Fun(x => Int(x.value.int + 1), haskellStr = Some("(\\x->x+1)"))
       // For things like `true`, we don't use Ctor("True", Nil) because they will actually be represented as ModuleRef-s in the graph
       case true => Const(ModuleRef("GHC.Types", "True"))
       case false => Const(ModuleRef("GHC.Types", "False"))

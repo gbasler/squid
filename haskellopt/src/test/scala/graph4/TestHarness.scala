@@ -22,7 +22,7 @@ class TestHarness {
   def mkGraph =
     new GraphIR
   
-  def pipeline(filePath: Path, compileResult: Bool, dumpGraph: Bool, checks: Seq[CheckDSL], interpret: Bool, schedule: Bool, prefixFilter: Str): Unit = {
+  def pipeline(filePath: Path, compileResult: Bool, executeResult: Bool, dumpGraph: Bool, checks: Seq[CheckDSL], interpret: Bool, schedule: Bool, prefixFilter: Str): Unit = {
     
     val writePath_hs = genFolder/RelPath(filePath.baseName+".opt.hs")
     if (exists(writePath_hs)) rm(writePath_hs)
@@ -36,10 +36,13 @@ class TestHarness {
     val mod = go.loadFromDump(filePath, prefixFilter)
     
     val Inter = new go.Graph.Interpreter
-    def check(c: CheckDSL): Unit = if (c.fname.name + " " startsWith prefixFilter) {
-      val liftedArgs = c.args.map(Inter.lift)
-      val liftedValue = Inter.lift(c.value).nf
-      
+    val checksLifted = checks.flatMap { c => {
+        val liftedArgs = c.args.map(Inter.lift)
+        val liftedValue = Inter.lift(c.value).nf
+        (c, liftedArgs, liftedValue) 
+      } optionIf (c.fname.name + " " startsWith prefixFilter)
+    }
+    def performChecks(): Unit = checksLifted.foreach { case (c, liftedArgs, liftedValue) =>
       Inter.setDebugFor(traceInterpreter)
       {
         Inter.debug(s"Evaluating... $c")
@@ -87,7 +90,7 @@ class TestHarness {
       
       mod.checkRefs()
       
-      checks.foreach(check)
+      performChecks()
       
       ite += 1
       
@@ -173,7 +176,59 @@ class TestHarness {
       s" ${loadingTime/1000/1000} + ${rewriteTime/1000/1000} + ${scheduleTime/1000/1000} + ${stringifyTime/1000/1000}" +
       s" = ${(loadingTime + rewriteTime + scheduleTime + stringifyTime)/1000/1000} ms\n")
     
-    if (compileResult) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
+    require(!executeResult || compileResult)
+    if (compileResult) {
+      val checksLiftedToExecte = checksLifted.filter(_._1.doExecute)
+      if (!executeResult || checksLiftedToExecte.isEmpty) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
+      else { // Execute the checks by shelling out GHCi with -e
+        var fail = false
+        import go.Graph._
+        object NSched extends NaiveScheduler(GraphModule("","",Nil))
+        val strs = checksLiftedToExecte.map { case (c, liftedArgs, liftedValue) =>
+          def mkRef(v: Inter.Value): Ref = v match {
+            case Inter.Const(c) => c.mkRef
+            case Inter.Ctor(nme, fields) => fields.foldLeft[Ref](ModuleRef("",nme).mkRef) {
+              case (acc, arg) => App(acc, mkRef(arg.value)).mkRef
+            }
+            case f: Inter.Fun => ModuleRef("",f.haskellStr.get).mkRef
+          }
+          Inter.debug("ARGS "+liftedArgs)
+          val ref = liftedArgs.foldLeft[Ref](ModuleRef("",c.fname.name).mkRef) {
+            case (acc, arg) => App(acc, mkRef(arg)).mkRef
+          }
+          Inter.debug("EXPR "+ref.showGraph)
+          val ast = NSched.liftRef(ref)(Id)
+          Inter.debug("EXPR AST "+ast)
+          val str = ast.stringify
+          Inter.debug("EXPR STR "+ast.stringify)
+          val ast2 = NSched.liftRef(mkRef(liftedValue))(Id)
+          Inter.debug("VALUE AST "+ast)
+          val str2 = ast2.stringify
+          Inter.debug("VALUE STR "+ast2.stringify)
+          (str,str2)
+        }
+        val cmd: List[Shellable] = ghcdump.CallGHC.ensureExec('ghci) :: (writePath_hs:Shellable) :: strs.iterator.flatMap {
+          case (str, str2) => ("-e":Shellable) :: (str:Shellable) :: ("-e":Shellable) :: (str2:Shellable) :: Nil
+        }.toList
+        println(s"Executing:\n\t${cmd.head.s.head} ${cmd.tail.map('"'+ _.s.mkString(" ") +'"').mkString(" ")}")
+        try {
+        val res = %%.applyDynamic("apply")(cmd: _*)(pwd)
+        val lines = res.out.lines.grouped(2).toList
+        assert(lines.size === strs.size)
+        (lines,strs).zipped.foreach { case (Vector(res,res2), (str, str2)) =>
+          if (res =/= res2) {
+            System.err.println(s"Result `$res`\n   =/= `$res2`\n for inputs `$str`\n   and      `$str2`")
+            fail = true
+          }
+        }
+        } catch {
+          case exc: ShelloutException =>
+            System.err.println("Execution failed: "+exc.result)
+            fail = true
+        }
+        if (fail) throw new AssertionError()
+      }
+    }
     
   }
   
@@ -182,6 +237,7 @@ class TestHarness {
             passes: List[String] = List("0000"),
             opt: Bool = false,
             compileResult: Bool = true,
+            executeResult: Bool = true,
             dumpGraph: Bool = false,
             exec: Bool = false,
             schedule: Bool = true,
@@ -213,7 +269,7 @@ class TestHarness {
       val execPath = genFolder/RelPath(testName+s".pass-$idxStr.opt")
       if (exists(execPath)) os.remove(execPath)
       pipeline(dumpFolder/(testName+s".pass-$idxStr.cbor"),
-        compileResult, dumpGraph && (idxStr === "0000"), checks, interpret = exec, schedule = schedule, prefixFilter = prefixFilter)
+        compileResult, executeResult, dumpGraph && (idxStr === "0000"), checks, interpret = exec, schedule = schedule, prefixFilter = prefixFilter)
       if (compileResult && exec) %%(execPath)(pwd)
     }
     
@@ -227,7 +283,8 @@ object Clean extends scala.App {
   ls(TestHarness.dumpFolder) |? (_.ext === "md5") |! { p => println(s"Removing $p"); os.remove(p) }
 }
 
-case class CheckDSL(fname: Symbol, args: Seq[Any], value: Any) {
+case class CheckDSL(fname: Symbol, args: Seq[Any], value: Any, doExecute: Bool = true) {
+  def doNotExecute: CheckDSL = copy(doExecute = false)
   override def toString = fname.name + args.map(" ("+_+")").mkString
 }
 object CheckDSL {

@@ -12,6 +12,7 @@ class InterpTests extends FunSuite {
     TestHarness("InterpSimple",
       //dumpGraph = true,
     )(
+      check('test)(497)
     )
   )
   
@@ -20,6 +21,7 @@ class InterpTests extends FunSuite {
       //prefixFilter = "test1",
       dumpGraph = true,
     )(
+      check('test3)(127)
     )
   )
   
@@ -29,6 +31,8 @@ class InterpTests extends FunSuite {
       //prefixFilter = "test1",
       dumpGraph = true,
     )(
+      check('test2_10)(List(true,true,false,true,true,false,true,true,false,true)).doNotExecute, // FIXME wrong sched: [True,True,False,True,True,False,True,False,True,True]
+      check('test3_10)(List(true,true,true,false,true,true,true,false,true,true)).doNotExecute, // FIXME wrong sched: [True,True,True,False,True,True,True,False,True,False]
     )
   )
   
