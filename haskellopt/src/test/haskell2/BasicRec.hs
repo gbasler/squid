@@ -46,8 +46,22 @@ nrec_capt_0 x =
 
 --- Recursion with more arguments
 
-alternateZO0 x y = go where go = x : alternateZO0 y x
-alternateZO0'0 = take 5 (alternateZO0 0 1)
+alternateZO_0 x y = go where go = x : alternateZO_0 y x
+alternateZO_0'0 = take 5 (alternateZO_0 0 1)
 
-alternateZO1 x y = go where go = x : y : go
-alternateZO1'0 = take 5 (alternateZO1 0 1)
+alternateZO_1 x y = go where go = x : y : go
+alternateZO_1'0 = take 5 (alternateZO_1 0 1)
+
+alternate123_0 x y z = x : alternate123_0 y z x
+alternate123_0'0 = take 10 (alternate123_0 1 2 3)
+
+alternate123_1 x y z = go where go = x : y : z : go
+alternate123_1'0 = take 10 (alternate123_1 1 2 3)
+
+alternate123_2 x y z = go x where
+  go x2 = x2 : y : go' z
+  go' z2 = z2 : go x
+alternate123_2'0 = take 10 (alternate123_2 1 2 3)
+
+alternate123_3 x y z = go z where go z' = x : y : z : go z'
+alternate123_3'0 = take 10 (alternate123_3 1 2 3)

@@ -28,14 +28,22 @@ class BasicTests extends FunSuite {
       //prefixFilter = "trec_0",
       //prefixFilter = "nrec_capt_0",
       //prefixFilter = "alternateTF",
-      //prefixFilter = "alternateZO1'0",
+      //prefixFilter = "alternateZO_1'0",
+      //prefixFilter = "alternate123_2'0",
+      //prefixFilter = "alternate123_0 ",
+      //prefixFilter = "alternateZO_0 ",
+      //prefixFilter = "alternate123_2 ",
       //
       dumpGraph = true,
     )
     (
       check("alternateTF'0")(List(true,false,true,false,true)),
-      check("alternateZO0'0")(List(0,1,0,1,0)),
-      check("alternateZO1'0")(List(0,1,0,1,0)),
+      check("alternateZO_0'0")(List(0,1,0,1,0)),
+      check("alternateZO_1'0")(List(0,1,0,1,0)),
+      check("alternate123_0'0")(List(1,2,3,1,2,3,1,2,3,1)),
+      check("alternate123_1'0")(List(1,2,3,1,2,3,1,2,3,1)),
+      check("alternate123_2'0")(List(1,2,3,1,2,3,1,2,3,1)),
+      check("alternate123_3'0")(List(1,2,3,1,2,3,1,2,3,1)),
     )
   )
   
@@ -67,7 +75,7 @@ class BasicTests extends FunSuite {
       dumpGraph = true,
     )(
       check('r_2)(List(1,1,1)),
-      check('q_1_0, 11, 22)(List(12,24,13,25,14,26,15,27)).doNotExecute, // FIXME wrong sched
+      check('q_1_0, 11, 22)(List(12,24,13,25,14,26,15,27)),
     )
   )
   

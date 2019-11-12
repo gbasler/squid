@@ -159,6 +159,7 @@ abstract class GraphScheduler { self: GraphIR =>
     
     val FlattenScopes = !debugScheduling
     //val FlattenScopes = false
+    //val FlattenScopes = true
     
     object ScopeAccessMethod extends Enumeration {
       val Case, Selector, Lens = Value
@@ -252,7 +253,8 @@ abstract class GraphScheduler { self: GraphIR =>
             val ps = scp.potentiallyRecursiveParents
             //if (ps.nonEmpty) {
             if (disregardUF && ps.nonEmpty || ps.size > UnrollingFactor) {
-              val recScp = ps.last
+              val recScp = ps.last // TODO also try with .head
+              //val recScp = ps.head
               Sdebug(s"Apparently recursive scope: ${scp} -> ${ps.last}")
               ScheduleDebug.nestDbg {
                 scp.recursiveParent = Some(recScp)
@@ -267,8 +269,8 @@ abstract class GraphScheduler { self: GraphIR =>
                 }
                 // Similar to params:
                 recScp.captures.foreach { case ((i,r),sch) =>
-                  Sdebug(s"Now doing capture $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toParamIdent((i,r))|>printVar} ($sch (${sch.toExpr.stringify}))")
-                  scp.rec(Pop(i)(scp.cid.v), r)
+                  Sdebug(s"Now doing capture $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toCaptureIdent((i,r))|>printVar} ($sch (${sch.toExpr.stringify}))")
+                  scp.parent.get.rec(i,r)
                 }
               }
             }
@@ -377,8 +379,12 @@ abstract class GraphScheduler { self: GraphIR =>
       def printRef(iref: IRef) = printVar(toIdent(iref))
       
       // We separate parameters to avoid clashes with arguments to the same recursive scopes:
-      val paramIdents: mutable.Map[IRef, AST.Ident] = mutable.Map.empty // TODO should it also be indexed with the Instr?
+      val paramIdents: mutable.Map[IRef, AST.Ident] = mutable.Map.empty
       def toParamIdent(ref: IRef): AST.Ident = paramIdents.getOrElseUpdate(ref,
+        AST.mkIdent(ref._2.name.filterNot(_.startsWith("β")).getOrElse("p")))
+      
+      val captureIdents: mutable.Map[IRef, AST.Ident] = mutable.Map.empty
+      def toCaptureIdent(ref: IRef): AST.Ident = captureIdents.getOrElseUpdate(ref,
         AST.mkIdent(ref._2.name.filterNot(_.startsWith("β")).getOrElse("p")))
       
       def toArg(ref: (IRef, Scheduled)): AST.Expr = {
@@ -389,7 +395,8 @@ abstract class GraphScheduler { self: GraphIR =>
       }
       def toCaptureArg(ref: (IRef, Scheduled)): AST.Expr = {
         Sdebug(s"?! toCaptureArg $ref ${ref._1 |> toIdent} ${ref._1 |> toIdent |> printVar} ${ref._2.toExpr} ${ref._2.toExpr.stringify}")
-        ref._2.toExpr
+        AST.Vari(toIdent(ref._1))
+        //ref._2.toExpr
       }
       
       var subScopes: List[Scope] = Nil
@@ -425,7 +432,7 @@ abstract class GraphScheduler { self: GraphIR =>
       var returns: List[IRef -> Scheduled] = Nil
       var delayedEntries: List[IRef] = Nil
       
-      def allParams = params ::: captures
+      def allParams = params.map(_ -> true) ::: captures.map(_ -> false)
       
       def returnsTupleCtor: Str = {
         assert(returns.size > 1)
@@ -513,17 +520,18 @@ abstract class GraphScheduler { self: GraphIR =>
             */
             // ^ old handling
             Sdebug(s"Pop to ${parent.get}")
-            if (captures.exists(_._1 === (i -> body))) { // Q: why not use iref here?
+            val pi = payload `;` i // contrary to the Drop case, we rec into the parent throught payload `;` i and not just i!
+            if (captures.exists(_._1 === (pi -> body))) { // Q: why not use iref here?
               Sdebug(s"CAPTURE<$ident> ${i -> body} already exists")
             } else {
               anythingChanged = true
-              val res = parent.get.rec(payload `;` i, body)
-              captures ::= i -> body -> res
-              Sdebug(s"CAPTURE<$ident> ${body} ==> ${res} ==> ${toParamIdent((i,body))} (${toParamIdent((i,body))|>printVar})")
-              //Sdebug(s"?Pop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
+              val res = parent.get.rec(pi, body)
+              captures ::= (pi -> body, res)
+              Sdebug(s"CAPTURE<$ident> ${body} ==> ${res} ==> ${toCaptureIdent((pi,body))} (${toCaptureIdent((pi,body))|>printVar})")
+              //Sdebug(s"?Pop? ${body} ${bound(body)} ${toCaptureIdent(body)}/${toCaptureIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
             }
-            //Concrete(toParamIdent(body), Nil)
-            val res = Concrete(toParamIdent((i,body)), Nil)
+            //Concrete(toCaptureIdent(body), Nil)
+            val res = Concrete(toCaptureIdent((pi,body)), Nil)
             if (!bound(iref)) {
               bind(iref, res)
             }
@@ -599,10 +607,10 @@ abstract class GraphScheduler { self: GraphIR =>
               }
               val rest2 = scp.foldBindings(ret)
               scp.allParams.foldRight(rest2) {
-                case (((i,p),sch), rest2) =>
+                case (((i,p),sch)->isParam, rest2) =>
                   //Sdebug(s"!!! LET ${p}=$sch ${toIdent(p)} ${toIdent(p)|>printVar}")
                   //if (sch.isVari) rest else // FIXME?
-                  Left((scp.toParamIdent((i,p))|>AST.Vari, sch.toExpr)) :: rest2
+                  Left(((if (isParam) scp.toParamIdent _ else scp.toCaptureIdent _)(i,p)|>AST.Vari, sch.toExpr)) :: rest2
                   //Left((scp.toParamIdent(p)|>AST.Vari, sch.toExpr)) :: Left((scp.toIdent((i,p))|>AST.Vari, scp.toParamIdent(p)|>AST.Vari)) :: rest2
               }
             }
@@ -623,7 +631,7 @@ abstract class GraphScheduler { self: GraphIR =>
       }
       
       def toDefn: AST.Defn = Sdebug(s"Defn of $this") thenReturn ScheduleDebug.nestDbg {
-        new AST.Defn(ident, allParams.map(_._1 |> toParamIdent |> AST.Vari), Lazy {
+        new AST.Defn(ident, allParams.map(pc => pc._1._1 |> (if (pc._2) toParamIdent else toCaptureIdent) |> AST.Vari), Lazy {
           val ret = returns match {
             case Nil => die
             case (_, r) :: Nil => r.toExpr
@@ -654,7 +662,7 @@ abstract class GraphScheduler { self: GraphIR =>
           ++ paramIdents.iterator.map { case ((i,ref), ide) => s"${ide|>printVar} = ${ref.showName}" }
         ).mkString(s"   [ "," ; "," ]")
         val capts = if (captures.isEmpty) "" else s"${pre}Captures: ${captures.map(c =>
-          s"${c._1 |> toParamIdent |> printVar}->[${c._1._1}]${c._1._2}=${toCaptureArg(c)}").mkString(", ")}"
+          s"${c._1 |> toCaptureIdent |> printVar}->[${c._1._1}]${c._1._2}=${toCaptureArg(c)}").mkString(", ")}"
         val outerTests = if (testsPerformed.isEmpty) "" else s"${pre}Outer-tests: ${testsPerformed.map{
             case (c, b) => (if (b) "" else "!")+Condition.show(c)
           }.mkString(" && ")

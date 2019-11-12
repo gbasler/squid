@@ -182,7 +182,12 @@ class TestHarness {
     require(!executeResult || compileResult)
     if (compileResult) {
       val checksLiftedToExecte = checksLifted.filter(_._1.doExecute)
-      if (!executeResult || checksLiftedToExecte.isEmpty) %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd)
+      if (!executeResult || checksLiftedToExecte.isEmpty)
+        try %%(ghcdump.CallGHC.ensureExec('ghc), writePath_hs)(pwd) catch {
+          case exc: ShelloutException =>
+            System.err.println("Compilation failed: "+exc.result)
+            throw new AssertionError()
+        }
       else { // Execute the checks by shelling out GHCi with -e
         var fail = false
         import go.Graph._

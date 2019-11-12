@@ -2,19 +2,19 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  22
+-- Beta reductions:  42
 -- Incl. one-shot:   0
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 310; Boxes: 76; Branches: 38
--- Apps: 83; Lams: 9
+-- Total nodes: 544; Boxes: 126; Branches: 74
+-- Apps: 135; Lams: 21
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module BasicRec (trec_0_1,trec_0_0,trec_0,trec_1,nrec_0,nrec_1,alternateZO1'0,alternateZO1,alternateZO0'0,alternateZO0,nrec_capt_0,alternateTF'0,alternateTF) where
+module BasicRec (trec_0_1,trec_0_0,trec_0,trec_1,nrec_0,nrec_1,alternate123_3'0,alternate123_3,alternate123_2'0,alternate123_2,alternate123_1'0,alternate123_1,alternate123_0'0,alternate123_0,alternateZO_1'0,alternateZO_1,alternateZO_0'0,alternateZO_0,nrec_capt_0,alternateTF'0,alternateTF) where
 
 import GHC.Base
 import GHC.List
@@ -47,12 +47,12 @@ trec_0 = \y ->
   y : (rec (y + (1::Int)))
 
 trec_1 = \x -> let
-  rec' p' = 
+  rec p' = 
         let _1 = p' + (1::Int) in
-        p' : (_1 : (rec' (_1 + (1::Int))))
-  rec p = 
+        p' : (_1 : (rec (_1 + (1::Int))))
+  rec' p = 
         let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int))))
+        p : (_0 : (rec' (_0 + (1::Int))))
   in ((0::Int) : (rec ((0::Int) + (1::Int)))) ++ (x : (rec' (x + (1::Int))))
 
 nrec_0 = \x -> 
@@ -62,37 +62,69 @@ nrec_0 = \x ->
   x : (rec (x + (1::Int)))
 
 nrec_1 = \x -> let
-  rec p' = 
+  rec' p' = 
         let _1 = p' + (1::Int) in
-        p' : (_1 : (rec (_1 + (1::Int))))
-  rec' p = 
+        p' : (_1 : (rec' (_1 + (1::Int))))
+  rec p = 
         let _0 = p + (1::Int) in
-        p : (_0 : (rec' (_0 + (1::Int))))
+        p : (_0 : (rec (_0 + (1::Int))))
   in ((0::Int) : (rec ((0::Int) + (1::Int)))) ++ (x : (rec' (x + (1::Int))))
 
-alternateZO1'0 = 
+alternate123_3'0 = 
+  let rec z y x = x : (y : (z : (x : (y : (z : (rec z y x)))))) in
+  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : ((3::Int) : (rec (3::Int) (2::Int) (1::Int)))))
+
+alternate123_3 = \x -> \y -> \z -> 
+              let rec z' y' x' = x' : (y' : (z' : (x' : (y' : (z' : (rec z' y' x')))))) in
+              x : (y : (z : (rec z y x)))
+
+alternate123_2'0 = 
+  let rec z z' y x = z : (x : (y : (z' : (x : (y : (rec z' z' y x)))))) in
+  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : (rec (3::Int) (3::Int) (2::Int) (1::Int))))
+
+alternate123_2 = \x -> \y -> \z -> 
+              let rec z' z'2 y' x' = z' : (x' : (y' : (z'2 : (x' : (y' : (rec z'2 z'2 y' x')))))) in
+              x : (y : (rec z z y x))
+
+alternate123_1'0 = 
+  let _0 = (1::Int) : ((2::Int) : ((3::Int) : _0)) in
+  GHC.List.take (10::Int) _0
+
+alternate123_1 = \x -> \y -> \z -> 
+              let _0 = x : (y : (z : _0)) in
+              _0
+
+alternate123_0'0 = 
+  let rec x y x' = x' : (y : (rec y x' x)) in
+  GHC.List.take (10::Int) ((1::Int) : (rec (1::Int) (3::Int) (2::Int)))
+
+alternate123_0 = \x -> \y -> \z -> 
+              let rec x' y' x'2 = x'2 : (y' : (rec y' x'2 x')) in
+              x : (rec x z y)
+
+alternateZO_1'0 = 
   let _0 = (0::Int) : ((1::Int) : _0) in
   GHC.List.take (5::Int) _0
 
-alternateZO1 = \x -> \y -> 
+alternateZO_1 = \x -> \y -> 
         let _0 = x : (y : _0) in
         _0
 
-alternateZO0'0 = 
-  let rec x x' = x' : (x : (rec x (1::Int))) in
+alternateZO_0'0 = 
+  let rec x x' = x' : (x : (rec x x')) in
   GHC.List.take (5::Int) ((0::Int) : (rec (0::Int) (1::Int)))
 
-alternateZO0 = \x -> \y -> 
-        let rec x' x'2 = x'2 : (x' : (rec x' y)) in
+alternateZO_0 = \x -> \y -> 
+        let rec x' x'2 = x'2 : (x' : (rec x' x'2)) in
         x : (rec x y)
 
 nrec_capt_0 = \x -> let
   rec p' x'2 = 
         let _1 = p' + x'2 in
-        p' : (_1 : (rec (_1 + x'2) x))
+        p' : (_1 : (rec (_1 + x'2) x'2))
   rec' p x' = 
         let _0 = p + x' in
-        p : (_0 : (rec' (_0 + x') x))
+        p : (_0 : (rec' (_0 + x') x'))
   in ((0::Int) : (rec ((0::Int) + x) x)) ++ (x : (rec' (x + x) x))
 
 alternateTF'0 = 
