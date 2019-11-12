@@ -3,7 +3,7 @@ module HigherOrderRecLocal where
 foo f = rec where
   -- rec = f (\x -> rec x) -- note that this version fixes the divergence of foo_2
   rec = f rec
--- foo_0 = foo id -- FIXME indirectly-recursive value
+foo_0 = foo id
 foo_1 = foo (\k -> id)
 -- foo_2 = foo (\k -> k) -- FIXME scheduling diverges
 foo_3 = foo (\k s -> s : k s)

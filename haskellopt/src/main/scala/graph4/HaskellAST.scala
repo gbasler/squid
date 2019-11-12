@@ -88,7 +88,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
     def inline(args: List[Expr]) = {
       assert(params.size === args.size)
       //assert(!isRecursive)
-      val res = (params,args).zipped.foldRight(body) { case ((p,a),acc) => Let(p,a,acc) }
+      val res = (params,args).zipped.foldRight(body) { case ((p,a),acc) => Let(p,a,acc,true) }
       res
     }
     
@@ -232,7 +232,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case App(lhs, rhs) => App(lhs.subs(v, e), rhs.subs(v, e))
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.subs(v, e)), if (p == v) b else b.subs(v, e))
       case Call(d, as) => Call(d, as.map(_.subs(v, e)))
-      case Let(p, e0, b) => Let(p, e0.subs(v, e), if (v == p) b else b.subs(v, e))
+      case l @ Let(p, e0, b) => l.copy(p, e0.subs(v, e), if (v == p) b else b.subs(v, e))
       case LetDefn(d, b) => LetDefn(d.subs(v, e), b.subs(v, e))
       case Case(scrut, arms) => Case(scrut.subs(v, e), arms.map { case (con,vals,body) =>
         (con, vals, if (vals.contains(v)) body else body.subs(v, e))
@@ -244,7 +244,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case App(lhs, rhs) => App(lhs.map(f), rhs.map(f))
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.map(f)), b.map(f))
       case Call(d, as) => Call(d, as.map(_.map(f)))
-      case Let(p, e0, b) => Let(p, e0.map(f), b.map(f))
+      case l @ Let(p, e0, b) => l.copy(p, e0.map(f), b.map(f))
       case LetDefn(d, b) => LetDefn(d.map(f), b.map(f))
       case Case(scrut, arms) => Case(scrut.map(f), arms.map { case (con,vals,body) =>
         (con, vals, body.map(f))
@@ -288,7 +288,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case App(lhs, rhs) => App(lhs.simplifyRec, rhs.simplifyRec)
       case lam @ Lam(p, ds, b) => Lam(p, ds.map(_.simplifyRec), b.simplifyRec.cse)
       case Call(d, as) => Call(d, as.map(_.simplifyRec))
-      case Let(p, e0, b) => Let(p, e0.simplifyRec, b.simplifyRec)
+      case l @ Let(p, e0, b) => l.copy(p, e0.simplifyRec, b.simplifyRec)
       case LetDefn(d, b) => LetDefn(d.simplifyRec, b.simplifyRec)
       case Case(scrut, arms) => Case(scrut.simplifyRec, arms.map { case (con,vals,body) =>
         val newCtx = if (simplifyCases) caseCtx + ((scrut -> con) -> vals) else caseCtx
@@ -322,7 +322,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         */
         mapping.toList.sortBy(_._1.size).foldRight(this){ case ((e,v),acc) =>
           //println(s"LET ${v.stringify} = ${e.stringify} IN ${acc.stringify}")
-          Let(v,e,acc.map(e0 => if (e0 === e) v else e0)) }
+          Let(v,e,acc.map(e0 => if (e0 === e) v else e0),true) }
         // ^ Note that we will let-bind small expressions last, so if they ended up "looking" shared only because they
         //   were part of a big expression that was the one being shared, the let binding will be elided...
         //   All in all, this process has horrendous time complexity, but at least it works well for now.
@@ -336,11 +336,11 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   sealed abstract case class App(lhs: Expr, rhs: Expr) extends Expr
   object App {
     def apply(lhs: Expr, rhs: Expr): Expr = lhs match {
-      case Let(v,e,b) if commuteLets  => Let(v,e,App(b,rhs))
+      case l @ Let(v,e,b) if commuteLets  => l.copy(v,e,App(b,rhs))
       case LetDefn(d,b) if commuteLets => LetDefn(d, App(b,rhs))
       case _ =>
         rhs match {
-          case Let(v,e,b) if commuteLets => Let(v,e,App(lhs,b))
+          case l @ Let(v,e,b) if commuteLets => l.copy(v,e,App(lhs,b))
           case LetDefn(d,b) if commuteLets => LetDefn(d, App(lhs,b))
           case _ =>
             new App(lhs, rhs){}
@@ -375,21 +375,23 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       if (inlineCalls && !d.isComputing && d.value.toBeInlined) d.value.inline(args) else 
         new Call(d, args) {}
   }
-  sealed abstract case class Let(v: Vari, e: Expr, body: Expr) extends Expr
+  sealed abstract case class Let(v: Vari, e: Expr, body: Expr)(val tryToInline: Bool) extends Expr {
+    def copy(v: Vari = this.v, e: Expr = this.e, body: Expr = this.body, tryToInline: Bool = this.tryToInline): Expr =
+      Let(v, e, body, tryToInline)
+  }
   object Let {
-    def apply(v: Vari, e: Expr, body: Expr): Expr = body.occurrences(v.ide) match {
-      case 0 if dropUnusedLets => body
-      case 1 if inlineOneShotLets && !(e.freeVars contains v.ide) =>
-        body.subs(v, e)
+    def apply(v: Vari, e: Expr, body: Expr, tryToInline: Bool): Expr = body.occurrences(v.ide) match {
+      case 0 if tryToInline && dropUnusedLets => body
+      case 1 if tryToInline && inlineOneShotLets && !(e.freeVars contains v.ide) => body.subs(v, e)
       case _ =>
-        if (e.isTrivial && inlineTrivialLets) body.subs(v, e)
+        if (e.isTrivial && tryToInline && inlineTrivialLets) body.subs(v, e)
         else e match {
-          case Let(v2, e2, body2) if commuteLets => Let(v2, e2, Let(v, body2, body))
-          case LetDefn(d, body2) if commuteLets => LetDefn(d, Let(v, body2, body))
-          case _ => new Let(v, e, body){}
+          case l @ Let(v2, e2, body2) if commuteLets => l.copy(v2, e2, Let(v, body2, body, tryToInline))
+          case LetDefn(d, body2) if commuteLets => LetDefn(d, Let(v, body2, body, tryToInline))
+          case _ => new Let(v, e, body)(tryToInline){}
         }
     }
-    def multiple(defs: List[Binding], body: Expr): Expr = {
+    def multiple(defs: List[Binding], body: Expr, doNotInline: collection.Set[Ident] = Set.empty): Expr = {
       // Require that binding idents be unique:
       //defs.groupBy(Binding.ident).valuesIterator.foreach(vs => require(vs.size === 1, vs))
       /*
@@ -399,8 +401,8 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       */
       val unique = defs // assumed; it's tested in `reorder`
       unique.foldRight(body) {
-        case (Left((v,e)), acc) => Let(v,e,acc)
-        case (Right(dfn), acc) => LetDefn(dfn,acc)
+        case (Left((v,e)), acc) => Let(v, e, acc, tryToInline = !doNotInline(v.ide))
+        case (Right(dfn), acc) => LetDefn(dfn, acc, tryToInline = !doNotInline(dfn.ide))
       }
     }
     def reorder(defs: List[Binding], body: Expr, dbg: Bool = false): Expr = {
@@ -419,24 +421,32 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       // Topological sort of the let bindings (which are possibly recursive)
       
       val visited = mutable.Set.empty[Ident]
+      val inProcess = mutable.Set.empty[Ident]
+      val recursiveIdents = mutable.Set.empty[Ident]
       var ordered: List[Ident] = Nil
       
       // TODO mark loop breakers in cyclic definitions so they are not inlined
       def go(xs: List[Ident]): Unit = xs match {
         case x :: xs =>
-          if (nodes.isDefinedAt(x) && !visited(x)) {
-            visited += x
-            val next = (nodes(x) match {
-              case Left((v,e)) => e.freeVars
-              case Right(dfn) => dfn.freeVars
-            }).iterator.filterNot(visited).toList
-            go(next)
-            ordered ::= x
+          if (nodes.contains(x) && !visited(x)) {
+            if (inProcess(x)) {
+              recursiveIdents += x
+            } else {
+              inProcess += x
+              val next = (nodes(x) match {
+                case Left((v,e)) => e.freeVars
+                case Right(dfn) => dfn.freeVars
+              }).iterator.filterNot(visited).toList
+              go(next)
+              inProcess -= x
+              visited += x
+              ordered ::= x
+            }
           }
           go(xs)
         case Nil =>
       }
-      go(body.freeVars.filter(nodes.isDefinedAt).toList)
+      go(body.freeVars.filter(nodes.contains).toList)
       
       //assert(ordered.size === defs.size, (ordered.size, defs.size, ordered, defs))
       //multiple(ordered.reverse.map(nodes), body)
@@ -456,14 +466,15 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         //err.printStackTrace()
         System.err.println(err.getMessage)
       }
-      multiple(ordered.reverse.map(nodes) ::: defs.filterNot(d => ordered.contains(Binding.ident(d))), body)
+      multiple(ordered.reverse.map(nodes) ::: defs.filterNot(d => ordered.contains(Binding.ident(d))), body, recursiveIdents)
     }
   }
   sealed abstract case class LetDefn(defn: Defn, body: Expr) extends Expr
   object LetDefn {
-    def apply(defn: Defn, body: Expr): Expr = body.occurrences(defn.ide) match {
-      case 0 if dropUnusedLets => body
-      case 1 if inlineOneShotLets && !(defn.freeVars contains defn.ide) =>
+    // Note: contrary to Let, we do not currently retain `tryToInline` — it will be lost after rebuilding!
+    def apply(defn: Defn, body: Expr, tryToInline: Bool = true): Expr = body.occurrences(defn.ide) match {
+      case 0 if tryToInline && dropUnusedLets => body
+      case 1 if tryToInline && inlineOneShotLets && !(defn.freeVars contains defn.ide) =>
         var found = false
         def inlineDefn(e: Expr): Expr = e match {
           case c: Inline => c
@@ -476,7 +487,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
               Let.multiple((defn.params,as).zipped.map((p,a) => Left(p, a)), defn.body)
             }
             else Call(d, as.map(a => if (found) a else inlineDefn(a)))
-          case Let(p, e0, b) => Let(p, inlineDefn(e0), if (found) b else inlineDefn(b))
+          case l @ Let(p, e0, b) => l.copy(p, inlineDefn(e0), if (found) b else inlineDefn(b))
           case LetDefn(d, b) => LetDefn(d.map(inlineDefn), if (found) b else inlineDefn(b))
           case Case(scrut, arms) => Case(inlineDefn(scrut), arms.map { case (con,vals,body) =>
             (con, vals, if (found) body else inlineDefn(body))

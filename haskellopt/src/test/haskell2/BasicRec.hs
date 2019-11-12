@@ -14,16 +14,8 @@ trec_1 x =
   in f 0 ++ f x
 
 -- Recursive top-level value
--- FIXME
--- alternateTF = True : False : alternateTF
--- alternateTF'0 = take 5 alternateTF
-
-alternateZO0 x y = go where go = x : alternateZO0 y x
-alternateZO0'0 = take 5 (alternateZO0 0 1)
-
--- FIXME
--- alternateZO1 x y = go where go = x : y : go
--- alternateZO1'0 = take 5 (alternateZO1 0 1)
+alternateTF = True : False : alternateTF
+alternateTF'0 = take 5 alternateTF
 
 
 ------ Nested recursion ------
@@ -52,3 +44,10 @@ nrec_capt_0 x =
   let f y = y : (f (y + x))
   in f 0 ++ f x
 
+--- Recursion with more arguments
+
+alternateZO0 x y = go where go = x : alternateZO0 y x
+alternateZO0'0 = take 5 (alternateZO0 0 1)
+
+alternateZO1 x y = go where go = x : y : go
+alternateZO1'0 = take 5 (alternateZO1 0 1)

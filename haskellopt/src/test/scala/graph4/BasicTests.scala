@@ -25,7 +25,6 @@ class BasicTests extends FunSuite {
   )
   
   test("BasicRec") (
-    // FIXME recursive value chains in alternateTF and alternateZO1
     TestHarness("BasicRec",
       //prefixFilter = "nrec_0",
       //prefixFilter = "trec_0",
@@ -36,9 +35,9 @@ class BasicTests extends FunSuite {
       dumpGraph = true,
     )
     (
-      //check("alternateTF'0")(List(true,false,true,false,true))
+      check("alternateTF'0")(List(true,false,true,false,true)),
       check("alternateZO0'0")(List(0,1,0,1,0)),
-      //check("alternateZO1'0")(List(0,1,0,1,0)),
+      check("alternateZO1'0")(List(0,1,0,1,0)),
     )
   )
   
@@ -88,10 +87,9 @@ class BasicTests extends FunSuite {
   
   test("HigherOrderRecLocal") (
     // TODO counteract scheduled code regression since <this commit>, due to unrolling up to UnrollingFactor
-    // FIXME foo and foo_0 produce indirectly-recursive values leading to ordering problems
     // FIXME scheduling of commented foo_2 diverges
     TestHarness("HigherOrderRecLocal",
-      prefixFilter = "foo_",
+      //prefixFilter = "foo_",
       dumpGraph = true,
     )(
       // TODO checks
@@ -129,7 +127,7 @@ class BasicTests extends FunSuite {
   )
   
   test("IterCont") (
-    // FIXME scheduling of nats0 is wrong
+    // FIXME scheduling of nats0_5 is wrong when we enable disregardUF
     TestHarness("IterCont",
       //prefixFilter = "nats0",
       dumpGraph = true,

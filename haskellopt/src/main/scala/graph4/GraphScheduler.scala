@@ -183,7 +183,8 @@ abstract class GraphScheduler { self: GraphIR =>
       val commonSubexprElim = false
       //override val mergeLets = true
       val useOnlyIntLits = self.useOnlyIntLits
-      override val mergeLets = !debugScheduling
+      //override val mergeLets = !debugScheduling
+      override val mergeLets = true
     }
     
     /** Did anything significant change? — as in: a parameter, return, or performed test was added to a scope... */
