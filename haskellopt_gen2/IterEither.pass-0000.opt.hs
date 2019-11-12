@@ -60,5 +60,5 @@ simple5 =
 simple1 = (20::Int)
 
 loop = \k -> \x -> 
-        let rec π = case k π of { Right ρ'2 -> ρ'2; Left ρ'3 -> (case k ρ'3 of { Right ρ'4 -> ρ'4; Left ρ'5 -> (rec ρ'5) }) } in
-        case k x of { Right ρ -> ρ; Left ρ' -> (rec ρ') }
+        let rec π k' = case k' π of { Right ρ'2 -> ρ'2; Left ρ'3 -> (case k' ρ'3 of { Right ρ'4 -> ρ'4; Left ρ'5 -> (rec ρ'5 k) }) } in
+        case k x of { Right ρ -> ρ; Left ρ' -> (rec ρ' k) }

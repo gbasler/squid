@@ -27,11 +27,11 @@ import GHC.Types
 
 main = Criterion.Main.defaultMain (Criterion.Measurement.Types.bgroup (GHC.CString.unpackCString# "interp"#) ((Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "normal"#) $ Criterion.Measurement.Types.whnf (\x -> let
   _0 = x + (1::Int)
-  rec x' = let
+  rec x' p p' = let
         _1 = x' + (1::Int)
         _2 = _1 + (1::Int)
-        in (case _1 < (0::Int) of { True -> (case _2 < (0::Int) of { True -> (rec _2); False -> (0::Int) }) + (2::Int); False -> (0::Int) }) + (2::Int)
-  in (case _0 < (0::Int) of { True -> (rec _0); False -> (0::Int) }) + (2::Int)) (negate ((1000::Int) * (100::Int)))) : []) : [])
+        in (case _1 < (0::Int) of { True -> (case _2 < (0::Int) of { True -> (rec _2 (2::Int) (2::Int)); False -> (0::Int) }) + p; False -> (0::Int) }) + p'
+  in (case _0 < (0::Int) of { True -> (rec _0 (2::Int) (2::Int)); False -> (0::Int) }) + (2::Int)) (negate ((1000::Int) * (100::Int)))) : []) : [])
 
 k = negate ((1000::Int) * (100::Int))
 

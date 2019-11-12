@@ -413,7 +413,10 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       
       val nodes = defs.map { d =>
         val ide = Binding.ident(d)
-        require(!used(ide), ide)
+        //require(!used(ide), ide) // FIXME ideally should not generate duplicates... since [this commit] we do
+        if (used(ide)) { // At the very least, the duplicates should be identical:
+          defs.filter(_|>Binding.ident|>(_ === ide)).foreach(d2 => require(d2 === d, (d,d2)))
+        }
         used += ide
         (ide, d)
       }.toMap

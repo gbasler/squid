@@ -79,21 +79,21 @@ alternateZO1 = \x -> \y ->
         _0
 
 alternateZO0'0 = 
-  let rec x = (1::Int) : (x : (rec x)) in
-  GHC.List.take (5::Int) ((0::Int) : (rec (0::Int)))
+  let rec x x' = x' : (x : (rec x (1::Int))) in
+  GHC.List.take (5::Int) ((0::Int) : (rec (0::Int) (1::Int)))
 
 alternateZO0 = \x -> \y -> 
-        let rec x' = y : (x' : (rec x')) in
-        x : (rec x)
+        let rec x' x'2 = x'2 : (x' : (rec x' y)) in
+        x : (rec x y)
 
 nrec_capt_0 = \x -> let
-  rec' p' = 
-        let _1 = p' + x in
-        p' : (_1 : (rec' (_1 + x)))
-  rec p = 
-        let _0 = p + x in
-        p : (_0 : (rec (_0 + x)))
-  in ((0::Int) : (rec ((0::Int) + x))) ++ (x : (rec' (x + x)))
+  rec p' x'2 = 
+        let _1 = p' + x'2 in
+        p' : (_1 : (rec (_1 + x'2) x))
+  rec' p x' = 
+        let _0 = p + x' in
+        p : (_0 : (rec' (_0 + x') x))
+  in ((0::Int) : (rec ((0::Int) + x) x)) ++ (x : (rec' (x + x) x))
 
 alternateTF'0 = 
   let _0 = True : (False : _0) in

@@ -62,6 +62,7 @@ class BasicTests extends FunSuite {
     //  We need a way to detect dumb cycles and just not register paths in them... (or only a small number)
     TestHarness("HigherOrderRec",
       //prefixFilter = "r",
+      //prefixFilter = "only_q",
       //
       dumpGraph = true,
     )(

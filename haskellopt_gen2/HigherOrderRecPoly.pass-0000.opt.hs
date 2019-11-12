@@ -36,12 +36,12 @@ p1_6 = \x ->
 p1_5 = 
   let λ = \h -> \x -> h (x + (1::Int)) * h (x - (1::Int)) in
   \x' -> let
-        rec' p' = p' (\x'4 -> 
+        rec p' = p' (\x'4 -> 
               let _1 = id p' in
-              _1 (\x'5 -> (rec' (id _1)) (x'5 + (1::Int))) (x'4 + (1::Int)))
-        rec p = p (\x'2 -> 
+              _1 (\x'5 -> (rec (id _1)) (x'5 + (1::Int))) (x'4 + (1::Int)))
+        rec' p = p (\x'2 -> 
               let _0 = id p in
-              _0 (\x'3 -> (rec (id _0)) (x'3 + (1::Int))) (x'2 + (1::Int)))
+              _0 (\x'3 -> (rec' (id _0)) (x'3 + (1::Int))) (x'2 + (1::Int)))
         in (rec (id λ)) ((x' + (1::Int)) + (1::Int)) * (rec' (id λ)) ((x' - (1::Int)) + (1::Int))
 
 p1_4 = \x -> 

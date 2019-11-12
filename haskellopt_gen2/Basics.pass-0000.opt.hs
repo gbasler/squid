@@ -29,8 +29,8 @@ foo_1 = \x -> (x + (1::Int)) * (2::Int)
 foo_2 = \x -> (x + (1::Int)) * x
 
 foo_3 = \x -> let
-  _0 = (x + (1::Int)) * x
   _1 = x * x
+  _0 = (x + (1::Int)) * x
   in (_0 ^ _0) - (_1 ^ _1)
 
 fTest4 = let

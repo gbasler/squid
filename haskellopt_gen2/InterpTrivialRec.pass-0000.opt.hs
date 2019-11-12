@@ -45,12 +45,12 @@ test0 =
   False : rec
 
 exec = \pgm -> let
-  rec' pgm'3 = let
-        rec'4 _fε' = case _fε' of { (:) ρ'20 ρ'21 -> True : (case ρ'21 of { (:) ρ'22 ρ'23 -> True : (rec'4 ρ'23); [] -> False : (case pgm of { (:) ρ'24 ρ'25 -> True : (rec'4 ρ'25); [] -> False : (rec' pgm) }) }); [] -> False : (case pgm of { (:) ρ'26 ρ'27 -> True : (case ρ'27 of { (:) ρ'28 ρ'29 -> True : (rec'4 ρ'29); [] -> False : (rec' pgm) }); [] -> False : (rec' pgm) }) }
-        rec'5 _fε'2 = case _fε'2 of { (:) ρ'34 ρ'35 -> True : (case ρ'35 of { (:) ρ'36 ρ'37 -> True : (rec'5 ρ'37); [] -> False : (rec' pgm) }); [] -> False : (rec' pgm) }
-        in case pgm'3 of { (:) ρ'30 ρ'31 -> True : (rec'4 ρ'31); [] -> False : (case pgm of { (:) ρ'32 ρ'33 -> True : (rec'5 ρ'33); [] -> False : (rec' pgm) }) }
-  rec _fε = let
-        rec'2 pgm' = case pgm' of { (:) ρ'2 ρ'3 -> True : (rec ρ'3); [] -> False : (case pgm of { (:) ρ'4 ρ'5 -> True : (rec ρ'5); [] -> False : (rec'2 pgm) }) }
-        rec'3 pgm'2 = case pgm'2 of { (:) ρ'10 ρ'11 -> True : (case ρ'11 of { (:) ρ'12 ρ'13 -> True : (rec ρ'13); [] -> False : (case pgm of { (:) ρ'14 ρ'15 -> True : (rec ρ'15); [] -> False : (rec'3 pgm) }) }); [] -> False : (case pgm of { (:) ρ'16 ρ'17 -> True : (case ρ'17 of { (:) ρ'18 ρ'19 -> True : (rec ρ'19); [] -> False : (rec'3 pgm) }); [] -> False : (rec'3 pgm) }) }
-        in case _fε of { (:) ρ'6 ρ'7 -> True : (case ρ'7 of { (:) ρ'8 ρ'9 -> True : (rec ρ'9); [] -> False : (rec'2 pgm) }); [] -> False : (rec'3 pgm) }
-  in case pgm of { (:) ρ ρ' -> True : (rec ρ'); [] -> False : (rec' pgm) }
+  rec' pgm'6 pgm'7 = let
+        rec'4 _fε' pgm'8 = case _fε' of { (:) ρ'20 ρ'21 -> True : (case ρ'21 of { (:) ρ'22 ρ'23 -> True : (rec'4 ρ'23 pgm'7); [] -> False : (rec' pgm'8 pgm) }); [] -> False : (rec' pgm'8 pgm) }
+        rec'5 _fε'2 pgm'9 = case _fε'2 of { (:) ρ'28 ρ'29 -> True : (case ρ'29 of { (:) ρ'30 ρ'31 -> True : (rec'5 ρ'31 pgm'7); [] -> False : (case pgm'9 of { (:) ρ'32 ρ'33 -> True : (rec'5 ρ'33 pgm'7); [] -> False : (rec' pgm'9 pgm) }) }); [] -> False : (case pgm'9 of { (:) ρ'34 ρ'35 -> True : (case ρ'35 of { (:) ρ'36 ρ'37 -> True : (rec'5 ρ'37 pgm'7); [] -> False : (rec' pgm'9 pgm) }); [] -> False : (rec' pgm'9 pgm) }) }
+        in case pgm'6 of { (:) ρ'24 ρ'25 -> True : (rec'5 ρ'25 pgm'7); [] -> False : (case pgm'7 of { (:) ρ'26 ρ'27 -> True : (rec'4 ρ'27 pgm'7); [] -> False : (rec' pgm'7 pgm) }) }
+  rec _fε pgm' = let
+        rec'2 pgm'2 pgm'3 = case pgm'2 of { (:) ρ'2 ρ'3 -> True : (case ρ'3 of { (:) ρ'4 ρ'5 -> True : (rec ρ'5 pgm); [] -> False : (case pgm'3 of { (:) ρ'6 ρ'7 -> True : (rec ρ'7 pgm); [] -> False : (rec'2 pgm'3 pgm') }) }); [] -> False : (case pgm'3 of { (:) ρ'8 ρ'9 -> True : (case ρ'9 of { (:) ρ'10 ρ'11 -> True : (rec ρ'11 pgm); [] -> False : (rec'2 pgm'3 pgm') }); [] -> False : (rec'2 pgm'3 pgm') }) }
+        rec'3 pgm'4 pgm'5 = case pgm'4 of { (:) ρ'16 ρ'17 -> True : (rec ρ'17 pgm); [] -> False : (case pgm'5 of { (:) ρ'18 ρ'19 -> True : (rec ρ'19 pgm); [] -> False : (rec'3 pgm'5 pgm') }) }
+        in case _fε of { (:) ρ'12 ρ'13 -> True : (case ρ'13 of { (:) ρ'14 ρ'15 -> True : (rec ρ'15 pgm); [] -> False : (rec'3 pgm' pgm') }); [] -> False : (rec'2 pgm' pgm') }
+  in case pgm of { (:) ρ ρ' -> True : (rec ρ' pgm); [] -> False : (rec' pgm pgm) }

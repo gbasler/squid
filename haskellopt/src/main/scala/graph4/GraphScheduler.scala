@@ -165,8 +165,8 @@ abstract class GraphScheduler { self: GraphIR =>
     }
     val scopeAccessMethod: ScopeAccessMethod.Value =
       ScopeAccessMethod.Selector // note that sometimes, I've seen this create type inference errors (where using Case works)
-      //ScopeAccessMethod.Lens
       //ScopeAccessMethod.Case
+      //ScopeAccessMethod.Lens
     
     var usesLenses = false
     val mayUseLenses = scopeAccessMethod === ScopeAccessMethod.Lens
@@ -265,6 +265,11 @@ abstract class GraphScheduler { self: GraphIR =>
                   //val res = scp.rec(Drop(i)(scp.cid), r)
                   //Sdebug(s"Got: $res a.k.a. ${res.toExpr} a.k.a. ${res.toExpr.stringify}")
                 }
+                // Similar to params:
+                recScp.captures.foreach { case ((i,r),sch) =>
+                  Sdebug(s"Now doing capture $r a.k.a. ${recScp.printRef(i,r)} or ${recScp.toParamIdent((i,r))|>printVar} ($sch (${sch.toExpr.stringify}))")
+                  scp.rec(Pop(i)(scp.cid.v), r)
+                }
               }
             }
           }
@@ -323,8 +328,9 @@ abstract class GraphScheduler { self: GraphIR =>
             assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
             
             //assert(scp.returns.count(_._1._2 === r) === 1) // seems to fail with higher unrolling factors
-            System.err.println(s"WARNING: SELECTION MAY BE WRONG! — $idx of $in/$r in ${scp.returns}")
-            // ^ FIXME fails for maxMaybe1
+            if (scp.returns.count(_._1._2 === r) =/= 1)
+              System.err.println(s"WARNING: SELECTION MAY BE WRONG! — $idx of $in/$r in ${scp.returns}")
+              // ^ FIXME fails for maxMaybe1
             
             mkSelection(scp, callVari, idx)
           }
@@ -343,8 +349,12 @@ abstract class GraphScheduler { self: GraphIR =>
     case class Lambda(v: Var, scp: Scope) extends Scheduled {
       def toExpr: AST.Expr = {
         val defn = scp.toDefn
-        assert(defn.params.isEmpty)
-        AST.Lam(AST.Vari(v), Nil, defn.body)
+        //assert(defn.params.isEmpty) // No longer true due to variable captures being promoted to parameters...
+        assert(defn.params.size === scp.captures.size)
+        val newBody = defn.params.zipWithIndex.foldLeft(defn.body) {
+          case (acc, (v,i)) => AST.Let(v, scp.captures(i)._2.toExpr, acc, true)
+        }
+        AST.Lam(AST.Vari(v), Nil, newBody)
       }
     }
     case class Call(scp: Scope)
@@ -377,6 +387,10 @@ abstract class GraphScheduler { self: GraphIR =>
         AST.Vari(toIdent(ref._1))
         //ref._2.toExpr // refers to the wrong one!
       }
+      def toCaptureArg(ref: (IRef, Scheduled)): AST.Expr = {
+        Sdebug(s"?! toCaptureArg $ref ${ref._1 |> toIdent} ${ref._1 |> toIdent |> printVar} ${ref._2.toExpr} ${ref._2.toExpr.stringify}")
+        ref._2.toExpr
+      }
       
       var subScopes: List[Scope] = Nil
       parent.foreach(_.subScopes ::= this)
@@ -407,8 +421,11 @@ abstract class GraphScheduler { self: GraphIR =>
       }
       
       var params: List[IRef -> Scheduled] = Nil
+      var captures: List[IRef -> Scheduled] = Nil
       var returns: List[IRef -> Scheduled] = Nil
       var delayedEntries: List[IRef] = Nil
+      
+      def allParams = params ::: captures
       
       def returnsTupleCtor: Str = {
         assert(returns.size > 1)
@@ -485,9 +502,29 @@ abstract class GraphScheduler { self: GraphIR =>
             }
             
           case Pop(i) =>
+            /*
             Sdebug(s"Pop to ${parent.get} with $payload")
+            captures += iref
             if (!bound(iref)) {
               val res = parent.get.rec(payload `;` i, body)
+              bind(iref, res)
+            }
+            asVar
+            */
+            // ^ old handling
+            Sdebug(s"Pop to ${parent.get}")
+            if (captures.exists(_._1 === (i -> body))) { // Q: why not use iref here?
+              Sdebug(s"CAPTURE<$ident> ${i -> body} already exists")
+            } else {
+              anythingChanged = true
+              val res = parent.get.rec(payload `;` i, body)
+              captures ::= i -> body -> res
+              Sdebug(s"CAPTURE<$ident> ${body} ==> ${res} ==> ${toParamIdent((i,body))} (${toParamIdent((i,body))|>printVar})")
+              //Sdebug(s"?Pop? ${body} ${bound(body)} ${toParamIdent(body)}/${toParamIdent(body)|>printVar} ${parent.get.toIdent(body)}/${parent.get.toIdent(body)|>printVar}")
+            }
+            //Concrete(toParamIdent(body), Nil)
+            val res = Concrete(toParamIdent((i,body)), Nil)
+            if (!bound(iref)) {
               bind(iref, res)
             }
             asVar
@@ -495,7 +532,7 @@ abstract class GraphScheduler { self: GraphIR =>
           case Drop(i) =>
             Sdebug(s"Drop to ${parent.get}")
             if (params.exists(_._1 === (i -> body))) { // Q: why not use iref here?
-              Sdebug(s"PARAM<$ident> ${body} already exists")
+              Sdebug(s"PARAM<$ident> ${i -> body} already exists")
             } else {
               anythingChanged = true
               val res = parent.get.rec(i, body)
@@ -561,7 +598,7 @@ abstract class GraphScheduler { self: GraphIR =>
                   //Left((scp.toVari(ref), sch.toExpr)) :: rest
               }
               val rest2 = scp.foldBindings(ret)
-              scp.params.foldRight(rest2) {
+              scp.allParams.foldRight(rest2) {
                 case (((i,p),sch), rest2) =>
                   //Sdebug(s"!!! LET ${p}=$sch ${toIdent(p)} ${toIdent(p)|>printVar}")
                   //if (sch.isVari) rest else // FIXME?
@@ -573,20 +610,20 @@ abstract class GraphScheduler { self: GraphIR =>
               assert(scp.recursiveParent.isEmpty)
               val d = scp.defn
               Sdebug(s"CALL REC $scp")
-              val call = AST.Call(d, scp.params.map(toArg))
+              val call = AST.Call(d, scp.params.map(toArg) ::: scp.captures.map(toCaptureArg))
               Right(d.value) :: Left((AST.Vari(scp.callIdent), call)) :: rest
             } else {
               assert(scp.recursiveParent.isDefined)
               val p = scp.recursiveParent.get
               Sdebug(s"REC CALL $scp -> $p")
-              val call = AST.Call(p.defn, p.params.map(toArg))
+              val call = AST.Call(p.defn, p.params.map(toArg) ::: p.captures.map(toCaptureArg))
               Left((AST.Vari(scp.callIdent), call)) :: rest
             }
         }
       }
       
       def toDefn: AST.Defn = Sdebug(s"Defn of $this") thenReturn ScheduleDebug.nestDbg {
-        new AST.Defn(ident, params.map(_._1 |> toParamIdent |> AST.Vari), Lazy {
+        new AST.Defn(ident, allParams.map(_._1 |> toParamIdent |> AST.Vari), Lazy {
           val ret = returns match {
             case Nil => die
             case (_, r) :: Nil => r.toExpr
@@ -616,19 +653,24 @@ abstract class GraphScheduler { self: GraphIR =>
         val aliases = (idents.iterator.map{ case (ref, ide) => s"${ide|>printVar} = [${ref._1}]${ref._2.showName}" }
           ++ paramIdents.iterator.map { case ((i,ref), ide) => s"${ide|>printVar} = ${ref.showName}" }
         ).mkString(s"   [ "," ; "," ]")
+        val capts = if (captures.isEmpty) "" else s"${pre}Captures: ${captures.map(c =>
+          s"${c._1 |> toParamIdent |> printVar}->[${c._1._1}]${c._1._2}=${toCaptureArg(c)}").mkString(", ")}"
         val outerTests = if (testsPerformed.isEmpty) "" else s"${pre}Outer-tests: ${testsPerformed.map{
             case (c, b) => (if (b) "" else "!")+Condition.show(c)
           }.mkString(" && ")
         }"
+        val isRec = if (isRecursive) pre + "RECURSIVE" else ""
+        val recParents = if (recursiveParent.nonEmpty) pre + "REC-PARENTS: " + recursiveParent.mkString(", ") else ""
+        val recInfo = isRec + recParents
         def defs = bindings.reverse.map{
           case Left((r,Lambda(v, scp))) => s"$pre${printRef(r)} = \\${v|>printVar} -> ${scp.show(indent + 1)}"
           case Left((r,s)) => s"$pre${printRef(r)} = "+s.toExpr.stringify //+ s"   \t\t(${s})"
-          case Right(c) => pre + s"${c.scp.callIdent}: " + c.scp.show(indent + 1)
+          case Right(c) => pre + s"${c.scp.callIdent}(${c.scp.params.map(toArg).map(_.stringify).mkString(", ")}): " + c.scp.show(indent + 1)
         }.mkString
-        s"$toString: (${params.map(_._1 |> toParamIdent |> printVar).mkString(", ")}) -> ($rets) where$aliases$outerTests${defs}"
+        s"$toString: (${params.map(_._1 |> toParamIdent |> printVar).mkString(", ")}) -> ($rets) where$aliases$capts$outerTests$recInfo${defs}"
       }
       
-      override def toString = s"<${ident.toString}>(${Push(cid,payload,Id)})"
+      override def toString = s"${Console.BOLD}<${ident.toString}>${Console.RESET}(${Push(cid,payload,Id)})"
     }
     
   }

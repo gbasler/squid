@@ -30,21 +30,21 @@ alternate = \ds ->
   case ds of { (,) ρ ρ' -> ρ : (rec ρ ρ') }
 
 oops'0 = 
-  let rec = 
-        let rec' π = case π of { (:) ρ ρ' -> ρ + (case ρ' of { (:) ρ'2 ρ'3 -> ρ'2 + (rec' ρ'3); [] -> rec }); [] -> rec } in
-        case [] of { (:) ρ'4 ρ'5 -> ρ'4 + (rec' ρ'5); [] -> rec } in
-  rec
+  let rec xs xs' = 
+        let rec' π xs'2 = case π of { (:) ρ ρ' -> ρ + (case ρ' of { (:) ρ'2 ρ'3 -> ρ'2 + (rec' ρ'3 xs); [] -> (rec [] []) }); [] -> (rec [] []) } in
+        case xs' of { (:) ρ'4 ρ'5 -> ρ'4 + (rec' ρ'5 xs); [] -> (rec [] []) } in
+  (rec [] [])
 
 oops = \xs -> \ds -> let
-        rec' xs'3 = let
-              rec'4 π' = case π' of { (:) ρ'20 ρ'21 -> ρ'20 + (case ρ'21 of { (:) ρ'22 ρ'23 -> ρ'22 + (rec'4 ρ'23); [] -> (rec' xs) }); [] -> (rec' xs) }
-              rec'5 π'2 = case π'2 of { (:) ρ'28 ρ'29 -> ρ'28 + (case ρ'29 of { (:) ρ'30 ρ'31 -> ρ'30 + (rec'5 ρ'31); [] -> (case xs of { (:) ρ'32 ρ'33 -> ρ'32 + (rec'5 ρ'33); [] -> (rec' xs) }) }); [] -> (case xs of { (:) ρ'34 ρ'35 -> ρ'34 + (case ρ'35 of { (:) ρ'36 ρ'37 -> ρ'36 + (rec'5 ρ'37); [] -> (rec' xs) }); [] -> (rec' xs) }) }
-              in case xs'3 of { (:) ρ'24 ρ'25 -> ρ'24 + (rec'5 ρ'25); [] -> (case xs of { (:) ρ'26 ρ'27 -> ρ'26 + (rec'4 ρ'27); [] -> (rec' xs) }) }
-        rec π = let
-              rec'2 xs' = case xs' of { (:) ρ'2 ρ'3 -> ρ'2 + (rec ρ'3); [] -> (case xs of { (:) ρ'4 ρ'5 -> ρ'4 + (rec ρ'5); [] -> (rec'2 xs) }) }
-              rec'3 xs'2 = case xs'2 of { (:) ρ'10 ρ'11 -> ρ'10 + (case ρ'11 of { (:) ρ'12 ρ'13 -> ρ'12 + (rec ρ'13); [] -> (case xs of { (:) ρ'14 ρ'15 -> ρ'14 + (rec ρ'15); [] -> (rec'3 xs) }) }); [] -> (case xs of { (:) ρ'16 ρ'17 -> ρ'16 + (case ρ'17 of { (:) ρ'18 ρ'19 -> ρ'18 + (rec ρ'19); [] -> (rec'3 xs) }); [] -> (rec'3 xs) }) }
-              in case π of { (:) ρ'6 ρ'7 -> ρ'6 + (case ρ'7 of { (:) ρ'8 ρ'9 -> ρ'8 + (rec ρ'9); [] -> (rec'2 xs) }); [] -> (rec'3 xs) }
-        in case ds of { (:) ρ ρ' -> ρ + (rec ρ'); [] -> (rec' xs) }
+        rec π'2 xs'8 xs'9 = let
+              rec'4 xs'10 xs'11 xs'12 = case xs'10 of { (:) ρ'20 ρ'21 -> ρ'20 + (rec ρ'21 xs xs); [] -> (case xs'12 of { (:) ρ'22 ρ'23 -> ρ'22 + (rec ρ'23 xs xs); [] -> (rec'4 xs'11 xs'9 xs'9) }) }
+              rec'5 xs'13 xs'14 xs'15 = case xs'13 of { (:) ρ'28 ρ'29 -> ρ'28 + (case ρ'29 of { (:) ρ'30 ρ'31 -> ρ'30 + (rec ρ'31 xs xs); [] -> (case xs'15 of { (:) ρ'32 ρ'33 -> ρ'32 + (rec ρ'33 xs xs); [] -> (rec'5 xs'15 xs'9 xs'9) }) }); [] -> (case xs'14 of { (:) ρ'34 ρ'35 -> ρ'34 + (case ρ'35 of { (:) ρ'36 ρ'37 -> ρ'36 + (rec ρ'37 xs xs); [] -> (rec'5 xs'15 xs'9 xs'9) }); [] -> (rec'5 xs'15 xs'9 xs'9) }) }
+              in case π'2 of { (:) ρ'24 ρ'25 -> ρ'24 + (case ρ'25 of { (:) ρ'26 ρ'27 -> ρ'26 + (rec ρ'27 xs xs); [] -> (rec'4 xs'9 xs'9 xs'9) }); [] -> (rec'5 xs'8 xs'9 xs'9) }
+        rec' xs' xs'2 xs'3 = let
+              rec'2 π xs'4 xs'5 = case π of { (:) ρ'2 ρ'3 -> ρ'2 + (case ρ'3 of { (:) ρ'4 ρ'5 -> ρ'4 + (rec'2 ρ'5 xs'3 xs'3); [] -> (rec' xs'4 xs xs) }); [] -> (rec' xs'5 xs xs) }
+              rec'3 π' xs'6 xs'7 = case π' of { (:) ρ'10 ρ'11 -> ρ'10 + (case ρ'11 of { (:) ρ'12 ρ'13 -> ρ'12 + (rec'3 ρ'13 xs'3 xs'3); [] -> (case xs'7 of { (:) ρ'14 ρ'15 -> ρ'14 + (rec'3 ρ'15 xs'3 xs'3); [] -> (rec' xs'7 xs xs) }) }); [] -> (case xs'6 of { (:) ρ'16 ρ'17 -> ρ'16 + (case ρ'17 of { (:) ρ'18 ρ'19 -> ρ'18 + (rec'3 ρ'19 xs'3 xs'3); [] -> (rec' xs'7 xs xs) }); [] -> (rec' xs'7 xs xs) }) }
+              in case xs' of { (:) ρ'6 ρ'7 -> ρ'6 + (rec'3 ρ'7 xs'3 xs'3); [] -> (case xs'2 of { (:) ρ'8 ρ'9 -> ρ'8 + (rec'2 ρ'9 xs'3 xs'3); [] -> (rec' xs'3 xs xs) }) }
+        in case ds of { (:) ρ ρ' -> ρ + (rec ρ' xs xs); [] -> (rec' xs xs xs) }
 
 usum'2 = (1::Int) + ((2::Int) + (0::Int))
 

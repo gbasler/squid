@@ -37,13 +37,13 @@ loop1 = \f -> \state ->
         f λ state
 
 nats0_5 = let
-  _0 = (0::Int) + (1::Int)
   rec f = f (rec f)
+  _0 = (0::Int) + (1::Int)
   in GHC.List.take (5::Int) ((0::Int) : (_0 : (rec (\k -> \s -> s : k (s + (1::Int)))) (_0 + (1::Int))))
 
 nats0 = let
-  _0 = (0::Int) + (1::Int)
   rec f = f (rec f)
+  _0 = (0::Int) + (1::Int)
   in (0::Int) : (_0 : (rec (\k -> \s -> s : k (s + (1::Int)))) (_0 + (1::Int)))
 
 loop0 = \f -> 

@@ -15,7 +15,10 @@ class TestHarness {
   val traceInterpreter = false
   //val traceInterpreter = true
   
-  val slowDownGraphPrints = false
+  val printIntermediateGraphs = false
+  //val printIntermediateGraphs = true
+  
+  val slowDownGraphPrints = printIntermediateGraphs
   //val slowDownGraphPrints = true
   
   
@@ -65,17 +68,17 @@ class TestHarness {
     println(s"=== PHASE ${mod.modPhase} ===")
     
     //go.Graph.debugFor
-    go.Graph.RewriteDebug.debugFor
+    //go.Graph.RewriteDebug.debugFor
     {
     
     var ite = 0
     do {
       
-      if (go.Graph.RewriteDebug.isDebugEnabled) {
+      if (printIntermediateGraphs) {
         println(s"--- Graph ${ite} ---")
         println(mod.showGraph)
         println(s"--- / ---")
-        if (slowDownGraphPrints) Thread.sleep(100)
+        if (slowDownGraphPrints || go.Graph.debugScheduling) Thread.sleep(100)
       }
       
       // TODO sanity checks
