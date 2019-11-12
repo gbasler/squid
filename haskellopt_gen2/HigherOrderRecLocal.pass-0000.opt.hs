@@ -24,122 +24,121 @@ import GHC.Real
 import GHC.Types
 
 foo_6_5 = \x -> let
-  rec p'3 = let
-        _6 = p'3 + (1::Int)
-        rec'4 p'5 = 
-              let _11 = p'5 * (2::Int) in
-              p'5 : (case mod p'5 (2::Int) == (0::Int) of { True -> (rec (p'5 + (1::Int))); False -> _11 : (case mod _11 (2::Int) == (0::Int) of { True -> (rec (_11 + (1::Int))); False -> (rec'4 (_11 * (2::Int))) }) })
-        rec'5 p'4 = let
-              _7 = p'4 * (2::Int)
-              _10 = _7 + (1::Int)
-              _8 = p'4 + (1::Int)
-              _9 = _8 * (2::Int)
-              in p'4 : (case mod p'4 (2::Int) == (0::Int) of { True -> _8 : (case mod _8 (2::Int) == (0::Int) of { True -> (rec (_8 + (1::Int))); False -> _9 : (case mod _9 (2::Int) == (0::Int) of { True -> (rec (_9 + (1::Int))); False -> (rec'5 (_9 * (2::Int))) }) }); False -> _7 : (case mod _7 (2::Int) == (0::Int) of { True -> _10 : (case mod _10 (2::Int) == (0::Int) of { True -> (rec (_10 + (1::Int))); False -> (rec'5 (_10 * (2::Int))) }); False -> (rec'5 (_7 * (2::Int))) }) })
-        in p'3 : (case mod p'3 (2::Int) == (0::Int) of { True -> _6 : (case mod _6 (2::Int) == (0::Int) of { True -> (rec (_6 + (1::Int))); False -> (rec'4 (_6 * (2::Int))) }); False -> (rec'5 (p'3 * (2::Int))) })
-  rec' p = let
-        _0 = p * (2::Int)
-        rec'3 p'2 = 
-              let _5 = p'2 + (1::Int) in
-              p'2 : (case mod p'2 (2::Int) == (0::Int) of { True -> _5 : (case mod _5 (2::Int) == (0::Int) of { True -> (rec'3 (_5 + (1::Int))); False -> (rec' (_5 * (2::Int))) }); False -> (rec' (p'2 * (2::Int))) })
-        rec'2 p' = let
-              _1 = p' + (1::Int)
-              _2 = _1 * (2::Int)
-              _3 = p' * (2::Int)
-              _4 = _3 + (1::Int)
-              in p' : (case mod p' (2::Int) == (0::Int) of { True -> _1 : (case mod _1 (2::Int) == (0::Int) of { True -> (rec'2 (_1 + (1::Int))); False -> _2 : (case mod _2 (2::Int) == (0::Int) of { True -> (rec'2 (_2 + (1::Int))); False -> (rec' (_2 * (2::Int))) }) }); False -> _3 : (case mod _3 (2::Int) == (0::Int) of { True -> _4 : (case mod _4 (2::Int) == (0::Int) of { True -> (rec'2 (_4 + (1::Int))); False -> (rec' (_4 * (2::Int))) }); False -> (rec' (_3 * (2::Int))) }) })
-        in p : (case mod p (2::Int) == (0::Int) of { True -> (rec'2 (p + (1::Int))); False -> _0 : (case mod _0 (2::Int) == (0::Int) of { True -> (rec'3 (_0 + (1::Int))); False -> (rec' (_0 * (2::Int))) }) })
-  in GHC.List.take (5::Int) (x : (case mod x (2::Int) == (0::Int) of { True -> (rec (x + (1::Int))); False -> (rec' (x * (2::Int))) }))
+  _0 = x + (1::Int)
+  rec p'10 = let
+        _5 = p'10 * (2::Int)
+        rec'11 p'11 = p'11 : (case mod p'11 (2::Int) == (0::Int) of { True -> (rec (p'11 + (1::Int))); False -> (rec'11 (p'11 * (2::Int))) })
+        in p'10 : (case mod p'10 (2::Int) == (0::Int) of { True -> (rec (p'10 + (1::Int))); False -> _5 : (case mod _5 (2::Int) == (0::Int) of { True -> (rec (_5 + (1::Int))); False -> (rec'11 (_5 * (2::Int))) }) })
+  _1 = _0 * (2::Int)
+  rec'2 p'8 = 
+        let rec'10 p'9 = p'9 : (case mod p'9 (2::Int) == (0::Int) of { True -> (rec'10 (p'9 + (1::Int))); False -> (rec'2 (p'9 * (2::Int))) }) in
+        p'8 : (case mod p'8 (2::Int) == (0::Int) of { True -> (rec'10 (p'8 + (1::Int))); False -> (rec'2 (p'8 * (2::Int))) })
+  rec' p'6 = 
+        let rec'9 p'7 = p'7 : (case mod p'7 (2::Int) == (0::Int) of { True -> (rec' (p'7 + (1::Int))); False -> (rec'9 (p'7 * (2::Int))) }) in
+        p'6 : (case mod p'6 (2::Int) == (0::Int) of { True -> (rec' (p'6 + (1::Int))); False -> (rec'9 (p'6 * (2::Int))) })
+  _2 = x * (2::Int)
+  rec'5 p'4 = let
+        _4 = p'4 + (1::Int)
+        rec'8 p'5 = p'5 : (case mod p'5 (2::Int) == (0::Int) of { True -> (rec'8 (p'5 + (1::Int))); False -> (rec'5 (p'5 * (2::Int))) })
+        in p'4 : (case mod p'4 (2::Int) == (0::Int) of { True -> _4 : (case mod _4 (2::Int) == (0::Int) of { True -> (rec'8 (_4 + (1::Int))); False -> (rec'5 (_4 * (2::Int))) }); False -> (rec'5 (p'4 * (2::Int))) })
+  rec'3 p'2 = 
+        let rec'7 p'3 = p'3 : (case mod p'3 (2::Int) == (0::Int) of { True -> (rec'3 (p'3 + (1::Int))); False -> (rec'7 (p'3 * (2::Int))) }) in
+        p'2 : (case mod p'2 (2::Int) == (0::Int) of { True -> (rec'3 (p'2 + (1::Int))); False -> (rec'7 (p'2 * (2::Int))) })
+  _3 = _2 + (1::Int)
+  rec'4 p = 
+        let rec'6 p' = p' : (case mod p' (2::Int) == (0::Int) of { True -> (rec'6 (p' + (1::Int))); False -> (rec'4 (p' * (2::Int))) }) in
+        p : (case mod p (2::Int) == (0::Int) of { True -> (rec'6 (p + (1::Int))); False -> (rec'4 (p * (2::Int))) })
+  in GHC.List.take (5::Int) (x : (case mod x (2::Int) == (0::Int) of { True -> _0 : (case mod _0 (2::Int) == (0::Int) of { True -> (rec (_0 + (1::Int))); False -> _1 : (case mod _1 (2::Int) == (0::Int) of { True -> (rec' (_1 + (1::Int))); False -> (rec'2 (_1 * (2::Int))) }) }); False -> _2 : (case mod _2 (2::Int) == (0::Int) of { True -> _3 : (case mod _3 (2::Int) == (0::Int) of { True -> (rec'3 (_3 + (1::Int))); False -> (rec'4 (_3 * (2::Int))) }); False -> (rec'5 (_2 * (2::Int))) }) }))
 
 foo_6 = \s -> let
-  rec p'3 = let
-        _6 = p'3 + (1::Int)
-        rec'4 p'5 = 
-              let _11 = p'5 * (2::Int) in
-              p'5 : (case mod p'5 (2::Int) == (0::Int) of { True -> (rec (p'5 + (1::Int))); False -> _11 : (case mod _11 (2::Int) == (0::Int) of { True -> (rec (_11 + (1::Int))); False -> (rec'4 (_11 * (2::Int))) }) })
-        rec'5 p'4 = let
-              _7 = p'4 * (2::Int)
-              _10 = _7 + (1::Int)
-              _8 = p'4 + (1::Int)
-              _9 = _8 * (2::Int)
-              in p'4 : (case mod p'4 (2::Int) == (0::Int) of { True -> _8 : (case mod _8 (2::Int) == (0::Int) of { True -> (rec (_8 + (1::Int))); False -> _9 : (case mod _9 (2::Int) == (0::Int) of { True -> (rec (_9 + (1::Int))); False -> (rec'5 (_9 * (2::Int))) }) }); False -> _7 : (case mod _7 (2::Int) == (0::Int) of { True -> _10 : (case mod _10 (2::Int) == (0::Int) of { True -> (rec (_10 + (1::Int))); False -> (rec'5 (_10 * (2::Int))) }); False -> (rec'5 (_7 * (2::Int))) }) })
-        in p'3 : (case mod p'3 (2::Int) == (0::Int) of { True -> _6 : (case mod _6 (2::Int) == (0::Int) of { True -> (rec (_6 + (1::Int))); False -> (rec'4 (_6 * (2::Int))) }); False -> (rec'5 (p'3 * (2::Int))) })
-  rec' p = let
-        _0 = p * (2::Int)
-        rec'3 p'2 = 
-              let _5 = p'2 + (1::Int) in
-              p'2 : (case mod p'2 (2::Int) == (0::Int) of { True -> _5 : (case mod _5 (2::Int) == (0::Int) of { True -> (rec'3 (_5 + (1::Int))); False -> (rec' (_5 * (2::Int))) }); False -> (rec' (p'2 * (2::Int))) })
-        rec'2 p' = let
-              _1 = p' * (2::Int)
-              _4 = _1 + (1::Int)
-              _2 = p' + (1::Int)
-              _3 = _2 * (2::Int)
-              in p' : (case mod p' (2::Int) == (0::Int) of { True -> _2 : (case mod _2 (2::Int) == (0::Int) of { True -> (rec'2 (_2 + (1::Int))); False -> _3 : (case mod _3 (2::Int) == (0::Int) of { True -> (rec'2 (_3 + (1::Int))); False -> (rec' (_3 * (2::Int))) }) }); False -> _1 : (case mod _1 (2::Int) == (0::Int) of { True -> _4 : (case mod _4 (2::Int) == (0::Int) of { True -> (rec'2 (_4 + (1::Int))); False -> (rec' (_4 * (2::Int))) }); False -> (rec' (_1 * (2::Int))) }) })
-        in p : (case mod p (2::Int) == (0::Int) of { True -> (rec'2 (p + (1::Int))); False -> _0 : (case mod _0 (2::Int) == (0::Int) of { True -> (rec'3 (_0 + (1::Int))); False -> (rec' (_0 * (2::Int))) }) })
-  in s : (case mod s (2::Int) == (0::Int) of { True -> (rec (s + (1::Int))); False -> (rec' (s * (2::Int))) })
+  _0 = s + (1::Int)
+  rec p'10 = let
+        _5 = p'10 * (2::Int)
+        rec'11 p'11 = p'11 : (case mod p'11 (2::Int) == (0::Int) of { True -> (rec (p'11 + (1::Int))); False -> (rec'11 (p'11 * (2::Int))) })
+        in p'10 : (case mod p'10 (2::Int) == (0::Int) of { True -> (rec (p'10 + (1::Int))); False -> _5 : (case mod _5 (2::Int) == (0::Int) of { True -> (rec (_5 + (1::Int))); False -> (rec'11 (_5 * (2::Int))) }) })
+  rec'2 p'8 = 
+        let rec'10 p'9 = p'9 : (case mod p'9 (2::Int) == (0::Int) of { True -> (rec'10 (p'9 + (1::Int))); False -> (rec'2 (p'9 * (2::Int))) }) in
+        p'8 : (case mod p'8 (2::Int) == (0::Int) of { True -> (rec'10 (p'8 + (1::Int))); False -> (rec'2 (p'8 * (2::Int))) })
+  _1 = _0 * (2::Int)
+  rec' p'6 = 
+        let rec'9 p'7 = p'7 : (case mod p'7 (2::Int) == (0::Int) of { True -> (rec' (p'7 + (1::Int))); False -> (rec'9 (p'7 * (2::Int))) }) in
+        p'6 : (case mod p'6 (2::Int) == (0::Int) of { True -> (rec' (p'6 + (1::Int))); False -> (rec'9 (p'6 * (2::Int))) })
+  _2 = s * (2::Int)
+  rec'5 p'4 = let
+        _4 = p'4 + (1::Int)
+        rec'8 p'5 = p'5 : (case mod p'5 (2::Int) == (0::Int) of { True -> (rec'8 (p'5 + (1::Int))); False -> (rec'5 (p'5 * (2::Int))) })
+        in p'4 : (case mod p'4 (2::Int) == (0::Int) of { True -> _4 : (case mod _4 (2::Int) == (0::Int) of { True -> (rec'8 (_4 + (1::Int))); False -> (rec'5 (_4 * (2::Int))) }); False -> (rec'5 (p'4 * (2::Int))) })
+  _3 = _2 + (1::Int)
+  rec'4 p'2 = 
+        let rec'7 p'3 = p'3 : (case mod p'3 (2::Int) == (0::Int) of { True -> (rec'7 (p'3 + (1::Int))); False -> (rec'4 (p'3 * (2::Int))) }) in
+        p'2 : (case mod p'2 (2::Int) == (0::Int) of { True -> (rec'7 (p'2 + (1::Int))); False -> (rec'4 (p'2 * (2::Int))) })
+  rec'3 p = 
+        let rec'6 p' = p' : (case mod p' (2::Int) == (0::Int) of { True -> (rec'3 (p' + (1::Int))); False -> (rec'6 (p' * (2::Int))) }) in
+        p : (case mod p (2::Int) == (0::Int) of { True -> (rec'3 (p + (1::Int))); False -> (rec'6 (p * (2::Int))) })
+  in s : (case mod s (2::Int) == (0::Int) of { True -> _0 : (case mod _0 (2::Int) == (0::Int) of { True -> (rec (_0 + (1::Int))); False -> _1 : (case mod _1 (2::Int) == (0::Int) of { True -> (rec' (_1 + (1::Int))); False -> (rec'2 (_1 * (2::Int))) }) }); False -> _2 : (case mod _2 (2::Int) == (0::Int) of { True -> _3 : (case mod _3 (2::Int) == (0::Int) of { True -> (rec'3 (_3 + (1::Int))); False -> (rec'4 (_3 * (2::Int))) }); False -> (rec'5 (_2 * (2::Int))) }) })
 
 foo_5_10 = let
-  rec p = let
-        rec' p' = let
-              _0 = p' + (1::Int)
-              _1 = _0 * (2::Int)
-              _2 = p' * (2::Int)
-              _3 = _2 + (1::Int)
-              in p' : ((_0 : ((rec (_0 + (1::Int))) ++ (_1 : ((rec (_1 + (1::Int))) ++ (rec' (_1 * (2::Int))))))) ++ (_2 : ((_3 : ((rec (_3 + (1::Int))) ++ (rec' (_3 * (2::Int))))) ++ (rec' (_2 * (2::Int))))))
+  _0 = (23::Int) + (1::Int)
+  _1 = _0 * (2::Int)
+  rec' p'10 = 
+        let rec'11 p'11 = p'11 : ((rec' (p'11 + (1::Int))) ++ (rec'11 (p'11 * (2::Int)))) in
+        p'10 : ((rec' (p'10 + (1::Int))) ++ (rec'11 (p'10 * (2::Int))))
+  rec'2 p'8 = 
+        let rec'10 p'9 = p'9 : ((rec'10 (p'9 + (1::Int))) ++ (rec'2 (p'9 * (2::Int)))) in
+        p'8 : ((rec'10 (p'8 + (1::Int))) ++ (rec'2 (p'8 * (2::Int))))
+  rec p'6 = let
+        _5 = p'6 * (2::Int)
+        rec'9 p'7 = p'7 : ((rec (p'7 + (1::Int))) ++ (rec'9 (p'7 * (2::Int))))
+        in p'6 : ((rec (p'6 + (1::Int))) ++ (_5 : ((rec (_5 + (1::Int))) ++ (rec'9 (_5 * (2::Int))))))
+  rec'4 p'4 = 
+        let rec'8 p'5 = p'5 : ((rec'8 (p'5 + (1::Int))) ++ (rec'4 (p'5 * (2::Int)))) in
+        p'4 : ((rec'8 (p'4 + (1::Int))) ++ (rec'4 (p'4 * (2::Int))))
+  _2 = (23::Int) * (2::Int)
+  _3 = _2 + (1::Int)
+  rec'3 p'2 = 
+        let rec'7 p'3 = p'3 : ((rec'3 (p'3 + (1::Int))) ++ (rec'7 (p'3 * (2::Int)))) in
+        p'2 : ((rec'3 (p'2 + (1::Int))) ++ (rec'7 (p'2 * (2::Int))))
+  rec'5 p = let
         _4 = p + (1::Int)
-        rec'2 p'2 = 
-              let _5 = p'2 * (2::Int) in
-              p'2 : ((rec (p'2 + (1::Int))) ++ (_5 : ((rec (_5 + (1::Int))) ++ (rec'2 (_5 * (2::Int))))))
-        in p : ((_4 : ((rec (_4 + (1::Int))) ++ (rec'2 (_4 * (2::Int))))) ++ (rec' (p * (2::Int))))
-  rec'3 p'3 = let
-        rec'4 p'4 = let
-              _6 = p'4 * (2::Int)
-              _9 = _6 + (1::Int)
-              _7 = p'4 + (1::Int)
-              _8 = _7 * (2::Int)
-              in p'4 : ((_7 : ((rec'4 (_7 + (1::Int))) ++ (_8 : ((rec'4 (_8 + (1::Int))) ++ (rec'3 (_8 * (2::Int))))))) ++ (_6 : ((_9 : ((rec'4 (_9 + (1::Int))) ++ (rec'3 (_9 * (2::Int))))) ++ (rec'3 (_6 * (2::Int))))))
-        _10 = p'3 * (2::Int)
-        rec'5 p'5 = 
-              let _11 = p'5 + (1::Int) in
-              p'5 : ((_11 : ((rec'5 (_11 + (1::Int))) ++ (rec'3 (_11 * (2::Int))))) ++ (rec'3 (p'5 * (2::Int))))
-        in p'3 : ((rec'4 (p'3 + (1::Int))) ++ (_10 : ((rec'5 (_10 + (1::Int))) ++ (rec'3 (_10 * (2::Int))))))
-  in GHC.List.take (10::Int) ((23::Int) : ((rec ((23::Int) + (1::Int))) ++ (rec'3 ((23::Int) * (2::Int)))))
+        rec'6 p' = p' : ((rec'6 (p' + (1::Int))) ++ (rec'5 (p' * (2::Int))))
+        in p : ((_4 : ((rec'6 (_4 + (1::Int))) ++ (rec'5 (_4 * (2::Int))))) ++ (rec'5 (p * (2::Int))))
+  in GHC.List.take (10::Int) ((23::Int) : ((_0 : ((rec (_0 + (1::Int))) ++ (_1 : ((rec' (_1 + (1::Int))) ++ (rec'2 (_1 * (2::Int))))))) ++ (_2 : ((_3 : ((rec'3 (_3 + (1::Int))) ++ (rec'4 (_3 * (2::Int))))) ++ (rec'5 (_2 * (2::Int)))))))
 
 foo_5 = \s -> let
-  rec p'3 = let
-        rec'4 p'4 = let
-              _6 = p'4 + (1::Int)
-              _7 = _6 * (2::Int)
-              _8 = p'4 * (2::Int)
-              _9 = _8 + (1::Int)
-              in p'4 : ((_6 : ((rec (_6 + (1::Int))) ++ (_7 : ((rec (_7 + (1::Int))) ++ (rec'4 (_7 * (2::Int))))))) ++ (_8 : ((_9 : ((rec (_9 + (1::Int))) ++ (rec'4 (_9 * (2::Int))))) ++ (rec'4 (_8 * (2::Int))))))
-        _10 = p'3 + (1::Int)
-        rec'5 p'5 = 
-              let _11 = p'5 * (2::Int) in
-              p'5 : ((rec (p'5 + (1::Int))) ++ (_11 : ((rec (_11 + (1::Int))) ++ (rec'5 (_11 * (2::Int))))))
-        in p'3 : ((_10 : ((rec (_10 + (1::Int))) ++ (rec'5 (_10 * (2::Int))))) ++ (rec'4 (p'3 * (2::Int))))
-  rec' p = let
-        rec'2 p' = let
-              _0 = p' * (2::Int)
-              _3 = _0 + (1::Int)
-              _1 = p' + (1::Int)
-              _2 = _1 * (2::Int)
-              in p' : ((_1 : ((rec'2 (_1 + (1::Int))) ++ (_2 : ((rec'2 (_2 + (1::Int))) ++ (rec' (_2 * (2::Int))))))) ++ (_0 : ((_3 : ((rec'2 (_3 + (1::Int))) ++ (rec' (_3 * (2::Int))))) ++ (rec' (_0 * (2::Int))))))
-        _4 = p * (2::Int)
-        rec'3 p'2 = 
-              let _5 = p'2 + (1::Int) in
-              p'2 : ((_5 : ((rec'3 (_5 + (1::Int))) ++ (rec' (_5 * (2::Int))))) ++ (rec' (p'2 * (2::Int))))
-        in p : ((rec'2 (p + (1::Int))) ++ (_4 : ((rec'3 (_4 + (1::Int))) ++ (rec' (_4 * (2::Int))))))
-  in s : ((rec (s + (1::Int))) ++ (rec' (s * (2::Int))))
+  _0 = s + (1::Int)
+  _1 = _0 * (2::Int)
+  rec' p'10 = 
+        let rec'11 p'11 = p'11 : ((rec' (p'11 + (1::Int))) ++ (rec'11 (p'11 * (2::Int)))) in
+        p'10 : ((rec' (p'10 + (1::Int))) ++ (rec'11 (p'10 * (2::Int))))
+  rec'2 p'8 = 
+        let rec'10 p'9 = p'9 : ((rec'10 (p'9 + (1::Int))) ++ (rec'2 (p'9 * (2::Int)))) in
+        p'8 : ((rec'10 (p'8 + (1::Int))) ++ (rec'2 (p'8 * (2::Int))))
+  rec p'6 = let
+        _5 = p'6 * (2::Int)
+        rec'9 p'7 = p'7 : ((rec (p'7 + (1::Int))) ++ (rec'9 (p'7 * (2::Int))))
+        in p'6 : ((rec (p'6 + (1::Int))) ++ (_5 : ((rec (_5 + (1::Int))) ++ (rec'9 (_5 * (2::Int))))))
+  _2 = s * (2::Int)
+  _3 = _2 + (1::Int)
+  rec'4 p'4 = 
+        let rec'8 p'5 = p'5 : ((rec'8 (p'5 + (1::Int))) ++ (rec'4 (p'5 * (2::Int)))) in
+        p'4 : ((rec'8 (p'4 + (1::Int))) ++ (rec'4 (p'4 * (2::Int))))
+  rec'3 p'2 = 
+        let rec'7 p'3 = p'3 : ((rec'3 (p'3 + (1::Int))) ++ (rec'7 (p'3 * (2::Int)))) in
+        p'2 : ((rec'3 (p'2 + (1::Int))) ++ (rec'7 (p'2 * (2::Int))))
+  rec'5 p = let
+        _4 = p + (1::Int)
+        rec'6 p' = p' : ((rec'6 (p' + (1::Int))) ++ (rec'5 (p' * (2::Int))))
+        in p : ((_4 : ((rec'6 (_4 + (1::Int))) ++ (rec'5 (_4 * (2::Int))))) ++ (rec'5 (p * (2::Int))))
+  in s : ((_0 : ((rec (_0 + (1::Int))) ++ (_1 : ((rec' (_1 + (1::Int))) ++ (rec'2 (_1 * (2::Int))))))) ++ (_2 : ((_3 : ((rec'3 (_3 + (1::Int))) ++ (rec'4 (_3 * (2::Int))))) ++ (rec'5 (_2 * (2::Int))))))
 
-foo_4 = \s -> 
-  let rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int)))) in
-  s : (rec (s + (1::Int)))
+foo_4 = \s -> let
+  _0 = s + (1::Int)
+  rec p = p : (rec (p + (1::Int)))
+  in s : (_0 : (rec (_0 + (1::Int))))
 
 foo_3 = \s -> 
-  let rec s' = s' : (s' : (rec s')) in
-  s : (rec s)
+  let rec s' = s' : (rec s') in
+  s : (s : (rec s))
 
 foo_1 = id
 

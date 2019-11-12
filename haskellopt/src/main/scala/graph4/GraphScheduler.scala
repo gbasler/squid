@@ -253,8 +253,8 @@ abstract class GraphScheduler { self: GraphIR =>
             val ps = scp.potentiallyRecursiveParents
             //if (ps.nonEmpty) {
             if (disregardUF && ps.nonEmpty || ps.size > UnrollingFactor) {
-              val recScp = ps.last // TODO also try with .head
-              //val recScp = ps.head
+              //val recScp = ps.last // Using this one caused InterpTrivialRec to fail (but it should not!)
+              val recScp = ps.head
               Sdebug(s"Apparently recursive scope: ${scp} -> ${ps.last}")
               ScheduleDebug.nestDbg {
                 scp.recursiveParent = Some(recScp)

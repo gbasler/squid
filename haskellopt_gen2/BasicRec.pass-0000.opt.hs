@@ -22,69 +22,59 @@ import GHC.Num
 import GHC.Types
 
 trec_0_1 = let
-  rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int))))
-  rec' p' = 
-        let _2 = p' + (1::Int) in
-        p' : (_2 : (rec' (_2 + (1::Int))))
-  _1 = GHC.List.head ((32::Int) : (rec' ((32::Int) + (1::Int))))
-  in _1 : (rec (_1 + (1::Int)))
+  rec p = p : (rec (p + (1::Int)))
+  _2 = (32::Int) + (1::Int)
+  rec' p' = p' : (rec' (p' + (1::Int)))
+  _0 = GHC.List.head ((32::Int) : (_2 : (rec' (_2 + (1::Int)))))
+  _1 = _0 + (1::Int)
+  in _0 : (_1 : (rec (_1 + (1::Int))))
 
 trec_0_0 = let
-  rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int))))
-  rec' p' = 
-        let _1 = p' + (1::Int) in
-        p' : (_1 : (rec' (_1 + (1::Int))))
-  in ((27::Int) : (rec' ((27::Int) + (1::Int)))) ++ ((32::Int) : (rec ((32::Int) + (1::Int))))
+  _0 = (32::Int) + (1::Int)
+  rec' p' = p' : (rec' (p' + (1::Int)))
+  rec p = p : (rec (p + (1::Int)))
+  _1 = (27::Int) + (1::Int)
+  in ((27::Int) : (_1 : (rec (_1 + (1::Int))))) ++ ((32::Int) : (_0 : (rec' (_0 + (1::Int)))))
 
-trec_0 = \y -> 
-  let rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int)))) in
-  y : (rec (y + (1::Int)))
+trec_0 = \y -> let
+  _0 = y + (1::Int)
+  rec p = p : (rec (p + (1::Int)))
+  in y : (_0 : (rec (_0 + (1::Int))))
 
 trec_1 = \x -> let
-  rec p' = 
-        let _1 = p' + (1::Int) in
-        p' : (_1 : (rec (_1 + (1::Int))))
-  rec' p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec' (_0 + (1::Int))))
-  in ((0::Int) : (rec ((0::Int) + (1::Int)))) ++ (x : (rec' (x + (1::Int))))
+  _0 = (0::Int) + (1::Int)
+  rec p' = p' : (rec (p' + (1::Int)))
+  _1 = x + (1::Int)
+  rec' p = p : (rec' (p + (1::Int)))
+  in ((0::Int) : (_0 : (rec (_0 + (1::Int))))) ++ (x : (_1 : (rec' (_1 + (1::Int)))))
 
-nrec_0 = \x -> 
-  let rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int)))) in
-  x : (rec (x + (1::Int)))
+nrec_0 = \x -> let
+  _0 = x + (1::Int)
+  rec p = p : (rec (p + (1::Int)))
+  in x : (_0 : (rec (_0 + (1::Int))))
 
 nrec_1 = \x -> let
-  rec' p' = 
-        let _1 = p' + (1::Int) in
-        p' : (_1 : (rec' (_1 + (1::Int))))
-  rec p = 
-        let _0 = p + (1::Int) in
-        p : (_0 : (rec (_0 + (1::Int))))
-  in ((0::Int) : (rec ((0::Int) + (1::Int)))) ++ (x : (rec' (x + (1::Int))))
+  _1 = x + (1::Int)
+  rec' p' = p' : (rec' (p' + (1::Int)))
+  _0 = (0::Int) + (1::Int)
+  rec p = p : (rec (p + (1::Int)))
+  in ((0::Int) : (_0 : (rec (_0 + (1::Int))))) ++ (x : (_1 : (rec' (_1 + (1::Int)))))
 
 alternate123_3'0 = 
-  let rec z y x = x : (y : (z : (x : (y : (z : (rec z y x)))))) in
-  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : ((3::Int) : (rec (3::Int) (2::Int) (1::Int)))))
+  let rec z y x = x : (y : (z : (rec z y x))) in
+  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : ((3::Int) : ((1::Int) : ((2::Int) : ((3::Int) : (rec (3::Int) (2::Int) (1::Int))))))))
 
 alternate123_3 = \x -> \y -> \z -> 
-              let rec z' y' x' = x' : (y' : (z' : (x' : (y' : (z' : (rec z' y' x')))))) in
-              x : (y : (z : (rec z y x)))
+              let rec z' y' x' = x' : (y' : (z' : (rec z' y' x'))) in
+              x : (y : (z : (x : (y : (z : (rec z y x))))))
 
 alternate123_2'0 = 
-  let rec z z' y x = z : (x : (y : (z' : (x : (y : (rec z' z' y x)))))) in
-  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : (rec (3::Int) (3::Int) (2::Int) (1::Int))))
+  let rec z z' y x = z : (x : (y : (rec z' z' y x))) in
+  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : ((3::Int) : ((1::Int) : ((2::Int) : (rec (3::Int) (3::Int) (2::Int) (1::Int)))))))
 
 alternate123_2 = \x -> \y -> \z -> 
-              let rec z' z'2 y' x' = z' : (x' : (y' : (z'2 : (x' : (y' : (rec z'2 z'2 y' x')))))) in
-              x : (y : (rec z z y x))
+              let rec z' z'2 y' x' = z' : (x' : (y' : (rec z'2 z'2 y' x'))) in
+              x : (y : (z : (x : (y : (rec z z y x)))))
 
 alternate123_1'0 = 
   let _0 = (1::Int) : ((2::Int) : ((3::Int) : _0)) in
@@ -95,12 +85,12 @@ alternate123_1 = \x -> \y -> \z ->
               _0
 
 alternate123_0'0 = 
-  let rec x y x' = x' : (y : (rec y x' x)) in
-  GHC.List.take (10::Int) ((1::Int) : (rec (1::Int) (3::Int) (2::Int)))
+  let rec x y x' = x' : (rec x' x y) in
+  GHC.List.take (10::Int) ((1::Int) : ((2::Int) : (rec (2::Int) (1::Int) (3::Int))))
 
 alternate123_0 = \x -> \y -> \z -> 
-              let rec x' y' x'2 = x'2 : (y' : (rec y' x'2 x')) in
-              x : (rec x z y)
+              let rec x' y' x'2 = x'2 : (rec x'2 x' y') in
+              x : (y : (rec y x z))
 
 alternateZO_1'0 = 
   let _0 = (0::Int) : ((1::Int) : _0) in
@@ -111,21 +101,19 @@ alternateZO_1 = \x -> \y ->
         _0
 
 alternateZO_0'0 = 
-  let rec x x' = x' : (x : (rec x x')) in
-  GHC.List.take (5::Int) ((0::Int) : (rec (0::Int) (1::Int)))
+  let rec x x' = x' : (rec x' x) in
+  GHC.List.take (5::Int) ((0::Int) : ((1::Int) : (rec (1::Int) (0::Int))))
 
 alternateZO_0 = \x -> \y -> 
-        let rec x' x'2 = x'2 : (x' : (rec x' x'2)) in
-        x : (rec x y)
+        let rec x' x'2 = x'2 : (rec x'2 x') in
+        x : (y : (rec y x))
 
 nrec_capt_0 = \x -> let
-  rec p' x'2 = 
-        let _1 = p' + x'2 in
-        p' : (_1 : (rec (_1 + x'2) x'2))
-  rec' p x' = 
-        let _0 = p + x' in
-        p : (_0 : (rec' (_0 + x') x'))
-  in ((0::Int) : (rec ((0::Int) + x) x)) ++ (x : (rec' (x + x) x))
+  _0 = (0::Int) + x
+  rec p' x'2 = p' : (rec (p' + x'2) x'2)
+  _1 = x + x
+  rec' p x' = p : (rec' (p + x') x')
+  in ((0::Int) : (_0 : (rec (_0 + x) x))) ++ (x : (_1 : (rec' (_1 + x) x)))
 
 alternateTF'0 = 
   let _0 = True : (False : _0) in
