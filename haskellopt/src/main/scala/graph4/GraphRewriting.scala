@@ -174,7 +174,9 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
                 else {
                   val ctorArms = arms.flatMap { case (c,a,r) =>
                     val paths = r.pathsToCtorApps.filter(_.cnd.isEmpty) // TODO generalize to paths having branches
-                    assert(paths.size <= 1, paths) // Note: I've seen this fail when paths used to get messed up
+                    assert(paths.size <= 1, paths) // Note: I've seen this fail when paths used to get messed up.
+                                                   // Though it does seem possible to have equivalent paths that are not equal.
+                    // ^ Apparently happens in nqueens, though maybe it's a bug...
                     paths.take(1).map(p => (c,a,p))
                   }
                   if (ctorArms.size === arms.size) {

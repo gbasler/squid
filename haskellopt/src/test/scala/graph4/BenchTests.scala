@@ -38,9 +38,15 @@ class BenchTests extends FunSuite {
   )
   
   test("nofib-queens") (
-    // FIXME bad comparison with crazy scope number: graph4.GraphDefs$BadComparison: <rec'303889>(ds'32:d↑[↓]) `;` β_2e = [from'13:8↑[↓]+1]ψ_30
+    // FIXME Bad comparison with crazy scope number: graph4.GraphDefs$BadComparison: <rec'303889>(ds'32:d↑[↓]) `;` β_2e = [from'13:8↑[↓]+1]ψ_30
+    // TODO Find a way to keep the scheduling process on track for programs like these...
+    //      The graph is fine, but scheduling never seems to finish, even after some simplifications
+    // Note: With UnrollingFactor == 0 we can manage to finish scheduling (more than 100 lines of generated code),
+    //       but the program performs identically to the original.
     TestHarness("nofib-queens",
       schedule = false,
+      dumpGraph = true,
+      //prefixFilter = "nsoln",
     )(
       // Note: these are useful but end up taking way too long when the graph gets complicated:
       //check('nsoln, 2)(0),

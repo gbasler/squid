@@ -1,3 +1,6 @@
+-- ghc -O2 nofib-queens.hs && ./nofib-queens
+-- ghc -O2 nofib-queens.pass-0000.opt.hs && ./nofib-queens.pass-0000.opt
+
 import Criterion.Main
 
 -- !!! count the number of solutions to the "n queens" problem.
@@ -26,11 +29,17 @@ nsoln nq = length_mine (gen nq)
 
 nsoln :: Int -> Int
 
+-- to simplify the graph, we can also try with the opaque defs:
+
 length_mine [] = 0
 length_mine (x : xs) = length_mine xs + 1
+-- length_mine = length
 
 enumFromTo_mine from to = go from where
   go from = if from > to then [] else from : go (from + 1)
+-- enumFromTo_mine = enumFromTo
+
 
 main = do
   defaultMain [bench "main" $ whnf (\n -> nsoln n) 8]
+

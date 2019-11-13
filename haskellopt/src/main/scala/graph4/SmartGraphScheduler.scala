@@ -13,6 +13,7 @@ abstract class SmartGraphScheduler { self: GraphIR =>
     /** How far to reify scope bodies after finding the first potentially-recursive parents.
       * It should be at least UnrollingFactor, since we may need to dig as deep to recover the regular recursive structure. 
       * Note: it's possible that using a bigger UF could yield better perfs (as there would be less). */
+    //val UF = 0
     val UF = UnrollingFactor
     //val UF = UnrollingFactor + 1
     
@@ -82,6 +83,7 @@ abstract class SmartGraphScheduler { self: GraphIR =>
             Sdebug(s">>>>>> RESULT")
             Sdebug(rootScp.show())
             Sdebug(s">>>>>> /")
+            if (ScheduleDebug.isDebugEnabled) Thread.sleep(50)
             
             var scpStack = rootScp :: Nil
             while (scpStack.nonEmpty) {
@@ -99,7 +101,7 @@ abstract class SmartGraphScheduler { self: GraphIR =>
                     //scp.params = Nil; scp.captures = Nil
                     // ^ not sure this actually is the right thing to do... It made scheduling of Statistics never finish when I tried.
                   }
-                  if (ScheduleDebug.isDebugEnabled) Thread.sleep(200)
+                  //if (ScheduleDebug.isDebugEnabled) Thread.sleep(200)
                   val es = scp.delayedEntries
                   scp.delayedEntries = Nil
                   es.foreach{ case (in,ref) => scp.enter(in,ref) }
@@ -372,7 +374,7 @@ abstract class SmartGraphScheduler { self: GraphIR =>
       /* Important remark: each distinct IRef=(Instr,NodeRef) can be associated with a unique ConcreteNode per scope (possibly a variable) */
       def rec(in: Instr, body: Ref): Scheduled = ScheduleDebug.nestDbg {
         Sdebug(s"<${ident}> [$in] ${body.showDef}")
-        //if (ScheduleDebug.isDebugEnabled) Thread.sleep(50)
+        if (ScheduleDebug.isDebugEnabled) Thread.sleep(5)
         
         val iref = (in,body)
         def asVar = Concrete(toIdent(iref), Nil)

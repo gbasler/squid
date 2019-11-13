@@ -87,7 +87,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
         // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
         // TODO perhaps it's better to just use a List or ListMap for Condition
       }
-      assert(atLeastOne, (ictx, show(cnd)))
+      assert(atLeastOne, "["+ictx+"] "+show(cnd))
       result
     }
     
