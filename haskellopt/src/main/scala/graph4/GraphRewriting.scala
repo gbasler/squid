@@ -101,6 +101,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
         // Remove controls over constants, including Bottom
         case c0 @ Control(i0, r @ NodeRef(k: ConstantNode)) =>
           ref.node = k
+          again()
           
           
         // TODO one-shot reductions for pattern matching too
@@ -201,7 +202,8 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
           
           
         case CtorField(Ref(Bottom), ctorName, ari, idx) =>
-          Bottom
+          ref.node = Bottom
+          again()
           
         case CtorField(scrut, ctorName, ari, idx) =>
           val ps = scrut.pathsToCtorApps.headOption

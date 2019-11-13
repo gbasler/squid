@@ -6,8 +6,8 @@
 -- Incl. one-shot:   0
 -- Case reductions:  62
 -- Field reductions: 85
--- Case commutings:  82
--- Total nodes: 1735; Boxes: 611; Branches: 576
+-- Case commutings:  78
+-- Total nodes: 1489; Boxes: 530; Branches: 564
 -- Apps: 87; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -24,13 +24,12 @@ import GHC.Types
 
 count = \start -> let
   _2 = (0::Int) + (1::Int)
+  _0 = start - (1::Int)
+  _1 = (,) (_0 - (1::Int)) (_2 + (1::Int))
   rec _cfε _cfε' _cfε'2 _cfε'3 _cfε'4 = 
         let _ccε = (,) (case _cfε of { (,) ρ ρ' -> (let (,) arg _ = _cfε'3 in arg) - (1::Int) }) (case _cfε of { (,) ρ'2 ρ'3 -> (let (,) _ arg = _cfε' in arg) + (1::Int) }) in
         case _cfε'4 of { (,) ρ'4 ρ'5 -> (case (let (,) arg _ = _cfε'3 in arg) > (0::Int) of { True -> (rec _ccε _ccε _ccε _ccε _ccε); False -> (case _cfε'2 of { (,) ρ'6 ρ'7 -> (let (,) _ arg = _cfε' in arg) }) }) }
-  _0 = start > (0::Int)
-  _fε = case _0 of { True -> start - (1::Int); False -> (let (,) arg _ = Prelude.undefined in arg) }
-  _1 = (,) (_fε - (1::Int)) (_2 + (1::Int))
-  in case _0 of { True -> (case _fε > (0::Int) of { True -> (rec _1 _1 _1 _1 _1); False -> _2 }); False -> (0::Int) }
+  in case start > (0::Int) of { True -> (case _0 > (0::Int) of { True -> (rec _1 _1 _1 _1 _1); False -> _2 }); False -> (0::Int) }
 
 simple9 = False
 
