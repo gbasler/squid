@@ -405,14 +405,18 @@ class GraphIR extends GraphDefs {
                 }
                 
                 val cScrut = Control.mkRef(i, c.scrut, ri, re)
-                val commuted = Case(cScrut, newArms).mkRefFrom(ref)
+                val commutedCase = Case(cScrut, newArms).mkRefFrom(ref)
+                val commutedCaseWithControl =
+                  if (re > 0) // Even though we put ri/re inside the scrut, we still need to prevent more field/case on the resulting top-level case!
+                    Control(Id,commutedCase)(0,re).mkRef
+                  else commutedCase
                 
                 if (cnd.isEmpty) {
-                  ref.rewireTo(commuted)
+                  ref.rewireTo(commutedCaseWithControl)
                 } else {
                   val rebuiltScrut = new RebuildCtorPaths(cnd)(scrut, Id)
                   val rebuiltCtorField = CtorField(rebuiltScrut, ctorName, ari, idx).mkRefNamed("_cfε")
-                  ref.node = Branch(cnd, commuted, rebuiltCtorField)
+                  ref.node = Branch(cnd, commutedCaseWithControl, rebuiltCtorField)
                 }
                 again()
               case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>

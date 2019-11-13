@@ -110,11 +110,10 @@ class PatMatTests extends FunSuite {
   )
   
   test("ListsFun") (
-    // FIXME graph diverges:
-    //TestHarness("ListsFun",
-    //)(
-    //  check('test)(6)
-    //)
+    TestHarness("ListsFun",
+    )(
+      check('test)(6)
+    )
   )
   
 }

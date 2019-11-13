@@ -38,13 +38,14 @@ class BenchTests extends FunSuite {
   )
   
   test("nofib-queens") (
-    // FIXME graph diverges
-    //TestHarness("nofib-queens",
-    //)(
-    //  // Note: these are useful but end up taking way too long when the graph gets complicated:
-    //  //check('nsoln, 2)(0),
-    //  //check('nsoln, 4)(2),
-    //)
+    // FIXME bad comparison with crazy scope number: graph4.GraphDefs$BadComparison: <rec'303889>(ds'32:d↑[↓]) `;` β_2e = [from'13:8↑[↓]+1]ψ_30
+    TestHarness("nofib-queens",
+      schedule = false,
+    )(
+      // Note: these are useful but end up taking way too long when the graph gets complicated:
+      //check('nsoln, 2)(0),
+      //check('nsoln, 4)(2),
+    )
   )
   
 }

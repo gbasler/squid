@@ -4,11 +4,11 @@
 --   desugar
 -- Beta reductions:  14
 -- Incl. one-shot:   0
--- Case reductions:  78
+-- Case reductions:  66
 -- Field reductions: 52
--- Case commutings:  166
--- Total nodes: 4190; Boxes: 1514; Branches: 1176
--- Apps: 212; Lams: 3
+-- Case commutings:  85
+-- Total nodes: 2898; Boxes: 1034; Branches: 912
+-- Apps: 164; Lams: 3
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
@@ -23,20 +23,20 @@ import GHC.Tuple
 import GHC.Types
 
 count = \start -> let
+  rec π π' _6 _7 x π'2 π'3 π'4 = let
+        _cε = case x of { (,) ρ ρ' -> (case _7 of { True -> _6; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
+        _9 = _cε + (1::Int)
+        _ccε = (,) (case π' of { (,) ρ'6 ρ'7 -> (let (,) arg _ = π'3 in arg) - (1::Int) }) (case π' of { (,) ρ'8 ρ'9 -> _9 })
+        _8 = (let (,) arg _ = π'3 in arg) > (0::Int)
+        in case π'4 of { (,) ρ'2 ρ'3 -> (case _8 of { True -> (rec _ccε _ccε _9 _8 π _ccε _ccε _ccε); False -> (case π'2 of { (,) ρ'4 ρ'5 -> _cε }) }) }
   _0 = start > (0::Int)
-  _4 = start - (1::Int)
-  _fε' = case _0 of { True -> _4; False -> (let (,) arg _ = Prelude.undefined in arg) }
-  _1 = _fε' > (0::Int)
   _5 = (0::Int) + (1::Int)
   _fε = case _0 of { True -> _5; False -> (let (,) _ arg = Prelude.undefined in arg) }
   _3 = _fε + (1::Int)
+  _4 = start - (1::Int)
+  _fε' = case _0 of { True -> _4; False -> (let (,) arg _ = Prelude.undefined in arg) }
   _2 = (,) (_fε' - (1::Int)) _3
-  rec π π' _6 _7 x π'2 π'3 π'4 = let
-        _8 = (let (,) arg _ = π'3 in arg) > (0::Int)
-        _cε = case x of { (,) ρ'8 ρ'9 -> (case _7 of { True -> _6; False -> (let (,) _ arg = Prelude.undefined in arg) }) }
-        _9 = _cε + (1::Int)
-        _ccε = (,) (case π' of { (,) ρ'4 ρ'5 -> (let (,) arg _ = π'3 in arg) - (1::Int) }) (case π' of { (,) ρ'6 ρ'7 -> _9 })
-        in case π'4 of { (,) ρ ρ' -> (case _8 of { True -> (rec _ccε _ccε _9 _8 π _ccε _ccε _ccε); False -> (case π'2 of { (,) ρ'2 ρ'3 -> _cε }) }) }
+  _1 = _fε' > (0::Int)
   in case _0 of { True -> (case _1 of { True -> (rec _2 _2 _3 _1 ((,) _4 _5) _2 _2 _2); False -> _fε }); False -> (0::Int) }
 
 simple9 = let
