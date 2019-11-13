@@ -109,6 +109,12 @@ class PatMatTests extends FunSuite {
     )
   )
   
-  // TODO test rec producer feeding into rec consumer
+  test("ListsFun") (
+    // FIXME graph diverges:
+    //TestHarness("ListsFun",
+    //)(
+    //  check('test)(6)
+    //)
+  )
   
 }

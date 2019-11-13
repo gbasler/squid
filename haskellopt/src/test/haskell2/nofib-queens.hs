@@ -19,7 +19,7 @@ nsoln nq = length_mine (gen nq)
     gen :: Int -> [[Int]]
     gen n | n == 0 = [[]]
     -- gen n = [ (q:b) | b <- gen (n-1), q <- [1..nq], safe q 1 b]
-    gen n = [ (q:b) | b <- gen (n-1), q <- enumFromTo_mine 1 nq, safe q 1 b]
+    gen n = [ (q:b) | b <- gen (n-1), q <- enumFromTo_mine 1 nq, safe q 1 b ]
 
 
 --- Mine ---

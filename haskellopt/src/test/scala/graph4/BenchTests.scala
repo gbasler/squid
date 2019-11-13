@@ -41,8 +41,9 @@ class BenchTests extends FunSuite {
     // FIXME graph diverges
     //TestHarness("nofib-queens",
     //)(
-    //  check('nsoln, 2)(0),
-    //  check('nsoln, 4)(2),
+    //  // Note: these are useful but end up taking way too long when the graph gets complicated:
+    //  //check('nsoln, 2)(0),
+    //  //check('nsoln, 4)(2),
     //)
   )
   
