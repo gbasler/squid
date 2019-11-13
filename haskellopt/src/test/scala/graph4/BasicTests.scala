@@ -149,7 +149,7 @@ class BasicTests extends FunSuite {
   )
   
   test("IterContLocal") (
-    // FIXME graph of nats0 diverges
+    // FIXME graph-loader has trouble with top-level tuple definition (count, nats)
     TestHarness("IterContLocal",
       dumpGraph = true,
     )(

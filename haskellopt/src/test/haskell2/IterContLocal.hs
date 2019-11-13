@@ -2,12 +2,11 @@
 -- module IterCont where
 module IterContLocal where
 
--- FIXME graph diverges!
--- nats0 =
---     loop (\k s -> s : k (s + 1)) 0 where
---         loop f state =
---             -- f (\new_state -> loop f new_state) state
---             f (loop f) state
+nats0 =
+    loop (\k s -> s : k (s + 1)) 0 where
+        loop f state =
+            -- f (\new_state -> loop f new_state) state
+            f (loop f) state
 
 nats1 =
     loop (\k s -> s : k (s + 1)) 0 where
@@ -18,7 +17,7 @@ nats1 =
 
 nats1_5 = take 5 nats1
 
--- TODO impl pattern matching
+-- FIXME graph-loader problem for this:
 -- (count, nats) =
 --     ( loop (\k s -> k s) 0
 --     -- , loop (\k' s' -> k' s') 0

@@ -125,7 +125,7 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
             // ^ Nope, since sometimes we pop all the way to the top and then shadow...
             vctx + ((l.param,newCtx) -> x)))
         case v: Var =>
-          vctx((v,ictx)).value
+          vctx.getOrElse((v,ictx), lastWords(s"[$ictx]$v not in ${vctx}")).value
         case Case(scrut, arms) =>
           val ctor = rec(scrut).value.ctor
           val armBody = arms.collectFirst {
