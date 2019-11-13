@@ -22,28 +22,28 @@ import GHC.Types
 
 nats1_5 = 
   let rec st = st : (rec (st + (1::Int))) in
-  GHC.List.take (5::Int) ((0::Int) : (rec ((0::Int) + (1::Int))))
+  GHC.List.take (5::Int) (rec (0::Int))
 
 nats1 = 
   let rec st = st : (rec (st + (1::Int))) in
-  (0::Int) : (rec ((0::Int) + (1::Int)))
+  (rec (0::Int))
 
 loop1 = \f -> \state -> 
         let λ = \st -> f λ st in
         f λ state
 
 nats0_5 = let
+  _0 = (0::Int) + (1::Int)
   λ = \k -> \s -> s : k (s + (1::Int))
   rec f f' = f' (rec f f)
-  _0 = (0::Int) + (1::Int)
   in GHC.List.take (5::Int) ((0::Int) : (_0 : (rec λ λ) (_0 + (1::Int))))
 
 nats0 = let
   _0 = (0::Int) + (1::Int)
-  λ = \k -> \s -> s : k (s + (1::Int))
   rec f f' = f' (rec f f)
+  λ = \k -> \s -> s : k (s + (1::Int))
   in (0::Int) : (_0 : (rec λ λ) (_0 + (1::Int)))
 
 loop0 = \f -> 
   let rec f' f'2 = f'2 (rec f' f') in
-  f (f (rec f f))
+  f (rec f f)

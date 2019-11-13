@@ -72,19 +72,22 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       var result = true
       cnd.foreach { case (i,c) =>
         try ((ictx `;` i).lastCallId match {
-          case Some(c2) =>
+          case Some(c2) if (c match { // check that we can actually perform the comparison!
+              case cid: CallId => cid.v === c2.v || c2 === DummyCallId
+              case _ => true
+          }) =>
             atLeastOne = true
             result &&= (c match {
               case CallNot(cids) => !(cids contains c2)
               case c: CallId => c2 === c
             })
-          case None => if (canFail) scala.util.control.Breaks.break() else result = false
+          case _ => if (canFail) scala.util.control.Breaks.break() else result = false
         })
         catch { case _: BadComparison => result = false }
         // ^ we currently use this because our Condition-s are unordered and so we may test things that should have never been tested
         // TODO perhaps it's better to just use a List or ListMap for Condition
       }
-      assert(atLeastOne, (ictx, cnd))
+      assert(atLeastOne, (ictx, show(cnd)))
       result
     }
     
@@ -507,7 +510,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
     def toBeScheduledInline = node match {
       //case IntBoxing(_) => true // maybe use this?
       //case _: ConstantNode | _: Var => true
-      case _: Var => true // TODO rm?!
+      case _: Var => true
       case _ => false
     }
     

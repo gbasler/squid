@@ -33,6 +33,8 @@ class BasicTests extends FunSuite {
       //prefixFilter = "alternate123_0 ",
       //prefixFilter = "alternateZO_0 ",
       //prefixFilter = "alternate123_2 ",
+      //prefixFilter = "alternate123_3 ",
+      //prefixFilter = "alternate123_3'0",
       //
       dumpGraph = true,
     )
@@ -49,11 +51,13 @@ class BasicTests extends FunSuite {
   
   test("HigherOrder") (
     // Simplest example: run with prefixFilter = "hTest4"; hTest3 is similar but not reducible due to unsaturated functions...
-    TestHarness("HigherOrder", dumpGraph = true)
-    //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "hTest4")
-    //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "gTest0")
-    //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "g")
-    //TestHarness("HigherOrder", dumpGraph = true, prefixFilter = "lol")
+    TestHarness("HigherOrder",
+      dumpGraph = true,
+      //prefixFilter = "hTest4",
+      //prefixFilter = "gTest0",
+      //prefixFilter = "g",
+      //prefixFilter = "lol",
+    )
     (
       check('hTest3)(-12),
       check('hTest4)(-12),

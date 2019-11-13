@@ -17,11 +17,10 @@ class BenchTests extends FunSuite {
   )
   
   test("InterpIntermediateBench") (
-    // TODO test
-    // FIXME graph diverges
-    //TestHarness("InterpIntermediateBench",
-    //)(
-    //)
+    // Note: periodically make sure result is the same by uncommenting `print`...
+    TestHarness("InterpIntermediateBench",
+    )(
+    )
   )
   
   test("InterpBasicBench") (
