@@ -67,6 +67,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
                     ref.node = Branch(newCnd,
                       Control(i, t)(cn.recIntros, cn.recElims).mkRefFrom(ref),
                       Control(i, e)(cn.recIntros, cn.recElims).mkRefFrom(ref))
+                    assert(br.references.isEmpty)
                     again()
                   case None => continue()
                 }
@@ -77,6 +78,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
         case cn @ Control(i: Push, ap @ NodeRef(App(lhs,rhs))) if rewriteSingleReferenced && ap.references.size === 1 =>
           println(s"CONTROL/APPx1 ${ref.showDef}")
           ref.node = App(Control(i, lhs)(cn.recIntros, cn.recElims).mkRefFrom(ref), Control(i, rhs)(cn.recIntros, cn.recElims).mkRefFrom(ref))
+          assert(ap.references.isEmpty)
           again()
         case cn @ Control(i: Push, cs @ NodeRef(Case(scrut,arms))) if rewriteSingleReferenced && cs.references.size === 1 =>
           println(s"CONTROL/CASEx1 ${ref.showDef}")
@@ -84,6 +86,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
             case (ctorName, ctorArity, armBody) =>
               (ctorName, ctorArity, Control(i, armBody)(cn.recIntros, cn.recElims).mkRefFrom(ref))
           })
+          assert(cs.references.isEmpty)
           again()
           
         case c0 @ Control(i0, r @ NodeRef(k: ConstantNode)) =>
@@ -133,6 +136,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
               again()
             case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) =>
               println(s"CASE/CASE $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$cse")
+              assert(cse.references.nonEmpty)
               
               mod.caseCommutings += 1
               
@@ -174,9 +178,11 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
                 else {
                   val ctorArms = arms.flatMap { case (c,a,r) =>
                     val paths = r.pathsToCtorApps.filter(_.cnd.isEmpty) // TODO generalize to paths having branches
-                    assert(paths.size <= 1, paths) // Note: I've seen this fail when paths used to get messed up.
+                    //assert(paths.size <= 1, paths) // Note: I've seen this fail when paths used to get messed up.
                                                    // Though it does seem possible to have equivalent paths that are not equal.
                     // ^ Apparently happens in nqueens, though maybe it's a bug...
+                    // Actually, now it happens for a legit reason: we store the rec markers as part of the keys, as in:
+                    //   Set(CtorPath([],List(),Map(),0,0), CtorPath([],List(),Map(),1,0))
                     paths.take(1).map(p => (c,a,p))
                   }
                   if (ctorArms.size === arms.size) {

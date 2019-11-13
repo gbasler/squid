@@ -334,12 +334,22 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       //propagatePaths(ref)(mutable.HashSet.empty) // now done in each call site, as it sometimes need to be delayed...
     }
     def remref(ref: NodeRef)(implicit mod: Module, done: mutable.HashSet[Ref]): Unit = {
+      val oldRefsSize = references.size
+      assert(oldRefsSize > 0)
+      if (oldRefsSize === 1) {
+        val oldPaths = pathsToLambdasAndCases.keysIterator.toBuffer
+        //println(s"REM paths $oldPaths")
+        if (oldPaths.nonEmpty) {
+          references.foreach(_.removePaths(this, oldPaths))
+        }
+      }
       def go(refs: List[NodeRef]): List[NodeRef] = refs match {
         case `ref` :: rs => rs
         case r :: rs => r :: go(rs)
         case Nil => Nil
       }
       references = go(references)
+      assert(references.size < oldRefsSize)
       if (references.isEmpty && !mod.roots(this)) remrefs(children)
     }
     //def propagatePaths(ref: NodeRef)(implicit done: mutable.HashSet[Ref]): Unit = done.setAndIfUnset(this, {
@@ -445,23 +455,24 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       //println(s"($showDef) := $that   ${pathsToLambdasAndCases}")
       
       val oldChildren = children
-      _node = that
+      //_node = that // This used to be done here, but caused problems when removing paths and references
       
       // Remove old paths from this node:
       val oldPaths = pathsToLambdasAndCases.keysIterator.toBuffer
-      if (oldPaths.nonEmpty && !that.isInstanceOf[Lam] && !that.isInstanceOf[Case]) {
-        pathsToLambdasAndCases.clear()
+      if (oldPaths.nonEmpty) {
         references.foreach(_.removePaths(this, oldPaths))
+        pathsToLambdasAndCases.clear()
       }
       // Note: we're not removing paths to ctor apps, because these should (in principle) be stable
       
-      children.foreach(_.addref(this)) // Note: we need to do that before `remrefs` or some counts will drop to 0 prematurely
-      remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (_node assignment is done above)
+      that.children.foreach(_.addref(this)) // Note: we need to do that before `remrefs` or some counts will drop to 0 prematurely
+      remrefs(oldChildren) // We should obviously not remove the refs of the _current_ children (would be tricky if _node was still assigned above)
+      
+      _node = that
       children.foreach(_.propagatePaths(this)(0))
       
-      // This does not seem necessary, weirdly:
-      //createPaths()
-      //references.foreach(propagatePaths(_)(0))
+      createPaths()
+      references.foreach(propagatePaths(_)(0))
       
     }
     def rewireTo(that: Ref, recIntros: Int = 0)(implicit mod: Module): Unit = node = Id(that, recIntros)
@@ -485,7 +496,9 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
           pathsToLambdasAndCases --= toRemove
           if (pathsToLambdasAndCases.size < oldSize) references.foreach(_.removePaths(this, toRemove))
         case _: Lam | _: Case =>
-          assert(pathsToLambdasAndCases.size === 1, (showDef, pathsToLambdasAndCases))
+          //assert(pathsToLambdasAndCases.size === 1, (showDef, pathsToLambdasAndCases))
+          // ^ Normally there us _exactly_ one path for these at any given time, except during the update of paths...
+          assert(pathsToLambdasAndCases.size <= 1, (showDef, pathsToLambdasAndCases))
         case _ =>
           assert(pathsToLambdasAndCases.isEmpty, (showDef, pathsToLambdasAndCases))
           // ^ No concrete nodes should have paths, except for lambdas and cases (which have only paths to themselves)

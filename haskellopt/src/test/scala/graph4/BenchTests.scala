@@ -31,6 +31,7 @@ class BenchTests extends FunSuite {
   )
   
   test("StatisticsBench") (
+    // TODO try with an unboxed return tuple/unboxed argument tuple
     TestHarness("StatisticsBench",
     )(
       check('maxMaybe, List(1,3,2,0))(Some(3)),
@@ -43,6 +44,7 @@ class BenchTests extends FunSuite {
     //      The graph is fine, but scheduling never seems to finish, even after some simplifications
     // Note: With UnrollingFactor == 0 we can manage to finish scheduling (more than 100 lines of generated code),
     //       but the program performs identically to the original.
+    //       Similarly, if we remove all case commuting, nothing reduces and we get the same result.
     TestHarness("nofib-queens",
       schedule = false,
       dumpGraph = true,
