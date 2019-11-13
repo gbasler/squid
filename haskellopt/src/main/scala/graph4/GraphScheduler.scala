@@ -390,18 +390,8 @@ abstract class GraphScheduler { self: GraphIR =>
           val scp = rec
           val callVari = AST.Vari(this.scp.callIdent)
           if (scp.returns.size > 1) {
-            
-            // FIXME the following does not work, weirdly — to investigate!
-            //val idx = scp.returns.indexWhere(_._1 === (in,r))
-            val idx = scp.returns.indexWhere(_._1._2 === r) // BAD: could lead to confusion!
-            
+            val idx = scp.returns.indexWhere(_._1 === (in,r))
             assert(idx >= 0, (idx, scp, v, in, r, scp.returns))
-            
-            //assert(scp.returns.count(_._1._2 === r) === 1) // seems to fail with higher unrolling factors
-            if (scp.returns.count(_._1._2 === r) =/= 1)
-              System.err.println(s"WARNING: SELECTION MAY BE WRONG! — $idx of $in/$r in ${scp.returns}")
-              // ^ FIXME fails for maxMaybe1
-            
             mkSelection(scp, callVari, idx)
           }
           else callVari

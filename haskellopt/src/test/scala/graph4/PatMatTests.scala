@@ -80,13 +80,15 @@ class PatMatTests extends FunSuite {
       //executeResult = false
     )(
       check('maxMaybe0, Nil)(None),
-      check('maxMaybe0, List(1,2,3))(Some(3)).doNotExecute, // FIXME wrong sched
-      check('maxMaybe0, List(1,2,3,1))(Some(3)).doNotExecute, // FIXME wrong sched
-      check('maxMaybe1, List(1,2,3,1))(Some(3)).doNotExecute, // FIXME wrong sched
+      check('maxMaybe0, List(1,2,3))(Some(3)),
+      check('maxMaybe0, List(1,2,3,1))(Some(3)),
+      check('maxMaybe0, List(1,2,3,1,5))(Some(5)),
+      check('maxMaybe1, List(1,2,3,1))(Some(3)),
+      check("maxTest'0")(Some(3)),
       check('lastMaybe, Nil)(None),
       check('lastMaybe, List(1,2,3))(Some(3)),
       check('lastWeird, Nil)(None),
-      check('lastWeird, List(1,2,3,4))(Some(4)).doNotExecute, // FIXME wrong sched: Just 666
+      check('lastWeird, List(1,2,3,4))(Some(4)),
     )
   )
   

@@ -31,7 +31,7 @@ lastWeird = \ds -> let
         π'3 = case π'4 of { [] -> sel4 rec_call'; _ -> (case sel3 rec_call' of { Just ρ'15 -> sel2 rec_call'; Nothing -> (666::Int) }) }
         _5 = Just π'3
         ψ = case (let (:) _ arg = π'2 in arg) of { (:) ρ'12 ρ'13 -> (case π'4 of { [] -> _5; _ -> (case sel1 rec_call' of { Just ρ'14 -> _5; Nothing -> _4 }) }); [] -> _4 }
-        in (,,,,,) ψ π'3 (sel3 rec_call') (let (:) arg _ = π'2 in arg) (let (:) _ arg = π'2 in arg) (case π'2 of { (:) ρ'10 ρ'11 -> (case ρ'11 of { [] -> Just ρ'10; _ -> ψ }); [] -> Nothing })
+        in (,,,,,) ψ π'3 (sel6 rec_call') (let (:) arg _ = π'2 in arg) (let (:) _ arg = π'2 in arg) (case π'2 of { (:) ρ'10 ρ'11 -> (case ρ'11 of { [] -> Just ρ'10; _ -> ψ }); [] -> Nothing })
   rec_call = (rec (let (:) _ arg = (let (:) _ arg = ds in arg) in arg))
   π = sel5 rec_call
   π' = case π of { [] -> sel4 rec_call; _ -> (case sel3 rec_call of { Just ρ'9 -> sel2 rec_call; Nothing -> (666::Int) }) }
@@ -52,7 +52,7 @@ maxMaybe1 = \ds -> let
         rec_call' = (rec (let (:) _ arg = π' in arg))
         ψ' = sel1 rec_call'
         π'2 = sel2 rec_call'
-        _2 = (let (:) arg _ = π' in arg) > (case sel1 rec_call' of { Just ρ'11 -> (case sel3 rec_call' of { True -> π'2; False -> ρ'11 }); Nothing -> π'2 })
+        _2 = (let (:) arg _ = π' in arg) > (case sel4 rec_call' of { Just ρ'11 -> (case sel3 rec_call' of { True -> π'2; False -> ρ'11 }); Nothing -> π'2 })
         ψ = case (let (:) _ arg = π' in arg) of { (:) ρ'8 ρ'9 -> (case sel5 rec_call' of { Just ρ'10 -> (case _2 of { True -> Just (let (:) arg _ = π' in arg); False -> ψ' }); Nothing -> _1 }); [] -> _1 }
         in (,,,,) (case π' of { (:) ρ'6 ρ'7 -> ψ; [] -> Nothing }) (let (:) arg _ = π' in arg) _2 ψ' ψ
   rec_call = (rec (let (:) _ arg = ds in arg))
@@ -69,7 +69,7 @@ maxTest'0 = let
 maxMaybe0 = \ds -> let
   rec _fε = let
         rec_call' = (rec (let (:) _ arg = _fε in arg))
-        π'2 = case sel1 rec_call' of { Just ρ'11 -> sel3 rec_call'; Nothing -> sel2 rec_call' }
+        π'2 = case sel4 rec_call' of { Just ρ'11 -> sel3 rec_call'; Nothing -> sel2 rec_call' }
         ψ' = case (let (:) arg _ = _fε in arg) > π'2 of { True -> (let (:) arg _ = _fε in arg); False -> π'2 }
         _cε = case _fε of { (:) ρ'8 ρ'9 -> (case sel5 rec_call' of { Just ρ'10 -> Just ψ'; Nothing -> Just ρ'8 }); [] -> Nothing }
         in (,,,,) _cε (let (:) arg _ = _fε in arg) ψ' (sel1 rec_call') _cε
