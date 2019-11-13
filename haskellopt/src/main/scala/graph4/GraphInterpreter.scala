@@ -9,6 +9,12 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     sealed abstract class Value {
       def app(arg: Thunk): Thunk = lastWords(s"not a known function: $this")
       def int: Int = asInstanceOf[Const].c.asInstanceOf[IntLit].value
+      def bool: Bool = {
+        val const = asInstanceOf[Const]
+        val isTrue = const.c === ModuleRef("GHC.Types","True")
+        assert(isTrue || const.c === ModuleRef("GHC.Types","False"))
+        isTrue
+      }
       def ctor: Ctor = this match {
         case ctor: Ctor => ctor
         case Const(mod: ModuleRef) if mod.isCtor =>
@@ -66,7 +72,9 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
                 Ctor(":", x :: Thunk(app(xs).value.app(rhs).value) :: Nil)
               case Ctor("[]", Nil) => rhs
             })
+          case ModuleRef("GHC.Classes","&&") => Fun(rhs => Bool(arg.value.bool && rhs.value.bool))
           case ModuleRef("GHC.Classes","==") => Fun(rhs => Bool(arg.value.int === rhs.value.int))
+          case ModuleRef("GHC.Classes","/=") => Fun(rhs => Bool(arg.value.int =/= rhs.value.int))
           case ModuleRef("GHC.Base","$") => arg
           case ModuleRef("GHC.Types",":") => Fun(rhs => Ctor(":", arg :: rhs :: Nil))
           case ModuleRef("GHC.Tuple","(,)") => Fun(rhs => Ctor("(,)", arg :: rhs :: Nil))
@@ -88,7 +96,11 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
       //Lazy.mk(v, computeWhenShow = true)
     
     def Int(n: Int): Value = Const(IntLit(true,n))
-    def Bool(b: Bool): Value = Ctor(if (b) "True" else "False", Nil)
+    
+    def Bool(b: Bool): Value =
+      //Ctor(if (b) "True" else "False", Nil)
+      // ^ For things like `true`, we don't use Ctor("True", Nil) because they will actually be represented as ModuleRef-s in the graph
+      Const(ModuleRef("GHC.Types", if (b) "True" else "False"))
     
     def apply(r: Ref): Thunk = rec(r)(Id, Map.empty)
     
@@ -134,9 +146,7 @@ abstract class GraphInterpreter extends GraphScheduler { self: GraphIR =>
     def lift(value: Any): Value = value match {
       case n: Int => Int(n)
       case 'S => Fun(x => Int(x.value.int + 1), haskellStr = Some("(\\x->x+1)"))
-      // For things like `true`, we don't use Ctor("True", Nil) because they will actually be represented as ModuleRef-s in the graph
-      case true => Const(ModuleRef("GHC.Types", "True"))
-      case false => Const(ModuleRef("GHC.Types", "False"))
+      case b: Bool => Bool(b)
       case None => Const(ModuleRef("GHC.Maybe", "Nothing"))
       case Some(v) => Ctor("Just", lift(v) :: Nil)
       case ls: List[_] =>
