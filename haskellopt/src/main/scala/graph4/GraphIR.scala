@@ -73,6 +73,11 @@ class GraphIR extends GraphDefs {
   
   val useOnlyIntLits = true
   
+  /** Try putting fewer recursive markers after rewriting;
+    * in particular, in places where this has not demonstrated usefulness so far (but has increase graph complexity). */
+  val useAggressivePE = false
+  //val useAggressivePE = true
+  
   
   type Ref = NodeRef
   val Ref: NodeRef.type = NodeRef
@@ -265,7 +270,10 @@ class GraphIR extends GraphDefs {
                       case Nil => Bottom.mkRef
                     }
                 }
-                val rightArmAndControl = if (ri > 0 || re > 0) Left(Control(Id, rightArm)(ri,re)) else Right(rightArm)
+                val rightArmAndControl =
+                  if (ri > 0 || re > 0) 
+                    Left(Control(Id, rightArm)(if (useAggressivePE) re min ri else ri,re)) 
+                  else Right(rightArm)
                 
                 if (cnd.isEmpty) {
                   rightArmAndControl.fold(ref.node = _, ref rewireTo _)
@@ -284,7 +292,7 @@ class GraphIR extends GraphDefs {
                 caseCommutings += 1
                 
                 val newArms = c.arms.map { case (armCtorName, armArity, armBody) =>
-                  val cntrl = Control.mkRef(i, armBody, ri, re)
+                  val cntrl = Control.mkRef(i, armBody, ri, if (useAggressivePE) 0 else re) // It looks like `re` here is not needed
                   (armCtorName, armArity, Case(cntrl, arms).mkRefFrom(ref))
                 }
                 
@@ -400,7 +408,7 @@ class GraphIR extends GraphDefs {
                 caseCommutings += 1
                 
                 val newArms = c.arms.map { case (armCtorName, armArity, armBody) =>
-                  val cntrl = Control.mkRef(i, armBody, ri, re)
+                  val cntrl = Control.mkRef(i, armBody, ri, if (useAggressivePE) 0 else re) // It looks like `re` here is not needed
                   (armCtorName, armArity, CtorField(cntrl, ctorName, ari, idx).mkRefFrom(ref))
                 }
                 
