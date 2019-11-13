@@ -24,8 +24,8 @@ import GHC.Types
 pgrm = ((2::Int) * (1::Int)) + ((0::Int) + (1::Int))
 
 f = \x -> 
-  let _cε = case x of { Just ρ' -> (1::Int); Nothing -> (0::Int) } in
-  case x of { Just ρ -> ρ * _cε; Nothing -> _cε + (1::Int) }
+  let t = case x of { Just ρ' -> (1::Int); Nothing -> (0::Int) } in
+  case x of { Just ρ -> ρ * t; Nothing -> t + (1::Int) }
 
 e1 = \ds -> case ds of { (,) ρ ρ' -> ρ * ρ' }
 

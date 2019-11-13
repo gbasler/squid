@@ -99,7 +99,7 @@ class TestHarness {
       
       //Thread.sleep(200)
       
-    } while (mod.simplify())
+    } while (mod.rewrite())
     //} while (mod.letReps.exists(go.Graph.simplifyGraph(_, recurse = false))
     //  || go.Graph.simplifyHaskell(mod.toplvlRep).exists { r => // FIXME rewrite several in a row?
     //    if (go.Graph.RewriteDebug.isDebugEnabled) {

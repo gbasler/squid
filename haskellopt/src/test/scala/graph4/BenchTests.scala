@@ -24,7 +24,7 @@ class BenchTests extends FunSuite {
   )
   
   test("InterpBasicBench") (
-    // TODO make it work with bigger `src` by fixing stack overflow
+    // TODO make it work with bigger `src` now that stack overflow is fixed
     TestHarness("InterpBasicBench",
     )(
     )

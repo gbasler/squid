@@ -139,7 +139,6 @@ class BasicTests extends FunSuite {
   )
   
   test("IterCont") (
-    // FIXME scheduling of nats0_5 is wrong when we enable disregardUF
     TestHarness("IterCont",
       //prefixFilter = "nats0",
       dumpGraph = true,

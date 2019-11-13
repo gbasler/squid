@@ -4,10 +4,10 @@
 --   desugar
 -- Beta reductions:  5
 -- Incl. one-shot:   0
--- Case reductions:  15
+-- Case reductions:  12
 -- Field reductions: 16
--- Case commutings:  9
--- Total nodes: 160; Boxes: 58; Branches: 30
+-- Case commutings:  6
+-- Total nodes: 142; Boxes: 47; Branches: 28
 -- Apps: 12; Lams: 4
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -23,30 +23,23 @@ import GHC.Maybe
 import GHC.Num
 import GHC.Types
 
-lastWeird = \ds -> let
-  rec π = 
-        let rec_call' = (rec (let (:) _ arg = π in arg)) in
-        (,,) (case (let (:) _ arg = π in arg) of { (:) ρ'4 ρ'5 -> (case sel3 rec_call' of { [] -> sel2 rec_call'; _ -> sel1 rec_call' }); [] -> (666::Int) }) (let (:) arg _ = π in arg) (let (:) _ arg = π in arg)
-  rec_call = (rec (let (:) _ arg = ds in arg))
-  in case ds of { (:) ρ ρ' -> Just (case ρ' of { [] -> ρ; _ -> (case ρ' of { (:) ρ'2 ρ'3 -> (case sel3 rec_call of { [] -> sel2 rec_call; _ -> sel1 rec_call }); [] -> (666::Int) }) }); [] -> Nothing }
+lastWeird = \ds -> 
+  let rec π = case (let (:) _ arg = π in arg) of { [] -> (let (:) arg _ = π in arg); _ -> (case (let (:) _ arg = π in arg) of { (:) ρ'4 ρ'5 -> (rec (let (:) _ arg = π in arg)); [] -> (666::Int) }) } in
+  case ds of { (:) ρ ρ' -> Just (case ρ' of { [] -> ρ; _ -> (case ρ' of { (:) ρ'2 ρ'3 -> (rec ρ'); [] -> (666::Int) }) }); [] -> Nothing }
 
 lastMaybe = \ds -> 
   let rec π = case π of { (:) ρ'2 ρ'3 -> (case ρ'3 of { [] -> Just ρ'2; _ -> (rec ρ'3) }); [] -> Nothing } in
   case ds of { (:) ρ ρ' -> (case ρ' of { [] -> Just ρ; _ -> (rec ρ') }); [] -> Nothing }
 
 maxMaybe1 = \ds -> let
-  rec π' = let
-        rec_call' = (rec (let (:) _ arg = π' in arg))
-        π'2 = sel2 rec_call'
-        _1 = (let (:) arg _ = π' in arg) > (case sel4 rec_call' of { Just ρ'11 -> (case sel3 rec_call' of { True -> π'2; False -> ρ'11 }); Nothing -> π'2 })
-        ψ' = sel1 rec_call'
-        _2 = Just (let (:) arg _ = π' in arg)
-        ψ = case (let (:) _ arg = π' in arg) of { (:) ρ'8 ρ'9 -> (case sel5 rec_call' of { Just ρ'10 -> (case _1 of { True -> Just (let (:) arg _ = π' in arg); False -> ψ' }); Nothing -> _2 }); [] -> _2 }
-        in (,,,,) (case π' of { (:) ρ'6 ρ'7 -> ψ; [] -> Nothing }) (let (:) arg _ = π' in arg) _1 ψ' ψ
-  rec_call = (rec (let (:) _ arg = ds in arg))
-  π = sel2 rec_call
   _0 = Just (let (:) arg _ = ds in arg)
-  in case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case sel5 rec_call of { Just ρ'4 -> (case ρ > (case sel4 rec_call of { Just ρ'5 -> (case sel3 rec_call of { True -> π; False -> ρ'5 }); Nothing -> π }) of { True -> Just ρ; False -> sel1 rec_call }); Nothing -> _0 }); [] -> _0 }); [] -> Nothing }
+  rec π = let
+        _1 = Just (let (:) arg _ = π in arg)
+        rec_call' = (rec (let (:) _ arg = π in arg))
+        ψ = case (let (:) _ arg = π in arg) of { (:) ρ'7 ρ'8 -> (case sel3 rec_call' of { Just ρ'9 -> (case (let (:) arg _ = π in arg) > (let Just arg = sel2 rec_call' in arg) of { True -> Just (let (:) arg _ = π in arg); False -> sel1 rec_call' }); Nothing -> _1 }); [] -> _1 }
+        in (,,) (case π of { (:) ρ'5 ρ'6 -> ψ; [] -> Nothing }) ψ ψ
+  rec_call = (rec (let (:) _ arg = ds in arg))
+  in case ds of { (:) ρ ρ' -> (case ρ' of { (:) ρ'2 ρ'3 -> (case sel3 rec_call of { Just ρ'4 -> (case ρ > (let Just arg = sel2 rec_call in arg) of { True -> Just ρ; False -> sel1 rec_call }); Nothing -> _0 }); [] -> _0 }); [] -> Nothing }
 
 maxTest'0 = 
   let ψ = case (2::Int) > (3::Int) of { True -> (2::Int); False -> (3::Int) } in

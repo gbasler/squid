@@ -159,7 +159,8 @@ class GraphIR extends GraphDefs {
       modDefs.foreach(_._2 |> go)
     }
     
-    def simplify(): Bool = simplifyGraphModule(this)
+    def rewrite(): Bool =
+      performObviousRewrites(this) || performTrickyRewrites(this)
     
     
     def showGraph: Str = showGraph()
