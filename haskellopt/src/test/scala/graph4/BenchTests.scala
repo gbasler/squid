@@ -38,6 +38,14 @@ class BenchTests extends FunSuite {
     )
   )
   
+  test("MaxPEBench") (
+    // FIXME when `max_mod` is not explicitly typed: _0 = ($p1Real) ($p1Integral)
+    TestHarness("MaxPEBench",
+    )(
+      //check('maxMaybe, List(1,3,2,0))(Some(3)),
+    )
+  )
+  
   test("nofib-queens") (
     // FIXME Bad comparison with crazy scope number: graph4.GraphDefs$BadComparison: <rec'303889>(ds'32:d↑[↓]) `;` β_2e = [from'13:8↑[↓]+1]ψ_30
     // TODO Find a way to keep the scheduling process on track for programs like these...
