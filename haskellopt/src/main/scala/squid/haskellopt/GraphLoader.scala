@@ -154,6 +154,7 @@ class GraphLoader[G <: HaskellGraphInterpreter with HaskellGraphScheduling2](val
       def LitInteger(n: Int): Lit = Graph.Constant(n)
       def MachInt(n: Int): Lit = Graph.CrossStageValue(n, UnboxedMarker)
       def MachStr(s: String): Lit = Graph.CrossStageValue(s, UnboxedMarker)
+      def MachChar(s: Char): Lit = ???
       
     }
     val mod = ghcdump.Reader(dump, GraphDumpInterpreter)

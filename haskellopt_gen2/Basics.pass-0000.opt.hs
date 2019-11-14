@@ -2,21 +2,25 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  54
+-- Beta reductions:  55
 -- Incl. one-shot:   2
 -- Case reductions:  0
 -- Field reductions: 0
 -- Case commutings:  0
--- Total nodes: 1635; Boxes: 414; Branches: 372
--- Apps: 292; Lams: 8
+-- Total nodes: 1645; Boxes: 415; Branches: 372
+-- Apps: 296; Lams: 8
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module Basics (foo_0,foo_1,foo_2,foo_3,fTest4,fTest3,fTest2,fTest1,fTest0,f,gTest6,gTest5,gTest4,gTest3,gTest2,gTest1,gTest0,g) where
+module Basics (foo_0,foo_1,foo_2,foo_3,fTest4,fTest3,fTest2,fTest1,fTest0,f,gTest6,gTest5,gTest4,gTest3,gTest2,gTest1,gTest0,g,hello1) where
 
+import Control.Exception.Base
+import GHC.CString
+import GHC.Classes
 import GHC.Num
+import GHC.Prim
 import GHC.Real
 import GHC.Types
 
@@ -34,9 +38,9 @@ foo_3 = \x -> let
   in (_0 ^ _0) - (_1 ^ _1)
 
 fTest4 = let
-  _0 = (66::Int) * (66::Int)
-  _1 = (77::Int) * (77::Int)
-  in (_0 * _0) + (_1 * _1)
+  _0 = (77::Int) * (77::Int)
+  _1 = (66::Int) * (66::Int)
+  in (_1 * _1) + (_0 * _0)
 
 fTest3 = let
   _0 = (66::Int) * (66::Int)
@@ -70,3 +74,5 @@ gTest1 = (4::Int) * ((2::Int) * (3::Int))
 gTest0 = ((2::Int) * (3::Int)) * (4::Int)
 
 g = \x -> \y -> x * y
+
+hello1 = C# 'H'# : GHC.CString.unpackCString# "ello"#

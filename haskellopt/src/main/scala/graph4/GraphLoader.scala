@@ -71,6 +71,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
         case Control(_,Ref(ModuleRef(mod,nme))) if nme.contains("$f") => e0 // TODO more robust?
         case _ => e0.node match {
           case ModuleRef("GHC.Num", "fromInteger") if useOnlyIntLits => e1
+          case ModuleRef("Control.Exception.Base", "patError") => Bottom.mkRef
           case _ => App(e0, e1).mkRefNamed("β") // ("α")
         }
       }
@@ -169,6 +170,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
       def LitInteger(n: Int): Lit = IntLit(true, n)
       def MachInt(n: Int): Lit = IntLit(false, n)
       def MachStr(s: String): Lit = StrLit(false, s)
+      def MachChar(c: Char): Lit = CharLit(false, c)
       
     }
     val mod = ghcdump.Reader(dump, GraphDumpInterpreter)

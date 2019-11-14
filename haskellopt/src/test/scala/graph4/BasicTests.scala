@@ -19,6 +19,8 @@ class BasicTests extends FunSuite {
       check('gTest0)(24),
       check('gTest2, 4)(24),
       check('foo_3, 2)(46400),
+      //check('hello0)("Hello"), // TODO Lit patterns
+      check('hello1)("Hello"),
     )
   )
   

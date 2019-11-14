@@ -52,6 +52,8 @@ abstract class GraphScheduler extends SmartGraphScheduler { self: GraphIR =>
     protected def constantToExpr(c: ConstantNode): AST.Expr = c match {
       case IntLit(true, n) => if (useOnlyIntLits) AST.Inline(s"($n::Int)") else AST.Inline(n.toString)
       case IntLit(false, n) => AST.Inline(s"$n#")
+      case CharLit(false, n) => AST.Inline(s"'$n'#")
+      case CharLit(true, n) => AST.Inline(s"'$n'")
       case StrLit(true, s) => AST.Inline('"' + s + '"')
       case StrLit(false, s) => AST.Inline('"' + s + '"' + '#')
       case ModuleRef(m, n) // Q: is this case still useful?

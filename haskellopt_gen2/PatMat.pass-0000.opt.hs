@@ -2,22 +2,24 @@
 -- Core obtained from: The Glorious Glasgow Haskell Compilation System, version 8.6.3
 -- Optimized after GHC phase:
 --   desugar
--- Beta reductions:  36
+-- Beta reductions:  38
 -- Incl. one-shot:   1
--- Case reductions:  43
+-- Case reductions:  44
 -- Field reductions: 55
 -- Case commutings:  7
--- Total nodes: 1040; Boxes: 105; Branches: 284
--- Apps: 143; Lams: 16
+-- Total nodes: 1047; Boxes: 106; Branches: 285
+-- Apps: 143; Lams: 17
 
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 
-module PatMat (f0'f1',f0'f1,f1'2,f1'1,f1'0,f1,f0'4,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
+module PatMat (f0'f1',f0'f1,f1'2,f1'1,f1'0,f1,f0'4,f0'3,f0'2,f0'1,f0'0,f0,f2'0,slt0,t1'0,t0'0,u0_0,u1_0,vo'1,vo'0,v0,u1,u0,t1'1,t1,t0,t'ls,slt1,f2,orZero,e1'1,e1'0,e1,e0'3,e0'2,e0'1,e0'0,e0) where
 
+import Control.Exception.Base
 import Data.Foldable
 import GHC.Base
+import GHC.CString
 import GHC.Classes
 import GHC.Maybe
 import GHC.Num
@@ -63,6 +65,12 @@ t0'0 = (((1::Int) + (2::Int)) + (3::Int)) + (4::Int)
 u0_0 = (1::Int) + (2::Int)
 
 u1_0 = (((1::Int) + (2::Int)) + (3::Int)) + (4::Int)
+
+vo'1 = (0::Int)
+
+vo'0 = (0::Int)
+
+v0 = \ds -> (0::Int)
 
 u1 = \ds -> case ds of { (,) ρ ρ' -> (case ρ' of { (,) ρ'2 ρ'3 -> (case ρ'3 of { (,) ρ'4 ρ'5 -> (case ρ'5 of { (,) ρ'6 ρ'7 -> (case ρ'7 of { () -> ((ρ + ρ'2) + ρ'4) + ρ'6 }) }) }) }) }
 

@@ -9,6 +9,7 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
     sealed abstract class Value {
       def app(arg: Thunk): Thunk = lastWords(s"not a known function: $this")
       def int: Int = asInstanceOf[Const].c.asInstanceOf[IntLit].value
+      def char: Char = asInstanceOf[Const].c.asInstanceOf[CharLit].value
       def bool: Bool = {
         val const = asInstanceOf[Const]
         val isTrue = const.c === ModuleRef("GHC.Types","True")
@@ -58,6 +59,12 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
           case ModuleRef("GHC.Real","^") => intBinOp(scala.math.pow(_, _).toInt)
           case ModuleRef("GHC.Classes",">") => Fun(rhs => Bool(arg.value.int > rhs.value.int))
           case ModuleRef("GHC.Types","I#") => arg
+          case ModuleRef("GHC.Types","C#") => arg.value match {
+            case Const(CharLit(false,c)) => Const(CharLit(true,c))
+          }
+          case ModuleRef("GHC.CString","unpackCString#") => arg.value match {
+            case Const(StrLit(false,str)) => lift(str)
+          }
           case ModuleRef("GHC.List","take") => Fun(rhs =>
             // I regret thinking it would be a good idea to implement functions like this...
             if (arg.value === Const(IntLit(true,0))) Ctor("[]", Nil)
@@ -73,7 +80,10 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
               case Ctor("[]", Nil) => rhs
             })
           case ModuleRef("GHC.Classes","&&") => Fun(rhs => Bool(arg.value.bool && rhs.value.bool))
-          case ModuleRef("GHC.Classes","==") => Fun(rhs => Bool(arg.value.int === rhs.value.int))
+          case ModuleRef("GHC.Classes","==") => arg.value match {
+            case Const(_: IntLit) => Fun(rhs => Bool(arg.value.int === rhs.value.int))
+            case Const(_: CharLit) => Fun(rhs => Bool(arg.value.char === rhs.value.char))
+          }
           case ModuleRef("GHC.Classes","/=") => Fun(rhs => Bool(arg.value.int =/= rhs.value.int))
           case ModuleRef("GHC.Base","$") => arg
           case ModuleRef("GHC.Types",":") => Fun(rhs => Ctor(":", arg :: rhs :: Nil))
@@ -96,6 +106,8 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
       //Lazy.mk(v, computeWhenShow = true)
     
     def Int(n: Int): Value = Const(IntLit(true,n))
+    
+    def Char(c: Char): Value = Const(CharLit(true,c))
     
     def Bool(b: Bool): Value =
       //Ctor(if (b) "True" else "False", Nil)
@@ -147,10 +159,12 @@ abstract class GraphInterpreter extends GraphRewriting { self: GraphIR =>
       case n: Int => Int(n)
       case 'S => Fun(x => Int(x.value.int + 1), haskellStr = Some("(\\x->x+1)"))
       case b: Bool => Bool(b)
+      case c: Char => Char(c)
       case None => Const(ModuleRef("GHC.Maybe", "Nothing"))
       case Some(v) => Ctor("Just", lift(v) :: Nil)
       case ls: List[_] =>
         ls.foldRight[Value](Ctor("[]",Nil)) { case (x, acc) => Ctor(":", Thunk(lift(x)) :: Thunk(acc) :: Nil) }
+      case str: Str => lift(str.toList)
       case _ => lastWords(s"don't know how to lift $value")
     }
     

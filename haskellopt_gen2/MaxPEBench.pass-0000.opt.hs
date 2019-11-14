@@ -4,10 +4,10 @@
 --   desugar
 -- Beta reductions:  10
 -- Incl. one-shot:   0
--- Case reductions:  11
+-- Case reductions:  10
 -- Field reductions: 15
 -- Case commutings:  2
--- Total nodes: 435; Boxes: 113; Branches: 70
+-- Total nodes: 429; Boxes: 107; Branches: 70
 -- Apps: 101; Lams: 10
 
 {-# LANGUAGE UnboxedTuples #-}
@@ -37,8 +37,8 @@ main =
         ψ = case v > _2 of { True -> v; False -> _2 }
         _1 = mod v (10::Int)
         in case _1 > ψ of { True -> _1; False -> ψ })) _0) : ((Criterion.Measurement.Types.bench (GHC.CString.unpackCString# "manual"#) $ Criterion.Measurement.Types.nf (map (\v' -> let
-        _3 = mod v' (10::Int)
         _4 = mod v' (5::Int)
+        _3 = mod v' (10::Int)
         in case _3 > v' of { True -> (case _3 > _4 of { True -> _3; False -> _4 }); False -> (case v' > _4 of { True -> v'; False -> _4 }) })) _0) : [])) : [])
 
 max_mod = \m -> map (\v -> m (mod v (10::Int)) v (mod v (5::Int)))

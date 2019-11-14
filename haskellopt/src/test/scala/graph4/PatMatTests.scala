@@ -27,6 +27,7 @@ class PatMatTests extends FunSuite {
       //prefixFilter = "f0'4",
       //prefixFilter = "f0'f1",
       //prefixFilter = "f1'1",
+      //prefixFilter = "v",
     )(
       check("e1'0")(0),
       check("f0'3")(Some(1)),

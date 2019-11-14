@@ -58,3 +58,7 @@ gTest6 =
   let k = \y -> \x -> g x y
   in k 11 (k 33 44)
 
+
+-- Strings and characters
+-- hello0 = case "hello" of { 'h' : xs -> 'H' : xs } -- TODO Lit patterns
+hello1 = case "hello" of { h : xs | h == 'h' -> 'H' : xs }

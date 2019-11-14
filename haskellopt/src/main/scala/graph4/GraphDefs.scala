@@ -210,6 +210,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
       case ModuleRef(mod,ref) => if (knownModule(mod)) ref else s"$mod.$ref"
       case IntLit(b,n) => (if (b) "" else "#") + n
       case StrLit(b,s) => (if (b) "" else "#") + '"' + s + '"'
+      case CharLit(b,c) => (if (b) "" else "#") + "'" + c + "'"
       case v: Var =>
         //v.name+"$"+v.unique
         //v.name+"_"+v.unique
@@ -271,6 +272,7 @@ abstract class GraphDefs extends GraphInterpreter { self: GraphIR =>
   }
   case class IntLit(boxed: Bool, value: Int) extends Lit
   case class StrLit(boxed: Bool, value: Str) extends Lit
+  case class CharLit(boxed: Bool, value: Char) extends Lit
   
   object IntBoxing {
     def unapply(nde: App): Opt[Int] = nde |>? {
