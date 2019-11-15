@@ -111,6 +111,20 @@ class BasicTests extends FunSuite {
     )
   )
   
+  test("Explosive") (
+    TestHarness("Explosive",
+      dumpGraph = true,
+    )(
+    )
+  )
+  
+  test("ExplosiveRec") (
+    TestHarness("ExplosiveRec",
+      dumpGraph = true,
+    )(
+    )
+  )
+  
   test("Church") (
     TestHarness("Church", dumpGraph = true)
     //TestHarness("Church", dumpGraph = true, prefixFilter = "one_id")
