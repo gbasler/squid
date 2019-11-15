@@ -110,8 +110,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
               val parNum = rv.references.size
               val bod = rhs()
               setMeaningfulName(bod, name)
-              rv.rewireTo(bod,
-                if (rv.references.size > parNum) 1 else 0) // If there are more parents now, it means the binding is recursive.
+              rv.rewireTo(bod, if (bod.iterator.exists(_ === rv)) 1 else 0) // If the binding refers to itself, it needs a recursion marker.
               // Change context to point directly to the let-bound def (the indirection was only needed for recursive occurrences):
               reificationContext += v -> Lazy(bod)
               body()
@@ -192,7 +191,7 @@ class GraphLoader[G <: GraphIR](val Graph: G) {
           val parNum = rv.references.size
           val e = tb.expr // compute the lazy value
           rv.rewireTo(e,
-            if (rv.references.size > parNum) 1 else 0) // If there are more parents now, it means the binding is recursive.
+            if (e.iterator.exists(_ === rv)) 1 else 0) // If the binding refers to itself, it needs a recursion marker.
           setMeaningfulName(tb.expr, nme)
           rv
         }).toList.reverse.filter(_._1 + " " startsWith prefixFilter)
