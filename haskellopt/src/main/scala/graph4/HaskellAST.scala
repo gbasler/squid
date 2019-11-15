@@ -46,7 +46,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
   val inlineOneShotLets: Bool
   val inlineTrivialLets: Bool
   val inlineCalls: Bool
-  val commonSubexprElim: Bool
+  val commonSubexprElim: Bool // FIXME does not handle recursive/circular defs
   val useOnlyIntLits: Bool
   
   // Note: does not check for non-unique names, which could introduce shadowing bugs
@@ -210,6 +210,7 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
       case CtorField(scrut, ctor, arity, idx) => scrut.occurrences // Approximation... we may later resolve this expr to a variable!
     }
     private[this] def countThis(exprs: Map[Expr,Int]): Map[Expr,Int] = (exprs mergeValue (this -> 1))(_ + _)
+    /* FIXME `shareableExprs` probably does not work in the presence of recursive bindings. */
     lazy val shareableExprs: Map[Expr, Int] = this match {
       case Inline(str) => noSubExprs
       case v: Vari => noSubExprs
@@ -221,7 +222,8 @@ abstract class HaskellAST(pp: ParameterPassingStrategy) {
         as.iterator.foldLeft(noSubExprs){case (acc,e) => (acc mergeValues e.shareableExprs)(_ + _)} |> countThis
       case Let(v, e, b) =>
         (e.shareableExprs mergeValues (b.shareableExprs - v))(_ + _) // Note: let's not try to share lets...
-      case LetDefn(d, b) => ??? // TODO similar to Lam (make sure no refs to params)
+      case LetDefn(d, b) => // similar to Lam (make sure no refs to params)
+        (d.body.shareableExprs.filterKeys(k => d.params.forall(p => !k.hasFreeVar(p))) mergeValues b.shareableExprs)(_ + _) |> countThis
       case Case(scrut, arms) => arms.foldLeft(scrut.shareableExprs){ case (acc,(con,vals,e)) => (acc mergeValues
         e.shareableExprs.filterKeys(k => !k.freeVars.exists(vals.contains)))(_ + _) } // And let's not share cases, for perf reasons
       case CtorField(scrut, ctor, arity, idx) => scrut.shareableExprs |> countThis

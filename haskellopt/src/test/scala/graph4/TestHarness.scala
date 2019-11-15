@@ -78,7 +78,7 @@ class TestHarness {
         println(s"--- Graph ${ite} ---")
         println(mod.showGraph)
         println(s"--- / ---")
-        if (slowDownGraphPrints || go.Graph.debugScheduling) Thread.sleep(10)
+        if (slowDownGraphPrints || go.Graph.debugScheduling) Thread.sleep(50)
       }
       
       // TODO sanity checks

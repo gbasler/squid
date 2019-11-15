@@ -64,4 +64,25 @@ class BenchTests extends FunSuite {
     )
   )
   
+  test("nofib-gen_regexps") (
+    TestHarness("nofib-gen_regexps",
+      schedule = false, // FIXME scheduling does not seem to terminate, even wehn we disable commuteCases... and even with UF = 0 in scheduler
+      dumpGraph = true,
+      //prefixFilter = "expand",
+      //prefixFilter = "alphabeticRule",
+    )(
+    )
+  )
+  
+  test("nofib-digits-of-e1") (
+    // TODO alleviate code explosion
+    TestHarness("nofib-digits-of-e1",
+    )(
+    )
+  )
+  
+  
+  // TODO nofib-primes with list fusion (but probably already done by GHC)
+  
+  
 }

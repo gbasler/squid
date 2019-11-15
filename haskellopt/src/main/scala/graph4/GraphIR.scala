@@ -75,6 +75,9 @@ class GraphIR extends GraphDefs {
   val useAggressivePE = false
   //val useAggressivePE = true
   
+  val commuteCases = true
+  //val commuteCases = false
+  
   
   type Ref = NodeRef
   val Ref: NodeRef.type = NodeRef

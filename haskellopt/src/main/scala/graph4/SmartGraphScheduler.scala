@@ -45,7 +45,12 @@ abstract class SmartGraphScheduler { self: GraphIR =>
       val inlineTrivialLets = inlineScheduledLets
       //val inlineCalls = inlineScheduledLets // Causes assertion to fail in HaskellAST.Let.reorder since it may remove usages of some defs
       val inlineCalls = false
+      
       val commonSubexprElim = false
+      //val commonSubexprElim = true
+      // ^ Currently cannot handle recursive defs...
+      //   Also, can actually grealty increase the number of lines of a program if there are too many shared bindings to introduce...
+      
       //override val mergeLets = true
       val useOnlyIntLits = self.useOnlyIntLits
       //override val mergeLets = !debugScheduling
@@ -444,7 +449,9 @@ abstract class SmartGraphScheduler { self: GraphIR =>
             asVar
 
           case d @ Drop(i) =>
-            if (d.originalCid =/= cid) badComparison(s"$this `;` ${body.showDef}")
+            //if (d.originalCid =/= cid) badComparison(s"$this `;` ${body.showDef}")
+            // ^ It seems that this is sometimes triggered even for valid programs...
+            //   I suspect it's when we try to register a parameter or capture that ends up not belonging here.
             Sdebug(s"Drop to ${parent.get}")
             if (params.exists(_._1 === iref)) {
               Sdebug(s"PARAM<$ident> ${i -> body} already exists")

@@ -372,7 +372,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
             case Some((p @ Path(i, cnd, ri, re), lr @ Ref(l: Lam))) =>
               ??? // make it bottom? this case is meaningless...
               again()
-            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) =>
+            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) if commuteCases =>
               //################################################################################################//
               println(s"CASE/CASE $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$cse")
               //################################################################################################//
@@ -397,12 +397,15 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
                 ref.node = Branch(cnd, commutedCaseWithControl.mkRef, rebuiltCase)
               }
               again()
-            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
+            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) if commuteCases =>
               println(s"WAT-CASE $ref $p ${cse.showDef}")
               ??? // FIXME? unexpected
               continue()
               //scrut.pathsToLambdasAndCases -= p
               //again()
+            case Some(_) =>
+              assert(!commuteCases)
+              continue()
             case None =>
               continue()
           }
@@ -416,7 +419,7 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
             case Some((p @ Path(i, cnd, ri, re), lr @ Ref(l: Lam))) =>
               ??? // make it bottom? this case is meaningless...
               again()
-            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) =>
+            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(c: Case))) if commuteCases =>
               //################################################################################################//
               println(s"FIELD/CASE $ref -- ${Condition.show(cnd)} -->> [$i${if (ri > 0) "+"+ri else ""}${if (re > 0) "-"+re else ""}]$cse")
               //################################################################################################//
@@ -443,12 +446,15 @@ class GraphRewriting extends GraphScheduler { self: GraphIR =>
                 ref.node = Branch(cnd, commutedCaseWithControl, rebuiltCtorField)
               }
               again()
-            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) =>
+            case Some((p @ Path(i, cnd, ri, re), cse @ Ref(_))) if commuteCases =>
               println(s"WAT-FIELD $ref $p ${cse.showDef}")
               ??? // FIXME? unexpected
               continue()
               //scrut.pathsToLambdasAndCases -= p
               //again()
+            case Some(_) =>
+              assert(!commuteCases)
+              continue()
             case None =>
               continue()
           }
