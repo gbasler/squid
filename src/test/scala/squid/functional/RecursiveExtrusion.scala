@@ -28,7 +28,7 @@ class RecursiveExtrusion extends MyFunSuite {
           : Option[Code[T,C]] = p match {
       case code"val $v: Int = $init; $body:T" =>  // FIXME this :T annotation should not be needed
         go(body)(new Poly2[HKCodeWithCtx[C & v.Ctx]#F] {
-          def apply[S,D](cde: Code[S, D with C with v.Ctx]) =  // Note: Scala fails to see the override if we make it `D & C & v.Ctx`
+          def apply[S,D](cde: Code[S, D with C with v.Ctx]) =  // Note: Scala 2.11 fails to see the override if we make it `D & C & v.Ctx`
           //code"val $v = $init; ${ k[cde.Typ,D&v.Ctx](cde.ofTyp)} : ${cde.Typ}"
           // ^ FIXME needs fix to substitution under same binder because of v.substitute call below
           { val w = Variable[Int]
@@ -39,13 +39,40 @@ class RecursiveExtrusion extends MyFunSuite {
       case expr => Some(k(expr))
     }
     
-    assert(go( code"val a = 1; val b = 2; val c = 3; val d = 4; a + b + c + d")() 
+    assert(go( code"val a = 1; val b = 2; val c = 3; val d = 4; a + b + c + d")()
       contains code"val d = 4; val c = 3; val b = 2; val a = 1; a + b + c + d")
     
-    assert(go( code"val a = 1; val b = 2; (a+b).toDouble")() 
+    assert(go( code"val a = 1; val b = 2; (a+b).toDouble")()
       contains code"val b = 2; val a = 1; (a+b).toDouble")
     
-    assert(go(code"val a = 1; val b = a+1; (a+b).toDouble")() 
+    assert(go(code"val a = 1; val b = a+1; (a+b).toDouble")()
+      isEmpty)
+    
+  }
+  
+  test("Recursive Extrusion Using First-Class Variable Symbols, Simpler Approach") {
+    
+    /** This function safely reverses the order of a list of let bindings, if possible. */
+    def reverseBindingsOrder[T: CodeType, C](p: Code[T, C]): Option[Code[T, C]] = {
+      class K[C] { def apply[A: CodeType, B](cde: Code[A, B & C]): Code[A, B & C] = cde }
+      def go[T: CodeType, C](p: Code[T,C], k: K[C]): Option[Code[T,C]] = p match {
+        case code"val $v: Int = $init; $body: T" =>  // FIXME this `: T` annotation should not be needed
+          go(body, new K[C with v.Ctx] { // Note: forced to use `with` due to Scala 2.11
+            override def apply[S: CodeType, D](cde: Code[S, D with C with v.Ctx]) =
+              code"val $v = $init; ${ k[S, D & v.Ctx](cde)}"
+          }).flatMap(v.tryClose)
+        case expr => Some(k(expr))
+      }
+      go(p, new K[C])
+    }
+    
+    assert(reverseBindingsOrder( code"val a = 1; val b = 2; val c = 3; val d = 4; a + b + c + d")
+      contains code"val d = 4; val c = 3; val b = 2; val a = 1; a + b + c + d")
+    
+    assert(reverseBindingsOrder( code"val a = 1; val b = 2; (a+b).toDouble")
+      contains code"val b = 2; val a = 1; (a+b).toDouble")
+    
+    assert(reverseBindingsOrder(code"val a = 1; val b = a+1; (a+b).toDouble")
       isEmpty)
     
   }
