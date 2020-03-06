@@ -863,10 +863,9 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
         
         // Notes: we used to just compute `glb(termScope)`, but when quasiquotes have context `{}` (like `Const(42)`)
         // they introduce pesky AnyRef in the refined type; so now we make sure to remove it from the inferred context.
-        // The reason `Const` returns an `IR[T,{}]` and not an `IR[T,Any]` is mostly historical/aesthetical, and is debatable
+        // The reason `Const` returns an `IR[T,{}]` and not an `IR[T,Any]` is mostly historical/aesthetical; it is a debatable decision
         val cleanedUpGLB = glb(termScope) |>=? {
-          case RefinedType(typs,scp) => 
-            //RefinedType(typs filterNot (AnyRef <:< _ ), scp)
+          case RefinedType(typs,scp) =>
             internal.refinedType(typs filterNot (AnyRef <:< _ ), scp)
         } |>=? { case glb if AnyRef <:< glb => Any }
         // To make things more consistent, we could say that `{}` is used whenever the context is empty, so we could 
@@ -901,13 +900,16 @@ class QuasiEmbedder[C <: blackbox.Context](val c: C) {
           case (name, tpe) => name -> (freeVariables get name map (tpe2 => glb(tpe :: tpe2 :: Nil)) getOrElse tpe)
         })
         
-        val context = tq"$ctxBase { ..${ fv map { case (n,t) => q"val ${TermName(n)}: $t" } } }"
+        val context =
+          // This check is necessary because Scala does not recognize the relationship Bottom <: Bottom{...}, even though Bottom <: Nothing!
+          if (cleanedUpGLB <:< Nothing) tq"_root_.squid.utils.Bottom"
+          else tq"$ctxBase { ..${ fv map { case (n,t) => q"val ${TermName(n)}: $t" } } }"
         
         val tree = q"val $shortBaseName: $baseTree.type = $baseTree; $baseTree.`internal Code`[$retType, $context]($Base.wrapConstruct($res))"
         //                               ^ not using $Base shortcut here or it will show in the type of the generated term
         
-        if (config.inferOpenCode) q"$tree:$baseTree.OpenCode[$retType]"
-        else if (Any <:< cleanedUpGLB && fv.isEmpty) q"$tree:$baseTree.ClosedCode[$retType]"
+        if (config.inferOpenCode || cleanedUpGLB <:< Nothing) q"$tree: $baseTree.OpenCode[$retType]"
+        else if (Any <:< cleanedUpGLB && fv.isEmpty) q"$tree: $baseTree.ClosedCode[$retType]"
         else tree
         
         

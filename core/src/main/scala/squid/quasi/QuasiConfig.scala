@@ -32,7 +32,7 @@ abstract class BaseUser[C <: blackbox.Context](val macroContext: C) {
   *   val MyPredef = new TestDSL.Predef[OpenCodeConfig]
   *   import MyPredef._
   * }}}
-  * Important: for this to work, your `QuasiConfig` should be defined in a difference compilation unit (project). 
+  * Important: for this to work, your `QuasiConfig` should be defined in a different compilation unit (project).
   */
 abstract class QuasiConfig {
   

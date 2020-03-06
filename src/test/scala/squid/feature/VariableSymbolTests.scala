@@ -469,4 +469,11 @@ class VariableSymbolTests extends MyFunSuite {
   }
   
   
+  test("Propagating Openness") {
+    val oc: OpenCode[Int] = code"123"
+    val v = Variable[Int]
+    val vc: OpenCode[Int] = code"$oc + $v"
+  }
+  
+  
 }

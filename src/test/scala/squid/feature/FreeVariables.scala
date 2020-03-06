@@ -81,27 +81,11 @@ class FreeVariables extends MyFunSuite {
     
   }
   
+  test("Propagating Openness") {
+    val oc: OpenCode[Int] = code"123"
+    val vc: OpenCode[Int] = code"$oc + (?a: Int)"
+    // ^ This used not to work, because Scala does not recognize that Bottom <: Bottom{val a: Int}
+    //   We now make it work by having the quasiquote macro preemptively simplify Bottom{val a: Int} to just Bottom
+  }
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
