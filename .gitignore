@@ -26,3 +26,4 @@ img_out/
 .metals
 .bloop
 project/.bloop
+project/metals.sbt
