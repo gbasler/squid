@@ -156,7 +156,7 @@ trait InspectableBase extends IntermediateBase with quasi.QuasiBase with TraceDe
       import slf._
       if (reps.size != oth.reps.size) return None
       val args = (reps zip oth.reps) map { case (a,b) => baseSelf.extract(a, b) }
-      (Option(EmptyExtract) /: args) {
+      (args foldLeft Option(EmptyExtract)) {
         case (acc, a) => for (acc <- acc; a <- a; m <- merge(acc, a)) yield m }
     }
     import self._

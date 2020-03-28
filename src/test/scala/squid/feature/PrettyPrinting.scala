@@ -86,14 +86,18 @@ class PrettyPrinting extends MyFunSuite {
       |  x_0.+(1)
       |}""".stripMargin)
     
-    assert(captureStdErr {
+    val err = captureStdErr {
       same(code"var x: Int = ${code"null".asInstanceOf[Code[Int,Any]]}; x+1" 
       // ^ Warning: variable `[x:squid.lib.package.MutVar[Int]]` of type `Int` (not a subtype of `AnyRef`) is assigned `null`.
         .rep |> showRep, """{
         |  var x_0: scala.Int = null;
         |  x_0.+(1)
         |}""".stripMargin)
-    } == "Warning: variable `[x:squid.lib.package.MutVar[Int]]` of type `Int` (not a subtype of `AnyRef`) is assigned `null`.\n")
+    }
+    assert(err ==
+      "Warning: variable `[x:squid.lib.package.MutVar[Int]]` of type `Int` (not a subtype of `AnyRef`) is assigned `null`.\n"
+      || err ==
+      "Warning: variable `[x:squid.lib.package.MutVar[scala.Int]]` of type `scala.Int` (not a subtype of `AnyRef`) is assigned `null`.\n")
     
     same(code"var x: String = ${nullValue[String]}; x+1"
       .rep |> showRep, """{

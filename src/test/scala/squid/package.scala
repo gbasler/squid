@@ -23,11 +23,11 @@ package object squid {
     * Note: not ideal, as it can result in nondeterministic test failures when tests are ran in parallel by SBT. */
   def captureStdErr(thunk: => Unit): String = {
     val oldStrErr = System.err
-    val newStdErr = new java.io.ByteArrayOutputStream()
-    System.setErr(new java.io.PrintStream(newStdErr,true))
+    val newStdErr = new java.io.ByteArrayOutputStream
+    System.setErr(new java.io.PrintStream(newStdErr, true))
     thunk
     System.setErr(oldStrErr)
-    newStdErr.toString
+    newStdErr.toString.replaceAll(System.lineSeparator, "\n")
   }
   
   def packageObjectMethod(n: Int) = n+1

@@ -325,7 +325,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
                 val args_names = args.zipWithIndex map (ai => ai._1 -> TermName("__"+ai._2))
                 val as = args_names map { case (arg, nam) => pq"$nam: ${arg.tpe.widen} @unchecked" }
                 // ^ using `.widen` so that things like `_: String("abc")` become just `_: String`
-                val bod = (args_names :\ body) {
+                val bod = (args_names foldRight body) {
                   case ((arg, nam), acc) => patMat(q"$nam", arg, acc)
                 }
                 unapp match { // Note that unapply/unapplySeq may have implicit arguments; thus the `(...$_)`
@@ -380,7 +380,7 @@ class RuleBasedTransformerMacros(val c: whitebox.Context) {
         
         val r = q"$trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], ((__extr__ : $base.Extract) => ${
         //val r = q"$baseBinding; $trans.registerRule($termTree.asInstanceOf[$trans.base.Rep], (__extr__ : $base.Extract) => ${
-          ((subPatterns zip patNames) :\ (
+          ((subPatterns zip patNames) foldRight (
               if (cond.isEmpty) q"..$patAlias; _root_.scala.Option($exprRep).asInstanceOf[Option[$trans.base.Rep]]"
               else q"..$patAlias; if ($cond) _root_.scala.Some($exprRep) else _root_.scala.None") ) {
             

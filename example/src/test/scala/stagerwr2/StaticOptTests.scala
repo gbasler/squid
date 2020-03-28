@@ -11,7 +11,7 @@ import org.scalatest.FunSuite
 //object StaticOptTests extends StaticOptTests with App
 class StaticOptTests extends FunSuite {
   
-  implicit val df = compileTime(DumpFolder("/tmp"))
+  implicit val df = compileTime(DumpFolder(System.getProperty("java.io.tmpdir")))
   //implicit val df: DumpFolder = compileTime(DumpFolder("/tmp"))
   //implicit val df = DumpFolder("/tmp")
   // ^ Warning:(26, 34) A compile-time implicit value of type squid.DumpFolder was seeked by the 'optimize' macro,
@@ -33,8 +33,9 @@ class StaticOptTests extends FunSuite {
   
   // Checks that the dumped optimization file was created and written-to successfully at compile-time by above `optimizeAs` call
   compileTimeExec {
-    scala.Predef.assert(scala.io.Source.fromFile("/tmp/Gen.StaticOptTests.MyOptTest.scala").getLines.next ==
-      "// --- Embedded Program ---")
+    scala.Predef.assert(scala.io.Source.fromFile(
+      System.getProperty("java.io.tmpdir") + "/Gen.StaticOptTests.MyOptTest.scala"
+    ).getLines.next == "// --- Embedded Program ---")
   }
   
   test("Program Result") {
