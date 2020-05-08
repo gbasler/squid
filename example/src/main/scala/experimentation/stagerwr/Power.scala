@@ -34,5 +34,7 @@ object Power extends App {
       Math.pow(distance(p0.pos,p1.pos), 2)
   def distance(x0: Position, x1: Position) =
     Math.sqrt(pow(x0.x - x1.x, 2) + pow(x0.y - x1.y, 2))
-  
+
+  println(gravityForce(Planet(Position(1,2), 3), Planet(Position(4,5), 6)))
+
 }
